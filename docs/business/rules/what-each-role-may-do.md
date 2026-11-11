@@ -16,7 +16,7 @@ describes:
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/tests/test_undoing_a_verdict.py
   - back-end/tests/test_the_market_list_shows_what_the_read_serves.py
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
@@ -44,6 +44,7 @@ sources:
   - T181
   - T217
   - T263
+  - T283
 ---
 
 # What each role may do
@@ -138,6 +139,9 @@ A Viewer who is not chosen reads the review and decides nothing.
 
 Whoever creates a market is its owner, and a market has exactly one.
 **An organization's owner and admins are Admin on every market it holds, and a member is Viewer.**
+Each person holds one place in an organization; one stored before its people were one map, its owner also listed among its admins or members, is read with the owner winning, so it grants its people their roles as any other does ([one map of people](../../implementation/data/organization-document.md#one-map-of-people), T283).
+**Only the organization's owner changes someone's place in it**: from their row in Manage organization, after a confirmation, an admin is made a member, who then reads its markets instead of running them, and a member an admin; the owner's own place changes only when the organization is handed on, to one of its admins or members, the old owner staying on as an admin ([B3a](../flows/organizations.md#b3a-make-an-admin-a-member-or-a-member-an-admin), [B6](../flows/organizations.md#b6-transfer-ownership)).
+"Add admin" of a member makes them an admin; adding someone to the place they hold says they already hold it; and a change that met someone else's change to the same people is refused with a sentence saying so, the organization shown as it now stands ([the organization's people](../../implementation/modules/organization-people.md)).
 A market may also give a person a role of its own; both are held, and the higher one counts: Owner (4) > Admin (3) > Editor (2) > Viewer (1).
 So an organization admin once given Viewer on one market is still Admin there, and a member given Editor on one market edits it.
 Manage market lists each person once at the role that counts and says when it comes from the organization ("Admin, through <organization>"); the organization's people are named only to a reader who belongs to it or may give and take Editor and Viewer roles there, and anyone else reads the market's own roles ([managing who has access](../flows/ending-and-managing-a-market.md#l3-manage-who-has-access), E38/F12/S01).
@@ -180,7 +184,7 @@ See [the organization document](../../implementation/data/organization-document.
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's read-only line and its answer for moving the phase; `every-screen-asks-the-table.spec.ts` walks a Viewer, an Editor and an Admin through Market Setup, Applications (the vendor drawer's "Update info" among them), the Assignment tab and Attendance.
 - [`back-end/tests/test_an_organizations_admins_run_its_markets.py`](../../../back-end/tests/test_an_organizations_admins_run_its_markets.py) pins the role each place in an organization gives, the higher of two roles, that the Markets list names the same role, and that an organization admin adds and changes only Editors and Viewers; `screens-match-roles.spec.ts` walks an organization admin swapping two seats on market day.
 - **The Markets list shows a market only where its own page opens for the reader** (T181): the list asks the market read's question of each market, the read row for the role the read resolves, so a market the read answers as absent (its document unreadable, its organization's unreadable and so granting nothing, or no role of the reader's on it) is never a card that opens onto "not found" ([the organization document](../../implementation/data/organization-document.md#what-a-person-may-do-on-a-market)).
-  [`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client, and that a chosen Viewer's entry and read answer every row alike.
+  [`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client, that an organization stored with its owner also among its admins grants its admins Admin and its members Viewer on the list and the read alike, and that a chosen Viewer's entry and read answer every row alike.
 - **Giving a verdict and changing one are two rows** (E38/F06/S01): every review write asks "Give verdicts and follow-ups" (`_reviewer_on`), and a verdict or a selection's asks "Change a verdict, or overturn an automatic rejection" too, of each application it writes that is already approved or rejected.
   A single verdict on one is refused with a 403 and the row's sentence ("Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."), a selection skips each with that sentence, and the write itself refuses one decided since the reviewer saw it, so a verdict landing in between is the 409 it always was.
   A write that judges the automatic rejections again returns what a rule rejected to open only for someone the row lets overturn it ([automatic rejections](automatic-rejections.md)).

@@ -12,6 +12,8 @@ import pytest
 
 from conftest import (
     FakeMarketsCollection,
+    FakeOrganizations,
+    install_organizations,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
     stored_market,
@@ -150,29 +152,18 @@ class TestANewAccount:
         assert users.docs == []
 
 
-class FakeOrganizations:
-    def __init__(self, doc):
-        self.doc = dict(doc)
-        self.sets = []
-
-    def find_one(self, query):
-        return dict(self.doc) if all(self.doc.get(k) == v for k, v in query.items()) else None
-
-    def update_one(self, query, update):
-        self.sets.append(update["$set"])
-        self.doc.update(update["$set"])
-        return SimpleNamespace(modified_count=1)
+def sets(organizations):
+    """Each ``$set`` written to the organization, in order."""
+    return [update["$set"] for _query, update in organizations.writes]
 
 
 class TestAnOrganizationUpdate:
     @pytest.fixture
     def organization(self, monkeypatch):
-        collection = FakeOrganizations({
+        return install_organizations(monkeypatch, FakeOrganizations({
             "id": ORG_ID, "name": "Night Market Society", "owner": OWNER_ID,
             "admins": [], "members": [], "markets": ["market-1"], "theme": None,
-        })
-        monkeypatch.setattr(OrgsApi, "organizations_collection", collection)
-        return collection
+        }))
 
     def test_it_changes_only_the_name(self, signed_in, organization):
         response = signed_in.put(f"/organizations/{ORG_ID}", json={
@@ -186,7 +177,7 @@ class TestAnOrganizationUpdate:
         })
 
         assert response.status_code == 200
-        assert organization.sets == [{"name": "Renamed"}]
+        assert sets(organization) == [{"name": "Renamed"}]
 
     @pytest.mark.parametrize("name", [{"$ne": None}, ["Renamed"], 12345, True, None, "   "])
     def test_a_name_that_is_not_a_string_or_is_blank_is_refused(
@@ -196,13 +187,13 @@ class TestAnOrganizationUpdate:
 
         assert response.status_code == 400
         assert response.get_json() == {"error": "Organization name required"}
-        assert organization.sets == []
+        assert sets(organization) == []
 
     def test_a_body_without_a_name_changes_nothing(self, signed_in, organization):
         response = signed_in.put(f"/organizations/{ORG_ID}", json={"members": ["someone-else"]})
 
         assert response.status_code == 400
-        assert organization.sets == []
+        assert sets(organization) == []
 
 
 class TestAFloorplanSave:

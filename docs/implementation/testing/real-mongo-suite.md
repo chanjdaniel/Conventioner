@@ -16,10 +16,11 @@ describes:
   - back-end/tests/conftest.py#FakeMarketsCollection
   - back-end/tests/conftest.py#FakeSlugMarketsCollection
   - back-end/db_config.py#uri_targets
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T244
   - T274
+  - T283
 ---
 
 # The real-MongoDB suite
@@ -137,8 +138,23 @@ Each test's name says what it proves.
 | The dealing lease is held by one deal at a time, and lapses | 10 `_hold` calls at once, on a market with a team and on one that never had one, leave one holding it; a held lease refuses 10 deals a second before it lapses, and one of 10 takes it a second after; `_let_go` by a deal whose lease lapsed and was taken leaves the market unchanged, and so does `_let_go` on a market nobody holds, with a team and with none |
 
 The lease tests set `review_team`'s clock rather than wait for a lease to run out.
+[`real_mongo/test_a_persons_organizations_on_the_server.py`](../../../back-end/tests/real_mongo/test_a_persons_organizations_on_the_server.py) runs `organization_people.of_person` over the organizations [`test_a_persons_organizations_in_either_shape.py`](../../../back-end/tests/test_a_persons_organizations_in_either_shape.py) finds through the fakes, those with a people map and those stored before it, and asks the server's plan for it over the boot's indexes: an index scan, never a collection scan ([one map of people](../data/organization-document.md#one-map-of-people)).
 [`real_mongo/test_every_order_of_a_deal_on_the_server.py`](../../../back-end/tests/real_mongo/test_every_order_of_a_deal_on_the_server.py) imports the cases of [`test_every_order_of_a_deal.py`](../../../back-end/tests/test_every_order_of_a_deal.py) ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)), every order of a change of reviewers against an arrival and of two arrivals, and runs them over a world whose markets, applications and history are the real collections, so its `Counted` wrapper steps over the server's own calls.
 Those cases read and write their world through collection calls alone (`find_one`, `find`, `insert_one`, `update_one`, `delete_many`), which is what lets one set of cases run over the fakes and over the server.
+
+## An organization's people
+
+Each change to a person's place in an organization is one write conditional on the places it judged, and handing the organization on is one write filtered on the giver being owner ([the organization's people](../modules/organization-people.md#every-write-holds-what-it-judged)).
+[`real_mongo/test_an_organizations_people_on_the_server.py`](../../../back-end/tests/real_mongo/test_an_organizations_people_on_the_server.py) runs each losing branch on real threads, over an organization with a people map and over one stored before it.
+Each thread judges on its own read, through `organization_people.next_people` wrapped to meet the other thread once it has judged, so the writes meet on the server after both reads.
+
+| Guarantee                                                                     | Tests                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An add member judged before that person is handed the organization is refused | the admin's `add_member` judges; the owner then adds that person as an admin and hands them the organization; the add answers `OrganizationChanged`, and the new owner is not in `members`                                             |
+| Two transfers by the owner land one                                           | two `transfer` calls from one read, to an admin and to a member: one lands, the other answers `OrganizationChanged`, and the old owner is an admin                                                                                     |
+| A transfer to an admin keeps the mirror beside an add admin                   | a `transfer` to an admin and an `add_admin` from one read, each writing first in turn: the second answers `OrganizationChanged`, so an admin added is never dropped from `admins`, which the transfer sets whole from the list as read |
+
+After each, the organization parses with one owner, and its lists are an exact mirror of its map.
 
 ## The MongoDB version
 

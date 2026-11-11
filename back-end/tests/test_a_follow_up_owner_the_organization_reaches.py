@@ -229,7 +229,8 @@ def test_a_viewer_not_in_the_organization_reads_no_people(market):
 
 
 def test_someone_on_the_market_and_in_its_organization_is_served_once(monkeypatch, market):
-    org = ORGANIZATION.model_copy(update={"admins": ["org-admin", "user-sam"]})
+    org = Organization(**{**ORGANIZATION.model_dump(exclude={"people"}),
+                          "admins": ["org-admin", "user-sam"]})
     monkeypatch.setattr(OrgsApi, "get_organization", lambda _org_id: org.model_dump())
 
     served = MarketsApi.get_market_for_user("org-owner@org.test", "market-123")

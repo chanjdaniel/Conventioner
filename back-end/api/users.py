@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 from flask import current_app, request, jsonify, session
 from flask_login import UserMixin
 from flask_login.config import COOKIE_NAME
-from datatypes import User
+from datatypes import OrganizationRole, User, organization_people_of
 from db_config import get_database
 from utils.tokens import (
     generate_verification_token, generate_reset_token, generate_otp,
@@ -950,14 +950,15 @@ def delete_user(authenticated_email: str):
         return jsonify({"msg": "User not found"}), 404
 
     from api.organizations import organizations_collection
+    import organization_people as OrganizationPeople
 
     user_id_to_delete = user_to_delete.get("id")
 
-    owned_orgs = (
-        list(organizations_collection.find({"owner": user_id_to_delete}))
-        if user_id_to_delete
-        else []
-    )
+    # Read by the person's one place in each organization they are in (T283).
+    owned_orgs = [
+        org for org in organizations_collection.find(OrganizationPeople.of_person(user_id_to_delete))
+        if organization_people_of(org).get(user_id_to_delete) == OrganizationRole.OWNER
+    ] if user_id_to_delete else []
     if owned_orgs:
         org_names = [org.get("name") for org in owned_orgs]
         return jsonify({
@@ -971,12 +972,10 @@ def delete_user(authenticated_email: str):
     result = users_collection.delete_one({"email": email_to_delete})
 
     if result.deleted_count > 0:
-        # Membership elsewhere is not ownership, so it is safe to drop on the way out.
+        # Membership elsewhere is not ownership, so it is safe to drop on the way out: their one
+        # place in every organization they were an admin or a member of (T283).
         if user_id_to_delete:
-            organizations_collection.update_many(
-                {},
-                {"$pull": {"members": user_id_to_delete, "admins": user_id_to_delete}}
-            )
+            OrganizationPeople.forget(user_id_to_delete)
         return jsonify({"msg": "User deleted successfully"}), 200
 
     return jsonify({"msg": "Failed to delete user"}), 500
