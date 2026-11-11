@@ -28,6 +28,7 @@ import {
   nextNumber,
   roundMm,
   roundTurn,
+  shiftInside,
   turnedAbout,
   type PointMm,
 } from './layoutGeometry';
@@ -101,6 +102,8 @@ export interface LayoutEditor {
   flush(): Promise<string | null>;
   /** Whether the working copy holds a change no save has stored. */
   pending(): boolean;
+  /** The last try as the page goes: true when a write that may outlive the page started. */
+  sendOnUnload(): boolean;
 }
 
 export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
@@ -117,6 +120,8 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   const stale = shallowRef(false);
   /** The tables as a gesture found them. */
   let gesture: FloorplanTable[] | null = null;
+  /** Whether a write is out. */
+  let writeOut = false;
 
   // ── The saves ──────────────────────────────────────────────────────────────
 
@@ -124,7 +129,13 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     send: async () => {
       const sent = layout.value;
       if (!sent) return;
-      const answer = await options.save(sent, revision);
+      writeOut = true;
+      let answer: SavedLayout;
+      try {
+        answer = await options.save(sent, revision);
+      } finally {
+        writeOut = false;
+      }
       revision = answer.floorplan.revision;
       const now = layout.value;
       if (now && now.id === answer.floorplan.id) {
@@ -142,10 +153,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
       }
       options.onSaved?.(answer);
     },
-    sendOnUnload: () => {
-      const now = layout.value;
-      return Boolean(now && !stale.value && options.saveOnUnload?.(now, revision));
-    },
+    sendOnUnload: () => sendOnUnload(),
     afterSave: () => {},
     afterRefusal: (sentence) => {
       if (sentence === STALE_LAYOUT) stale.value = true;
@@ -164,6 +172,17 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     return status;
   });
   const saveMessage = computed(() => (stale.value ? STALE_LAYOUT : autosave.message.value));
+
+  /**
+   * The last try as the page goes. With a write out, this one names the revision that write will
+   * leave: it was sent first and most likely lands first, and naming the revision read would have
+   * this one refused as stale behind it.
+   */
+  function sendOnUnload(): boolean {
+    const now = layout.value;
+    if (!now || stale.value) return false;
+    return Boolean(options.saveOnUnload?.(now, revision + (writeOut ? 1 : 0)));
+  }
 
   function touch() {
     if (!stale.value) autosave.edited();
@@ -189,7 +208,8 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
       take(stored);
       return;
     }
-    if (stored && stored.revision > revision && !autosave.unsaved.value) take(stored);
+    // Never under a gesture: the drag in hand would go on over tables it did not begin with.
+    if (stored && stored.revision > revision && !autosave.unsaved.value && !gesture) take(stored);
   }
 
   async function write(next: FloorplanObject): Promise<boolean> {
@@ -217,9 +237,13 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     if (!now) return;
     const from = gesture ?? now.tables;
     const tables = make(from, now);
+    if (gesture) {
+      // A frame that comes back to where the gesture began is drawn like any other.
+      if (tables !== now.tables) layout.value = { ...now, tables };
+      return;
+    }
     if (tables === from) return;
     layout.value = { ...now, tables };
-    if (gesture) return;
     step(from);
   }
 
@@ -286,12 +310,23 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
         xMm: (Math.min(...xs) + Math.max(...xs)) / 2,
         yMm: (Math.min(...ys) + Math.max(...ys)) / 2,
       };
-      return tables.map((table) => {
-        if (!turning.has(table.id)) return table;
-        // One table turns about its own centre, wherever the selection's is reckoned.
-        const turned = turnedAbout(table, own.length === 1 ? table : centre, degrees);
-        return { ...turned, ...clampToHall(turned, hall) };
-      });
+      // One table turns about its own centre, wherever the selection's is reckoned.
+      const turned = own.map((table) =>
+        turnedAbout(table, own.length === 1 ? table : centre, degrees),
+      );
+      // Tables carried past a wall come back inside together, keeping their places beside each
+      // other; only a group wider than the hall is then held table by table.
+      const back = shiftInside(turned, hall);
+      const placed = new Map(
+        turned.map((table) => {
+          const at = clampToHall(
+            { xMm: roundMm(table.xMm + back.dxMm), yMm: roundMm(table.yMm + back.dyMm) },
+            hall,
+          );
+          return [table.id, { ...table, ...at }] as const;
+        }),
+      );
+      return tables.map((table) => placed.get(table.id) ?? table);
     });
   }
 
@@ -368,5 +403,6 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     retry: autosave.retry,
     flush: autosave.flush,
     pending: () => autosave.unsaved.value,
+    sendOnUnload,
   };
 }

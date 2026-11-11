@@ -87,8 +87,18 @@ test.describe('A table moves by pointer', () => {
       await expect(layout.table('Silver aisle 1, Standard 6 ft')).toBeVisible();
     });
 
+    // "No section" is a choice that stays chosen: two tables of none, numberless.
+    await layout.addSection.selectOption({ label: 'No section' });
+    await layout.saved(async () => {
+      await layout.clickAt([24_000, 4000]);
+      await expect(layout.addSection).toHaveValue('');
+      await layout.clickAt([24_000, 8000]);
+    });
+    await expect(layout.table('Table in no section, Standard 6 ft')).toHaveCount(2);
+    await expect(layout.selectionTitle).toHaveText('Table in no section');
+
     await page.reload();
-    await expect(layout.tables).toHaveCount(3);
+    await expect(layout.tables).toHaveCount(5);
     await expect(layout.table(GOLD_2)).toBeVisible();
     await expect(layout.table('Silver aisle 1, Standard 6 ft')).toBeVisible();
   });
@@ -225,6 +235,8 @@ test.describe('A table moves by pointer', () => {
       await expect(layout.tables).toHaveCount(3);
     });
     await expect(layout.selection).toContainText('Select tables to change them.');
+    // The button pressed went with the selection; the focus is on the map, not lost.
+    await expect(layout.table(GOLD_1)).toBeFocused();
 
     // The table that was Gold row 3, at 12 m, is Gold row 2 now, and the last is Gold row 3.
     const tables = await storedTables(request, seeded.marketId);

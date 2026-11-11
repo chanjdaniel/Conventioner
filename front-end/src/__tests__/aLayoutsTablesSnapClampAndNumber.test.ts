@@ -14,6 +14,7 @@ import {
   fitCamera,
   nextNumber,
   roundMm,
+  shiftInside,
   roundTurn,
   snapAngle,
   snapMove,
@@ -117,6 +118,16 @@ describe('a table dragged near another snaps', () => {
     expect(snapMove([box(15_000, 15_000)], still, 100)).toEqual({ dxMm: 0, dyMm: 0, guides: [] });
   });
 
+  it('snaps only to tables within reach on the other axis, not to one across the hall', () => {
+    const far = [box(10_000, 25_000)];
+    const moving = box(10_040, 12_000);
+    // Lined up within 40 mm of a table 12 m down the hall: with a reach of 5 m it is left alone.
+    expect(snapMove([moving], far, 100, 5000)).toEqual({ dxMm: 0, dyMm: 0, guides: [] });
+    expect(snapMove([moving], far, 100).dxMm).toBeCloseTo(-40);
+    // A table across a 3 m aisle is within reach.
+    expect(snapMove([moving], [box(10_000, 15_760)], 100, 5000).dxMm).toBeCloseTo(-40);
+  });
+
   it('snaps a group by whichever of its tables is nearest', () => {
     const snap = snapMove([box(2000, 2000), box(10_030, 12_000)], still, 100);
     expect(snap.dxMm).toBeCloseTo(-30);
@@ -146,6 +157,16 @@ describe("a table's centre stays inside the floorplan", () => {
       dxMm: -1000,
       dyMm: 100,
     });
+  });
+
+  it('finds the one shift that brings several centres back inside, together', () => {
+    const centres = [
+      { xMm: -2000, yMm: 3000 },
+      { xMm: 2000, yMm: 23_000 },
+    ];
+    expect(shiftInside(centres, HALL)).toEqual({ dxMm: 2000, dyMm: -500 });
+    expect(shiftInside([{ xMm: 5, yMm: 5 }], HALL)).toEqual({ dxMm: 0, dyMm: 0 });
+    expect(shiftInside(centres, null)).toEqual({ dxMm: 0, dyMm: 0 });
   });
 
   it('never pushes a centre already outside further out, and lets it come back', () => {

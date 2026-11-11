@@ -19,12 +19,13 @@
  * panel lists the location's sections in the colours the map draws them in. The page holds the
  * layout's working copy (`useLayoutEditor.ts`): each save names the revision it read, a save over
  * one another tab saved says so with Reload, and the market is re-read through the one store
- * after every answer. A change still waiting is saved before the page is left.
+ * after every answer. A change still waiting is saved before the page is left; when that save did
+ * not land, a move in the app asks before it drops the change, and a reload is asked by the browser.
  *
  * With no location in the address it opens the market's first named one. A location with no id
  * (a market stored before ids, until its next write) or no name offers no layout.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
 import type { FloorplanObject, LocationObject } from '@/assets/types/datatypes';
 import MarketFrame from '@/components/MarketFrame.vue';
@@ -109,15 +110,19 @@ watch(locationId, () => {
 });
 
 // A change still waiting is saved before the page is left, for another location's layout or
-// another page, and before a phase move, which reads the market as the server holds it. A reload
-// or a closed tab is asked by the browser first, and the change is sent as the page goes.
+// another page, and before a phase move, which reads the market as the server holds it.
 onBeforeRouteUpdate(async () => {
   await editor.flush();
 });
 onBeforeRouteLeave(async () => {
   await editor.flush();
 });
-useUnsavedWork({ unsaved: () => editor.pending(), inApp: false });
+// Called after the guards above, so its question comes only once that save has been tried: what is
+// still unsaved then is a change whose save failed or was refused, which leaving would drop.
+useUnsavedWork({
+  unsaved: () => editor.pending(),
+  sentence: "This layout's last changes are not saved. Leaving drops them.",
+});
 
 const { url: imageUrl, failed: imageFailed } = useFloorplanImage(
   computed(() => floorplan.value?.imageGridfsId),
@@ -131,6 +136,18 @@ const recalibrating = ref(false);
 const sections = computed(() =>
   floorplan.value ? layoutSections(floorplan.value, market.value?.setupObject?.sections ?? []) : [],
 );
+
+/** Remove the selection; the focus, which the card's button held, goes to the map's stop, or to
+ * the toolbar when no table is left, rather than being lost with the button. */
+async function removeSelection() {
+  editor.removeTables(editor.selection.value);
+  await nextTick();
+  const next =
+    document.querySelector<SVGElement>(
+      '[data-testid="layout-map"] [data-table-id][tabindex="0"]',
+    ) ?? document.querySelector<HTMLElement>('[data-testid="layout-toolbar"] [tabindex="0"]');
+  next?.focus();
+}
 
 /** The layout's pending change lands before a phase move reads the market. */
 async function flushLayout(): Promise<void> {
@@ -379,7 +396,7 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
               :sections="sections"
               :tableTypes="tableTypes"
               @turn="turnSelection(editor, tableTypes, 90)"
-              @remove="editor.removeTables(editor.selection.value)"
+              @remove="removeSelection"
             />
             <LayoutPanelSections
               class="layout-card"

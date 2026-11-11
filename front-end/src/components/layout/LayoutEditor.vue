@@ -69,12 +69,14 @@ const ownSections = computed(() =>
   layoutSections(layout.value, props.sections).map(({ section }) => section),
 );
 /** The section and the type a new table takes: the first of each until another is chosen. */
-const addSectionId = ref('');
+/** '' is "No section", a choice like another; null is no choice made yet. */
+const addSectionId = ref<string | null>(null);
 const addTypeId = ref('');
 watch(
   [ownSections, () => props.tableTypes],
   ([sections, types]) => {
-    if (!sections.some((section) => section.id === addSectionId.value)) {
+    const chosen = addSectionId.value;
+    if (chosen === null || (chosen !== '' && !sections.some((section) => section.id === chosen))) {
       addSectionId.value = sections[0]?.id ?? '';
     }
     if (!types.some((type) => type.id === addTypeId.value)) addTypeId.value = types[0]?.id ?? '';
@@ -152,16 +154,24 @@ function stepZoom(direction: 1 | -1) {
   if (cam) camera.value = zoomedAbout(cam, steppedZoom(cam.pxPerMm, direction) / cam.pxPerMm);
 }
 
+/** The most one wheel event zooms by, in the pixels it says it scrolled. */
+const WHEEL_ZOOM_PX = 25;
+
 function onWheel(event: WheelEvent) {
   const cam = camera.value;
   if (!cam) return;
   event.preventDefault();
-  if (event.ctrlKey || event.metaKey) {
-    camera.value = zoomedAbout(cam, Math.exp(-event.deltaY * 0.01), fromMiddle(event));
-    return;
-  }
+  // A drag in hand reckons from where it was pressed, so the view holds still under it.
+  if (gesture) return;
   // A mouse's wheel says lines, a trackpad pixels.
   const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
+  if (event.ctrlKey || event.metaKey) {
+    // A pinch sends a few pixels an event and a mouse's notch a hundred: a notch is held to a
+    // quarter more or less, so the wheel steps through the zoom instead of leaping it.
+    const by = Math.min(Math.max(event.deltaY * unit, -WHEEL_ZOOM_PX), WHEEL_ZOOM_PX);
+    camera.value = zoomedAbout(cam, Math.exp(-by * 0.01), fromMiddle(event));
+    return;
+  }
   camera.value = {
     ...cam,
     xMm: cam.xMm + (event.deltaX * unit) / cam.pxPerMm,
@@ -175,6 +185,8 @@ function onWheel(event: WheelEvent) {
 const DRAG_PX = 4;
 /** How near an edge or a centre snaps, in screen pixels. */
 const SNAP_PX = 8;
+/** How far along the line they would share a still table may stand and still be snapped to. */
+const SNAP_REACH_MM = 5000;
 const TURN_STEP = 15;
 
 type Gesture =
@@ -196,6 +208,8 @@ type Gesture =
   | { kind: 'pinch'; distance: number; middle: { xPx: number; yPx: number }; camera: Camera };
 
 let gesture: Gesture | null = null;
+/** The pointer whose press began the gesture; a pinch is two and names none. */
+let gesturePointer: number | null = null;
 const guides = shallowRef<Guide[]>([]);
 const dragging = ref(false);
 const spaceHeld = ref(false);
@@ -239,6 +253,7 @@ function onPointerDown(event: PointerEvent) {
       if (gesture && 'begun' in gesture && gesture.begun) props.editor.cancel();
       guides.value = [];
       gesture = { kind: 'pinch', ...pinch, camera: cam };
+      gesturePointer = null;
       stage.value.setPointerCapture(event.pointerId);
       return;
     }
@@ -287,6 +302,7 @@ function onPointerDown(event: PointerEvent) {
       };
     }
   }
+  gesturePointer = event.pointerId;
   stage.value.setPointerCapture(event.pointerId);
 }
 
@@ -296,6 +312,15 @@ function onPointerMove(event: PointerEvent) {
   }
   const cam = camera.value;
   if (!gesture || !cam) return;
+  if (gesture.kind !== 'pinch') {
+    // Another pointer (a palm, a mouse passing over a finger's drag) is none of this gesture's.
+    if (event.pointerId !== gesturePointer) return;
+    // A mouse moving with no button down lost its release, to a menu say: the gesture ends here.
+    if (event.pointerType === 'mouse' && event.buttons === 0) {
+      endGesture(event, false);
+      return;
+    }
+  }
   const dx = 'from' in gesture ? event.clientX - gesture.from.x : 0;
   const dy = 'from' in gesture ? event.clientY - gesture.from.y : 0;
 
@@ -334,7 +359,7 @@ function onPointerMove(event: PointerEvent) {
         top: box.top + dyMm,
         bottom: box.bottom + dyMm,
       }));
-      const snap = snapMove(moved, gesture.still, SNAP_PX / cam.pxPerMm);
+      const snap = snapMove(moved, gesture.still, SNAP_PX / cam.pxPerMm, SNAP_REACH_MM);
       dxMm += snap.dxMm;
       dyMm += snap.dyMm;
       guides.value = snap.guides;
@@ -358,8 +383,10 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
   touches.delete(event.pointerId);
   const done = gesture;
   if (!done) return;
+  if (done.kind !== 'pinch' && event.pointerId !== gesturePointer) return;
   // A pinch lasts while two fingers are down; the one left does nothing more.
   gesture = null;
+  gesturePointer = null;
   guides.value = [];
   dragging.value = false;
   if (stage.value?.hasPointerCapture(event.pointerId)) {
@@ -414,7 +441,7 @@ function inAField(event: KeyboardEvent): boolean {
 function onWindowKeydown(event: KeyboardEvent) {
   if (event.defaultPrevented || inAField(event)) return;
   // A dialog over the page has the keys.
-  if (document.querySelector('dialog[open]')) return;
+  if (document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
   const command = event.ctrlKey || event.metaKey;
   const key = event.key.toLowerCase();
   if (event.key === 'Escape' && gesture) {
@@ -428,11 +455,13 @@ function onWindowKeydown(event: KeyboardEvent) {
     event.preventDefault();
     props.editor.redo();
   } else if (!command && !event.altKey && !event.shiftKey && key === 'r' && !event.repeat) {
-    if (!selection.value.length) return;
+    // Not under a drag or a turn in hand, whose next frame would draw over it.
+    if (!selection.value.length || gesture) return;
     event.preventDefault();
     turnSelection(props.editor, props.tableTypes, 90);
-  } else if (event.key === ' ' && hovering.value && !tableAt(event)) {
-    // Space held over the map is the hand that pans it, not a press of whatever has the focus.
+  } else if (event.key === ' ' && hovering.value) {
+    // Space held over the map is the hand that pans it, not a press of what has the focus: a
+    // table of the map included, which a press on it leaves the focus on.
     const onAControl = event.target instanceof Element && event.target.closest('button, a');
     if (onAControl) return;
     event.preventDefault();
@@ -444,16 +473,25 @@ function onWindowKeyup(event: KeyboardEvent) {
   if (event.key === ' ') spaceHeld.value = false;
 }
 
-/** Enter or Space on a focused table selects it, as a press does; Shift adds it or takes it out. */
+/** The window lost the keys with Space down, so its release will not be heard. */
+function onWindowBlur() {
+  spaceHeld.value = false;
+}
+
+/**
+ * Enter or Space on a focused table selects it, as a press does: alone, unless it is one of
+ * several selected already, and Shift adds it or takes it out. Space with the pointer over the
+ * map is the panning hand instead.
+ */
 function onStageKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' && event.key !== ' ') return;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key === ' ' && hovering.value) return;
   const id = tableAt(event);
   if (!id) return;
   event.preventDefault();
   if (event.repeat) return;
-  if (event.shiftKey) select(id, true);
-  else props.editor.select([id]);
+  select(id, event.shiftKey);
 }
 
 // ── The toolbar: one Tab stop, the arrow keys between its buttons ────────────
@@ -505,17 +543,20 @@ function onToolbarFocus(event: FocusEvent) {
   if (name) toolbarStop.value = name;
 }
 
-/** Undo or redo by its button: when the press empties it, the focus goes to its neighbour rather
- *  than being lost with the button that can no longer be pressed. */
-async function byButton(which: 'undo' | 'redo') {
-  if (which === 'undo') props.editor.undo();
-  else props.editor.redo();
+/**
+ * Undo or Redo emptied while it had the focus, by its own press or by a key (Ctrl+Z down to
+ * nothing, a change that drops what was undone): the focus goes to the other of the two, else to
+ * Select, rather than being lost with a button that can no longer be pressed.
+ */
+watch([canUndo, canRedo], async ([undoable, redoable]) => {
+  const focused = (document.activeElement as HTMLElement | null)?.dataset?.tool;
+  if (!(focused === 'undo' && !undoable) && !(focused === 'redo' && !redoable)) return;
+  if (!toolbar.value?.contains(document.activeElement)) return;
   await nextTick();
-  const can = which === 'undo' ? canUndo.value : canRedo.value;
-  if (can) return;
-  const other = which === 'undo' ? 'redo' : 'undo';
-  toolbar.value?.querySelector<HTMLButtonElement>(`[data-tool="${other}"]`)?.focus();
-}
+  const next =
+    focused === 'undo' && redoable ? 'redo' : focused === 'redo' && undoable ? 'undo' : 'select';
+  toolbar.value?.querySelector<HTMLButtonElement>(`[data-tool="${next}"]`)?.focus();
+});
 
 // ── The turn handle ──────────────────────────────────────────────────────────
 
@@ -538,6 +579,7 @@ onMounted(() => {
   }
   window.addEventListener('keydown', onWindowKeydown);
   window.addEventListener('keyup', onWindowKeyup);
+  window.addEventListener('blur', onWindowBlur);
 });
 
 onBeforeUnmount(() => {
@@ -545,6 +587,7 @@ onBeforeUnmount(() => {
   stage.value?.removeEventListener('wheel', onWheel);
   window.removeEventListener('keydown', onWindowKeydown);
   window.removeEventListener('keyup', onWindowKeyup);
+  window.removeEventListener('blur', onWindowBlur);
   abandon();
 });
 
@@ -599,7 +642,7 @@ watch(
         data-testid="layout-undo"
         :disabled="!canUndo"
         :tabindex="effectiveStop === 'undo' ? 0 : -1"
-        @click="byButton('undo')"
+        @click="editor.undo()"
       >
         Undo
       </button>
@@ -610,7 +653,7 @@ watch(
         data-testid="layout-redo"
         :disabled="!canRedo"
         :tabindex="effectiveStop === 'redo' ? 0 : -1"
-        @click="byButton('redo')"
+        @click="editor.redo()"
       >
         Redo
       </button>
@@ -802,19 +845,32 @@ watch(
 }
 
 /* The stage is a window onto the hall, at the floorplan's shape and never taller than leaves the
-   toolbar and the hint on the screen with it: the hall is moved inside it, so nothing is cut off
+   toolbar and the hint on the screen with it (the bars, the head row and the toolbar above it and
+   the hint under it take 23.5rem between them): the hall is moved inside it, so nothing is cut off
    that a pan does not reach. `touch-action: none`: a finger on the map moves the map. */
 .layout-stage {
   position: relative;
   width: 100%;
   min-height: 20rem;
-  max-height: max(20rem, calc(100vh - 16rem));
+  max-height: max(20rem, calc(100vh - 23.5rem));
   overflow: hidden;
-  background: var(--layout-floor);
+  background: var(--mm-beige);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
   touch-action: none;
   user-select: none;
+}
+
+/* Round the hall the stage is a pasteboard, a step darker than the floor, so where the floorplan
+   ends reads at any pan and zoom, whatever the venue's image shows of its own edge. */
+/* With a tool's options strip above it the stage gives up the strip's height, so the hint stays on
+   the screen. */
+.layout-stage--add {
+  max-height: max(20rem, calc(100vh - 26.5rem));
+}
+
+.layout-stage :deep(.layout-map) {
+  background: var(--mm-beige);
 }
 
 .layout-stage :deep(.layout-table--button) {

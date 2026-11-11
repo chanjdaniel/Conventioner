@@ -43,6 +43,7 @@ The status is `refused`, and the line (`market-setup-plan-refused`, in the error
 The next edit hides it, since the plan on screen is then no longer the one last saved.
 A sentence the server left without a full stop ("Market not found", from a market deleted in another tab) is given one, so the two read as two sentences.
 The view's `afterRefusal` re-reads the market and then adopts it itself, so the server's plan comes back even when the re-read failed or handed back the market the page already had, which leaves the market watch silent.
+A screen that keeps its copy instead says so with `keepOnRefusal` (a location's layout, [floorplan placement](floorplan-placement.md#the-editor)): the edits stay unsaved, the line is the refusal's sentence alone, the next edit, Retry or a flush sends the copy again, and `forget` drops what was unsaved once that screen takes the server's copy; the plan does not set it.
 Nothing is unsaved after it, so later re-reads reach the screen again; until T271 a refused save left the page skipping every re-read, the refused plan on screen until a reload.
 
 **A failure keeps the edits unsaved** and shows its sentence (`market-setup-plan-save-error`): the app's offline sentence for no answer, the server-fault sentence for a 5xx, and "The plan was not saved." for a failure with no sentence of its own.

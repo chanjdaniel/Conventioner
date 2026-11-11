@@ -217,7 +217,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
 - Leaves: a draft with two locations to lay out (T257): Upper Hall with Gold row (13) and Silver aisle (6), Lower Hall with Bronze corner (4), their ids fixed (`UPPER_HALL`, `LOWER_HALL`), and a third location with no name, which offers no layout
 - With `layout`, Upper Hall's layout started: `fixtures/test-floorplan.png` uploaded and saved through `POST /floorplans/save-to-market`, as the page saves it; with `metresAcross`, calibrated to that width
 - With `tables` and `zones`, on a calibrated layout only: a second save places them, each table a six-foot one of the market's first table type, its centre and turn as given and its number the next in its section, in the order given; `seedRow()` makes a row, and `UPPER_HALL_TABLES` with `UPPER_HALL_ZONES` is Upper Hall laid out in its 30 m by 22.5 m: Gold row's 13 (9 down the west wall, 4 along the top), Silver aisle's 6, one table in no section turned 30°, a stage and a pillar
-- Notes: it returns the layout's id and stored revision, for a spec that saves over it
+- Notes: it returns the layout's id and stored revision, for a spec that saves over it; `storedLayoutTables()` reads that layout's tables back from the server, for a spec that asserts what a gesture stored
 
 **A vendor is seeded as an approved application**, which is what the solver reads ([ADR 0003](../../adr/0003-applications-are-the-solvers-only-input.md)).
 `seedApprovedVendor()` writes the essential answers in the shapes `essential_fields.py` validates into (dates and tiers as the plan's own names, the count an integer, the table choice lower-cased).

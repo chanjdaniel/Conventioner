@@ -373,18 +373,27 @@ function linesOf(box: Bounds, axis: 'x' | 'y'): [number, number, number] {
 /**
  * The snap of moving tables against the tables that stand still: each moving box's edges and
  * centre against each still box's, on each axis apart, within `withinMm`; the nearest pair wins
- * its axis, the earlier pair a tie. The guide runs along the line they now share, across both
- * boxes. `moving` are the boxes where the move alone would put them.
+ * its axis, the earlier pair a tie. Only a still table within `reachMm` along the line it would
+ * share is read, so a table lines up with its neighbours and those across an aisle, never with one
+ * across the hall. The guide runs along the line they now share, across both boxes. `moving` are
+ * the boxes where the move alone would put them.
  */
 export function snapMove(
   moving: readonly Bounds[],
   still: readonly Bounds[],
   withinMm: number,
+  reachMm = Infinity,
 ): Snap {
+  /** How far apart two boxes stand along the line they would share: 0 where they overlap on it. */
+  const apart = (a: Bounds, b: Bounds, axis: 'x' | 'y') =>
+    axis === 'x'
+      ? Math.max(a.top - b.bottom, b.top - a.bottom, 0)
+      : Math.max(a.left - b.right, b.left - a.right, 0);
   const nearest = (axis: 'x' | 'y') => {
     let best: { by: number; line: number; mover: Bounds; other: Bounds } | null = null;
     for (const mover of moving) {
       for (const other of still) {
+        if (apart(mover, other, axis) > reachMm) continue;
         for (const from of linesOf(mover, axis)) {
           for (const to of linesOf(other, axis)) {
             const by = to - from;
@@ -460,6 +469,34 @@ export function clampMove(
     dyMm: hold(
       centres.map((c) => c.yMm),
       move.dyMm,
+      hall.heightMm,
+    ),
+  };
+}
+
+/**
+ * The one shift that brings several centres back inside the hall together, so tables turned about
+ * a point near a wall keep their places beside each other. Where they are wider than the hall, the
+ * near side is held.
+ */
+export function shiftInside(
+  centres: readonly PointMm[],
+  hall: Hall | null,
+): { dxMm: number; dyMm: number } {
+  if (!hall || !centres.length) return { dxMm: 0, dyMm: 0 };
+  const back = (values: number[], length: number) => {
+    const least = Math.min(...values);
+    if (least < 0) return -least;
+    const most = Math.max(...values);
+    return most > length ? length - most : 0;
+  };
+  return {
+    dxMm: back(
+      centres.map((c) => c.xMm),
+      hall.widthMm,
+    ),
+    dyMm: back(
+      centres.map((c) => c.yMm),
       hall.heightMm,
     ),
   };

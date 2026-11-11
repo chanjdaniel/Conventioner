@@ -38,6 +38,10 @@ describes:
   - front-end/src/components/layout/layoutSave.ts
   - front-end/src/components/layout/shrinkImage.ts
   - front-end/src/components/layout/useFloorplanImage.ts
+  - front-end/src/components/layout/LayoutEditor.vue
+  - front-end/src/components/layout/LayoutPanelSelection.vue
+  - front-end/src/components/layout/useLayoutEditor.ts
+  - front-end/src/components/layout/layoutSelection.ts
 verified: 2026-11-11
 sources:
   - bug/38
@@ -73,15 +77,15 @@ Its head row holds "Layout", the switch between the market's named locations (ea
 Before an image the map column is the upload's drop zone and the panel says "Upload the venue's floorplan for Upper Hall to start."; the first save, made as the image is chosen, starts the layout.
 Before a scale it is [`LayoutCalibration.vue`](../../../front-end/src/components/layout/LayoutCalibration.vue): the image in an SVG whose units are its pixels, a line drawn by drag (its ends draggable after) or by keyboard (a crosshair from the centre, the arrows, Enter for each end, a polite live region saying each step), a length in m, cm, mm, ft or in, and "Set the scale", whose arithmetic is [`calibration.ts`](../../../front-end/src/components/layout/calibration.ts): `scalePxPerUnit` is the line's pixels over its millimetres, from a line of at least 10 px.
 Recalibrate draws the line again from the stored one; a table keeps its millimetres, so the image is what moves under it.
-With a scale the map column is [the drawing](#the-drawing) in its read mode, over the floor alone while the image is on its way or could not be fetched (which the page says above it), the whole hall in a box of the floorplan's shape, as wide as the column and as tall as that makes it, and the panel gains "Sections in Upper Hall" ([`LayoutPanelSections.vue`](../../../front-end/src/components/layout/LayoutPanelSections.vue)): each of the location's sections with the colour the map draws it in, its tier and its count of tables on the layout.
+With a scale the map column is [the editor](#the-editor) for a person who may change the layout, at a desk, and for anyone else, and at a phone's width (640px and below), [the drawing](#the-drawing) in its read mode; either is drawn over the floor alone while the image is on its way or could not be fetched (which the page says above it), the read map the whole hall in a box of the floorplan's shape, as wide as the column and as tall as that makes it, and the panel gains "Sections in Upper Hall" ([`LayoutPanelSections.vue`](../../../front-end/src/components/layout/LayoutPanelSections.vue)): each of the location's sections with the colour the map draws it in, its tier and its count of tables on the layout.
 A person the Market Setup row refuses, and anyone past draft (the save's blanket 409 until T257's ticket 11 narrows it), reads the page with nothing to upload or calibrate.
-Each save names the revision of the layout it read ([`layoutSave.ts`](../../../front-end/src/components/layout/layoutSave.ts)); the page shows the answer's layout at once and then re-reads the market through [the one store](../conventions/one-market-from-the-server.md).
+The page holds the layout's working copy ([`useLayoutEditor.ts`](../../../front-end/src/components/layout/useLayoutEditor.ts), [below](#the-editor)); each save names the revision of the layout it read ([`layoutSave.ts`](../../../front-end/src/components/layout/layoutSave.ts)), and after each answer the page re-reads the market through [the one store](../conventions/one-market-from-the-server.md).
 The image is fetched with the session as a blob ([`useFloorplanImage.ts`](../../../front-end/src/components/layout/useFloorplanImage.ts)), as the image read requires.
 
 ## The drawing
 
 [`LayoutMap.vue`](../../../front-end/src/components/layout/LayoutMap.vue) is the one drawing of a layout, in SVG, for the page, and for the editor, the PNG export and any later map as T257's later tickets build them.
-Its props are the layout, its location's name, the plan's sections, the market's table types, the image as the page fetched it, `mode` (`read`, `edit` or `print`), `showImage` (unless told, the image is drawn in `read` and `edit` and left out of `print`), `view`, `selection`, `guides` and `pxPerMm`; it emits `activate` with a table's id.
+Its props are the layout, its location's name, the plan's sections, the market's table types, the image as the page fetched it, `mode` (`read`, `edit` or `print`), `showImage` (unless told, the image is drawn in `read` and `edit` and left out of `print`), `view`, `selection`, `guides` and `pxPerMm`; it emits `activate` with a table's id, and draws its default slot last, over the tables, in its millimetres, handing it the millimetres to a pixel.
 It holds no editing state: its only state is which table has the focus.
 
 - **Its units are millimetres** from the floorplan's top-left corner, so a table is its true size at any zoom: `view` is the part of the hall shown (the whole hall when not given, drawn whole inside the map's box), the image is drawn the hall wide, and a table is a rectangle about its centre, moved and turned by its group's `transform`.
@@ -95,12 +99,45 @@ It holds no editing state: its only state is which table has the focus.
 - **`read` and `edit` make the map a group** named "Upper Hall layout, 49 tables" and each table a button named "Gold row 5, Standard 6 ft" (in no section: "Table in no section, Standard 6 ft"), in the order of the sections and their numbers; a zone is an image named "No-table zone: Stage".
   One table is the map's Tab stop, the one focused last, else the first selected, else the first, and the arrow keys move the focus to the nearest table within 45° of the arrow (`nearestInDirection`), unless the editor round the map took the key first, on the table or in the capture phase.
   A table says when it takes the focus itself: a focus listener on the `<svg>` makes Chromium count the map as a Tab stop of its own.
-- **In `read` a table pressed**, by pointer, Enter or Space, emits `activate`; `edit` draws the selection's outline and the guides it is given and leaves a press to the editor; `print` is a picture named as the map is, with no button and no stop.
+- **In `read` a table pressed**, by pointer, Enter or Space, emits `activate`; `edit` draws the selection's outline and the guides it is given, says each table pressed or not (`aria-pressed`) as it is selected or not, and leaves a press to the editor; `print` is a picture named as the map is, with no button and no stop.
 - **A table's paint is written on its shapes** (`fill="var(--layout-section-1-fill)"`), not in a class, and its sizes are attributes, so the markup carries the drawing wherever it goes; the tokens still resolve from the page's stylesheet.
 - **A focused table draws the app's button border itself**, a shape over its own edge ([the design language](../../design-system.md#the-primitive-layer)), since a CSS outline on an SVG shape is measured in the drawing's units.
 - Each table is a component of its own ([`LayoutMapTable.vue`](../../../front-end/src/components/layout/LayoutMapTable.vue)) whose props are plain values, so a table whose values did not change is not drawn again when another does, and a pan, a change of `view` at the same zoom, changes the `viewBox` and no table.
 
-The geometry is pure, in [`layoutGeometry.ts`](../../../front-end/src/components/layout/layoutGeometry.ts) (a turned table's corners and box, the palette's order, a name's place, the arrow keys' focus, a number's size), and what the drawing says, in [`layoutDrawing.ts`](../../../front-end/src/components/layout/layoutDrawing.ts) (`layoutSections`, a location's sections with their colours and tables, which the map and the panel's list both read; a table's code and name; a width of words in the app's type).
+The geometry is pure, in [`layoutGeometry.ts`](../../../front-end/src/components/layout/layoutGeometry.ts) (a turned table's corners and box, the palette's order, a name's place, the arrow keys' focus, a number's size, and [the editor's](#the-editor)), and what the drawing says, in [`layoutDrawing.ts`](../../../front-end/src/components/layout/layoutDrawing.ts) (`layoutSections`, a location's sections with their colours and tables, which the map and the panel's list both read; a table's code and name; a width of words in the app's type).
+
+## The editor
+
+[`LayoutEditor.vue`](../../../front-end/src/components/layout/LayoutEditor.vue) is the map column of a calibrated layout for a person who may change it: a toolbar, the map on a stage that pans and zooms, and a hint line.
+It draws the working copy through [the drawing](#the-drawing) in `edit` mode and turns the pointer and the keys into the model's commands; it holds no table of its own.
+
+- **The model is [`useLayoutEditor.ts`](../../../front-end/src/components/layout/useLayoutEditor.ts)**, held by the page: the layout's working copy, never changed in place, the selection, and the commands `addTables`, `moveTables`, `turnTables` and `removeTables`.
+  A new table takes its section's next number, a move stops where a centre meets the floorplan's edge, a turn of several goes about the middle of the box they stand in ([`layoutSelection.ts`](../../../front-end/src/components/layout/layoutSelection.ts)), those carried past a wall coming back inside together (`shiftInside`), and of one about its own centre, and a removal in a draft closes the gap in its section's numbers, so a section is always numbered 1 to N, as the save requires.
+  Positions are kept to 0.1 mm and turns to 0.01°.
+- **Undo and redo** hold the tables as they stood, whole, for the last 200 changes; they cross saves, not page loads, and each is a change that saves in turn.
+  A drag or a turn by the handle is one change: between `begin` and `end` each frame replaces the last, and `cancel` (Escape) puts the tables back.
+  The layout's own fields (its start, its image, its scale) are written at once by `write`, outside undo, since an undone image would name one the save deleted.
+- **It saves through the app's one queue**, `useAutosave` ([the plan's autosave](plan-autosave.md#the-queue)), told to keep the working copy on a refusal (`keepOnRefusal`): 600 ms after the last change, one write at a time, a change made while a write is out sent when its answer is in, with the revision that answer gave.
+  The answer's revision and the fields the server owns are taken; the tables stay the working copy's.
+  A save that fails or is refused keeps the working copy and says the sentence with Retry, and the next change sends it again; one refused as stale ("This layout changed elsewhere. Reload to see the latest.") sends nothing more until Reload takes the server's layout, dropping the working copy and its undo.
+  A write of the layout's own fields refused as stale puts the layout back as it was read.
+  A re-read of the market that brings a newer layout is taken only while nothing is unsaved and no drag is in hand.
+- **A change still waiting is saved before the page is left**: the route's leave and update guards and a phase move wait for the flush, and when that save did not land a move in the app asks "Leave without saving?" before it drops the change ([unsaved work asks before it is dropped](../conventions/unsaved-work-asks-before-it-is-dropped.md)); a reload or a closed tab is asked by the browser first and the layout sent as the page goes, a keepalive request (`saveLayoutOnUnload`).
+  With a write out as the page goes, that last write names the revision the write out will leave, since it was sent first.
+  That last write is a best effort: its answer is never read, and a body over the browser's 64 KiB keepalive limit, a layout of some hundreds of tables, is not sent at all.
+- **The toolbar** is a `role="toolbar"` with one Tab stop and the arrow keys, Home and End between its buttons: Select and Add table (toggles, `aria-pressed`), Undo, Redo, Zoom out, Zoom in, Fit and the zoom's percentage; when a press empties Undo or Redo the focus goes to the other.
+  With Add table on, an options strip under it holds Section (the location's sections, and "No section") and Table type.
+- **Select**: a press on a table selects it, Shift or Ctrl adding it or taking it out, and a press on the floor selects nothing; Enter or Space on a focused table selects it too; with the pointer over the map, Space is the panning hand instead.
+  A drag moves the selection, snapping each moving table's edges and centre to those of the tables that stand still within 8 screen px, the nearest pair winning each axis (`snapMove`), with a guide drawn along the line they share; only a still table within 5 m along that line is read, so a table lines up with its neighbours and across an aisle, not with one across the hall; Alt places freely.
+  The handle over the selection's box, a 14 px knob the editor draws in the map's slot, turns it in 15° steps (Alt: freely); R, and "Turn 90°" on the selection's card, turn it a quarter.
+- **Add table**: a click places a table of the strip's section and type at the point, and the tool stays on.
+- **The view** is a camera, a point of the hall at the stage's middle and a scale, 10% to 800% (`fitCamera`, `zoomedAbout`, `steppedZoom`): the wheel or two fingers pan, Ctrl and the wheel or a pinch zoom about the pointer (a mouse's notch a quarter at most), Space and a drag or the middle button pan, the wheel does nothing under a drag in hand, the buttons step through round percentages, and Fit shows the whole floorplan.
+  The stage is the floorplan's shape, never taller than leaves the toolbar and the hint on the screen, and round the hall it is a pasteboard a step darker than the floor.
+- **Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y** undo and redo, and R turns, from anywhere on the page but a field or under an open dialog (`[role="dialog"][aria-modal="true"]`, the app's).
+- **The focus is never left on a control that went**: when Undo or Redo empties under the focus it goes to the other of the two, else to Select, and after "Remove" to the map's stop, else to the toolbar.
+- **The selection's card** ([`LayoutPanelSelection.vue`](../../../front-end/src/components/layout/LayoutPanelSelection.vue)) heads the panel: "Select tables to change them.", or one table's code, section, type and its centre in metres from the floorplan's top-left corner, or "3 tables selected" and their codes, with "Turn 90°" and "Remove", which asks nothing, since Undo takes it back.
+
+Section Setup reads a laid-out location's counts from its layout: the Count cell of such a section is the number of the layout's tables in it with "from the layout" under it, and no field, since `derive_counts` sets it on every write ([`ElementSectionSetup.vue`](../../../front-end/src/components/elements/ElementSectionSetup.vue)).
 
 ## Interface
 
@@ -239,7 +276,7 @@ This replaced a snapshot-and-restore workaround in the E2E page object.
 
 **Saving a layout, deleting an image and a layout taken with its location record into [the market's history](../data/history.md)** (`floorplan`, `floorplan_image_deleted`, `floorplan_removed`, under `change-setup`), a layout's save as one `floorplan` entry and never also a `plan` one.
 Its subject is the layout's id and its location's name (`floorplan_id`, `location`), and its detail is `layout.describe_change`: what the save changed in the layout's own terms (`started`, tables `added` and `removed` per section, `moved`, `turned`, `renumbered`, `zones`, `image`, `scale` in metres across before and after, `colours`, `labels`), never a table itself; a save that changes nothing records nothing.
-Manage market reads it in words, "started Upper Hall's layout", "calibrated Upper Hall's layout to 30.0 m across", "recalibrated ...", "replaced Upper Hall's floorplan image" ([`historyReaders/setup.ts`](../../../front-end/src/utils/historyReaders/setup.ts)), and an entry the beta's save recorded, its detail the plan's and the floorplan's two sides, reads as it did.
+Manage market reads it in words, "started Upper Hall's layout", "calibrated Upper Hall's layout to 30.0 m across", "recalibrated ...", "replaced Upper Hall's floorplan image", "added 12 tables to Silver aisle in Upper Hall", "removed 1 table from Gold row in Upper Hall", "moved 3 tables in Upper Hall", "turned 2 tables in Upper Hall", a save of anything else reading "changed Upper Hall's layout" ([`historyReaders/setup.ts`](../../../front-end/src/utils/historyReaders/setup.ts)), and an entry the beta's save recorded, its detail the plan's and the floorplan's two sides, reads as it did.
 An upload stores an image the market uses only once a layout is saved, so it records nothing.
 
 ## Why

@@ -59,6 +59,7 @@ The wizard marks the floorplan saved before it hands the save on, so the save's 
 The wizard's own Back and Next stay on the route, so they never ask either.
 
 Market Setup's plan asks on unload alone ([the plan's autosave](../modules/plan-autosave.md#the-queue)): an in-app move unmounts the view, whose flush sends the edit, and nothing cancels it.
+A location's layout saves before an in-app move too, in its own route guards, registered before the question's ([floorplan placement](../modules/floorplan-placement.md#the-editor)): so the question ("This layout's last changes are not saved. Leaving drops them.") is asked in the app only when that save failed or was refused, and on unload whenever a change is unsaved.
 
 ## How it is enforced
 

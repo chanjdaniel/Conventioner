@@ -114,6 +114,46 @@ test.describe('A layout saves once', () => {
   });
 });
 
+test.describe('A layout whose save did not land', () => {
+  test('keeps what is on screen with Retry, and asks before a move in the app drops it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const market = await seeded(request);
+    const layout = new LayoutPage(page);
+    await layout.goto(market.marketId, market.upper.id);
+    await expect(layout.tables).toHaveCount(1);
+
+    // The connection drops, and a table is added.
+    await page.route('**/floorplans/save-to-market', (route) => route.abort());
+    await layout.toolAdd.click();
+    await layout.clickAt([15_000, 12_000]);
+    await expect(layout.saveState).toContainText(
+      'You seem to be offline. Check the connection and try again.',
+    );
+    await expect(layout.saveRetry).toBeVisible();
+    await expect(layout.table(GOLD_2)).toBeVisible();
+
+    // Another location's layout would drop it: the app asks first, and Stay keeps the table.
+    await layout.location('Lower Hall').click();
+    await expect(page.getByTestId('unsaved-work-sentence')).toHaveText(
+      "This layout's last changes are not saved. Leaving drops them.",
+    );
+    await page.getByTestId('unsaved-work-cancel-button').click();
+    await expect(layout.location('Upper Hall')).toHaveAttribute('aria-current', 'page');
+    await expect(layout.table(GOLD_2)).toBeVisible();
+    expect(await storedTables(request, market.marketId)).toHaveLength(1);
+
+    // The connection is back, and Retry sends it; then a move asks nothing.
+    await page.unroute('**/floorplans/save-to-market');
+    await layout.saved(() => layout.saveRetry.click());
+    expect(await storedTables(request, market.marketId)).toHaveLength(2);
+    await layout.location('Lower Hall').click();
+    await expect(layout.location('Lower Hall')).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByTestId('unsaved-work-window')).toHaveCount(0);
+  });
+});
+
 test.describe('A layout on the way out of the page', () => {
   // The browser's own User-Agent, not the Desktop Chrome device's: Playwright sets the device's
   // through DevTools, which does not reach a request a page sends from `pagehide`, and the back

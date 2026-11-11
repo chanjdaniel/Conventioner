@@ -175,6 +175,23 @@ describe('turning tables', () => {
   });
 });
 
+describe('turning several tables at the edge of the floorplan', () => {
+  it('keeps them beside each other, moved together back inside', () => {
+    // A row of three, 4 m long, standing 1 m from the west wall, turned a quarter about its middle:
+    // unturned back, each stands where it stood.
+    const { editor, tablesNow } = anEditor([
+      table('a', 'gold', 1, 1000, 1000),
+      table('b', 'gold', 2, 1000, 3000),
+      table('c', 'gold', 3, 1000, 5000),
+    ]);
+    editor.turnTables(['a', 'b', 'c'], 90);
+    const xs = tablesNow().map((t) => t.xMm);
+    // Two metres apart still, none past the wall, none stacked on another.
+    expect(xs).toEqual([4000, 2000, 0]);
+    expect(tablesNow().map((t) => t.yMm)).toEqual([3000, 3000, 3000]);
+  });
+});
+
 describe('removing tables', () => {
   const four = () => [1, 2, 3, 4].map((n) => table(`g${n}`, 'gold', n));
 
@@ -208,6 +225,33 @@ describe('a gesture', () => {
     expect(tablesNow()[0]).toMatchObject({ xMm: 5000, yMm: 5000 });
     expect(editor.canUndo.value).toBe(false);
     expect(server.save).not.toHaveBeenCalled();
+  });
+
+  it('comes back to where it began when a later frame does', () => {
+    const { editor, tablesNow } = anEditor([table('a', 'gold', 1)]);
+    editor.begin();
+    editor.turnTables(['a'], 15);
+    editor.turnTables(['a'], 0);
+    expect(tablesNow()[0].rotation).toBe(0);
+    editor.moveTables(['a'], 300, 0);
+    editor.moveTables(['a'], 0, 0);
+    expect(tablesNow()[0].xMm).toBe(5000);
+    editor.end();
+    // It ended where it began: no step, nothing to save.
+    expect(editor.canUndo.value).toBe(false);
+    expect(editor.pending()).toBe(false);
+  });
+
+  it('is not interrupted by a re-read of the market that brings a newer layout', () => {
+    const { editor, tablesNow } = anEditor([table('a', 'gold', 1)]);
+    editor.begin();
+    editor.moveTables(['a'], 100, 0);
+    editor.adopt(aLayout([table('z', 'gold', 1)], 5));
+    editor.moveTables(['a'], 200, 0);
+    editor.end();
+    expect(tablesNow()[0]).toMatchObject({ id: 'a', xMm: 5200 });
+    editor.undo();
+    expect(tablesNow()[0].xMm).toBe(5000);
   });
 
   it('cancelled puts the tables back and is no change', () => {
@@ -426,6 +470,30 @@ describe('the save queue', () => {
     await settle();
     expect(server.sent.at(-1)!.revision).toBe(9);
     expect(editor.saveState.value).toBe('saved');
+  });
+
+  it('as the page goes with a write out, names the revision that write will leave', async () => {
+    const server = aServer();
+    const onUnload: { revision: number; x: number }[] = [];
+    const editor = useLayoutEditor({
+      save: server.save,
+      saveOnUnload: (layout, revision) => {
+        onUnload.push({ revision, x: layout.tables[0].xMm });
+        return true;
+      },
+    });
+    editor.adopt(aLayout([table('a', 'gold', 1)]));
+    editor.moveTables(['a'], 100, 0);
+    expect(editor.sendOnUnload()).toBe(true);
+    // Nothing out: the layout as it stands, at the revision read.
+    expect(onUnload.at(-1)).toEqual({ revision: 3, x: 5100 });
+
+    server.held = true;
+    await settle();
+    editor.moveTables(['a'], 100, 0);
+    editor.sendOnUnload();
+    // The write that is out most likely lands first and makes the revision 4.
+    expect(onUnload.at(-1)).toEqual({ revision: 4, x: 5200 });
   });
 
   it('saves at once on the way out of the page, and waits for the answer', async () => {
