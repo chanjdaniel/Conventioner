@@ -190,14 +190,17 @@ test.describe('A calibrated layout draws as a map', () => {
     await expect(layout.sectionLabels).toHaveText(['Gold row', 'Silver aisle']);
   });
 
-  test('Tab reaches the map once, and the arrow keys move between its tables', async ({
+  test('Tab reaches the toolbar and the map once each, and the arrow keys move between the tables', async ({
     authenticatedPage: page,
   }) => {
     const layout = new LayoutPage(page);
     await layout.goto(seeded.marketId, seeded.upper.id);
     await expect(layout.tables).toHaveCount(20);
 
+    // The toolbar is one stop, on its pressed tool, and the map the next.
     await layout.backToSetup.focus();
+    await page.keyboard.press('Tab');
+    await expect(layout.toolSelect).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(layout.table('Gold row 1, Standard 6 ft')).toBeFocused();
     // The focused table draws its ring.

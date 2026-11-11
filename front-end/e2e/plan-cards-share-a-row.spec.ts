@@ -1,5 +1,11 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { ensureTestOrg, loginViaApi, seedMarketWithVendors } from './helpers/seeds';
+import {
+  ensureTestOrg,
+  loginViaApi,
+  seedLayout,
+  seedMarketWithVendors,
+  UPPER_HALL_TABLES,
+} from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
 import { marketSetupPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
@@ -157,4 +163,79 @@ test.describe('Plan cards share a row', () => {
     expect(b.tiers.w).toBeGreaterThanOrEqual(434);
     expect(await truncatedSelects(page)).toEqual([]);
   });
+});
+
+/**
+ * A laid-out location's counts are read from its layout (T257): "13" with "from the layout" under
+ * it where the typed field stood, at each width the plan's cards are held at.
+ */
+test.describe("Section Setup reads a laid-out location's counts", () => {
+  let marketId: string;
+
+  test.beforeAll(async ({ request }) => {
+    const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      metresAcross: 30,
+      tables: UPPER_HALL_TABLES,
+    });
+    marketId = seeded.marketId;
+  });
+
+  for (const size of [
+    { width: 1920, height: 1080 },
+    { width: 1280, height: 800 },
+    { width: 1000, height: 900 },
+  ]) {
+    test(`at ${size.width}px, the count and its source stand in their cell, on the row's line`, async ({
+      authenticatedPage: page,
+    }) => {
+      await page.setViewportSize(size);
+      await page.goto(marketSetupPath(marketId, 'setup'));
+      const count = page.getByTestId('setup-section-count-0');
+      await expect(count).toHaveText('13');
+      const source = page.getByTestId('setup-section-count-source-0');
+      await expect(source).toHaveText('from the layout');
+      await expect(page.getByTestId('setup-section-count-1')).toHaveText('6');
+      // Lower Hall has no layout: its count is still a field, in the same column.
+      const typed = page.getByTestId('setup-section-count-input-2');
+      await expect(typed).toHaveValue('4');
+      // One of the layout's tables is in no section, so the sections hold 19 of its 20, and 4.
+      await expect(page.getByTestId('setup-section-total')).toHaveText('Total tables: 23');
+
+      const measured = await page.evaluate(() => {
+        const box = (testId: string) =>
+          document.querySelector(`[data-testid="${testId}"]`)!.getBoundingClientRect();
+        const source = document.querySelector('[data-testid="setup-section-count-source-0"]')!;
+        const cell = source.closest('.row-item')!.getBoundingClientRect();
+        const text = document.createRange();
+        text.selectNodeContents(source);
+        const words = text.getBoundingClientRect();
+        const row = box('setup-section-row-0');
+        const plain = box('setup-section-row-2');
+        const card = box('plan-card-sections');
+        return {
+          // The words whole, on one line, inside their cell and their card.
+          lines: text.getClientRects().length,
+          wordsLeft: words.left,
+          wordsRight: words.right,
+          cellLeft: cell.left,
+          cellRight: cell.right,
+          cardRight: card.right,
+          rowRight: row.right,
+          countLeft: box('setup-section-count-0').left,
+          typedLeft: box('setup-section-count-input-2').left,
+          rowHeight: row.height,
+          plainHeight: plain.height,
+        };
+      });
+      expect(measured.lines).toBe(1);
+      expect(measured.wordsLeft).toBeGreaterThanOrEqual(measured.cellLeft);
+      expect(measured.wordsRight).toBeLessThanOrEqual(measured.cellRight);
+      expect(measured.rowRight).toBeLessThanOrEqual(measured.cardRight);
+      // The read count starts where a typed one does.
+      expect(Math.abs(measured.countLeft - measured.typedLeft)).toBeLessThanOrEqual(1);
+      // Two lines of words make a row no taller than a field does.
+      expect(measured.rowHeight).toBeLessThanOrEqual(measured.plainHeight + 1);
+      expect(await truncatedSelects(page)).toEqual([]);
+    });
+  }
 });

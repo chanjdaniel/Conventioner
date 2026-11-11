@@ -223,6 +223,8 @@ const countTables = () => {
   width: 100%;
   margin: 0;
   font-size: var(--text-sm);
+  /* Two lines in the height a field takes, so a laid-out row is as tall as a typed one. */
+  line-height: 1.2;
   color: var(--mm-black);
 }
 

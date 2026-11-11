@@ -548,6 +548,31 @@ export const UPPER_HALL_ZONES: SeedZone[] = [
   { label: '', box: [9000, 15_000, 600, 600] },
 ];
 
+/** A table of a layout, as the server stores it. */
+export interface StoredLayoutTable {
+  id: string;
+  sectionId: string | null;
+  number: number | null;
+  tableTypeId: string;
+  xMm: number;
+  yMm: number;
+  rotation: number;
+}
+
+/** The tables of a market's first layout (`seedLayout`'s Upper Hall), as the server holds them. */
+export async function storedLayoutTables(
+  request: APIRequestContext,
+  baseURL: string,
+  marketId: string,
+): Promise<StoredLayoutTable[]> {
+  const read = await request.get(`${baseURL}/markets/${marketId}`);
+  if (!read.ok()) throw new Error(`Market read failed: ${read.status()} ${await read.text()}`);
+  const { market } = (await read.json()) as {
+    market: { setupObject: { floorplans?: { tables: StoredLayoutTable[] }[] } };
+  };
+  return market.setupObject.floorplans?.[0]?.tables ?? [];
+}
+
 /**
  * A draft market with two locations laid out for (T257): Upper Hall with Gold row (13 tables) and
  * Silver aisle (6), Lower Hall with Bronze corner (4), and a third location with no name, which

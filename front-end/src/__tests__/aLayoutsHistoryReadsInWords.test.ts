@@ -1,6 +1,7 @@
 /**
  * A layout's save, in the market's history (T257 ticket 02): the `floorplan` entry names its
- * location and says what the save did, from `layout.describe_change`'s detail.
+ * location and says what the save did, from `layout.describe_change`'s detail; ticket 04 adds the
+ * tables added, removed, moved and turned.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -60,6 +61,40 @@ describe("a layout's save reads in words", () => {
       "dana@ember.test replaced Upper Hall's floorplan image and recalibrated Upper Hall's " +
         'layout to 12.5 m across',
     );
+  });
+
+  it('says how many tables were added to each section', () => {
+    expect(said(saved({ added: { 'Silver aisle': 12 } }))).toBe(
+      'dana@ember.test added 12 tables to Silver aisle in Upper Hall',
+    );
+    expect(said(saved({ added: { 'Gold row': 1, 'Silver aisle': 2 } }))).toBe(
+      'dana@ember.test added 1 table to Gold row in Upper Hall and added 2 tables to Silver ' +
+        'aisle in Upper Hall',
+    );
+  });
+
+  it('says how many were removed, the renumbering that closed the gap left unsaid', () => {
+    expect(said(saved({ removed: { 'Gold row': 1 }, renumbered: ['Gold row'] }))).toBe(
+      'dana@ember.test removed 1 table from Gold row in Upper Hall',
+    );
+  });
+
+  it('says tables of no section are in none', () => {
+    expect(said(saved({ added: { 'in no section': 2 } }))).toBe(
+      'dana@ember.test added 2 tables in no section in Upper Hall',
+    );
+  });
+
+  it('says how many tables were moved and how many turned', () => {
+    expect(said(saved({ moved: 3 }))).toBe('dana@ember.test moved 3 tables in Upper Hall');
+    expect(said(saved({ turned: 1 }))).toBe('dana@ember.test turned 1 table in Upper Hall');
+    expect(said(saved({ moved: 2, turned: 2 }))).toBe(
+      'dana@ember.test moved 2 tables in Upper Hall and turned 2 tables in Upper Hall',
+    );
+  });
+
+  it('says a move in a layout whose location is gone without a place', () => {
+    expect(said(saved({ moved: 1 }, null))).toBe('dana@ember.test moved 1 table');
   });
 
   it('names a layout whose location is gone as a layout', () => {

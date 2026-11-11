@@ -1,7 +1,7 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { LayoutPage } from './pages/LayoutPage';
-import { seedLayout, type SeedTable, type SeededLayout } from './helpers/seeds';
+import { seedLayout, storedLayoutTables, type SeedTable, type SeededLayout } from './helpers/seeds';
 
 /**
  * A table is placed, moved, turned and removed with the pointer (T257 ticket 04), on Upper Hall,
@@ -11,24 +11,9 @@ import { seedLayout, type SeedTable, type SeededLayout } from './helpers/seeds';
  */
 const SIX_FOOT = { width: 1830, depth: 760 };
 
-interface StoredTable {
-  id: string;
-  sectionId: string | null;
-  number: number | null;
-  xMm: number;
-  yMm: number;
-  rotation: number;
-}
-
-/** Upper Hall's layout as the server holds it. */
-async function storedTables(request: APIRequestContext, marketId: string): Promise<StoredTable[]> {
-  const read = await request.get(`${BACKEND_URL}/markets/${marketId}`);
-  expect(read.ok()).toBe(true);
-  const { market } = (await read.json()) as {
-    market: { setupObject: { floorplans: { tables: StoredTable[] }[] } };
-  };
-  return market.setupObject.floorplans[0].tables;
-}
+/** Upper Hall's tables as the server holds them. */
+const storedTables = (request: APIRequestContext, marketId: string) =>
+  storedLayoutTables(request, BACKEND_URL, marketId);
 
 /** Gold row's table of a number, as stored. */
 async function gold(request: APIRequestContext, marketId: string, number: number) {
@@ -40,7 +25,7 @@ async function gold(request: APIRequestContext, marketId: string, number: number
 }
 
 async function open(
-  page: import('@playwright/test').Page,
+  page: Page,
   request: APIRequestContext,
   tables: SeedTable[],
 ): Promise<{ layout: LayoutPage; seeded: SeededLayout }> {
@@ -53,22 +38,6 @@ async function open(
   await expect(layout.stage).toBeVisible();
   await expect(layout.tables).toHaveCount(tables.length);
   return { layout, seeded };
-}
-
-/**
- * Do something that changes the layout, and wait for the save it starts to be answered. The wait
- * is for the write itself: "Saved" still stands from the save before while the next one waits its
- * 600 ms.
- */
-async function andSaved(layout: LayoutPage, change: () => Promise<void>) {
-  const answered = layout.page.waitForResponse(
-    (response) =>
-      response.url().includes('/floorplans/save-to-market') &&
-      response.request().method() === 'POST',
-  );
-  await change();
-  expect((await answered).ok()).toBe(true);
-  await expect(layout.saveState).toHaveText('Saved');
 }
 
 const GOLD_1 = 'Gold row 1, Standard 6 ft';
@@ -84,7 +53,7 @@ test.describe('A table moves by pointer', () => {
     await layout.toolAdd.click();
     await expect(layout.toolAdd).toHaveAttribute('aria-pressed', 'true');
     await expect(layout.addSection).toHaveValue('sec-gold');
-    await andSaved(layout, async () => {
+    await layout.saved(async () => {
       await layout.clickAt([6000, 6000]);
       await expect(layout.table(GOLD_1)).toBeVisible();
       // The tool stays on: the next click places the next table.
@@ -113,7 +82,7 @@ test.describe('A table moves by pointer', () => {
 
     // Silver aisle's first table is numbered on its own.
     await layout.addSection.selectOption({ label: 'Silver aisle' });
-    await andSaved(layout, async () => {
+    await layout.saved(async () => {
       await layout.clickAt([20_000, 15_000]);
       await expect(layout.table('Silver aisle 1, Standard 6 ft')).toBeVisible();
     });
@@ -134,7 +103,7 @@ test.describe('A table moves by pointer', () => {
     ]);
 
     // Gold row 2 is dropped five pixels short of standing against Gold row 1's right edge.
-    await andSaved(layout, () =>
+    await layout.saved(() =>
       layout.drag([12_000, 8000], [5000 + SIX_FOOT.width, 8000], {
         nudgePx: [5, 0],
         hold: async () => {
@@ -152,7 +121,7 @@ test.describe('A table moves by pointer', () => {
     // With Alt held the same five pixels are kept: no guide, no snap.
     const snapped = moved;
     await page.keyboard.down('Alt');
-    await andSaved(layout, () =>
+    await layout.saved(() =>
       layout.drag([snapped.xMm, snapped.yMm], [snapped.xMm, snapped.yMm], {
         nudgePx: [5, 0],
         hold: async () => {
@@ -185,7 +154,7 @@ test.describe('A table moves by pointer', () => {
       { section: 'sec-gold', at: [27_000, 5000] },
     ]);
     // Dropped two metres past the east wall and above the north one.
-    await andSaved(layout, () => layout.drag([27_000, 5000], [32_000, -2000]));
+    await layout.saved(() => layout.drag([27_000, 5000], [32_000, -2000]));
     const table = await gold(request, seeded.marketId, 1);
     expect([table.xMm, table.yMm]).toEqual([30_000, 0]);
   });
@@ -207,7 +176,7 @@ test.describe('A table moves by pointer', () => {
     const from = { x: knob.x + knob.width / 2, y: knob.y + knob.height / 2 };
     const reach = Math.hypot(from.x - centre.x, from.y - centre.y);
     const turn = (40 * Math.PI) / 180;
-    await andSaved(layout, async () => {
+    await layout.saved(async () => {
       await page.mouse.move(from.x, from.y);
       await page.mouse.down();
       await page.mouse.move(
@@ -228,11 +197,11 @@ test.describe('A table moves by pointer', () => {
     await expect(layout.table(GOLD_1)).toHaveAttribute('transform', /rotate\(45\)/);
     await expect(layout.tableNumber(GOLD_1)).toHaveText('1');
 
-    await andSaved(layout, () => page.keyboard.press('r'));
+    await layout.saved(() => page.keyboard.press('r'));
     table = await gold(request, seeded.marketId, 1);
     expect(table.rotation).toBe(135);
 
-    await andSaved(layout, () => layout.selectionTurn.click());
+    await layout.saved(() => layout.selectionTurn.click());
     table = await gold(request, seeded.marketId, 1);
     expect(table.rotation).toBe(225);
     expect([table.xMm, table.yMm]).toEqual([15_000, 11_000]);
@@ -251,7 +220,7 @@ test.describe('A table moves by pointer', () => {
     ]);
     await layout.clickAt([8000, 4000]);
     await expect(layout.selectionTitle).toHaveText('Gold row 2');
-    await andSaved(layout, async () => {
+    await layout.saved(async () => {
       await layout.selectionRemove.click();
       await expect(layout.tables).toHaveCount(3);
     });
@@ -292,23 +261,23 @@ test.describe('A table moves by pointer', () => {
 
     // Three changes: a table added, the first moved, then turned.
     await layout.toolAdd.click();
-    await andSaved(layout, () => layout.clickAt([20_000, 15_000]));
+    await layout.saved(() => layout.clickAt([20_000, 15_000]));
     await layout.toolSelect.click();
-    await andSaved(layout, () => layout.drag([6000, 6000], [6000, 12_000]));
-    await andSaved(layout, () => page.keyboard.press('r'));
+    await layout.saved(() => layout.drag([6000, 6000], [6000, 12_000]));
+    await layout.saved(() => page.keyboard.press('r'));
     const turned = await gold(request, seeded.marketId, 1);
     expect(turned.rotation).toBe(90);
     const dropped = [turned.xMm, turned.yMm];
 
     // Ctrl+Z takes back the turn, and saves.
-    await andSaved(layout, () => page.keyboard.press('Control+z'));
+    await layout.saved(() => page.keyboard.press('Control+z'));
     expect((await gold(request, seeded.marketId, 1)).rotation).toBe(0);
     // The button takes back the move.
-    await andSaved(layout, () => layout.undo.click());
+    await layout.saved(() => layout.undo.click());
     let first = await gold(request, seeded.marketId, 1);
     expect([first.xMm, first.yMm]).toEqual([6000, 6000]);
     // And the added table.
-    await andSaved(layout, async () => {
+    await layout.saved(async () => {
       await page.keyboard.press('Control+z');
       await expect(layout.tables).toHaveCount(1);
     });
@@ -316,14 +285,14 @@ test.describe('A table moves by pointer', () => {
     await expect(layout.undo).toBeDisabled();
 
     // Ctrl+Shift+Z, Ctrl+Y and the button bring each back, across those saves.
-    await andSaved(layout, async () => {
+    await layout.saved(async () => {
       await page.keyboard.press('Control+Shift+z');
       await expect(layout.tables).toHaveCount(2);
     });
-    await andSaved(layout, () => page.keyboard.press('Control+y'));
+    await layout.saved(() => page.keyboard.press('Control+y'));
     first = await gold(request, seeded.marketId, 1);
     expect([first.xMm, first.yMm]).toEqual(dropped);
-    await andSaved(layout, () => layout.redo.click());
+    await layout.saved(() => layout.redo.click());
     expect((await gold(request, seeded.marketId, 1)).rotation).toBe(90);
     await expect(layout.redo).toBeDisabled();
     expect(await storedTables(request, seeded.marketId)).toHaveLength(2);

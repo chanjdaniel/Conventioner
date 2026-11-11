@@ -220,6 +220,21 @@ export class LayoutPage {
     await this.page.mouse.up();
   }
 
+  /**
+   * Do something that changes the layout, and wait for the save it starts to be answered and the
+   * page to say so. The wait is for the write itself: a change waits 600 ms before it is sent.
+   */
+  async saved(change: () => Promise<void>): Promise<void> {
+    const answered = this.page.waitForResponse(
+      (response) =>
+        response.url().includes('/floorplans/save-to-market') &&
+        response.request().method() === 'POST',
+    );
+    await change();
+    expect((await answered).ok()).toBe(true);
+    await expect(this.saveState).toHaveText('Saved');
+  }
+
   /** Set the scale: the line drawn, then its length typed in `unit`. */
   async calibrate(from: [number, number], to: [number, number], length: string, unit = 'm') {
     await this.drawLine(from, to);

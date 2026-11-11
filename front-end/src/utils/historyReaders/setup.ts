@@ -21,6 +21,7 @@ import {
   changedFields,
   fieldName,
   listed,
+  plural,
   sentence,
   str,
   valueText,
@@ -108,7 +109,34 @@ function layoutClauses(detail: Detail, location: string): string[] {
     const verb = typeof scale.before === 'number' ? 'recalibrated' : 'calibrated';
     clauses.push(`${verb} ${whose} layout to ${metres(scale.after)} across`);
   }
+  const where = location ? ` in ${location}` : '';
+  clauses.push(...tableClauses(detail.added, 'added', 'to', where));
+  clauses.push(...tableClauses(detail.removed, 'removed', 'from', where));
+  if (typeof detail.moved === 'number' && detail.moved > 0) {
+    clauses.push(`moved ${plural(detail.moved, 'table', 'tables')}${where}`);
+  }
+  if (typeof detail.turned === 'number' && detail.turned > 0) {
+    clauses.push(`turned ${plural(detail.turned, 'table', 'tables')}${where}`);
+  }
   return clauses.length ? clauses : [`changed ${whose} layout`];
+}
+
+/** The key `layout.describe_change` counts tables of no section under (`IN_NO_SECTION`). */
+const IN_NO_SECTION = 'in no section';
+
+/**
+ * Tables added or removed, a clause for each section in the order recorded: "added 12 tables to
+ * Silver aisle in Upper Hall", "removed 1 table from Gold row in Upper Hall", and for tables of no
+ * section "added 2 tables in no section in Upper Hall".
+ */
+function tableClauses(counts: unknown, verb: string, link: string, where: string): string[] {
+  return Object.entries(asDetail(counts)).flatMap(([section, count]) => {
+    if (typeof count !== 'number' || count <= 0) return [];
+    const tables = plural(count, 'table', 'tables');
+    return section === IN_NO_SECTION
+      ? [`${verb} ${tables} ${IN_NO_SECTION}${where}`]
+      : [`${verb} ${tables} ${link} ${section}${where}`];
+  });
 }
 
 /** The Pricing card's fields, in the card's order and words (`pricing_fields` in

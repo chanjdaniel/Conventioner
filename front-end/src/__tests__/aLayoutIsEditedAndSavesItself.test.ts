@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FloorplanObject, FloorplanTable } from '@/assets/types/datatypes';
 import { SAVE_FAILED, STALE_LAYOUT, type SavedLayout } from '@/components/layout/layoutSave';
 import { useLayoutEditor } from '@/components/layout/useLayoutEditor';
+import { OFFLINE_MESSAGE } from '@/utils/api';
 
 function table(id: string, sectionId: string | null, number: number | null, x = 5000, y = 5000) {
   return { id, sectionId, number, tableTypeId: 'six-foot', xMm: x, yMm: y, rotation: 0 };
@@ -362,7 +363,8 @@ describe('the save queue', () => {
     editor.moveTables(['a'], 100, 0);
     await settle();
     expect(editor.saveState.value).toBe('failed');
-    expect(editor.saveMessage.value).toBe(SAVE_FAILED);
+    // The app's one sentence for a request that reached no server.
+    expect(editor.saveMessage.value).toBe(OFFLINE_MESSAGE);
     expect(editor.layout.value!.tables[0].xMm).toBe(5100);
     expect(editor.canUndo.value).toBe(true);
 
@@ -370,6 +372,17 @@ describe('the save queue', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(editor.saveState.value).toBe('saved');
     expect(server.sent.at(-1)!.layout.tables[0].xMm).toBe(5100);
+  });
+
+  it('says its own sentence for a refusal that carries none, and keeps the working copy', async () => {
+    const { editor, server } = anEditor([table('a', 'gold', 1)]);
+    server.save.mockImplementationOnce(() => Promise.reject(refused(400)));
+    editor.moveTables(['a'], 100, 0);
+    await settle();
+    expect(editor.saveState.value).toBe('failed');
+    expect(editor.saveMessage.value).toBe(SAVE_FAILED);
+    expect(editor.layout.value!.tables[0].xMm).toBe(5100);
+    expect(editor.pending()).toBe(true);
   });
 
   it('sends a failed save again with the next change', async () => {
@@ -503,6 +516,17 @@ describe("a write of the layout's own fields", () => {
     expect(last.tables[0].xMm).toBe(5100);
     editor.undo();
     expect(editor.layout.value!.scalePxPerUnit).toBe(0.05);
+  });
+
+  it('puts the layout back as it was read when the write is refused as stale', async () => {
+    const { editor, server } = anEditor([table('a', 'gold', 1)]);
+    server.revision = 9; // another tab saved
+    const before = editor.layout.value!.scalePxPerUnit;
+    const written = editor.write({ ...editor.layout.value!, scalePxPerUnit: 0.5 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await written).toBe(false);
+    expect(editor.saveState.value).toBe('stale');
+    expect(editor.layout.value!.scalePxPerUnit).toBe(before);
   });
 
   it('says a write that was refused did not land', async () => {

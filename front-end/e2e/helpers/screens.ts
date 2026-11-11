@@ -236,10 +236,11 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * A location's layout (T257) at one of its steps: the draft's first location, whose layout has not
  * begun, on its upload's drop zone; and the layout seed's Upper Hall, its floorplan uploaded and its
  * scale not yet set, calibrating; and the laid-out seed's Upper Hall, drawn as its map, 20 tables
- * over the faded floorplan with the panel's list of sections. Nothing is saved, so each walk finds
- * them as seeded.
+ * over the faded floorplan with the panel's list of sections: the editor at a desk and the map read
+ * on a phone, then, at a desk, with a table selected and with Add table's options open. Nothing is
+ * saved, so each walk finds them as seeded.
  */
-function layoutAt(stage: 'upload' | 'calibrating' | 'map') {
+function layoutAt(stage: 'upload' | 'calibrating' | 'map' | 'selected' | 'adding') {
   return async (page: Page, seed: TheScreensSeed) => {
     const layout = new LayoutPage(page);
     if (stage === 'upload') {
@@ -247,10 +248,20 @@ function layoutAt(stage: 'upload' | 'calibrating' | 'map') {
       await expect(layout.uploadDropzone).toBeVisible();
       return;
     }
-    if (stage === 'map') {
+    if (stage === 'map' || stage === 'selected' || stage === 'adding') {
       await layout.goto(seed.laidOut.marketId, seed.laidOut.upper.id);
       await expect(layout.mapImage).toHaveAttribute('href', /^blob:/);
       await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+      if (stage === 'selected') {
+        // Silver aisle's first table, pressed: outlined, the turn handle over it, its card filled.
+        await layout.clickAt([10_000, 11_000]);
+        await expect(layout.selectionTitle).toHaveText('Silver aisle 1');
+        await expect(layout.turnKnob).toBeVisible();
+      }
+      if (stage === 'adding') {
+        await layout.toolAdd.click();
+        await expect(layout.addSection).toBeVisible();
+      }
       return;
     }
     await layout.goto(seed.layout.marketId, seed.layout.upper.id);
@@ -1222,6 +1233,21 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: layoutAt('map'),
+  },
+  // The editor (T257), at a desk alone: a table selected, and Add table's options strip.
+  {
+    name: 'the layout, a table selected',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('selected'),
+  },
+  {
+    name: 'the layout, adding a table',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('adding'),
   },
   {
     name: 'market days, the plan',

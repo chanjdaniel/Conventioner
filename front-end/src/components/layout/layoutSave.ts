@@ -7,7 +7,7 @@
  * (`docs/implementation/conventions/one-market-from-the-server.md`).
  */
 import type { FloorplanObject, SectionObject } from '@/assets/types/datatypes';
-import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
+import { api } from '@/utils/api';
 
 /** The server's sentence for a save over a layout another tab or person saved in between. */
 export const STALE_LAYOUT = 'This layout changed elsewhere. Reload to see the latest.';
@@ -28,9 +28,6 @@ export interface SavedLayout {
   sections: SectionObject[];
 }
 
-/** Why a save did not land: `stale` wants a reload, `failed` a retry of the same save. */
-export type SaveRefusal = { kind: 'stale' | 'failed'; message: string };
-
 export async function saveLayout(
   marketId: string,
   floorplan: FloorplanObject,
@@ -44,11 +41,28 @@ export async function saveLayout(
   return data as SavedLayout;
 }
 
-/** A failed save, as the page says it: the server's sentence for a refusal, and the one failure
- * sentence when the server said none (no answer, or a fault of its own). */
-export function saveRefusal(err: unknown): SaveRefusal {
-  const status = getApiErrorStatus(err);
-  if (status === null || status >= 500) return { kind: 'failed', message: SAVE_FAILED };
-  const message = getApiErrorMessage(err, SAVE_FAILED);
-  return { kind: status === 409 && message === STALE_LAYOUT ? 'stale' : 'failed', message };
+/**
+ * The last try as the page goes (a reload, a closed tab): the same write as a keepalive request,
+ * which may outlive the page; true when one started. `fetch`, not the app's axios, whose browser
+ * adapter is XHR and has no `keepalive`. A best effort: its answer is never read, and a layout
+ * over the browser's 64 KiB keepalive limit, some hundreds of tables, is not sent at all, so the
+ * browser's own question before the page goes is the guard.
+ */
+export function saveLayoutOnUnload(
+  marketId: string,
+  floorplan: FloorplanObject,
+  revision: number,
+): boolean {
+  try {
+    void fetch(`${import.meta.env.VITE_FLASK_HOST}/floorplans/save-to-market`, {
+      method: 'POST',
+      keepalive: true,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ market_id: marketId, floorplan, revision }),
+    }).catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
 }

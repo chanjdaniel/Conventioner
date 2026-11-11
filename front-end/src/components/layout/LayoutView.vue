@@ -13,7 +13,8 @@
  * with the layout as stored; before a scale it is the calibration over the image
  * (`LayoutCalibration.vue`), and Recalibrate draws the line again; with a scale it is the layout's
  * drawing (`LayoutMap.vue`): the editor (`LayoutEditor.vue`) for someone who may change the
- * layout, with the selection's card heading the panel, and the whole hall, read, for anyone else.
+ * layout, at a desk, with the selection's card heading the panel, and the whole hall, read, for
+ * anyone else and at a phone's width.
  * It is drawn over the floor alone while the image is on its way or could not be had, and the
  * panel lists the location's sections in the colours the map draws them in. The page holds the
  * layout's working copy (`useLayoutEditor.ts`): each save names the revision it read, a save over
@@ -23,11 +24,12 @@
  * With no location in the address it opens the market's first named one. A location with no id
  * (a market stored before ids, until its next write) or no name offers no layout.
  */
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
 import type { FloorplanObject, LocationObject } from '@/assets/types/datatypes';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
+import { useUnsavedWork } from '@/utils/useUnsavedWork';
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { layoutPath, marketPath } from '@/utils/market';
 import FloorplanUploader from './FloorplanUploader.vue';
@@ -38,7 +40,7 @@ import LayoutPanelSections from './LayoutPanelSections.vue';
 import LayoutPanelSelection from './LayoutPanelSelection.vue';
 import { metresAcross, pxPerMm, type Point } from './calibration';
 import { layoutSections } from './layoutDrawing';
-import { saveLayout, type UploadedFloorplan } from './layoutSave';
+import { saveLayout, saveLayoutOnUnload, type UploadedFloorplan } from './layoutSave';
 import { turnSelection } from './layoutSelection';
 import { useLayoutEditor } from './useLayoutEditor';
 import { useFloorplanImage } from './useFloorplanImage';
@@ -91,8 +93,10 @@ const stored = computed<FloorplanObject | null>(
  * re-read through the one store. */
 const editor = useLayoutEditor({
   save: (layout, revision) => saveLayout(marketId.value, layout, revision),
+  saveOnUnload: (layout, revision) => saveLayoutOnUnload(marketId.value, layout, revision),
   onSaved: () => void refresh(),
   draft: () => !market.value?.setupLockReason,
+  may: () => editable.value,
 });
 const floorplan = editor.layout;
 const saveState = editor.saveState;
@@ -105,10 +109,15 @@ watch(locationId, () => {
 });
 
 // A change still waiting is saved before the page is left, for another location's layout or
-// another page, and before a phase move, which reads the market as the server holds it.
-onBeforeRouteUpdate(() => editor.flush());
-onBeforeRouteLeave(() => editor.flush());
-onBeforeUnmount(() => editor.dispose());
+// another page, and before a phase move, which reads the market as the server holds it. A reload
+// or a closed tab is asked by the browser first, and the change is sent as the page goes.
+onBeforeRouteUpdate(async () => {
+  await editor.flush();
+});
+onBeforeRouteLeave(async () => {
+  await editor.flush();
+});
+useUnsavedWork({ unsaved: () => editor.pending(), inApp: false });
 
 const { url: imageUrl, failed: imageFailed } = useFloorplanImage(
   computed(() => floorplan.value?.imageGridfsId),
@@ -122,6 +131,11 @@ const recalibrating = ref(false);
 const sections = computed(() =>
   floorplan.value ? layoutSections(floorplan.value, market.value?.setupObject?.sections ?? []) : [],
 );
+
+/** The layout's pending change lands before a phase move reads the market. */
+async function flushLayout(): Promise<void> {
+  await editor.flush();
+}
 
 async function reload() {
   await refresh();
@@ -168,8 +182,23 @@ async function onCalibrated(line: { start: Point; end: Point; lengthMm: number }
 
 const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(stored.value));
 
-/** Whether the map is the editor: a calibrated layout, for someone who may change it. */
-const editing = computed(() => calibrated.value && editable.value && !recalibrating.value);
+/** A layout is edited at a desk: at a phone's width, 640px and below, its map is read. */
+const atADesk = ref(true);
+let phoneWindow: MediaQueryList | null = null;
+function readTheWindow() {
+  atADesk.value = !phoneWindow?.matches;
+}
+onMounted(() => {
+  phoneWindow = window.matchMedia('(width <= 640px)');
+  phoneWindow.addEventListener('change', readTheWindow);
+  readTheWindow();
+});
+onUnmounted(() => phoneWindow?.removeEventListener('change', readTheWindow));
+
+/** Whether the map is the editor: a calibrated layout, for someone who may change it, at a desk. */
+const editing = computed(
+  () => calibrated.value && editable.value && !recalibrating.value && atADesk.value,
+);
 
 const selectedTables = computed(() => {
   const ids = new Set(editor.selection.value);
@@ -179,7 +208,7 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
 </script>
 
 <template>
-  <MarketFrame :market="market" :beforeTransition="editor.flush">
+  <MarketFrame :market="market" :beforeTransition="flushLayout">
     <div v-if="market" class="layout-page" data-testid="layout-page">
       <header class="layout-head">
         <h1 class="layout-title">Layout</h1>
