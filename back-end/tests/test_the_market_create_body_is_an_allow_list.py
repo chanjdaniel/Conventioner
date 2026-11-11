@@ -2,11 +2,11 @@
 
 ``POST /markets`` reads the fields a person chooses when they create a market - its name, its
 creation date, its organization, how vendors reach it, its plan and its form - and starts every
-other field of ``Market`` at its default, as the plan write reads only the plan
-(``PLAN_WRITE_FIELDS``). A key outside the list is dropped, not refused: an open tab of the build
-before sends the whole new-market object, and nothing in it is the creator's to decide.
+other field of ``Market`` at its default or writes it itself (its id, its owner, its first phase
+entry and its permissions), as the plan write reads only the plan (``PLAN_WRITE_FIELDS``). A key outside the list is dropped, not refused: an open tab of the build
+before sends the whole new-market object, and nothing else in it is the creator's to decide.
 
-The test below posts a value for every stored field of ``Market``, so a field added to it later
+The tests below post a value for every stored field of ``Market``, so a field added to it later
 fails here until it is given a sample, and lands at its default until someone lists it.
 """
 import pytest

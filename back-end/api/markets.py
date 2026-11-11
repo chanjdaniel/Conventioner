@@ -1280,8 +1280,8 @@ def _convert_roles_keys_to_user_ids(roles: Dict[str, str]) -> Dict[str, str]:
 
 
 #: What a person chooses when they create a market: every other field of a new market starts at its
-#: default, or is the server's to write (``new_market``). As the plan write reads only the plan
-#: (``PLAN_WRITE_FIELDS``), so a field added to ``Market`` is the server's until it is listed here.
+#: default, or is the server's to write (``new_market``). An allow-list, as the plan write's
+#: ``PLAN_WRITE_FIELDS`` is, so a field added to ``Market`` is the server's until it is listed here.
 MARKET_CREATE_FIELDS = (
     "name", "creation_date", "organization_id", "intake_mode", "setup_object", "application_form",
 )

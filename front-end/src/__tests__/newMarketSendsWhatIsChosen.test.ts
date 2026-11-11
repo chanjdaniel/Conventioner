@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 /**
  * Create new market posts only what the dialog asks for: the name, the organization, how vendors
- * apply, and when. The server starts every other field of a new market itself, and reads only
- * these (`MARKET_CREATE_FIELDS` in `back-end/api/markets.py`).
+ * apply, and when. The server starts every other field of a new market itself, and drops any key
+ * outside `MARKET_CREATE_FIELDS` in `back-end/api/markets.py`.
  */
 import { afterEach, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';

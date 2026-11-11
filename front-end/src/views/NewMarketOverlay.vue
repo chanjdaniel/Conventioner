@@ -82,8 +82,8 @@ const handleSubmit = async () => {
 
   try {
     // What a person chooses here, and nothing else: the server starts every other field of a new
-    // market itself, and reads only these (`MARKET_CREATE_FIELDS`). No roles: whoever creates a
-    // market owns it, and the server says so (bug 46).
+    // market itself, and drops any key outside its `MARKET_CREATE_FIELDS`. No roles: whoever
+    // creates a market owns it, and the server says so (bug 46).
     const newMarket: NewMarket = {
       name: marketName.value,
       creationDate: new Date().toISOString(),
