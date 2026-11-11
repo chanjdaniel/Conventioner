@@ -1351,6 +1351,7 @@ REQUIRED_BODIES = [
 ]
 OPTIONAL_BODIES = [
     ("put", "/markets/<market_id>/name", None),
+    ("post", "/markets/<market_id>/hand-on", None),
     ("put", "/markets/<market_id>/vendor-notes/<path:vendor_email>", None),
     ("put", "/markets/<market_id>/vendor-notes/<path:vendor_email>/request-handled", None),
     ("put", "/markets/<market_id>/review-highlights", None),

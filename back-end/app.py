@@ -830,6 +830,19 @@ def update_market_role(market_id: str, user_id: str) -> Response:
         return jsonify({"error": "Failed to update role"}), 400
     return jsonify({"message": "Role updated successfully"}), 200
 
+@app.route('/markets/<market_id>/hand-on', methods=['POST'])
+@login_required
+def hand_on_market(market_id: str) -> Response:
+    """Hand the market on (T283): body ``{"userId": "<id>"}``, someone with access, who becomes
+    its Owner while the requester, its Owner, stays on it as an Admin. Answers the market as the
+    market read serves it to the requester now."""
+    user_id = string_field(json_object(required=False), 'userId')
+    if not user_id:
+        return jsonify({"error": "Choose who to hand this market on to."}), 400
+    requester = authenticated_email()
+    MarketsApi.hand_on_market(market_id, user_id, requester)
+    return jsonify({"market": MarketsApi.get_market_for_user(requester, market_id)}), 200
+
 # source data
 
 @app.route('/markets/<market_id>', methods=['GET'])

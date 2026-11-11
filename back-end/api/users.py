@@ -935,9 +935,9 @@ def delete_user(authenticated_email: str):
 
     The Owner of a market is refused for the same reason, beside the organization refusal (T283): a
     market's Owner is the only person who may delete it, manage its admins and change who may do
-    what on it, so every market keeps an Owner whose account exists. Deleting the market is
-    something its Owner may do, and then this succeeds. A role below Owner on a market is not
-    ownership, and the deletion goes ahead.
+    what on it, so every market keeps an Owner whose account exists. Handing the market on
+    (``POST /markets/<id>/hand-on``) or deleting it is something its Owner may do, and then this
+    succeeds. A role below Owner on a market is not ownership, and the deletion goes ahead.
     """
     data = json_object(required=False)
     email_to_delete = normalized_email(string_field(data, "email"))

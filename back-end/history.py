@@ -133,6 +133,9 @@ PERMISSION_RESET = "permission_reset"
 PERMISSION_TABLE_RESET = "permission_table_reset"
 #: A market's table replaced by its organization's default as it is now (E39/F02/S01).
 PERMISSION_TABLE_COPIED = "permission_table_copied"
+#: The market handed on by its Owner to someone with access, who becomes its Owner while the old
+#: Owner stays on it as an Admin (T283).
+HANDED_ON = "handed_on"
 
 # The organization's own: its verbs and its template kinds are with its changes, below.
 

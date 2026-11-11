@@ -6,8 +6,9 @@ type Answered = Pick<Market, 'actionRefusals'> | null | undefined;
 /**
  * The row of the table that gives and takes each role, as `roles_row` rules on the server: Editor
  * and Viewer roles one, Admin roles another. None for the Owner: a market has one, and nobody
- * changes or takes it through Manage market (bug 43 - the owner's own row offered a select the
- * server refused every use of); handing it on is a transfer, not a role change.
+ * changes or takes it through a role (bug 43 - the owner's own row offered a select the server
+ * refused every use of): the Owner hands the market on, the table's own row "Hand the market on"
+ * (`MarketAction.HandOnMarket`), and their row stays a badge.
  */
 const ROW_OF_ROLE: Record<MarketRole, MarketAction | null> = {
   [MarketRole.Owner]: null,

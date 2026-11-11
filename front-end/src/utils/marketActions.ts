@@ -37,6 +37,7 @@ export const MarketAction = {
   ConnectDiscord: 'connect-discord',
   ManageEditorsAndViewers: 'manage-editors-and-viewers',
   ManageAdmins: 'manage-admins',
+  HandOnMarket: 'hand-on-market',
   DeleteMarket: 'delete-market',
   ChangeTheTable: 'change-the-table',
 } as const;

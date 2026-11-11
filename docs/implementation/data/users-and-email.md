@@ -199,7 +199,7 @@ The fix for each refusal is in [Operations](../../OPERATIONS.md#when-the-back-en
 
 ## Deleting an account
 
-A person deletes only their own account, and not while they own an organization or a market, so every organization and every market keeps an owner whose account exists.
+A person deletes only their own account, and not while they own an organization or a market, so every organization and every market keeps an owner whose account exists: they transfer the organization, and hand the market on (`hand_on_market`, [the market's actions](../modules/market-actions.md#hand-the-market-on-hand-on-market)) or delete it, first.
 `delete_user` reads the organizations whose people name them `owner` and the markets whose `roles.<id>` is `"owner"` (projecting `id` and `name`, served by the `roles.$**` [lookup index](lookup-indexes.md)), and while either finds one it answers 409 and deletes nothing.
 The body's `msg` is one sentence for each, space-joined: "Transfer ownership of <organization names> before deleting this account." and "Hand on or delete <market names> before deleting this account.", the names comma-joined; `ownedOrganizations` and `ownedMarkets` list the names, each present only when it is not empty.
 A role below Owner on a market is not ownership, and the deletion goes ahead ([what each role may do](../../business/rules/what-each-role-may-do.md#a-chosen-reviewer-and-where-a-role-comes-from)).
