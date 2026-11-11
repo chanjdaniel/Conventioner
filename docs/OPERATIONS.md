@@ -103,7 +103,7 @@ What a person may do is decided per organization and per market:
 | ------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
 | Organization owner, admin | Manage organization (Organizations page)                     | **Admin** on every market the organization holds - never the market's owner                            |
 | Organization member       | Manage organization (Organizations page)                     | **Viewer** on every market the organization holds                                                      |
-| Market owner              | creating the market                                          | everything, including roles and deletion                                                               |
+| Market owner              | creating the market, or being handed it by the owner         | everything, including roles, handing the market on and deletion                                        |
 | Market admin              | Manage market, or being the organization's owner or an admin | phase moves, importing, publishing results, adding editors and viewers, plus everything an editor does |
 | Market editor             | Manage market                                                | the plan, the form, verdicts on applications, placements, and checking vendors in at the door          |
 | Market viewer             | Manage market, or organization membership                    | reading                                                                                                |
