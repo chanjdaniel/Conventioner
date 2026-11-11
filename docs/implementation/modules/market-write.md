@@ -43,6 +43,7 @@ describes:
   - front-end/src/views/ResultView.vue#runPlacementChange
   - front-end/src/__tests__/aPlacementThatMetAChangedMarket.test.ts
   - front-end/src/__tests__/aFormSaveThatMetAChangedMarket.test.ts
+  - front-end/src/__tests__/aStartThatMetAChangedMarket.test.ts
   - front-end/e2e/helpers/saveApplicationForm.ts
   - front-end/e2e/helpers/savePlan.ts
   - front-end/e2e/a-plan-save-from-an-older-tab.spec.ts
@@ -227,6 +228,7 @@ A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-e
 - `src/__tests__/planAutosave.test.ts`, "the plan's revision": Market Setup sending the revision it read, then each one a save answered, a wanted save taking the answer's without a re-read, Allocate tables' save sending it, and a refused save dropping the edit and showing the plan as it now stands with the sentence.
 - [`e2e/a-plan-save-from-an-older-tab.spec.ts`](../../../front-end/e2e/a-plan-save-from-an-older-tab.spec.ts): two tabs of one organizer on Market Setup of one draft, A adding a market date, B, opened before, renaming a section: B's save refused in the sentence, B showing A's date, B's rename not stored.
 - [`src/__tests__/aPlacementThatMetAChangedMarket.test.ts`](../../../front-end/src/__tests__/aPlacementThatMetAChangedMarket.test.ts): the Tables page, after a refused placement, reading the tables and an open vendor's details again with the sentence in the seat's dialog, leaving the market to the interceptor; after a seat taken meanwhile, reading the tables and the market again with the refusal in the dialog; and reading nothing again after a refusal that is not a 409.
+- [`src/__tests__/aStartThatMetAChangedMarket.test.ts`](../../../front-end/src/__tests__/aStartThatMetAChangedMarket.test.ts): the start from a CSV, refused with the sentence, showing it on the review step and going nowhere.
 
 ## Why
 
