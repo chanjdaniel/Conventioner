@@ -335,17 +335,20 @@ def write_answer_updates(
     app_id: str, updates: Dict[str, AnswerUpdate], cleared: Iterable[str],
 ) -> bool:
     """Store these updates of an application's answers, and take the ``cleared`` ones away, each by
-    its own question's path, so two organizers updating different answers at once both land."""
+    its own question's path, so two organizers updating different answers at once both land.
+
+    Either moves ``updated_at``, the answers' version, in the same update: what every reader reads
+    as the answers changed, so a verdict on a card opened before is refused (T270). With nothing to
+    store or take away it writes nothing."""
     ensure_application_indexes()
-    update: Dict[str, Any] = {}
-    if updates:
-        update["$set"] = {
-            f"{ANSWER_UPDATES_FIELD}.{key}": value.model_dump() for key, value in updates.items()}
+    stored = {f"{ANSWER_UPDATES_FIELD}.{key}": value.model_dump() for key, value in updates.items()}
     gone = {f"{ANSWER_UPDATES_FIELD}.{key}": "" for key in cleared}
+    if not stored and not gone:
+        return True
+    version = datetime.now(timezone.utc).isoformat()
+    update: Dict[str, Any] = {"$set": {**stored, "updated_at": version}}
     if gone:
         update["$unset"] = gone
-    if not update:
-        return True
     return applications_collection.update_one({"id": app_id}, update).matched_count > 0
 
 
@@ -451,8 +454,8 @@ def update_application_status(
 
     ``if_unchanged_since`` is the application as the caller read it: the write lands only if its
     status, its verdict's time and its answers' time (``updated_at``) are still those, so neither a
-    verdict given in between nor answers changed in between - an applicant's edit, a re-import - is
-    written over (E33/F03/S02, E34/F03/S01).
+    verdict given in between nor answers changed in between - an applicant's edit, a re-import, an
+    organizer's update (T270) - is written over (E33/F03/S02, E34/F03/S01).
 
     A follow-up is marked like a verdict, by someone, and has an ``owner``: the marker unless named
     (E34/F01/S02). Any other status clears the owner.
@@ -827,17 +830,34 @@ def is_judgeable(application: Dict[str, Any]) -> bool:
 
 def update_application_form_data(
     app_id: str, form_data: Dict[str, Any], submitted_at: str, updated_at: str,
+    *, held: Optional[Dict[str, Any]] = None, back_to_review: bool = False,
 ) -> bool:
-    """Write form answers and timestamps for an application."""
+    """Write form answers and timestamps for an application. Returns whether it matched.
+
+    ``held`` is the application as the caller read it: the write lands only while its status and
+    its verdict's time are still those (null and absent alike), so answers are never stored under a
+    verdict given after the caller decided what to write (a re-import, T270).
+
+    ``back_to_review`` returns it to open in the same update, clearing what
+    ``update_application_status`` clears for a status without a giver: the verdict's giver, time
+    and reason, the follow-up's owner, the claim and ``undo_to``. One update, so no stop between
+    the answers and the status can leave a vendor approved on answers nobody saw.
+    """
     ensure_application_indexes()
-    result = applications_collection.update_one(
-        {"id": app_id},
-        {"$set": {
-            "form_data": form_data,
-            "submitted_at": submitted_at,
-            "updated_at": updated_at,
-        }},
-    )
+    query: Dict[str, Any] = {"id": app_id}
+    if held is not None:
+        query["status"] = held.get("status")
+        query["verdict_at"] = held.get("verdict_at") or {"$in": [None]}
+    update: Dict[str, Any] = {"$set": {
+        "form_data": form_data,
+        "submitted_at": submitted_at,
+        "updated_at": updated_at,
+    }}
+    if back_to_review:
+        update["$set"]["status"] = ApplicationStatus.OPEN.value
+        update["$unset"] = {"verdict_by": "", "verdict_at": "", "verdict_reason": "",
+                            "follow_up_owner": "", "undo_to": "", **_CLAIM_UNSET}
+    result = applications_collection.update_one(query, update)
     return result.matched_count > 0
 
 

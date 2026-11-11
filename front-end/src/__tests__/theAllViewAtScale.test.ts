@@ -423,7 +423,7 @@ describe('the states', () => {
     await selectAll(wrapper).trigger('click');
     expect(selection(wrapper).exists()).toBe(true);
     fetchMarketApplications.mockRejectedValue({ isAxiosError: true, request: {} });
-    wrapper.findComponent({ name: 'VendorDrawer' }).vm.$emit('infoUpdated');
+    wrapper.findComponent({ name: 'VendorDrawer' }).vm.$emit('infoUpdated', application(1));
     await flushPromises();
     expect(wrapper.find('[data-testid="applications-read-failed"]').exists()).toBe(true);
     expect(rows(wrapper)).toHaveLength(0);
