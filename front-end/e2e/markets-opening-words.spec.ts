@@ -1,5 +1,6 @@
 import type { APIRequestContext, Locator, Page, Route } from '@playwright/test';
 import { test, expect, BACKEND_URL, LoginPage, ManageMarketPage } from './fixtures';
+import { mongoEval } from './helpers/mongo';
 import { loginViaApi } from './helpers/seeds';
 import { marketSetupPath } from './helpers/marketScreens';
 import { widths } from './helpers/phoneWindow';
@@ -33,7 +34,11 @@ const WINDOWS = [
 ] as const;
 
 const PASSWORD = 'OpeningWords123!';
-/** Longer than the line holds at either window. */
+/**
+ * Longer than the line holds at either window, and longer than the 100 characters a market's name
+ * may now be: a name stored before that rule still lists, and no name within it is sure to be cut
+ * at a desk, so the test writes it onto the market as such a name is stored.
+ */
 const LONG_NAME =
   'The Riverside Spring Handmade and Vintage Market of Unusually Many Words, Held Every Year on the Old Harbour Front by the Friends of the Riverside Makers and Their Many Neighbours';
 
@@ -53,7 +58,7 @@ async function organizerWith(page: Page, request: APIRequestContext, names: stri
   ensureVerifiedUser(email, PASSWORD);
   await loginViaApi(request, BACKEND_URL, email, PASSWORD);
   const res = await request.post(`${BACKEND_URL}/organizations`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: { name: `Org ${run}` },
   });
   expect(res.ok(), await res.text()).toBe(true);
@@ -132,11 +137,31 @@ for (const size of WINDOWS) {
       await expect(page).toHaveURL(new RegExp(`/markets/${markets[1].id}`));
     });
 
+    test("Enter on a market card's name opens the market", async ({ page, request }) => {
+      // A card opens by the button its name slot holds (T75), which nothing but this presses.
+      const { markets } = await organizerWith(page, request, ['Riverside Market', 'Harbour Fair']);
+      await page.goto('/markets');
+
+      const card = cards(page).filter({ hasText: markets[1].name });
+      const open = card.getByTestId('market-card-name').getByRole('button', {
+        name: markets[1].name,
+      });
+      await open.focus();
+      await expect(open).toBeFocused();
+      await page.keyboard.press('Enter');
+
+      await expect(page).toHaveURL(new RegExp(`/markets/${markets[1].id}`));
+    });
+
     test('a long name is cut with an ellipsis, and nothing scrolls sideways', async ({
       page,
       request,
     }) => {
-      const { markets } = await organizerWith(page, request, [LONG_NAME, 'Harbour Fair']);
+      const { markets } = await organizerWith(page, request, ['Riverside Spring', 'Harbour Fair']);
+      markets[0].name = `${LONG_NAME} ${markets[0].name}`;
+      mongoEval(
+        `db.markets.updateOne({ id: ${JSON.stringify(markets[0].id)} }, { $set: { name: ${JSON.stringify(markets[0].name)} } })`,
+      );
       await remember(page, markets[0].id);
       await page.goto('/markets');
 

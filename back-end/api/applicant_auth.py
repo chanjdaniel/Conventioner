@@ -51,6 +51,7 @@ A first-time vendor signs in exactly as a returning one does: the token names th
 address and the market, not an application, and their first save creates it.
 """
 import hashlib
+import html
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -63,9 +64,10 @@ from pymongo.errors import PyMongoError
 
 import remembered_sign_ins as RememberedSignIns
 import sign_in_limits
+from client_errors import traceback_without_messages
 from db_config import get_database
 from market_documents import market_dates_of, market_id_at_slug, vendor_page_market_by_slug
-from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
+from utils.email import frontend_url, one_line, send_mail
 from utils.application_token import generate_application_token
 from utils.email_address import normalized_email
 from utils.request_body import string_field
@@ -132,15 +134,19 @@ def ensure_applicant_login_indexes() -> None:
         sign_in_limits.ensure_expiry_index()
         RememberedSignIns.ensure_expiry_index()
     except PyMongoError as exc:
+        # The driver's message is not repeated, nor kept as the cause: a duplicate key error on
+        # the challenges quotes the vendor's address.
         message = (
             f"The indexes on {APPLICANT_LOGIN_CHALLENGES_COLLECTION}, "
             f"{sign_in_limits.SIGN_IN_ATTEMPTS_COLLECTION} and "
-            f"{RememberedSignIns.REMEMBERED_SIGN_INS_COLLECTION} could not be built, so nothing "
-            f"is keeping one code per address or cleaning up expired challenges, rate limit "
-            f"counters and remembered sign-ins: {exc}"
+            f"{RememberedSignIns.REMEMBERED_SIGN_INS_COLLECTION} could not be built "
+            f"({type(exc).__name__}, code {getattr(exc, 'code', None)}), so nothing is keeping "
+            f"one code per address or cleaning up expired challenges, rate limit counters and "
+            f"remembered sign-ins. Duplicate challenges, which a duplicate key error means, can be "
+            f"deleted: each expires within {CODE_EXPIRY_MINUTES} minutes anyway."
         )
         logger.critical("%s", message)
-        raise ApplicantLoginIndexError(message) from exc
+        raise ApplicantLoginIndexError(message) from None
     _indexes_ready = True
 
 
@@ -213,7 +219,7 @@ def _caller_refusal(limit: sign_in_limits.SignInLimit):
     Asked on every request before the body or the slug is read, so the caller is counted alike
     whatever it sends, and a refusal is the same for every address and every market, real or not.
     """
-    return _too_many(sign_in_limits.count_attempt(limit, request.remote_addr or "unknown"))
+    return _too_many(sign_in_limits.count_attempt(limit, sign_in_limits.caller()))
 
 
 def _address_refusal(limit: sign_in_limits.SignInLimit, email: Optional[str]):
@@ -228,7 +234,8 @@ def _address_refusal(limit: sign_in_limits.SignInLimit, email: Optional[str]):
 
 def _too_many(retry_after: Optional[int]):
     """The sign-in's refusal for a limit that says to wait, or None (``sign_in_limits.too_many``)."""
-    return sign_in_limits.too_many(retry_after, "sign-in")
+    return sign_in_limits.too_many(
+        retry_after, "Too many sign-in attempts. Please try again in {wait}.")
 
 
 def _email_from(data) -> Optional[str]:
@@ -242,28 +249,23 @@ def _email_from(data) -> Optional[str]:
 def _send_code_email(
     email: str, code: str, market_name: str, market_slug: str, sequence: int
 ) -> bool:
-    """Send the sign-in code to the vendor's email address.
+    """Send the sign-in code to the vendor's email address, through ``send_mail``.
 
     It links to the market's own vendor page, ``/<slug>``, by its public address: the link a vendor
     receives is the one they keep (ADR 0022). Its subject carries the code's number, ``sequence``,
     and never the code: a mail client threads emails by subject, and with one subject for all it
     buried the newest code under an older one, which a vendor then typed (T191 F22).
 
+    The market's name is the one value here someone else typed: anyone can name a market and ask
+    for a code to any address. So the HTML holds it escaped wherever it appears, and the subject and
+    text hold it on one line, and a name holding a link or a header line reaches the inbox as words.
+
     Returns True when the email was accepted by the provider (or disabled in dev),
     False when it was not.
     """
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping applicant login code email to %s", email)
-        return True
-
-    if not ready_mailer():
-        logger.error("Cannot send applicant login code: RESEND_API_KEY not set")
-        return False
-
-    import resend
-
-    base_url = frontend_url()
-    page_url = f"{base_url}/{market_slug}"
+    page_url = f"{frontend_url()}/{market_slug}"
+    name_in_html = html.escape(market_name, quote=True)
+    name_in_words = one_line(market_name)
 
     html_content = f"""
     <!DOCTYPE html>
@@ -275,11 +277,11 @@ def _send_code_email(
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h1 style="color: #36826f;">Your sign-in code</h1>
-        <p>You asked to sign in to your page for <strong>{market_name}</strong>.</p>
+        <p>You asked to sign in to your page for <strong>{name_in_html}</strong>.</p>
         <div style="background-color: #f5f5f5; border: 2px dashed #36826f; padding: 20px; text-align: center; margin: 30px 0;">
             <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #36826f; margin: 0;">{code}</p>
         </div>
-        <p>Enter it on <a href="{page_url}">your page for {market_name}</a>.</p>
+        <p>Enter it on <a href="{page_url}">your page for {name_in_html}</a>.</p>
         <p style="color: #777474; font-size: 12px; margin-top: 30px;">This code expires in {CODE_EXPIRY_MINUTES} minutes. Only the newest code works.</p>
         <p style="color: #777474; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
     </body>
@@ -289,33 +291,24 @@ def _send_code_email(
     text_content = f"""
     Your sign-in code
 
-    You asked to sign in to your page for "{market_name}".
+    You asked to sign in to your page for "{name_in_words}".
 
     Your code: {code}
 
-    Enter it on your page for {market_name}: {page_url}
+    Enter it on your page for {name_in_words}: {page_url}
 
     This code expires in {CODE_EXPIRY_MINUTES} minutes. Only the newest code works.
 
     If you didn't request this code, please ignore this email.
     """
 
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": f"Your sign-in code for {market_name} (#{sequence})",
-            "html": html_content,
-            "text": text_content,
-        })
-        if response and hasattr(response, "id"):
-            logger.info("Applicant login code sent to %s for market %s", email, market_slug)
-            return True
-        logger.error("Applicant login code send returned unexpected response: %s", response)
-        return False
-    except Exception as e:
-        logger.error("Error sending applicant login code to %s: %s - %s", email, type(e).__name__, e)
-        return False
+    return send_mail(
+        "applicant sign-in code",
+        email,
+        f"Your sign-in code for {name_in_words} (#{sequence})",
+        html_content,
+        text_content,
+    )
 
 
 # ── Challenge storage ─────────────────────────────────────────────────────
@@ -455,8 +448,12 @@ def request_login_code(market_slug: str) -> tuple:
     # every address has already closed. A failed send is logged and answered as a sent one.
     try:
         delivered = _send_code_email(email, code, market_name, market_slug, sequence)
-    except Exception:
-        logger.exception("Applicant sign-in code for market %s could not be sent", market_slug)
+    except Exception as error:
+        # By its type and frames: a mail library's message can quote the address it was given.
+        logger.error(
+            "Applicant sign-in code for market %s could not be sent\n%s",
+            market_slug, traceback_without_messages(error),
+        )
     else:
         if not delivered:
             logger.error("Applicant sign-in code for market %s was not sent", market_slug)

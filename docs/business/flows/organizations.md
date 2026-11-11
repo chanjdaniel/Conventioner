@@ -37,6 +37,7 @@ Its owner and admins run every market it holds as the market's Admin does, and a
 
 The list and its dialogs (New organization, Manage organization and Delete organization) fit a phone, as the Markets list beside it does: nothing scrolls sideways or zooms out, and on Manage organization each person's address takes a line of its own ([the design language](../../design-system.md#layout)).
 Covered by:
+
 - [`*-sweep.spec.ts`](../../design-system.md#what-keeps-this-true), the sweeps, at 390px
 - `organizations-fit-a-phone.spec.ts`
 
@@ -56,6 +57,7 @@ The count is the organization read's `marketCount`, counted from the markets the
 
 A person with no organization is told on the Markets list and in the create-market dialog to make one here first ([D4](creating-a-market.md#d4-create-a-market-with-no-organization-yet)).
 Covered by:
+
 - [`theMarketsAndOrganizationsAtScale.test.ts`](../../../front-end/src/__tests__/theMarketsAndOrganizationsAtScale.test.ts) for the field at 12 and 13 and the first 50 of 51
 - `tier2.spec.ts` ("Organization CRUD")
 
@@ -74,6 +76,7 @@ Covered by:
 
 Branches: an email with no account, someone already in the organization, an Admin trying Owner-only actions.
 Covered by:
+
 - `access-control.spec.ts`
 - [`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts) (its rows)
 - `dialog-idiom.spec.ts`
@@ -98,6 +101,7 @@ Cancel and Escape change nothing and give focus back to that Remove; "Remove" re
 Someone another organizer removed meanwhile is removed all the same: the server answers "They are no longer in this organization.", a 404, and the dialog reads it as done, closing the confirmation and re-reading the list without them (T181).
 Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
 Covered by:
+
 - `*-sweep.spec.ts`, the sweeps' state "the manage-organization dialog, removing a member"
 - `access-control.spec.ts` ("org membership changes")
 - [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, someone removed in another window included
@@ -107,6 +111,7 @@ Covered by:
 **Status:** Works (walked live).
 Manage, "Rename organization", edit, "Save"; the owner's alone, so an admin's dialog has no such section.
 Covered by:
+
 - `tier2.spec.ts`
 
 ## B5. Delete an organization
@@ -114,6 +119,7 @@ Covered by:
 Manage, "Delete organization" opens a preview of what would be destroyed; confirm with "Delete it all".
 A deletion record is written before anything is destroyed.
 Covered by:
+
 - `org-deletion.spec.ts`
 
 The rule it obeys is [when an organization may be deleted](../rules/when-an-organization-may-be-deleted.md).
@@ -152,8 +158,10 @@ Its gaps worth a spec are in [walking the flows](../../implementation/testing/wa
 5. A change made in the dialog while the History is open (a person added or removed, a rename, a change to the default permissions) shows at its top as it lands, without reopening the dialog.
 
 With nothing yet it says "Nothing has changed on this organization yet."
+A first page that fails says so in its place, with "Try again", which reads it again, as Manage market's does.
 What is recorded, and why a member may read it: [the organization document](../../implementation/data/organization-document.md#the-organizations-history).
 Covered by:
+
 - `organizationHistory.test.ts` for the words, the paging and a member's dialog
 - `the-organizations-history.spec.ts`
 
@@ -172,6 +180,7 @@ Covered by:
 A market created in the organization afterwards starts with these rows, each "Copied from the organization" in its own Permissions dialog; a market created before keeps its own until its owner copies the organization's defaults again ([L3a](ending-and-managing-a-market.md#l3a-set-who-may-do-what)).
 What is stored, and why it is a copy: [the organization document](../../implementation/data/organization-document.md#its-default-table); how a dialog opened from a dialog lies over it: [dialogs](../../implementation/conventions/dialogs.md).
 Covered by:
+
 - `organizationPermissions.test.ts`
 - `test_the_organizations_default.py` for the writes, the refusals and the copy
 - `the-organizations-default.spec.ts`

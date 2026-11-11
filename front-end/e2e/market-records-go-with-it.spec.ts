@@ -13,7 +13,7 @@ import { MarketsPage } from './pages/MarketsPage';
  * its applications (each vendor's name, email and answers), its check-ins and its applicant
  * sign-in codes behind for ever, and deleting an organization left the placement trail too: records
  * describing a market nobody can reach any more. Its vendors' payments and amounts owed
- * (E44/F01/S01) and their remembered sign-ins (T202) go with it too.
+ * (E44/F01/S01), their remembered sign-ins (T202) and its floorplan images go with it too.
  */
 
 const KEPT_WITH_A_MARKET = [
@@ -26,8 +26,8 @@ const KEPT_WITH_A_MARKET = [
   'amounts_owed',
 ];
 
-/** One record of every kind a market keeps beside itself. */
-function seedRecords(marketId: string): void {
+/** One record of every kind a market keeps beside itself; returns its floorplan image's id. */
+function seedRecords(marketId: string): string {
   seedApplication(marketId, 'kept@example.test');
   const at = new Date().toISOString();
   mongoEval(`
@@ -45,18 +45,36 @@ function seedRecords(marketId: string): void {
       vendor_email: 'kept@example.test', date: '2099-08-01',
       set_by_hand: { cents: 0, by: 'org@example.test', at: ${JSON.stringify(at)} } });
   `);
+  // A floorplan image as GridFS stores it: a file naming the market, and its bytes in a chunk.
+  return mongoEval(`
+    const image = new ObjectId();
+    db.floorplan_images.files.insertOne({ _id: image, length: 8, chunkSize: 261120,
+      uploadDate: new Date(), filename: 'kept.png',
+      metadata: { marketId: ${JSON.stringify(marketId)} } });
+    db.floorplan_images.chunks.insertOne({ files_id: image, n: 0,
+      data: BinData(0, 'iVBORw0KGgo=') });
+    print(image.toHexString());
+  `);
 }
 
-function recordsLeft(marketId: string): Record<string, number> {
+function recordsLeft(marketId: string, imageId: string): Record<string, number> {
   return JSON.parse(
     mongoEval(
-      `print(JSON.stringify(Object.fromEntries(${JSON.stringify(KEPT_WITH_A_MARKET)}.map(` +
-        `(name) => [name, db[name].countDocuments({ market_id: ${JSON.stringify(marketId)} })]))))`,
+      `print(JSON.stringify({ ...Object.fromEntries(${JSON.stringify(KEPT_WITH_A_MARKET)}.map(` +
+        `(name) => [name, db[name].countDocuments({ market_id: ${JSON.stringify(marketId)} })])), ` +
+        `floorplan_images: db.floorplan_images.files.countDocuments(` +
+        `{ 'metadata.marketId': ${JSON.stringify(marketId)} }), ` +
+        `floorplan_image_chunks: db.floorplan_images.chunks.countDocuments(` +
+        `{ files_id: ObjectId(${JSON.stringify(imageId)}) }) }))`,
     ),
   );
 }
 
-const NOTHING_LEFT = Object.fromEntries(KEPT_WITH_A_MARKET.map((name) => [name, 0]));
+const NOTHING_LEFT = {
+  ...Object.fromEntries(KEPT_WITH_A_MARKET.map((name) => [name, 0])),
+  floorplan_images: 0,
+  floorplan_image_chunks: 0,
+};
 
 async function makeOrg(request: APIRequestContext, name: string): Promise<string> {
   const res = await request.post(`${BACKEND_URL}/organizations`, { data: { name } });
@@ -82,8 +100,8 @@ test('deleting a market deletes its applications, check-ins and history', async 
     TEST_USER.email,
     TEST_USER.password,
   );
-  seedRecords(marketId);
-  expect(recordsLeft(marketId)).not.toEqual(NOTHING_LEFT);
+  const imageId = seedRecords(marketId);
+  expect(recordsLeft(marketId, imageId)).not.toEqual(NOTHING_LEFT);
 
   const markets = new MarketsPage(page);
   await markets.goto();
@@ -100,7 +118,7 @@ test('deleting a market deletes its applications, check-ins and history', async 
   await manage.deleteConfirmButton.click();
   await expect(card).toHaveCount(0);
 
-  expect(recordsLeft(marketId)).toEqual(NOTHING_LEFT);
+  expect(recordsLeft(marketId, imageId)).toEqual(NOTHING_LEFT);
 });
 
 test('deleting an organization deletes the records of the markets it held', async ({ request }) => {
@@ -117,10 +135,10 @@ test('deleting an organization deletes the records of the markets it held', asyn
   });
   expect(created.ok(), await created.text()).toBeTruthy();
   const { market_id: marketId } = (await created.json()) as { market_id: string };
-  seedRecords(marketId);
+  const imageId = seedRecords(marketId);
 
   const deleted = await request.delete(`${BACKEND_URL}/organizations/${orgId}`);
   expect(deleted.ok(), await deleted.text()).toBeTruthy();
 
-  expect(recordsLeft(marketId)).toEqual(NOTHING_LEFT);
+  expect(recordsLeft(marketId, imageId)).toEqual(NOTHING_LEFT);
 });

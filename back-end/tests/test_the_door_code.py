@@ -216,7 +216,7 @@ class TestNoMarketReadServesIt:
         assert code not in response.get_data(as_text=True)
 
     def test_the_market_list(self, client, monkeypatch):
-        monkeypatch.setattr(MarketsApi.OrgsApi, "get_organizations_for_user", lambda _email: [])
+        monkeypatch.setattr(MarketsApi.OrgsApi, "organization_documents_of", lambda _user_id: [])
         code = made(client)["code"]
 
         response = client.get("/markets")

@@ -6,8 +6,13 @@ race that only the database can settle. The index *is* the guarantee, not a deco
 a process that cannot build it does not have the guarantee, and must not pretend it does. It
 refuses, at boot, naming what is wrong, exactly as a missing market-key migration does.
 """
+import logging
+import traceback
+
 import pytest
-from pymongo.errors import DuplicateKeyError, PyMongoError
+from pymongo.errors import DuplicateKeyError, OperationFailure, PyMongoError
+
+from conftest import skip_without_real_dependencies
 
 from datatypes import Application, ApplicationStatus, ApplicationType
 
@@ -47,6 +52,44 @@ class TestTheApplicationIdentityIndex:
         message = str(exc.value)
         assert ApplicationsApi.APPLICANT_IDENTITY_INDEX in message
         assert "duplicates" in message
+
+    def test_the_refusal_names_the_duplicates_by_id_and_never_by_address(
+        self, applications, monkeypatch, caplog,
+    ):
+        """The driver's duplicate key error quotes the address, so neither the boot's logs nor the
+        error that stops it repeat the driver's text, its chained cause included."""
+        skip_without_real_dependencies()
+        import app as app_module
+
+        # Importing app boots it, which builds the index; this boot is the one that cannot.
+        monkeypatch.setattr(ApplicationsApi, "_indexes_ready", False)
+        duplicate = dict(market_id="market-123", applicant_email="dup-applicant@example.com",
+                         application_type="main")
+        applications.documents.extend([
+            dict(duplicate, id="app-1"), dict(duplicate, id="app-2"),
+            dict(duplicate, id="app-3", application_type="waitlist"),
+        ])
+
+        def duplicate_key(*_args, **_kwargs):
+            raise OperationFailure(
+                "E11000 duplicate key error collection: test.applications index: "
+                'market_applicant_type_unique dup key: { applicant_email: "dup-applicant@example.com" }',
+                code=11000,
+            )
+
+        monkeypatch.setattr(applications, "create_index", duplicate_key)
+
+        with pytest.raises(ApplicationsApi.ApplicationIndexError) as refused:
+            app_module.verify_application_indexes()
+
+        printed = "".join(traceback.format_exception(refused.value))
+        assert "app-1, app-2" in str(refused.value)
+        assert "app-3" not in str(refused.value), "a waitlist application beside a main one is no duplicate"
+        assert "OperationFailure, code 11000" in str(refused.value)
+        refusals = [r for r in caplog.records if r.levelno == logging.CRITICAL]
+        assert len(refusals) == 2, "the module's refusal and the boot's"
+        assert "dup-applicant@example.com" not in caplog.text
+        assert "dup-applicant@example.com" not in printed
 
     def test_no_application_is_stored_while_the_index_is_absent(self, applications, monkeypatch):
         """The write that creates an application is a race the index is the only referee of, so a

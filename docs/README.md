@@ -9,44 +9,44 @@ A **hub** is a file with no frontmatter that lists nodes: this file, [`CONTEXT.m
 
 ## Layers and kinds
 
-| Layer | Kind | A node of this kind says |
-| --- | --- | --- |
-| business | `concept` | A hub for one glossary term: the rules, flows and modules about it. Its definition stays in `CONTEXT.md`. |
-| business | `flow` | What a person does on a screen or across screens, step by step, and what they see. |
-| business | `rule` | One product rule: what the product does or refuses, who may, and why. |
-| business | `intent` | An enduring outcome the product commits to, with its why. |
-| implementation | `module` | How one module or cohesive set of files works, and its sharp edges. |
-| implementation | `data` | One stored shape: the collection, its keys, indexes and migrations. |
-| implementation | `convention` | A rule for all code that no one module owns. |
-| implementation | `adr` | One architecture decision that is hard to reverse, surprising without context, and a real trade-off. |
-| implementation | `runbook` | How to do an operational task. |
-| implementation | `testing` | How a part of the product is tested, and the test-only sharp edges. |
-| implementation | `record` | A dated report, frozen when written. |
+| Layer          | Kind         | A node of this kind says                                                                                  |
+| -------------- | ------------ | --------------------------------------------------------------------------------------------------------- |
+| business       | `concept`    | A hub for one glossary term: the rules, flows and modules about it. Its definition stays in `CONTEXT.md`. |
+| business       | `flow`       | What a person does on a screen or across screens, step by step, and what they see.                        |
+| business       | `rule`       | One product rule: what the product does or refuses, who may, and why.                                     |
+| business       | `intent`     | An enduring outcome the product commits to, with its why.                                                 |
+| implementation | `module`     | How one module or cohesive set of files works, and its sharp edges.                                       |
+| implementation | `data`       | One stored shape: the collection, its keys, indexes and migrations.                                       |
+| implementation | `convention` | A rule for all code that no one module owns.                                                              |
+| implementation | `adr`        | One architecture decision that is hard to reverse, surprising without context, and a real trade-off.      |
+| implementation | `runbook`    | How to do an operational task.                                                                            |
+| implementation | `testing`    | How a part of the product is tested, and the test-only sharp edges.                                       |
+| implementation | `record`     | A dated report, frozen when written.                                                                      |
 
 ## Where everything lives
 
-| Holds | Hub or node |
-| --- | --- |
-| Concepts, one per glossary term | [business/concepts/](business/concepts/README.md) |
-| Flows | [business/flows/](business/flows/README.md), indexed with the paths in [USER_FLOWS.md](USER_FLOWS.md) |
-| Rules | [business/rules/](business/rules/README.md) |
-| Intents | [business/intents/](business/intents/README.md) |
-| Modules | [implementation/modules/](implementation/modules/README.md) |
-| Data | [implementation/data/](implementation/data/README.md) |
-| Conventions | [implementation/conventions/](implementation/conventions/README.md) |
-| Testing | [implementation/testing/](implementation/testing/README.md) |
-| Architecture decisions | [adr/](adr/README.md) |
-| Records | [records/](records/README.md) |
-| The glossary | [CONTEXT.md](../CONTEXT.md) |
-| The stack and the implementation folders | [TECH_STACK.md](TECH_STACK.md) |
-| Running it on your machine | [STARTUP.md](STARTUP.md) |
-| Shipping, hotfixes, rolling back | [RELEASING.md](RELEASING.md) |
-| Running production | [OPERATIONS.md](OPERATIONS.md) |
-| Rebuilding production from nothing | [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md) |
-| Worktrees and their stacks | [scripts/README-treehouse.md](../scripts/README-treehouse.md) |
-| Running the tests | [TESTING.md](TESTING.md) |
-| The Google Form test corpus | [back-end/tests/test_data/README.md](../back-end/tests/test_data/README.md) |
-| What the product looks like | [design-system.md](design-system.md) |
+| Holds                                    | Hub or node                                                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Concepts, one per glossary term          | [business/concepts/](business/concepts/README.md)                                                     |
+| Flows                                    | [business/flows/](business/flows/README.md), indexed with the paths in [USER_FLOWS.md](USER_FLOWS.md) |
+| Rules                                    | [business/rules/](business/rules/README.md)                                                           |
+| Intents                                  | [business/intents/](business/intents/README.md)                                                       |
+| Modules                                  | [implementation/modules/](implementation/modules/README.md)                                           |
+| Data                                     | [implementation/data/](implementation/data/README.md)                                                 |
+| Conventions                              | [implementation/conventions/](implementation/conventions/README.md)                                   |
+| Testing                                  | [implementation/testing/](implementation/testing/README.md)                                           |
+| Architecture decisions                   | [adr/](adr/README.md)                                                                                 |
+| Records                                  | [records/](records/README.md)                                                                         |
+| The glossary                             | [CONTEXT.md](../CONTEXT.md)                                                                           |
+| The stack and the implementation folders | [TECH_STACK.md](TECH_STACK.md)                                                                        |
+| Running it on your machine               | [STARTUP.md](STARTUP.md)                                                                              |
+| Shipping, hotfixes, rolling back         | [RELEASING.md](RELEASING.md)                                                                          |
+| Running production                       | [OPERATIONS.md](OPERATIONS.md)                                                                        |
+| Rebuilding production from nothing       | [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md)                                                          |
+| Worktrees and their stacks               | [scripts/README-treehouse.md](../scripts/README-treehouse.md)                                         |
+| Running the tests                        | [TESTING.md](TESTING.md)                                                                              |
+| The Google Form test corpus              | [back-end/tests/test_data/README.md](../back-end/tests/test_data/README.md)                           |
+| What the product looks like              | [design-system.md](design-system.md)                                                                  |
 
 The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus README stay where they are, because code and scripts cite them by path; they are nodes outside the graph folders, and declare their layer.
 
@@ -57,42 +57,43 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
 
    ```yaml
    ---
-   layer: business            # business | implementation
-   kind: rule                 # concept flow rule intent | module data convention adr runbook testing record
-   describes:                 # tracked file, tracked directory ending in /, or file#symbol
+   layer: business # business | implementation
+   kind: rule # concept flow rule intent | module data convention adr runbook testing record
+   describes: # tracked file, tracked directory ending in /, or file#symbol
      - back-end/guards.py
      - back-end/api/markets.py#setup_lock_reason
-   verified: 2026-10-21       # the day the node was read against the code and found true
-   sources:                   # provenance strings, never links
+   verified: 2026-10-21 # the day the node was read against the code and found true
+   sources: # provenance strings, never links
      - wayfinding/the-order-of-the-work/03
      - E31/F01
-   status: accepted           # adr only: proposed | accepted | superseded by NNNN
+   status: accepted # adr only: proposed | accepted | superseded by NNNN
    ---
    ```
 
-   | Kind | Layer | `describes` | `verified` | `status` |
-   | --- | --- | --- | --- | --- |
-   | concept, intent | business | forbidden | required | forbidden |
-   | flow, rule | business | optional | required | forbidden |
-   | module, data, convention, testing | implementation | required | required | forbidden |
-   | runbook | implementation | optional | required | forbidden |
-   | adr | implementation | optional | required | required |
-   | record | implementation | forbidden | forbidden | forbidden |
+   | Kind                              | Layer          | `describes` | `verified` | `status`  |
+   | --------------------------------- | -------------- | ----------- | ---------- | --------- |
+   | concept, intent                   | business       | forbidden   | required   | forbidden |
+   | flow, rule                        | business       | optional    | required   | forbidden |
+   | module, data, convention, testing | implementation | required    | required   | forbidden |
+   | runbook                           | implementation | optional    | required   | forbidden |
+   | adr                               | implementation | optional    | required   | required  |
+   | record                            | implementation | forbidden   | forbidden  | forbidden |
 
    A source is one of these kinds; the checker refuses any other:
 
-   | Source | Names |
-   | --- | --- |
-   | `E07`, `E26/F08`, `E34/F01/S01` | an epic, a feature or a story of the backlog |
-   | `wayfinding/<effort>/03`, `wayfinding/<effort>/map` | a Wayfinder ticket, or its map |
-   | `brain-dump/2026-10-19`, `brain-dump/2026-10-19#22` | a brain dump, or one item of it |
-   | `qc/2026-09-21` | the manual quality check of that day |
-   | `bug/37` | a bug in [the bug ledger](records/MVP_BUGS.md) |
-   | `known-gap/3` | a known gap of the MVP: the story of epic `E37` that names it when the gap was carried, otherwise item `n` of `docs/MVP_KNOWN_GAPS.md` at the source sha (gap 3 was not carried, so it is [this item](https://github.com/chanjdaniel/Conventioner/blob/4aa7e30429768dbe09bc8037abd115486f6fd7fb/docs/MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)) |
-   | `T15` | a task of the agent team, built on a branch named for it (`feat/T15-...`) |
-   | `decision/2026-10-20` | Daniel's ruling of that day, kept as a record (`records/DECISION_2026-10-20.md`) |
+   | Source                                              | Names                                                                                                                                                                                                                                                                                                                                                           |
+   | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `E07`, `E26/F08`, `E34/F01/S01`                     | an epic, a feature or a story of the backlog                                                                                                                                                                                                                                                                                                                    |
+   | `wayfinding/<effort>/03`, `wayfinding/<effort>/map` | a Wayfinder ticket, or its map                                                                                                                                                                                                                                                                                                                                  |
+   | `brain-dump/2026-10-19`, `brain-dump/2026-10-19#22` | a brain dump, or one item of it                                                                                                                                                                                                                                                                                                                                 |
+   | `qc/2026-09-21`                                     | the manual quality check of that day                                                                                                                                                                                                                                                                                                                            |
+   | `bug/37`                                            | a bug in [the bug ledger](records/MVP_BUGS.md)                                                                                                                                                                                                                                                                                                                  |
+   | `known-gap/3`                                       | a known gap of the MVP: the story of epic `E37` that names it when the gap was carried, otherwise item `n` of `docs/MVP_KNOWN_GAPS.md` at the source sha (gap 3 was not carried, so it is [this item](https://github.com/chanjdaniel/Conventioner/blob/4aa7e30429768dbe09bc8037abd115486f6fd7fb/docs/MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)) |
+   | `T15`                                               | a task of the agent team, built on a branch named for it (`feat/T15-...`)                                                                                                                                                                                                                                                                                       |
+   | `decision/2026-10-20`                               | Daniel's ruling of that day, kept as a record (`records/DECISION_2026-10-20.md`)                                                                                                                                                                                                                                                                                |
 
    Keep `describes` narrow: a file many areas share is described by `#symbol`, and a directory only by a node that owns all of it.
+
 3. The first line after the frontmatter is the `# Title`, one sentence per physical line, in the present tense: a node holds current truth, and history is git's.
 4. Link every file in `describes` from the body, with a relative link.
    Work-item ids are never links: they go in `sources`, or inline in backticks, and resolve in the team home as [the tracker contract](agents/issue-tracker.md#resolving-provenance) says.
@@ -102,12 +103,12 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
 
 ## The checks
 
-| Command | Does |
-| --- | --- |
-| `python3 scripts/knowledge_graph.py check` | The frontmatter, every link and `#fragment`, the folder rules, that every node and hub is reachable from `README.md` or `AGENTS.md`, that every cross-layer link is answered, and that each flow's "Covered by" is a list, one test a line, sorted by file name ([a flow's "Covered by"](implementation/conventions/two-features-never-share-a-line.md#a-flows-covered-by)). Exits 1 on any error; CI runs it on every push and pull request, in `knowledge-graph`, a required check. |
-| `python3 scripts/knowledge_graph.py drift --base origin/dev` | Warns for each node whose described code changed while the node did not, unless the node was verified on or after the day of that change. CI runs it on every pull request as its own job, `knowledge-graph-drift`, which fails on a warning but is not required: for the next 10 PRs from 2026-10-22, then it is re-judged with the close-out's replay. |
-| `python3 scripts/knowledge_graph.py stale` | Nodes not verified for 60 days whose described files have changed since. |
-| `python3 scripts/knowledge_graph.py ids` | Work-item ids cited in the repo that no node's `sources` covers. |
+| Command                                                      | Does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `python3 scripts/knowledge_graph.py check`                   | The frontmatter, every link and `#fragment`, the folder rules, that every node and hub is reachable from `README.md` or `AGENTS.md`, that every cross-layer link is answered, and that each flow's "Covered by" is a list, one test a line, sorted by file name ([a flow's "Covered by"](implementation/conventions/two-features-never-share-a-line.md#a-flows-covered-by)). Exits 1 on any error; CI runs it on every push and pull request, in `knowledge-graph`, a required check. |
+| `python3 scripts/knowledge_graph.py drift --base origin/dev` | Warns for each node whose described code changed while the node did not, unless the node was verified on or after the day of that change. CI runs it on every pull request as its own job, `knowledge-graph-drift`, which fails on a warning but is not required: for the next 10 PRs from 2026-10-22, then it is re-judged with the close-out's replay.                                                                                                                              |
+| `python3 scripts/knowledge_graph.py stale`                   | Nodes not verified for 60 days whose described files have changed since.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `python3 scripts/knowledge_graph.py ids`                     | Work-item ids cited in the repo that no node's `sources` covers.                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 **A drift warning** means a pull request changed code a node describes without touching the node, and the node's `verified` is before the day of the pull request's newest commit to that file.
 That day is the commit's committer date in the committer's own time zone, the same calendar day `verified` is written in, so a node verified today is not flagged for code changed today.

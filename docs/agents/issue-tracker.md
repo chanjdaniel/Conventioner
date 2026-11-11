@@ -23,9 +23,9 @@ GitHub is used for pull requests only.
 
 The team home holds two kinds of thing, and conflating them is the main way this system rots.
 
-- **Work items** (`~/agent-team-records/projects/conventioner/backlog/`) are things to *build*.
+- **Work items** (`~/agent-team-records/projects/conventioner/backlog/`) are things to _build_.
   They form an Epic > Feature > Story hierarchy and live as long as the work does.
-- **Wayfinder maps** (`~/agent-team-records/projects/conventioner/wayfinding/<effort>/`) are open *questions* to resolve.
+- **Wayfinder maps** (`~/agent-team-records/projects/conventioner/wayfinding/<effort>/`) are open _questions_ to resolve.
   A map exists to burn down uncertainty about direction; it is closed and archived once the way is clear.
 
 A Wayfinder map is upstream of the backlog.
@@ -133,27 +133,27 @@ Each skill writes to a fixed place, in the worktree's `.scratch/` or in the team
 A knowledge-graph node's `sources`, a code comment or a commit message names where a decision came from with one of these strings; none of them is a link.
 Paths here are under `~/agent-team-records/projects/conventioner/` unless they say otherwise.
 
-| `sources` string | Where it resolves |
-| --- | --- |
-| `E01`, `E01/F02`, `E01/F02/S03` | The epic, feature or story at that path under `backlog/` (folder names carry a slug after the id). |
-| `wayfinding/<map>/<NN>` | Ticket `NN` of that map, `wayfinding/<map>/issues/NN-<slug>.md`. |
-| `brain-dump/<day>#<n>` | Item `n` of `brain-dump/<day>.md`. |
-| `qc/2026-09-21` | The manual QC walk, `qc/2026-09-21-manual-qc.md`. |
-| `known-gap/<n>` | The matching story of epic `E37` (each names its `known-gap/<n>`), or item `n` of `docs/MVP_KNOWN_GAPS.md` in Conventioner's history at the source sha. |
-| `bug/<n>` | Bug `n` in this repo's `docs/records/MVP_BUGS.md`. |
+| `sources` string                | Where it resolves                                                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `E01`, `E01/F02`, `E01/F02/S03` | The epic, feature or story at that path under `backlog/` (folder names carry a slug after the id).                                                      |
+| `wayfinding/<map>/<NN>`         | Ticket `NN` of that map, `wayfinding/<map>/issues/NN-<slug>.md`.                                                                                        |
+| `brain-dump/<day>#<n>`          | Item `n` of `brain-dump/<day>.md`.                                                                                                                      |
+| `qc/2026-09-21`                 | The manual QC walk, `qc/2026-09-21-manual-qc.md`.                                                                                                       |
+| `known-gap/<n>`                 | The matching story of epic `E37` (each names its `known-gap/<n>`), or item `n` of `docs/MVP_KNOWN_GAPS.md` in Conventioner's history at the source sha. |
+| `bug/<n>`                       | Bug `n` in this repo's `docs/records/MVP_BUGS.md`.                                                                                                      |
 
 ## Triage state
 
 `status: ready` in front-matter is this repo's equivalent of the `ready-for-agent` label.
 The five canonical triage roles map onto the `status` field:
 
-| Canonical role    | `status` value              |
-| ----------------- | --------------------------- |
-| `needs-triage`    | `proposed`                  |
-| `needs-info`      | `blocked`                   |
-| `ready-for-agent` | `ready`                     |
+| Canonical role    | `status` value               |
+| ----------------- | ---------------------------- |
+| `needs-triage`    | `proposed`                   |
+| `needs-info`      | `blocked`                    |
+| `ready-for-agent` | `ready`                      |
 | `ready-for-human` | `ready` + `human-only: true` |
-| `wontfix`         | `wontfix`                   |
+| `wontfix`         | `wontfix`                    |
 
 ## Wayfinding operations
 

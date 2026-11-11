@@ -20,13 +20,14 @@ describes:
   - back-end/app.py#edit_payment
   - back-end/app.py#remove_payment
   - back-end/app.py#get_market_payments
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - T92
   - E44/F01/S01
   - E44/F01/S02
   - E42/F01/S04
   - E44/F02/S01
+  - T263
 ---
 
 # Payments, and what a vendor owes
@@ -74,10 +75,10 @@ A removed entry is changed no more.
 
 Two collections, each snake_case with the market foreign key `market_id` and the vendor's address lowercased (`vendor_email`), like `vendor_notes`:
 
-| Collection | One document per | Fields |
-| --- | --- | --- |
-| `payments` | payment or refund | `id`, `market_id`, `vendor_email`, `kind` (`payment` or `refund`; none on an entry before refunds, which reads as a payment), `cents` (negative for a refund), `method` (`e-transfer` or `cash`), `paid_on` (`YYYY-MM-DD`), `note` (blank for none), `recorded_by`, `recorded_at`; `changes`: each edit or removal, `{by, at, what, before}`; `removed_by`, `removed_at` |
-| `amounts_owed` | vendor per table-day that holds something | `market_id`, `vendor_email`, `date`; `freed`: the seat as it was freed (`table_code`, `tier`, `table_choice`, `cents`, null where unpriced, `group`, `by`, `at`); `set_by_hand`: `cents`, `by`, `at`, and `by_free` on the $0 a free's deduction set |
+| Collection     | One document per                          | Fields                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `payments`     | payment or refund                         | `id`, `market_id`, `vendor_email`, `kind` (`payment` or `refund`; none on an entry before refunds, which reads as a payment), `cents` (negative for a refund), `method` (`e-transfer` or `cash`), `paid_on` (`YYYY-MM-DD`), `note` (blank for none), `recorded_by`, `recorded_at`; `changes`: each edit or removal, `{by, at, what, before}`; `removed_by`, `removed_at` |
+| `amounts_owed` | vendor per table-day that holds something | `market_id`, `vendor_email`, `date`; `freed`: the seat as it was freed (`table_code`, `tier`, `table_choice`, `cents`, null where unpriced, `group`, `by`, `at`); `set_by_hand`: `cents`, `by`, `at`, and `by_free` on the $0 a free's deduction set                                                                                                                     |
 
 A payment's or a refund's body is `PaymentEntry` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), strict, so an amount sent as text or with a fraction of a cent is refused rather than read: from 1 cent to $100,000, the most a price cell holds; a date that is a calendar day; a note of at most 500 characters.
 Both collections are indexed on `market_id, vendor_email` ([lookup indexes](lookup-indexes.md)), and both are deleted with the market (`delete_for_market`, called by [market deletion](../modules/market-deletion.md)).
@@ -101,7 +102,7 @@ Every route is in [`back-end/app.py`](../../../back-end/app.py) (`get_vendor_acc
 - `PUT /markets/:id/payments/:email/owed/:date`, body `{cents}` from 0 to $100,000, sets a table-day's amount owed, and `DELETE` on the same path uses the calculated price again; both ask the row "Change the amount owed", an Admin's by default (Q26: "this number can be changed by the admin"), and refuse a day with no line, 404.
 - `POST /markets/:id/payments/:email/refunds` records a refund, `PUT /markets/:id/payment-entries/:payment_id` edits an entry and `DELETE` on it removes it; all three ask the row "Adjust the amount paid", an Admin's by default, and an entry of another market, or one removed, is not found, 404.
 - Each write is recorded in [the market's history](history.md): a payment under `record-payment`; an amount owed set, a free's deduction included, or set back to the calculated price under `change-owed`, subject `{date, currency}`, the line's `owed_cents` before and after; a refund, an edit or a removal under `adjust-paid`, subject `{payment_id, payment_kind, currency}`, the entry's fields before and after; `payment_kind` (`payment` or `refund`, on `record-payment` too) words an edit that changed no amount.
-  Each names the vendor, so it reads in their drawer's History tab as in Manage market's ([reading the market's history](../../business/flows/reading-the-markets-history.md)), worded by `marketHistory.ts` ("… recorded a payment of $50.00 from Alice Example", "… set what Alice Example owes on May 8, 2099 to $0.00", "… recorded a refund of $15.00 to Alice Example"), opening to its fields in the Payment tab's words and money.
+  Each names the vendor, so it reads in their drawer's History tab as in Manage market's ([reading the market's history](../../business/flows/reading-the-markets-history.md)), worded by [`historyReaders/payments.ts`](../../../front-end/src/utils/historyReaders/payments.ts) ("… recorded a payment of $50.00 from Alice Example", "… set what Alice Example owes on May 8, 2099 to $0.00", "… recorded a refund of $15.00 to Alice Example"), opening to its fields in the Payment tab's words and money.
 
 `accounts` in `back-end/api/payments.py` answers every vendor's account on the market at once, by address, each as `vendor_account` answers it, for every vendor with a seat, a kept line or an entry, from one read of each collection (`amounts_owed_by_vendor`, `payments_by_vendor`), a record with no address being nobody's; its caller has asked the table already.
 The vendor export reads it for its money columns and its payment filter ([J15, export the vendors](../../business/flows/vendors.md#j15-export-the-vendors-to-a-csv)), and only when one is asked for; `market_money` reads it for the Payments page (`market_payments`, which asks the table first) and for the Stats tab's money headlines (`count_money` in `back-end/market_stats.py`), so the two tell the same figures.
@@ -113,7 +114,7 @@ An amount in the file is `money_cell` in `back-end/api/vendor_export.py`: `money
 Every amount, on screen and in the file, reads to the cent, pinned on both sides by one table of cases ([an amount reads to the cent](../../business/rules/an-amount-reads-to-the-cent.md)).
 
 The front end words the account in [`front-end/src/utils/payments.ts`](../../../front-end/src/utils/payments.ts) ("Owes $27.00", "Paid in full", "Paid $15.00 more than owed", "Nothing owed"; on a market with no prices a payment by someone owing nothing reads "Paid $35.00"), tones its chip with `balanceChip` for the tab and the Payments page alike, and shows it in [`VendorPaymentTab.vue`](../../../front-end/src/components/VendorPaymentTab.vue).
-A payment, a refund and an edit go through [`RecordPaymentDialog.vue`](../../../front-end/src/components/RecordPaymentDialog.vue), an amount owed through [`ChangeOwedDialog.vue`](../../../front-end/src/components/ChangeOwedDialog.vue), which says the change before Save, and "Use the calculated price" and a removal through a confirmation; each line's and each entry's actions sit behind a "..." menu ([`RowMenu.vue`](../../../front-end/src/components/RowMenu.vue)), offered on its row's answer.
+A payment, a refund and an edit go through [`RecordPaymentDialog.vue`](../../../front-end/src/components/RecordPaymentDialog.vue), an amount owed through [`ChangeOwedDialog.vue`](../../../front-end/src/components/ChangeOwedDialog.vue), which says the change before "Set amount owed", and "Use the calculated price" and a removal through a confirmation; each line's and each entry's actions sit behind a "..." menu ([`RowMenu.vue`](../../../front-end/src/components/RowMenu.vue)), offered on its row's answer.
 Both dialogs' amount fields are amount fields as [an amount reads to the cent](../../business/rules/an-amount-reads-to-the-cent.md#an-amount-field) says, through `useAmountField` in [`front-end/src/utils/useAmountField.ts`](../../../front-end/src/utils/useAmountField.ts): left, "$35.00" in the account's currency (`currencyOf`, Canadian dollars where the market sets no prices), focused, "35.00"; an edit opens on the entry's amount and an amount owed on the line's, "$0.00" where none is set.
 
 ## How it is tested

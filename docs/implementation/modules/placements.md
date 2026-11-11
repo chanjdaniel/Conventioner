@@ -20,7 +20,7 @@ describes:
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
   - back-end/assignment/assignment.py#vendors_to_show
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -45,6 +45,8 @@ sources:
   - T208
   - T213
   - T224
+  - T253
+  - T263
 ---
 
 # Placements
@@ -56,23 +58,27 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
 ## The four doors
 
-| Route | Function | Does |
-| --- | --- | --- |
-| `POST /markets/:id/assignment` | `run_assignment` | runs the solver over the approved applications and stores what it produced, with [what it was made from](made-from.md), the review the verdicts were given in among it; a day it seats forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
-| `PUT /markets/:id/placements` | `write_placement` | places one vendor in one seat on one date, replacing whatever they held that date, so it is also the move to an empty seat, from either end of the dialog: the vendor's seat or the empty one (T208); the day forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
-| `DELETE /markets/:id/placements` | `remove_placement` | frees the seat one vendor holds on one date, first keeping the seat's line of what they owe for it, which freeing never changes ([payments](../data/payments.md)), unless `deductOwed` asks that it owe $0, which asks the row "Change the amount owed" too, before anything is freed; freeing a seat nobody holds is not an error |
-| `POST /markets/:id/placements/swap` | `swap_placements` | trades two vendors' seats on one date in one document update: both change or neither does |
+| Route                               | Function           | Does                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /markets/:id/assignment`      | `run_assignment`   | runs the solver over the approved applications and stores what it produced, with [what it was made from](made-from.md), the review the verdicts were given in among it; a day it seats forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md))                                 |
+| `PUT /markets/:id/placements`       | `write_placement`  | places one vendor in one seat on one date, replacing whatever they held that date, so it is also the move to an empty seat, from either end of the dialog: the vendor's seat or the empty one (T208); the day forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md))          |
+| `DELETE /markets/:id/placements`    | `remove_placement` | frees the seat one vendor holds on one date, first keeping the seat's line of what they owe for it, which freeing never changes ([payments](../data/payments.md)), unless `deductOwed` asks that it owe $0, which asks the row "Change the amount owed" too, before anything is freed; freeing a seat nobody holds is not an error |
+| `POST /markets/:id/placements/swap` | `swap_placements`  | trades two vendors' seats on one date in one document update: both change or neither does                                                                                                                                                                                                                                          |
+
+**A run whose allocation breaks the solver's rules is refused before the store.**
+`assign_market` raises `BrokenAllocationError` before `run_assignment` stores anything ([the assignment solver](assignment-solver.md#sharp-edges)), so nothing is written, no history entry is recorded and no payment changes; the organizer reads the generic failure line.
 
 **All four ask the table's Assignment row** ([the market's actions](market-actions.md)), whose default is EDITOR, the bar every other market write sets, and deliberately not stricter: an EDITOR already owns the tiers, sections and table counts the whole assignment is computed from, so withholding "move one vendor between two seats" protects nothing.
 Each loads its market through `_load_market_to_change`, so an archived market is refused.
-A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant; a run outside its phase is an `AssignPhaseError` (409); a change that would land over another is an `AssignmentChangedUnderRequest` (409), below.
+A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant, the seat and the day as the screens say it (`_said_day`, "May 1, 2099"), and offering another seat or the swap; a run outside its phase is an `AssignPhaseError` (409); a change that would land over another is an `AssignmentChangedUnderRequest` (409), below.
+After a 409 from a change, the Assignments page (`runPlacementChange` in [`ResultView.vue`](../../../front-end/src/views/ResultView.vue)) keeps the dialog open on the refusal and reads the tables and the market again, so a seat taken meanwhile leaves the dialog's choices ([J19](../../business/flows/placing-by-hand.md#j19-move-a-vendor-to-an-empty-seat)).
 Each is a [client error](../conventions/an-exception-never-reaches-a-client.md) carrying that status.
 The routes catch nothing: each refusal reaches the handler with its own status and copy, and anything else answers the generic 500.
 Each reads its body with `json_object` ([a body that is not an object is refused in words](../conventions/an-exception-never-reaches-a-client.md)): a body that is not a JSON object answers `A JSON object is required`, 400, a placement with no body or an empty one `No data provided`, 400, and a swap or a freed seat with none is read as empty and refused by the API in its own words; a swap whose `emails` is not a list names no vendor, and is refused as such.
 
 **There is no other door.**
 The whole-market PUT that once let a stale client copy move vendors on market day is deleted ([ADR 0008](../../adr/0008-each-write-names-what-it-changes.md)).
-Seeds and specs store an assignment through `POST /markets/:id/assignment` too, after walking the market to `assignment` ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)).
+`seedAssignedMarket` stores an assignment through `POST /markets/:id/assignment` too, after walking the market to `assignment` ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)); only `seedStoredAssignment`, for the phase machine's specs, writes rows straight into Mongo, since those specs are about the phase machine rather than placement.
 
 **No change displaces an occupant.**
 A move into an empty seat displaces nobody, so it is allowed, as one write: `write_placement` replaces the seat the vendor held that date, and its history entry names the table left.

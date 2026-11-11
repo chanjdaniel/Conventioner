@@ -47,7 +47,7 @@ function plan(dates: string[]) {
   };
 }
 
-const headers = { 'Content-Type': 'application/json', 'X-Owner-Email': USER.email };
+const headers = { 'Content-Type': 'application/json' };
 
 async function createOrg(request: APIRequestContext, name: string): Promise<string> {
   const res = await request.post(`${BACKEND_URL}/organizations`, { headers, data: { name } });

@@ -23,6 +23,7 @@ import {
   RESHUFFLE,
   chooseReviewers,
   reviewerAddresses,
+  unableReviewers,
   teamToChange,
   unansweredWrite,
 } from '@/utils/reviewTeam';
@@ -49,9 +50,7 @@ const reviewers = computed(() => {
   return [...team.filter(({ able }) => !able), ...team.filter(({ able }) => able)];
 });
 const addresses = computed(() => reviewers.value.map(({ email }) => email));
-const unable = computed(() =>
-  reviewers.value.filter(({ able }) => !able).map(({ email }) => email),
-);
+const unable = computed(() => unableReviewers(props.market));
 /** Who can no longer review here past those the line names, as they come first. */
 const unableFolded = computed(() => Math.max(unable.value.length - NAMED, 0));
 const chooses = computed(() => mayTake(props.market, MarketAction.ChooseReviewers));

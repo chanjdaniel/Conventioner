@@ -86,11 +86,16 @@ const otpRequested = ref(false);
 /** The code form's one line: "code sent", then a wrong code's in its place, never both. */
 const otpNotice = ref<SignInNotice | null>(null);
 
-/** Start the code form again with another address, saying nothing of the last one. */
-function useADifferentEmail() {
+/**
+ * Start the code form again with another address, saying nothing of the last one. The button goes
+ * with the code step, so the focus goes to the address field it gives back.
+ */
+async function useADifferentEmail() {
   otpRequested.value = false;
   otpCode.value = '';
   otpNotice.value = null;
+  await nextTick();
+  document.getElementById('otp-email')?.focus();
 }
 
 /** The address a sign-in was refused for as unverified, which "Send the link again" sends to. */
@@ -163,7 +168,7 @@ const submitLogin = async () => {
     }
   } catch (err: unknown) {
     loginNotice.value = noticeOf(
-      refusedSignIn(err, 'That email and password do not match.', { mismatchOffersReset: true }),
+      refusedSignIn(err, 'That email and password do not match.', { offersReset: true }),
       address,
     );
   }
@@ -420,12 +425,11 @@ const submitOTPLogin = async () => {
           Sign in
         </button>
         <div class="form-links">
-          <a
-            href="#"
-            @click.prevent="router.push('/reset-password-request')"
+          <RouterLink
+            to="/reset-password-request"
             class="link-alone"
             data-testid="login-forgot-password-link"
-            >Forgot password?</a
+            >Forgot password?</RouterLink
           >
         </div>
       </form>
@@ -593,13 +597,14 @@ const submitOTPLogin = async () => {
           {{ otpRequested ? 'Sign in' : 'Send code' }}
         </button>
         <div v-if="otpRequested" class="form-links">
-          <a
-            href="#"
-            @click.prevent="useADifferentEmail"
-            class="link-alone"
-            data-testid="login-otp-different-email-link"
-            >Use a different email</a
+          <button
+            type="button"
+            class="link-alone text-button"
+            data-testid="login-otp-different-email-button"
+            @click="useADifferentEmail"
           >
+            Use a different email
+          </button>
         </div>
       </form>
     </div>
@@ -794,5 +799,13 @@ const submitOTPLogin = async () => {
 .form-links {
   margin-top: var(--space-4);
   text-align: center;
+}
+
+/* "Use a different email" changes the form and goes nowhere, so it is a button in the look of the
+   link beside it: none of a button's own ground, border or padding. */
+.text-button {
+  padding: 0;
+  border: 0;
+  background: none;
 }
 </style>

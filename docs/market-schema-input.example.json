@@ -27,27 +27,10 @@
       "user-3": "editor"
     },
     "setupObject": {
-      "colNames": [
-        "email",
-        "table_choice"
-      ],
-      "colValues": [
-        [
-          "vendor@example.com",
-          "Full Table"
-        ]
-      ],
-      "colInclude": [
-        true,
-        true
-      ],
-      "enumPriorityOrder": [
-        [
-          "Gold",
-          "Silver",
-          "Bronze"
-        ]
-      ],
+      "colNames": ["email", "table_choice"],
+      "colValues": [["vendor@example.com", "Full Table"]],
+      "colInclude": [true, true],
+      "enumPriorityOrder": [["Gold", "Silver", "Bronze"]],
       "priority": [
         {
           "id": 1,
@@ -96,9 +79,7 @@
         "maxDaysColNameIdx": null
       }
     },
-    "modificationList": [
-      {}
-    ],
+    "modificationList": [{}],
     "assignmentObject": {
       "vendorAssignments": [
         {
@@ -127,9 +108,7 @@
         "assignmentsPerSection": {
           "Main": 1
         },
-        "unassignedVendors": [
-          "vendor@example.com"
-        ],
+        "unassignedVendors": ["vendor@example.com"],
         "unassignedTables": {
           "2026-05-01": [
             {
@@ -140,8 +119,7 @@
         },
         "satisfactionScore": 1
       }
-    },
-    "userRole": "admin"
+    }
   },
   {
     "id": "market-789",
@@ -167,11 +145,7 @@
           "label": "Category",
           "type": "select",
           "required": true,
-          "options": [
-            "Ceramics",
-            "Jewellery",
-            "Textiles"
-          ],
+          "options": ["Ceramics", "Jewellery", "Textiles"],
           "helpText": "Pick the category that best fits your work.",
           "order": 1
         }

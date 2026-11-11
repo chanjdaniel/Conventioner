@@ -127,7 +127,7 @@ class FormHasFieldsGuard:
                 message=(
                     "The application form asks nothing. "
                     "Add market dates, tiers or sections so the form can ask the essential "
-                    "questions, or add a custom field, before opening applications."
+                    "questions, or add a custom field, before the market can leave draft."
                 ),
                 # Two remedies, two tabs: the plan is Market Setup, a custom field is Application
                 # Form. The message names both; a link could only name one.
@@ -327,8 +327,8 @@ class NoApplicationsYetGuard:
 class AssignmentComputedGuard:
     """A market cannot go live until the solver has actually placed someone.
 
-    Publishing is what puts the public check-in URL on the air, and a market with no computed
-    assignment serves a page that can tell nobody where to stand.
+    Publishing is what puts the market's vendor page (``/<slug>``) on the air, and a market with no
+    computed assignment serves a page that can tell nobody where to stand.
 
     This is an ENTRY INVARIANT on ``market_days`` rather than a guard on one edge: it is a property
     of sitting in the phase, whatever route got you there, so a second route added later cannot

@@ -1,8 +1,10 @@
+import logging
 import os
 import sys
 import types
 
 import pytest
+import requests
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -225,3 +227,61 @@ class TestAPlaceholderIsNotASecret:
         assert success is False
         assert score == 0.0
         assert posted == []
+
+
+class TestAFailureGoesToTheLogByType:
+    """reCAPTCHA's three failures are logged, never printed, and none of them carries what a caller
+    sent or what a library wrote: the unusable secret names its variable, a failed verification
+    holds Google's ``success`` and ``score``, and an exception its type alone."""
+
+    ADDRESS = "stranger.vendor@example.com"
+
+    def test_an_unusable_secret_names_the_variable(self, deployed, caplog, capsys):
+        with caplog.at_level(logging.DEBUG, logger="utils.captcha"):
+            assert verify_recaptcha("any-token") == (False, 0.0)
+
+        [record] = caplog.records
+        assert record.levelno == logging.ERROR
+        assert RECAPTCHA_SECRET_KEY_VAR in record.getMessage()
+        assert capsys.readouterr() == ("", "")
+
+    def test_a_failed_verification_holds_googles_answer_and_nothing_of_the_caller(
+        self, monkeypatch, deployed, caplog, capsys,
+    ):
+        class FakeResponse:
+            def json(self):
+                return {"success": False, "score": 0.1, "hostname": "evil.test"}
+
+        monkeypatch.setattr("utils.captcha.requests.post", lambda *_a, **_kw: FakeResponse())
+        monkeypatch.setenv(RECAPTCHA_SECRET_KEY_VAR, "prod-secret-key")
+
+        with caplog.at_level(logging.DEBUG, logger="utils.captcha"):
+            assert verify_recaptcha(self.ADDRESS, ip_address="203.0.113.9") == (False, 0.1)
+
+        [record] = caplog.records
+        assert record.levelno == logging.WARNING
+        assert "success=False" in record.getMessage()
+        assert "score=0.1" in record.getMessage()
+        for kept_out in (self.ADDRESS, "203.0.113.9", "prod-secret-key", "evil.test"):
+            assert kept_out not in caplog.text
+        assert capsys.readouterr() == ("", "")
+
+    def test_an_exception_is_logged_by_its_type_alone(self, monkeypatch, deployed, caplog, capsys):
+        message = f"could not reach Google for {self.ADDRESS} with secret prod-secret-key"
+
+        def failing_post(*_args, **_kwargs):
+            raise requests.ConnectionError(message)
+
+        monkeypatch.setattr("utils.captcha.requests.post", failing_post)
+        monkeypatch.setenv(RECAPTCHA_SECRET_KEY_VAR, "prod-secret-key")
+
+        with caplog.at_level(logging.DEBUG, logger="utils.captcha"):
+            assert verify_recaptcha("any-token") == (False, 0.0)
+
+        [record] = caplog.records
+        assert record.levelno == logging.ERROR
+        assert record.exc_info is None
+        assert "ConnectionError" in record.getMessage()
+        assert self.ADDRESS not in caplog.text
+        assert "prod-secret-key" not in caplog.text
+        assert capsys.readouterr() == ("", "")

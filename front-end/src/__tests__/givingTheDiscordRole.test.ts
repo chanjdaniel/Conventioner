@@ -8,7 +8,7 @@ import { mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 
 import VendorsView from '@/views/VendorsView.vue';
-import type { Market } from '@/assets/types/datatypes';
+import type { Market, ServedDiscordVendor } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
 import {
   giveRolesQuestion,
@@ -22,6 +22,7 @@ import {
 import { hasAssignment } from '@/utils/marketPage';
 import { answersRefusing } from './support/servedAnswers';
 import { MARKET_ID, serveMarket } from './support/marketScreen';
+import { tryEveryClose } from './support/dialogCloses';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 const route = vi.hoisted(() => ({
@@ -356,6 +357,22 @@ describe('the Vendors page', () => {
     expect(wrapper.find('[data-testid="vendors-discord-give"]').text()).toBe('Giving roles…');
   });
 
+  it('keeps the confirmation open while a run gives the role, so its refusal is never hidden', async () => {
+    const wrapper = await mounted(market());
+    api.post.mockReturnValue(new Promise(() => {}));
+
+    await wrapper.find('[data-testid="vendors-discord-give"]').trigger('click');
+    (document.querySelector('[data-testid="give-roles-submit-button"]') as HTMLElement).click();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('[data-testid="give-roles-submit-button"]')?.textContent,
+      ).toContain('Giving roles…');
+    });
+
+    await tryEveryClose('give-roles');
+    expect(document.querySelector('[data-testid="give-roles-window"]')).not.toBeNull();
+  });
+
   it('says why a run was refused, in the server’s words, and reads the market again', async () => {
     const wrapper = await mounted(market());
     api.post.mockRejectedValue({
@@ -463,11 +480,12 @@ describe('the Vendors page', () => {
         { applicationId: 'app-cy', outcome: 'not_found', reason: null },
       ],
     };
-    const shown = (applicationId: string, what: string) => ({
+    const shown = (applicationId: string, what: string): ServedDiscordVendor => ({
       applicationId,
       state: what === 'in_server' ? 'in_server' : 'not_found',
       shown: what,
       possibleMatches: [],
+      moreMatches: 0,
     });
     const wrapper = await mounted(
       market({

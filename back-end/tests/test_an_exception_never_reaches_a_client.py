@@ -1,9 +1,10 @@
 """An exception never reaches a client: what a client reads when a route refuses or fails.
 
 A refusal meant for the client is a client error, answered with its own status and the copy our
-code wrote. Anything else is the server's fault: logged once with its traceback, and answered
-``{"error": "Internal server error"}``, 500, with nothing of the exception in it. Flask's own
-answers (an unknown URL, a wrong method, Flask-Login's 401) pass through untouched.
+code wrote. Anything else is the server's fault: logged once by its type and its frames, never its
+message, and answered ``{"error": "Internal server error"}``, 500, with nothing of the exception
+in it. Flask's own answers (an unknown URL, a wrong method, Flask-Login's 401) pass through
+untouched.
 
 Pinned through the test client against the real app: the assignment reads, the organization and
 market role routes, the market setup routes, the application form and phase routes, the
@@ -54,6 +55,7 @@ from client_errors import (
     ConflictError,
     ForbiddenError,
     NotFoundError,
+    traceback_without_messages,
 )
 from datatypes import MarketPhase, market_name_slug
 from guards import PreconditionResult
@@ -104,6 +106,14 @@ def fail_with(exception):
     def _raise(*_args, **_kwargs):
         raise exception
     return _raise
+
+
+def assert_logged_without_message(record, error_type, message):
+    """A 500's log record names the exception's type and where it was raised, and never its message."""
+    assert record.exc_info is None
+    assert f"\n{error_type.__name__}\n" in f"{record.getMessage()}\n"
+    assert 'in _raise\n    raise exception' in record.getMessage()
+    assert message not in record.getMessage()
 
 
 class TestTheTypes:
@@ -524,7 +534,7 @@ class TestTheOrganizationAndRoleRoutes:
         assert SECRET not in response.get_data(as_text=True)
         assert "RuntimeError" not in response.get_data(as_text=True)
         [record] = [r for r in caplog.records if r.name == "client_errors"]
-        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert_logged_without_message(record, RuntimeError, SECRET)
         assert method.upper() in record.getMessage()
         if "/markets/" in path:
             assert "market-123" in record.getMessage()
@@ -599,8 +609,7 @@ class TestTheMarketSetupRoutes:
         assert response.get_json() == {"error": "Internal server error"}
         assert invariant not in response.get_data(as_text=True)
         [record] = [r for r in caplog.records if r.name == "client_errors"]
-        assert record.exc_info is not None and record.exc_info[0] is ValueError
-        assert str(record.exc_info[1]) == invariant
+        assert_logged_without_message(record, ValueError, invariant)
 
     def test_a_market_needs_a_name(self, client):
         response = client.put("/markets/market-123/name", json={"name": "  "})
@@ -704,7 +713,7 @@ class TestTheMarketSetupRoutes:
         assert SECRET not in response.get_data(as_text=True)
         assert "RuntimeError" not in response.get_data(as_text=True)
         [record] = [r for r in caplog.records if r.name == "client_errors"]
-        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert_logged_without_message(record, RuntimeError, SECRET)
         assert method.upper() in record.getMessage()
         if "/markets/" in path:
             assert "market-123" in record.getMessage()
@@ -771,7 +780,7 @@ class TestTheFormAndPhaseRoutes:
         assert SECRET not in response.get_data(as_text=True)
         assert "RuntimeError" not in response.get_data(as_text=True)
         [record] = [r for r in caplog.records if r.name == "client_errors"]
-        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert_logged_without_message(record, RuntimeError, SECRET)
         assert method.upper() in record.getMessage()
         assert "market-123" in record.getMessage()
         assert [r for r in caplog.records if SECRET in r.getMessage()] == []
@@ -934,7 +943,7 @@ class TestTheAssignmentAndPlacementRoutes:
         assert SECRET not in response.get_data(as_text=True)
         assert "RuntimeError" not in response.get_data(as_text=True)
         [record] = [r for r in caplog.records if r.name == "client_errors"]
-        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert_logged_without_message(record, RuntimeError, SECRET)
         assert method.upper() in record.getMessage()
         assert "market-123" in record.getMessage()
         assert [r for r in caplog.records if SECRET in r.getMessage()] == []
@@ -1281,7 +1290,7 @@ class TestTheApplicantReviewImportAndDoorRoutes:
         assert SECRET not in response.get_data(as_text=True)
         assert "RuntimeError" not in response.get_data(as_text=True)
         [record] = [r for r in caplog.records if r.name == "client_errors"]
-        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert_logged_without_message(record, RuntimeError, SECRET)
         assert method.upper() in record.getMessage()
         assert logged_as in record.getMessage()
         assert [r for r in caplog.records if SECRET in r.getMessage()] == []
@@ -1395,11 +1404,10 @@ READS_NO_BODY = [
      [(ApplicantAuthApi, "sign_out", HANDED_ON)]),
     ("post", "/markets/<market_id>/door-code", [(DoorApi, "make_door_code", HANDED_ON)]),
 ]
-# Each write route in app.py with a body another module reads: the view hands `request` to the
-# account API in api/users.py, or the applicant sign-in in api/applicant_auth.py reads it for its
-# uniform answers. Each with the module and function its view hands the request to.
+# Each write route in app.py with a body another module reads: the account API in api/users.py
+# reads it with `json_object`, or the applicant sign-in in api/applicant_auth.py reads it for its
+# uniform answers. Each with the module and function its view hands on to.
 BODY_READ_ELSEWHERE = [
-    ("post", "/register-user", UsersApi, "register_user"),
     ("post", "/login", UsersApi, "login"),
     ("post", "/register", UsersApi, "register_user_with_captcha"),
     ("post", "/verify-email", UsersApi, "verify_email"),
@@ -1421,6 +1429,17 @@ BODY_VIEW_ARGS = {
     "<date>": "2026-08-01", "<payment_id>": "payment-1",
 }
 NOT_OBJECTS = [["Autumn Market"], [], "Autumn Market", "", 7, 0, True, False]
+# The account routes in api/users.py, whose bodies that module reads.
+ACCOUNT_ROUTES = [
+    (method, rule) for method, rule, api, _function in BODY_READ_ELSEWHERE if api is UsersApi
+]
+# A request carrying no JSON: no body at all, a body of another type, and JSON that does not parse.
+NO_JSON_BODIES = [
+    {},
+    {"data": "email=owner@example.com", "content_type": "text/plain"},
+    {"data": "{not json", "content_type": "application/json"},
+]
+NO_JSON_BODY_IDS = ["none", "not-json", "broken-json"]
 
 
 def path_for(rule):
@@ -1432,7 +1451,8 @@ def path_for(rule):
 
 def body_reads(monkeypatch):
     """Every read of the request's body while a route answers: `get_json` (and `request.json`),
-    `get_data` (and `request.data`) and the form parser each record their name and raise."""
+    `get_data` (and `request.data`), the form parser (and `request.form`, `.values`, `.files`) and
+    `request.stream` each record their name and raise."""
     reads = []
 
     def reader(name):
@@ -1443,6 +1463,8 @@ def body_reads(monkeypatch):
 
     for name in ("get_json", "get_data", "_load_form_data"):
         monkeypatch.setattr(flask.Request, name, reader(name))
+    # Werkzeug's `stream` is a cached property, so it is replaced by a property that reads as a call.
+    monkeypatch.setattr(flask.Request, "stream", property(reader("stream")))
     return reads
 
 
@@ -1470,7 +1492,7 @@ class TestABodyThatIsNotAnObject:
     optional body in its view, as taking no body, or as having a body another module reads; each
     body route refuses a body that is not a JSON object in the same words, 400: never Werkzeug's
     HTML 415, a model's own words, or the generic 500 of an ``AttributeError``; and no other view
-    reads the body at all."""
+    reads the body on its way to its success answer."""
 
     def test_every_write_route_is_classified(self):
         groups = {
@@ -1492,6 +1514,19 @@ class TestABodyThatIsNotAnObject:
         }
 
         assert write_views == set().union(*groups.values())
+
+    @pytest.mark.parametrize("read", [
+        lambda r: r.get_json(), lambda r: r.json, lambda r: r.get_data(), lambda r: r.data,
+        lambda r: r.form, lambda r: r.values, lambda r: r.files, lambda r: r.stream.read(),
+    ], ids=["get_json", "json", "get_data", "data", "form", "values", "files", "stream"])
+    def test_the_guard_sees_every_way_to_read_the_body(self, monkeypatch, read):
+        with app_module.app.test_request_context("/login", method="POST", json={"a": "body"}):
+            reads = body_reads(monkeypatch)
+
+            with pytest.raises(RuntimeError):
+                read(flask.request)
+
+        assert reads
 
     @pytest.mark.parametrize("method, rule, stubs", READS_NO_BODY)
     def test_a_route_that_takes_no_body_reads_none(self, client, monkeypatch, method, rule, stubs):
@@ -1516,6 +1551,16 @@ class TestABodyThatIsNotAnObject:
 
         assert (response.status_code, response.get_json()) == (200, {"handed_on": True})
         assert reads == []
+
+    @pytest.mark.parametrize("no_body", NO_JSON_BODIES, ids=NO_JSON_BODY_IDS)
+    @pytest.mark.parametrize("method, rule", ACCOUNT_ROUTES)
+    def test_an_account_route_answers_a_body_that_is_not_json_in_json(
+        self, client, monkeypatch, method, rule, no_body,
+    ):
+        response = getattr(client, method)(rule, **no_body)
+
+        assert response.status_code == 400
+        assert response.is_json
 
     @pytest.mark.parametrize("not_an_object", NOT_OBJECTS)
     @pytest.mark.parametrize("method, rule, phase", REQUIRED_BODIES + OPTIONAL_BODIES)
@@ -1622,6 +1667,10 @@ class TestAClientError:
         assert [r for r in caplog.records if r.name == "client_errors"] == []
 
 
+class LibraryFailure(Exception):
+    """An exception of a library's own type, logged by its module and name."""
+
+
 class TestAnUnexpectedFailure:
     @pytest.mark.parametrize("path, function", ASSIGNMENT_READS)
     def test_answers_only_internal_server_error(self, client, monkeypatch, path, function):
@@ -1635,7 +1684,7 @@ class TestAnUnexpectedFailure:
         assert "RuntimeError" not in response.get_data(as_text=True)
 
     @pytest.mark.parametrize("path, function", ASSIGNMENT_READS)
-    def test_is_logged_once_with_its_traceback_and_the_market(
+    def test_is_logged_once_with_its_type_its_frames_and_the_market(
         self, client, monkeypatch, caplog, path, function,
     ):
         monkeypatch.setattr(MarketsApi, function, fail_with(RuntimeError(SECRET)))
@@ -1646,12 +1695,92 @@ class TestAnUnexpectedFailure:
         records = [r for r in caplog.records if r.name == "client_errors"]
         assert len(records) == 1
         record = records[0]
-        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
-        assert SECRET in caplog.text  # the traceback, for whoever is on call
+        assert_logged_without_message(record, RuntimeError, SECRET)
+        assert SECRET not in caplog.text
         assert "GET" in record.getMessage()
         assert function in record.getMessage()
         assert "market-123" in record.getMessage()
         assert OWNER_EMAIL not in caplog.text
+
+    def test_never_logs_the_message_of_the_exception_or_of_any_cause(
+        self, client, monkeypatch, caplog,
+    ):
+        """A library's message can quote what it was given, an applicant's address with it: the log
+        holds each exception's qualified type and frames, the way a traceback reads, and no message."""
+        address = "ana.vendor@example.com"
+        duplicate, not_saved = f"duplicate key: {address}", f"could not save {address}"
+
+        def a_library_failing_on_the_address(*_args, **_kwargs):
+            try:
+                raise KeyError(address)
+            except KeyError:
+                try:
+                    raise LibraryFailure(duplicate)
+                except LibraryFailure as failure:
+                    raise RuntimeError(not_saved) from failure
+
+        monkeypatch.setattr(MarketsApi, "get_assigned_market", a_library_failing_on_the_address)
+
+        with caplog.at_level(logging.ERROR):
+            response = client.get("/markets/market-123/assignment")
+
+        assert response.status_code == 500
+        assert address not in response.get_data(as_text=True)
+        [record] = [r for r in caplog.records if r.name == "client_errors"]
+        assert record.exc_info is None
+        assert address not in caplog.text
+        assert "duplicate key" not in caplog.text
+        assert "could not save" not in caplog.text
+        logged = record.getMessage()
+        library_failure = f"{LibraryFailure.__module__}.{LibraryFailure.__qualname__}"
+        assert logged.index("\nKeyError\n") < logged.index(
+            "During handling of the above exception, another exception occurred:",
+        ) < logged.index(f"\n{library_failure}\n") < logged.index(
+            "The above exception was the direct cause of the following exception:",
+        ) < logged.index("\nRuntimeError")
+        assert logged.endswith("\nRuntimeError")
+        assert logged.count("Traceback (most recent call last):") == 3
+        assert "in a_library_failing_on_the_address\n    raise KeyError(address)" in logged
+        assert "raise LibraryFailure(duplicate)" in logged
+        assert "raise RuntimeError(not_saved) from failure" in logged
+
+    def test_a_cause_never_raised_is_named_by_its_type_alone(self):
+        try:
+            raise RuntimeError(SECRET) from LibraryFailure(SECRET)
+        except RuntimeError as error:
+            logged = traceback_without_messages(error)
+
+        library_failure = f"{LibraryFailure.__module__}.{LibraryFailure.__qualname__}"
+        assert logged.startswith(f"{library_failure}\n\nThe above exception was the direct cause")
+        assert logged.count("Traceback (most recent call last):") == 1
+        assert logged.endswith("\nRuntimeError")
+        assert SECRET not in logged
+
+    def test_a_context_suppressed_with_from_none_is_left_out(self):
+        try:
+            try:
+                raise KeyError(SECRET)
+            except KeyError:
+                raise RuntimeError(SECRET) from None
+        except RuntimeError as error:
+            logged = traceback_without_messages(error)
+
+        assert logged.startswith("Traceback (most recent call last):")
+        assert logged.count("Traceback (most recent call last):") == 1
+        assert "KeyError" not in logged
+        assert logged.endswith("\nRuntimeError")
+
+    def test_never_logs_a_note_added_to_the_exception(self, client, monkeypatch, caplog):
+        failure = RuntimeError("boom")
+        failure.add_note("while saving ana.vendor@example.com")
+        monkeypatch.setattr(MarketsApi, "get_assigned_market", fail_with(failure))
+
+        with caplog.at_level(logging.ERROR):
+            client.get("/markets/market-123/assignment")
+
+        [record] = [r for r in caplog.records if r.name == "client_errors"]
+        assert_logged_without_message(record, RuntimeError, "boom")
+        assert "ana.vendor@example.com" not in caplog.text
 
     def test_inside_the_api_function_answers_the_same(self, client, monkeypatch, caplog):
         """What the four API functions caught and echoed now reaches the handler unanswered."""
@@ -1859,6 +1988,64 @@ class TestTheCopyIsOurs:
         assert ORG_ID in caplog.text
         assert "markets (list_type)" in caplog.text
         assert "unreadable-markets" not in caplog.text
+
+
+# A library's message quoting what it was given: the stranger's address, and a word of theirs.
+STRANGERS_ADDRESS = "stranger.vendor@example.com"
+LIBRARY_MESSAGE = f"550 mailbox {STRANGERS_ADDRESS} refused: 'Ember & Ash'"
+
+
+class TestAFailureARouteSurvivesIsLoggedWithoutItsMessage:
+    """A failure a route goes on past, and answers as a success, is logged once by its type and its
+    frames, naming the market, the way a 500 is: never by its message, and never with ``exc_info``,
+    whose formatter would print the message under the frames."""
+
+    def test_a_code_that_could_not_be_sent(self, monkeypatch, caplog):
+        from test_applicant_auth import FakeDatabase, _published_market_doc
+
+        database = FakeDatabase(markets=[_published_market_doc()])
+        monkeypatch.setattr(ApplicantAuthApi, "db", database)
+        monkeypatch.setattr(
+            ApplicantAuthApi, "challenges_collection", database["applicant_login_challenges"],
+        )
+        monkeypatch.setattr(
+            ApplicantAuthApi, "_send_code_email", fail_with(RuntimeError(LIBRARY_MESSAGE)),
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            response = app_module.app.test_client().post(
+                f"/public/markets/{SLUG}/applicant-login/request-code",
+                json={"email": STRANGERS_ADDRESS},
+            )
+
+        assert response.status_code == 200
+        [record] = [r for r in caplog.records if r.name == "api.applicant_auth"]
+        assert record.levelno == logging.ERROR
+        assert_logged_without_message(record, RuntimeError, LIBRARY_MESSAGE)
+        assert SLUG in record.getMessage()
+        assert STRANGERS_ADDRESS not in caplog.text
+        assert "Ember" not in caplog.text
+
+    def test_an_offers_sweep_that_failed(self, client, monkeypatch, caplog):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.OFFERS, setupObject=COMPLETE_PLAN))
+        monkeypatch.setattr(MarketsApi, "evaluate_transition", lambda *_args: [])
+        monkeypatch.setattr(
+            ApplicationsApi, "sweep_unanswered_offers", fail_with(RuntimeError(LIBRARY_MESSAGE)),
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            response = client.post(
+                "/markets/market-123/transition", json={"toPhase": MarketPhase.MARKET_DAYS.value},
+            )
+
+        assert response.status_code == 200
+        [record] = [r for r in caplog.records if r.name == "api.markets"]
+        assert record.levelno == logging.ERROR
+        assert_logged_without_message(record, RuntimeError, LIBRARY_MESSAGE)
+        assert "market-123" in record.getMessage()
+        assert STRANGERS_ADDRESS not in caplog.text
+        assert "Ember" not in caplog.text
+
 
 class TestFlasksOwnAnswers:
     def test_an_unknown_url_is_still_flasks_404(self, client):

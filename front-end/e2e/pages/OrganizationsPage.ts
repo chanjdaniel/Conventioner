@@ -74,7 +74,6 @@ export class OrganizationsPage {
   readonly historySentinel: Locator;
 
   // ── Manage org's default permissions for new markets (E39/F02/S01) ──
-  readonly defaults: Locator;
   readonly defaultsOpen: Locator;
   readonly defaultsWindow: Locator;
   readonly defaultsBody: Locator;
@@ -149,8 +148,7 @@ export class OrganizationsPage {
     this.historyBoxShadeBottom = page.getByTestId('org-history-box-shade-bottom');
     this.historySentinel = page.getByTestId('org-history-sentinel');
 
-    // A section's line, and a button opening the rows' own dialog (T217).
-    this.defaults = page.getByTestId('manage-org-permissions');
+    // The section's button, and the rows' own dialog it opens (T217).
     this.defaultsOpen = page.getByTestId('manage-org-permissions-open');
     this.defaultsWindow = page.getByTestId('manage-org-permissions-window');
     this.defaultsBody = page.getByTestId('manage-org-permissions-body');

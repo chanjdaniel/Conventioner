@@ -24,6 +24,7 @@ import {
   tickedColumn,
   vendorsPageSeed,
   type ExportFilters,
+  type ExportOffered,
   type ExportPreview,
 } from '@/utils/vendorExport';
 import { getFormattedDate } from '@/utils/utils';
@@ -31,6 +32,7 @@ import { filenameFrom } from '@/utils/download';
 import type { DiscordShown } from '@/utils/discordCheck';
 import type { ResultFilters } from '@/utils/resultFilters';
 import { ApplicationStatus } from '@/assets/types/datatypes';
+import { tryEveryClose } from './support/dialogCloses';
 
 const posted: { url: string; body: unknown }[] = [];
 let answer: (body: { columns?: string[] }) => ExportPreview;
@@ -180,7 +182,7 @@ describe('the seed the Applications tab’s All view gives the export', () => {
 });
 
 describe('the columns', () => {
-  const offered = {
+  const offered: Pick<ExportOffered, 'columns' | 'groups' | 'defaultColumns'> = {
     columns: [
       { id: 'name', label: 'Name', group: 'vendor' },
       { id: 'email', label: 'Email', group: 'vendor' },
@@ -1316,6 +1318,18 @@ describe('the form, drawn from what it is given', () => {
     const button = wrapper.get('[data-testid="vendor-export-submit-button"]');
     expect(button.text()).toBe('Downloading…');
     expect((button.element as HTMLButtonElement).disabled).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('closes by no way while busy, so a refusal is never hidden, and by every way after', async () => {
+    const wrapper = form({ busy: true });
+
+    await tryEveryClose('vendor-export');
+    expect(wrapper.emitted('close')).toBeUndefined();
+
+    await wrapper.setProps({ busy: false, error: 'The export could not be downloaded.' });
+    await tryEveryClose('vendor-export');
+    expect(wrapper.emitted('close')).toHaveLength(4);
     wrapper.unmount();
   });
 

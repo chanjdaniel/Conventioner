@@ -12,6 +12,7 @@ import {
   CHANGED_SINCE,
   KEEPS_ON_SAVE,
   MATCHES_ON_SAVE,
+  NOW_MATCHES,
   sameAnswer,
   updatedLine,
 } from '@/utils/answerUpdates';
@@ -21,6 +22,7 @@ import {
   type AnswerUpdate,
   type Application,
   type ApplicationForm,
+  type EssentialFormOptions,
 } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_KEY,
@@ -33,8 +35,11 @@ import {
   TABLE_SHARE_EMAIL_KEY,
   TIER_PREFERENCE_KEY,
 } from '@/utils/essentialFields';
+import { tryEveryClose } from './support/dialogCloses';
 
 const sent: { url: string; body: unknown }[] = [];
+/** A write still out, when a test holds one; otherwise the server answers at once. */
+let held: Promise<unknown> | null = null;
 
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
@@ -43,6 +48,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
     api: {
       put: (url: string, body: { answers: Record<string, unknown> }) => {
         sent.push({ url, body });
+        if (held) return held;
         return Promise.resolve({ data: { application: application() } });
       },
     },
@@ -51,6 +57,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
 
 afterEach(() => {
   sent.length = 0;
+  held = null;
 });
 
 const FORM: ApplicationForm = {
@@ -91,7 +98,12 @@ function application(overrides: Partial<Application> = {}): Application {
 
 const THU = '2026-11-19';
 const FRI = '2026-11-20';
-const OPTIONS = { dates: [THU, FRI], tiers: ['Gold', 'Silver'], sections: [], tableTypes: [] };
+const OPTIONS: EssentialFormOptions = {
+  dates: [THU, FRI],
+  tiers: ['Gold', 'Silver'],
+  sections: [],
+  tableTypes: [],
+};
 const ONLY_AN_ADMIN =
   "Only an Admin or the owner may update the answers this market's assignment or prices read.";
 
@@ -254,6 +266,25 @@ describe('the Update info dialog', () => {
 
     expect(wrapper.emitted('close')).toHaveLength(1);
     expect(sent).toEqual([]);
+    wrapper.unmount();
+  });
+
+  it('closes by no way while Save is out, so its refusal is never hidden', async () => {
+    let refuse!: (reason: unknown) => void;
+    held = new Promise((_resolve, reject) => (refuse = reject));
+    const wrapper = dialog();
+    await wrapper.get(testid('update-info-input-shop')).setValue('Ember Ceramics');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    await tryEveryClose('update-info');
+    expect(wrapper.emitted('close')).toBeUndefined();
+
+    refuse(new Error('Network Error'));
+    await flushPromises();
+    expect(wrapper.get(testid('update-info-error')).text()).toBe('The update could not be saved.');
+    await tryEveryClose('update-info');
+    expect(wrapper.emitted('close')).toHaveLength(4);
     wrapper.unmount();
   });
 
@@ -556,6 +587,19 @@ describe('the words beside an updated answer', () => {
 
   it('say when their answer changed since', () => {
     expect(CHANGED_SINCE).toBe('Their answer changed since your update.');
+  });
+
+  it('say when their answer changed to the update itself, as the dialog does', () => {
+    const note = mount(AnswerUpdateNote, {
+      props: {
+        update: { ...UPDATE, theyWrote: 'Ember Ceramics ', changedSince: true },
+        testid: 'note',
+      },
+    });
+
+    expect(note.get(testid('note-changed')).text()).toBe('Their answer now matches your update.');
+    expect(MATCHES_ON_SAVE.startsWith(`${NOW_MATCHES} `)).toBe(true);
+    expect(NOW_MATCHES).toBe('Their answer now matches your update.');
   });
 });
 

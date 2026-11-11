@@ -270,6 +270,51 @@ def test_a_solver_run_stores_what_it_produced(collection, monkeypatch):
     assert result["assignmentObject"]["vendorAssignments"][0]["tableCode"] == "Hall A 1"
 
 
+def test_an_allocation_that_breaks_the_solvers_rules_is_never_stored(collection, monkeypatch):
+    """A solver defect is refused before the store, so nothing is written, recorded or charged.
+
+    The real ``assign_market`` runs, around a deliberately broken solver: after the double-seat
+    fix (T253) no real market breaks a rule, and this is about what happens when one does.
+    """
+    import api.payments as PaymentsApi
+    import history as History
+    from assignment.assignment import MarketAssignment
+    from assignment.invariants import BrokenAllocationError, SEAT_TAKEN_TWICE
+    from datatypes import MarketDateObject, VendorAssignmentResult
+
+    def both_at_one_table(self):
+        market_date = MarketDateObject(date="2026-08-01")
+        for vendor in self.vendors:
+            vendor.assign(market_date, VendorAssignmentResult(
+                email=vendor.want.email,
+                date="2026-08-01",
+                table_code="Hall A 1",
+                table_choice="Full Table",
+                section="Hall A",
+                tier="Gold",
+                location="Main Hall",
+            ))
+
+    called = []
+    monkeypatch.setattr(MarketAssignment, "assign", both_at_one_table)
+    monkeypatch.setattr(
+        PlacementsApi, "solver_vendors_for",
+        lambda _market: [a_solver_vendor("app-1"), a_solver_vendor("app-2")],
+    )
+    monkeypatch.setattr(
+        History, "record_assignment_run", lambda *args, **kwargs: called.append("history"))
+    monkeypatch.setattr(
+        PaymentsApi, "seated_again", lambda *args, **kwargs: called.append("payments"))
+
+    with pytest.raises(BrokenAllocationError) as refused:
+        PlacementsApi.run_assignment("market-123", "user-1")
+
+    message = str(refused.value)
+    assert f"{SEAT_TAKEN_TWICE} at Hall A 1 on 2026-08-01 (app-1, app-2)" in message
+    assert collection.last_update is None
+    assert called == []
+
+
 def test_a_solver_run_over_nobody_is_refused_and_stores_nothing(collection, monkeypatch):
     """A run over nobody produces a screen indistinguishable from a run that failed."""
     monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: [])
@@ -350,9 +395,24 @@ class TestASecondPinToAnOccupiedSeat:
                 "market-123", placement(email="ben@example.com"), "user-1"
             )
 
-        assert "ana@example.com" in str(refusal.value)
-        assert "Hall A 1" in str(refusal.value)
+        assert str(refusal.value) == (
+            "ana@example.com already holds Hall A 1 (Full Table) on Aug 1, 2026. "
+            "Choose another seat, or swap the two vendors."
+        )
         assert collection.last_update is None
+
+    def test_the_refusal_says_a_date_that_is_no_calendar_day_as_stored(self, collection):
+        collection.doc["setupObject"] = {
+            **collection.doc["setupObject"], "marketDates": [{"date": "Saturday"}],
+        }
+        already_placed(collection, ("ana@example.com", "Saturday", "Hall A 1"))
+
+        with pytest.raises(PlacementsApi.SeatTakenError) as refusal:
+            PlacementsApi.write_placement(
+                "market-123", placement(email="ben@example.com", date="Saturday"), "user-1"
+            )
+
+        assert "on Saturday. Choose another seat" in str(refusal.value)
 
     def test_the_vendor_already_there_may_still_be_moved_within_their_own_seat(self, collection):
         """Their own row is replaced, not collided with."""

@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/components/market/OpenApplicationsDialog.vue
   - front-end/src/utils/phase.ts
-verified: 2026-11-06
+verified: 2026-11-10
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -35,6 +35,8 @@ sources:
   - T206
   - T217
   - T214
+  - T260
+  - T263
 ---
 
 # The phase rail
@@ -50,6 +52,7 @@ What it says comes from [the market guide](market-guide.md); which moves exist a
 `GET /markets/:id` serves `transitionBlockers`: every move open from the market's phase, each judged by the same guards the move runs (`transition_verdicts` in [`back-end/guards.py`](../../../back-end/guards.py)).
 A refused move is drawn disabled, with its first blocker as its reason: in the menu beside it, and for the forward step as the rail's sentence, to someone who may take the blocker's remedy (the guide's `nextStep`); when that blocker names a page that resolves it, the rail's main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
 The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish market offers "Allocate tables"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
+The one exception is the form before Review setup (T260): the fix and the sentence read the guide's `firstInTheWay`, which, while a draft's form has none of the organizer's own questions and was not started from a Google Form's responses, and Review setup's decision is the first blocker, offers the form instead ([the market guide](market-guide.md)), with the move still disabled for Review setup.
 That page is the link's path and every query value it names (`isHere` in [`market.ts`](../../../front-end/src/utils/market.ts), T206): a fix leading to `form?step=review` is drawn from Your questions and not on Review setup, and one leading to `applications` is not drawn on `applications?view=one`.
 The 409 from `POST /markets/:id/transition` stays for races and renders its blockers under the rail, and the rail reads the market again, since it may have changed since it was read: a fix in that panel then leads to a page that shows the market as the server judged it, Review setup asking again for a decision another organizer undid (T206).
 Never decide a move's verdict on the front end.
@@ -68,7 +71,7 @@ A Google Form market's draft offers the fix "Import responses" as its main butto
 
 **More… holds the stage's actions beside its moves.**
 `stageActions` in [the market guide](market-guide.md) gives a Google Form market in Review "Redo import", which opens the import and moves nothing, and an own-form market in Applications "Stop taking applications" or "Take applications again", a write to `POST /markets/:id/applications-stopped` after which the store re-reads the market (E38/F04/S02, S03).
-They come first in the menu, as `phase-rail-action-<id>`, offered only to an Admin and, for the stop, only when the read's `applicationsStopReason` is null.
+They come first in the menu, as `phase-rail-action-<id>`, offered only to someone the table's row lets take them, Redo import's `import-applications` and the stop's `stop-applications` ([the market's actions](market-actions.md), `mayTake`), and, for the stop, only when the read's `applicationsStopReason` is null.
 The moves follow them, any back edge first and Archive market last, so the destructive move is never in the middle.
 
 **The spine is derived, never listed.**
@@ -85,7 +88,7 @@ A spec that clicks `phase-transition-<phase>` for a back or destructive edge ope
 A move that cannot be undone (`transitionNeedsConfirmation`, derived from the table: today `market_days` and `archived`) asks first in a dialog.
 "Back to review", the way from `assignment` to the stage (`pathTransitionLabel` reads the origin), asks first too, by its edge (`isBackToReview`), since it can be undone but costs the allocation: an `AppDialog`, `back-to-review-confirm`, titled "Back to review?", whose paragraphs say the review opens again, the allocated tables must be allocated again before results are published, a seat placed by hand stays, and, on an own-form market only, that applications stay closed ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
 It is drawn as a back move, and once results are published it is disabled with `ResultsNotPublishedGuard`'s message beside it, as any refused move in the menu is.
-"Open applications" out of an own-form draft, for someone the table's Choose reviewers row lets choose (`offersReviewers`), opens [`OpenApplicationsDialog.vue`](../../../front-end/src/components/market/OpenApplicationsDialog.vue) instead: the reviewer picker, whose confirm saves the reviewers when the choice differs from the team it starts from (`teamToChange` and `sameTeam` in [`reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts), which the first import's preview step uses alike: the team being written, else the team last written over the market held, else the stored team) and then hands the move back to the rail ([taking applications](../../business/flows/taking-applications.md#h1-open-applications), [the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
+"Open applications" out of an own-form draft, for someone the table's Choose reviewers row lets choose (`offersReviewers`), opens [`OpenApplicationsDialog.vue`](../../../front-end/src/components/market/OpenApplicationsDialog.vue) instead: the reviewer picker, each reviewer who can no longer review here marked on their chip (`unableReviewers` in `reviewTeam.ts`), whose confirm saves the reviewers when the choice differs from the team it starts from (`teamToChange` and `sameTeam` in [`reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts), which the first import's preview step uses alike: the team being written, else the team last written over the market held, else the stored team) and then hands the move back to the rail ([taking applications](../../business/flows/taking-applications.md#h1-open-applications), [the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
 Below the picker the dialog names the review setup it opens, as the market serves it (T206): "What a reviewer reads first:" and the labels of the live marks in the order they lead the card (`leadingLabels` in [`reviewHighlights.ts`](../../../front-end/src/utils/reviewHighlights.ts)), or "Nothing leads the card"; "Automatic rejections:" and how many rules reject an answer (`rejectingRules` in [`rejectionRules.ts`](../../../front-end/src/utils/rejectionRules.ts)), or "None" ([review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md)).
 The rail opens the dialog only while the move has no blocker, so both read decided; a market that reached it undecided all the same reads "not decided yet" rather than a decision nobody took.
 Its "Change" leads to `form?step=review` and closes the dialog, and is drawn only for someone who may take `change-form`.
@@ -107,6 +110,7 @@ Without a complete record (`phaseRecordComplete: false`) the rail says only what
 
 **The addresses give way, and the rail's end travels as one piece.**
 On a desk an address chip is the one flexible part of the row: it drops the scheme every address shares and ellipses the rest, so the part naming the market shows, while the link, its hover text and Copy keep the whole address.
+Copy stands at the chip's end at every width (`margin-left: auto`), so a chip wider than its words, an 18rem floor round a short address or a phone's half row, leaves its room between the address and Copy; with a short address it stood mid-chip (T260), which `the-rail-addresses.spec.ts` holds at 1280 and 390.
 The addresses and the moves are one item of the row; where the row cannot hold them beside the spine, they take a second row together, addresses at its start and moves at its end, rather than leaving one button alone beside an empty band.
 When the address shows is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the vendor page ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 

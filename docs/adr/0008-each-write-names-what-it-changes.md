@@ -29,18 +29,18 @@ A client sending its whole copy of a market is a client claiming to be the truth
 There is no whole-market write.
 Every write names the part of the market it changes, through an endpoint that accepts nothing else and judges that part alone:
 
-| Write | Endpoint |
-| --- | --- |
-| The plan and the intake mode | `PUT /markets/:id/plan` |
-| The name, only while the market is a draft (it is the public address) | `PUT /markets/:id/name` |
-| The application form | `PUT /markets/:id/application-form`, and the CSV start's confirm |
-| An assignment run, a seat, a swap, a hand-added vendor | `POST /markets/:id/assignment`, `PUT`/`DELETE /markets/:id/placements`, `POST /markets/:id/placements/swap`, `POST /markets/:id/vendors` |
-| A floorplan, only while the market is a draft | `POST /floorplans/save-to-market` |
-| Review highlights ([the rule](../business/rules/review-highlights.md)), automatic rejections | `PUT /markets/:id/review-highlights`, `PUT /markets/:id/rejection-rules` |
-| A phase move, publishing results | `POST /markets/:id/transition`, `POST /markets/:id/publish-results` |
-| Roles | `POST`/`PUT`/`DELETE /markets/:id/roles` |
-| A row of the market's permission table, its owner's only ([ADR 0019](0019-a-markets-permissions-are-a-table.md)) | `PUT`/`DELETE /markets/:id/permissions/<action>` |
-| Every row of the market's permission table back to its built-in default, its owner's only | `DELETE /markets/:id/permissions` |
+| Write                                                                                                            | Endpoint                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| The plan and the intake mode                                                                                     | `PUT /markets/:id/plan`                                                                                                                  |
+| The name, only while the market is a draft (it is the public address)                                            | `PUT /markets/:id/name`                                                                                                                  |
+| The application form                                                                                             | `PUT /markets/:id/application-form`, and the CSV start's confirm                                                                         |
+| An assignment run, a seat, a swap, a hand-added vendor                                                           | `POST /markets/:id/assignment`, `PUT`/`DELETE /markets/:id/placements`, `POST /markets/:id/placements/swap`, `POST /markets/:id/vendors` |
+| A floorplan, only while the market is a draft                                                                    | `POST /floorplans/save-to-market`                                                                                                        |
+| Review highlights ([the rule](../business/rules/review-highlights.md)), automatic rejections                     | `PUT /markets/:id/review-highlights`, `PUT /markets/:id/rejection-rules`                                                                 |
+| A phase move, publishing results                                                                                 | `POST /markets/:id/transition`, `POST /markets/:id/publish-results`                                                                      |
+| Roles                                                                                                            | `POST`/`PUT`/`DELETE /markets/:id/roles`                                                                                                 |
+| A row of the market's permission table, its owner's only ([ADR 0019](0019-a-markets-permissions-are-a-table.md)) | `PUT`/`DELETE /markets/:id/permissions/<action>`                                                                                         |
+| Every row of the market's permission table back to its built-in default, its owner's only                        | `DELETE /markets/:id/permissions`                                                                                                        |
 
 A market's organization is fixed at creation: it is the market's container and an access grant at once, and Manage Market names it in one read-only line rather than offering to change it.
 No two markets share a slug, the public address: creating or renaming a market is refused when its slug is taken, not only its exact name, since "Café Market" and "Cafe Market" are one address, and the unique `market_slug` index holds it ([the market document](../implementation/data/market-document.md)).

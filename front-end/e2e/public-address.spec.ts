@@ -23,7 +23,7 @@ test.describe('A public address belongs to one market', () => {
   }) => {
     const stamp = Date.now();
     const created = await page.request.post(`${APP_API}/markets`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         name: `Café Address ${stamp}`,
         creationDate: new Date().toISOString(),
@@ -54,7 +54,7 @@ test.describe('A public address belongs to one market', () => {
   }) => {
     const name = `Address Fixed ${Date.now()}`;
     const created = await page.request.post(`${APP_API}/markets`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         name,
         creationDate: new Date().toISOString(),
@@ -71,7 +71,7 @@ test.describe('A public address belongs to one market', () => {
     const { market_id: marketId } = (await created.json()) as { market_id: string };
     await decideReviewSetup(page.request, APP_API, marketId);
     const opened = await page.request.post(`${APP_API}/markets/${marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'applications' },
     });
     expect(opened.ok(), await opened.text()).toBe(true);
@@ -89,7 +89,7 @@ test.describe('A public address belongs to one market', () => {
 
     // And the server holds the same line, whatever a client sends.
     const refused = await page.request.put(`${APP_API}/markets/${marketId}/name`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { name: `${name} renamed` },
     });
     expect(refused.status()).toBe(400);

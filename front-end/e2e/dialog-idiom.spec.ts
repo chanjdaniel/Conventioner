@@ -136,7 +136,7 @@ test.describe('The create-market dialog is the dialog idiom', () => {
     await loginViaApi(page.request, APP_API, TEST_USER.email, TEST_USER.password);
     const orgId = await ensureTestOrg(page.request, APP_API, TEST_USER.email, TEST_USER.password);
     await page.request.post(`${APP_API}/markets`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         name: taken,
         creationDate: new Date().toISOString(),
@@ -182,12 +182,12 @@ test.describe('The create-market dialog with exactly one organization', () => {
       ignoreHTTPSErrors: true,
     });
     await api.post('/login', { data: ONE_ORG_USER });
-    const existing = (await (
-      await api.get('/organizations', { headers: { 'X-Owner-Email': ONE_ORG_USER.email } })
-    ).json()) as { organizations: unknown[] };
+    const existing = (await (await api.get('/organizations')).json()) as {
+      organizations: unknown[];
+    };
     if (existing.organizations.length === 0) {
       await api.post('/organizations', {
-        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': ONE_ORG_USER.email },
+        headers: { 'Content-Type': 'application/json' },
         data: { name: 'The Only Org' },
       });
     }
@@ -380,7 +380,7 @@ test.describe('Enter means the same thing in every dialog', () => {
     const orgId = await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
     const mine = `E2E EnterTarget ${Date.now()}`;
     const created = await request.post(`${BACKEND_URL}/markets`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         name: mine,
         creationDate: new Date().toISOString(),

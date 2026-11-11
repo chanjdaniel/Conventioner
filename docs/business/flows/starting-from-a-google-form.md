@@ -46,6 +46,7 @@ It keeps every answer too, one-offs included, for an option on the Questions tab
 Only someone who may change the form reads those, and only while it can still change ([ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)).
 Only column headings and the shape of their answers are sent to TypeSafe, and the upload step says so; no applicant's answer leaves Conventioner.
 Covered by:
+
 - `start-from-csv.spec.ts`
 - `the-landing-says-what-remains.spec.ts`
 - `the-upload-steps-are-one.spec.ts`

@@ -1,7 +1,9 @@
+import math
 import secrets
 import time
 import uuid
-from typing import Dict, Iterable, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, Optional, Tuple
 from flask import current_app, request, jsonify, session
 from flask_login import UserMixin
 from flask_login.config import COOKIE_NAME
@@ -11,12 +13,16 @@ from utils.tokens import (
     generate_verification_token, generate_reset_token, generate_otp,
     get_token_expiry, get_otp_expiry, verify_token_expiry
 )
-from utils.email import send_verification_email, send_password_reset_email, send_otp_email
+from utils.email import (
+    send_account_exists_email, send_verification_email, send_password_reset_email, send_otp_email
+)
 from utils.captcha import verify_recaptcha
 from datetime import datetime, timedelta, timezone
+from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from utils.email_address import normalized_email
-from utils.request_body import flag_field, string_field
+from utils.request_body import flag_field, json_object, string_field
+import sign_in_limits
 
 db = get_database()
 users_collection = db["users"]
@@ -63,7 +69,8 @@ def ensure_user_indexes() -> None:
                 users_collection.drop_index(name)
         users_collection.create_index([("email", 1)], unique=True, name=USER_EMAIL_INDEX)
     except PyMongoError as exc:
-        # The driver's message is not repeated: a duplicate key error quotes the address.
+        # The driver's message is not repeated, nor kept as the cause: a duplicate key error
+        # quotes the address.
         by_address: dict = {}
         for uid, email in stored:
             by_address.setdefault(email, []).append(str(uid))
@@ -73,7 +80,7 @@ def ensure_user_indexes() -> None:
             f"({type(exc).__name__}, code {getattr(exc, 'code', None)}). Accounts sharing an "
             f"address: {'; '.join(', '.join(ids) for ids in shared) or 'none found'}. Keep one "
             f"account per address, then restart."
-        ) from exc
+        ) from None
 
 
 #: How long a sign-in without "Remember me" lasts (E38/F14/S01): a market day. Its session cookie
@@ -94,19 +101,65 @@ _LIFETIMES = {"s": SIGN_IN_LIFETIME, "r": REMEMBERED_SIGN_IN_LIFETIME}
 SIGN_IN_DOES_NOT_MATCH = "That email and password do not match."
 #: The screen offers "Send the link again" beside it.
 SIGN_IN_VERIFY_FIRST = "Verify your email address first: we sent you a link when you registered."
-#: A code that is not the one sent, and a code for an address with no account, alike up to an
-#: account's fifth wrong code, which discards its code and says to ask for a new one; an address
-#: with no account has no count, which the sign-in limits will keep for every address alike.
+#: A code that is not the one sent, and a code for an address with no account, alike at every try:
+#: an account's fifth wrong code discards its code without saying so, and the sign-in limits count
+#: every address's tries alike.
 SIGN_IN_WRONG_CODE = "That code is not right."
+
+#: What a right code that has expired says, followed by when a new code may be asked for
+#: (``_next_code``).
+CODE_EXPIRED = "That code has expired."
+#: When a new code may be asked for: ``{wait}`` is what is left of the account's wait, which ends an
+#: hour after its last code expired; with no wait left, at once.
+NEXT_CODE_LATER = "You can ask for a new code in {wait}."
+NEXT_CODE_NOW = "Ask for a new one."
+
+#: When another reset link may be asked for: ``{wait}`` is what is left of the account's wait, which
+#: ends an hour after its last link expired (``RESET_WAIT``).
+NEXT_RESET_LATER = "You can ask for another reset link in {wait}."
+
+#: How many tries reach one code before it is discarded.
+CODE_TRIES = 5
+#: How long after a code expires the account may ask for the next.
+CODE_WAIT = timedelta(hours=1)
+#: How long after a reset link expires the account may ask for the next.
+RESET_WAIT = timedelta(hours=1)
+
+#: What a sign-in past its limit says (``sign_in_limits``), ``{wait}`` being the time left of the
+#: limit's window; the password form puts "Forgot password?" beside it.
+SIGN_IN_TOO_MANY = "Too many sign-in attempts. Try again in {wait}, or reset your password."
+
+#: What a request that sends a mail (a code, a reset link, a verification link, a sign-up) says
+#: past its limit, ``{wait}`` being the time left of the limit's window.
+ASKED_TOO_OFTEN = "You have asked several times. Try again in {wait}."
+
+#: The most of a password bcrypt reads, in UTF-8 bytes: bcrypt 5 refuses to hash or check a longer
+#: one, so it is refused at sign-up and at a reset and answers a sign-in as a password that does
+#: not match.
+PASSWORD_MAX_BYTES = 72
+
+#: What a sign-up or a reset with a password longer than ``PASSWORD_MAX_BYTES`` says.
+PASSWORD_TOO_LONG = ("That password is too long. Use 72 characters or fewer; an accented letter or "
+                     "an emoji counts as more than one.")
 
 #: What a password for an address with no account is checked against, made once at the app's cost
 #: factor, so that a sign-in takes as long with an account as without one.
 _no_account_hash: Optional[str] = None
 
 
+def _longer_than_bcrypt_reads(password: str) -> bool:
+    return len(password.encode("utf-8")) > PASSWORD_MAX_BYTES
+
+
 def _password_matches(bcrypt, user_doc, password: str) -> bool:
-    """Whether the password is the account's, checked whether or not there is an account."""
+    """Whether the password is the account's, checked whether or not there is an account.
+
+    A password longer than bcrypt reads matches no account, and is checked against nothing: no
+    stored hash was made from one.
+    """
     global _no_account_hash
+    if _longer_than_bcrypt_reads(password):
+        return False
     if user_doc:
         return bcrypt.check_password_hash(user_doc["password"], password)
     if _no_account_hash is None:
@@ -118,6 +171,132 @@ def _password_matches(bcrypt, user_doc, password: str) -> bool:
 def _now() -> float:
     """The server's clock, in seconds since the epoch."""
     return time.time()
+
+
+@dataclass(frozen=True)
+class _Bounds:
+    """How one sign-in route is bounded (``sign_in_limits``): a limit per caller and per address,
+    and the sentence its refusal says under the key the route's other answers use.
+
+    Every bounded route keeps one order: the caller is counted before the body is read, and the
+    normalized address before any account is looked up, so a refusal is the same for every address
+    and never depends on whether a password or a code was right. A route whose try signed in takes
+    both counts back with the ``now`` it counted them with.
+    """
+
+    per_caller: sign_in_limits.SignInLimit
+    per_address: sign_in_limits.SignInLimit
+    sentence: str
+    key: str
+
+    def caller_refusal(self, now: datetime) -> Optional[Tuple[Any, int]]:
+        """The 429 when this caller is past its limit, else None; counts the try either way."""
+        return self._refusal(self.per_caller, sign_in_limits.caller(), now)
+
+    def address_refusal(self, email: str, now: datetime) -> Optional[Tuple[Any, int]]:
+        """The 429 when this address is past its limit, else None; counts the try either way."""
+        return self._refusal(self.per_address, email, now)
+
+    def take_back(self, email: str, now: datetime) -> None:
+        """Take back a try that signed in, from the caller's count and the address's."""
+        sign_in_limits.take_back_attempt(self.per_caller, sign_in_limits.caller(), now)
+        sign_in_limits.take_back_attempt(self.per_address, email, now)
+
+    def _refusal(self, limit, subject: str, now: datetime):
+        retry_after = sign_in_limits.count_attempt(limit, subject, now)
+        return sign_in_limits.too_many(retry_after, self.sentence, key=self.key)
+
+
+_PASSWORD_SIGN_IN = _Bounds(
+    sign_in_limits.PASSWORD_PER_CALLER, sign_in_limits.PASSWORD_PER_ADDRESS,
+    SIGN_IN_TOO_MANY, "message",
+)
+
+
+_CODE_SIGN_IN = _Bounds(
+    sign_in_limits.ORGANIZER_CODE_PER_CALLER, sign_in_limits.ORGANIZER_CODE_PER_ADDRESS,
+    SIGN_IN_TOO_MANY, "msg",
+)
+
+
+_CODE_REQUEST = _Bounds(
+    sign_in_limits.ORGANIZER_CODE_REQUEST_PER_CALLER,
+    sign_in_limits.ORGANIZER_CODE_REQUEST_PER_ADDRESS,
+    ASKED_TOO_OFTEN, "msg",
+)
+_RESET_LINK = _Bounds(
+    sign_in_limits.RESET_LINK_PER_CALLER, sign_in_limits.RESET_LINK_PER_ADDRESS,
+    ASKED_TOO_OFTEN, "msg",
+)
+_VERIFICATION_LINK = _Bounds(
+    sign_in_limits.VERIFICATION_LINK_PER_CALLER, sign_in_limits.VERIFICATION_LINK_PER_ADDRESS,
+    ASKED_TOO_OFTEN, "msg",
+)
+_SIGN_UP = _Bounds(
+    sign_in_limits.SIGN_UP_PER_CALLER, sign_in_limits.SIGN_UP_PER_ADDRESS,
+    ASKED_TOO_OFTEN, "msg",
+)
+
+
+def _limit_clock() -> datetime:
+    """The moment a bounded request is counted at, which its take-back is counted at too."""
+    return datetime.fromtimestamp(_now(), tz=timezone.utc)
+
+
+def _moment(stored: Any) -> Optional[datetime]:
+    """A stored ISO moment (a code's ``otp_expires``), read as UTC; None when there is none."""
+    if not isinstance(stored, str):
+        return None
+    try:
+        moment = datetime.fromisoformat(stored.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def _wait_after(expires: Any, wait: timedelta, now: datetime) -> Optional[int]:
+    """The whole seconds left of ``wait`` after the stored moment ``expires``, or None when none is
+    left or nothing is stored."""
+    expired_at = _moment(expires)
+    if expired_at is None:
+        return None
+    left = (expired_at + wait - now).total_seconds()
+    return math.ceil(left) if left > 0 else None
+
+
+def _code_wait(otp_expires: Any, now: datetime) -> Optional[int]:
+    """The whole seconds left until the account may ask for another code, or None when it may now:
+    one code at a time, until an hour after the last one expired (``CODE_WAIT``)."""
+    return _wait_after(otp_expires, CODE_WAIT, now)
+
+
+#: The field holding the secret a mail names, of each kind of mail ``_put_back`` puts back.
+_MAILED_SECRETS = ("otp", "password_reset_token", "verification_token")
+
+
+def _put_back(email: str, written: Dict[str, Any], previous: dict) -> None:
+    """Puts back what a request stored for a mail that could not be sent, so that the account may
+    ask again at once and a link already in its inbox keeps working.
+
+    ``written`` is what the request set, its secret among it (``_MAILED_SECRETS``), and ``previous``
+    the account as the request read it; each written field gets back what the account held, an
+    absent one read as None. Only while the account still holds the secret the request wrote: a
+    newer code or link another request stored meanwhile is left. The request's counts are not taken
+    back, since they count requests whether or not a mail went.
+    """
+    held = {field: written[field] for field in _MAILED_SECRETS if field in written}
+    users_collection.update_one(
+        {"email": email, **held},
+        {"$set": {field: previous.get(field) for field in written}},
+    )
+
+
+def _next_code(otp_expires: Any, now: datetime) -> str:
+    """When a new code may be asked for, in the words a refused code ends with."""
+    wait = _code_wait(otp_expires, now)
+    if wait is None:
+        return NEXT_CODE_NOW
+    return NEXT_CODE_LATER.format(wait=sign_in_limits.wait_in_words(wait))
 
 
 def _sign_in_id(login_id: str, remembered: bool, signed_in_at: float) -> str:
@@ -241,8 +420,30 @@ def get_user(email):
         return AuthUser(User(**user_doc))
     return None
 
-def _already_exists():
-    return jsonify({"msg": "User already exists"}), 400
+
+#: What a sign-up the checks pass answers, whether or not its address has an account.
+SIGNED_UP = "User registered successfully. Please check your email to verify your account."
+#: What a sign-up whose email was not sent answers, whether or not its address has an account.
+SIGN_UP_SEND_FAILED = ("Registration failed: Unable to send verification email. Please check your "
+                       "email configuration or contact support.")
+
+
+def _signed_up():
+    return jsonify({"msg": SIGNED_UP}), 201
+
+
+def _sign_up_send_failed():
+    return jsonify({"msg": SIGN_UP_SEND_FAILED, "error": "email_send_failed"}), 500
+
+
+def _answer_a_taken_address(email: str):
+    """A sign-up for an address that has an account: the account's owner is told by email.
+
+    It answers as a new address's sign-up does, sent or not, and changes nothing on the account.
+    """
+    if not send_account_exists_email(email):
+        return _sign_up_send_failed()
+    return _signed_up()
 
 
 def _insert_unless_taken(user_doc: dict):
@@ -256,51 +457,31 @@ def _insert_unless_taken(user_doc: dict):
         return None
 
 
-# curl -k -X POST https://127.0.0.1:5001/register-user \
-#      -H "Content-Type: application/json" \
-#      -d '{"email": "USERNAME", "password": "pswrdpswrd!!!"}'
-def register_user(bcrypt, request):
-    data = request.json
-    email = normalized_email(string_field(data, "email"))
-    password = string_field(data, "password")
+def login(bcrypt, login_user):
+    """The password sign-in, bounded per caller and per address (``_Bounds``).
 
-    if not email or not password:
-        return jsonify({"msg": "Email and password required"}), 400
+    A right password takes its try back, whether it signs in or answers that the address needs
+    verifying first, so only wrong passwords pile up.
+    """
+    now = _limit_clock()
+    refused = _PASSWORD_SIGN_IN.caller_refusal(now)
+    if refused:
+        return refused
 
-    # Check if user already exists in MongoDB
-    existing_user = users_collection.find_one({"email": email})
-    if existing_user:
-        return _already_exists()
-
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    user_doc = {
-        "id": str(uuid.uuid4()),
-        "email": email,
-        "password": hashed_password,
-        "organizations": []
-    }
-    
-    result = _insert_unless_taken(user_doc)
-    if result is None:
-        return _already_exists()
-    
-    if result.inserted_id:
-        return jsonify({"msg": "User registered successfully"}), 201
-    else:
-        return jsonify({"msg": "Failed to register user"}), 500
-
-def login(bcrypt, login_user, request):
-    data = request.json
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
     password = string_field(data, "password")
 
     if not email or not password:
         return jsonify({"message": "Email and password required"}), 400
 
-    # Find user in MongoDB
+    refused = _PASSWORD_SIGN_IN.address_refusal(email, now)
+    if refused:
+        return refused
+
     user_doc = users_collection.find_one({"email": email})
     if _password_matches(bcrypt, user_doc, password):
-        # Check if email is verified
+        _PASSWORD_SIGN_IN.take_back(email, now)
         if not user_doc.get("email_verified", False):
             return jsonify({"message": SIGN_IN_VERIFY_FIRST}), 403
 
@@ -316,9 +497,22 @@ def check_session(current_user):
     return jsonify({"email": current_user.email}), 200
 
 
-def register_user_with_captcha(bcrypt, request):
-    """Register a new user with CAPTCHA verification."""
-    data = request.json
+def register_user_with_captcha(bcrypt):
+    """Register a new user with CAPTCHA verification, bounded per caller and per address
+    (``_Bounds``) before the captcha is checked, so a refused sign-up spends no check.
+
+    A sign-up answers alike whether or not its address has an account: the address's format and
+    the password's rules are checked before the account is looked up, the password is hashed
+    either way, and the answer is the same. A new address is sent its verification link; an
+    address with an account, found by the lookup or by the unique index when a concurrent sign-up
+    took it, is sent one email saying so instead (``_answer_a_taken_address``).
+    """
+    now = _limit_clock()
+    refused = _SIGN_UP.caller_refusal(now)
+    if refused:
+        return refused
+
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
     password = string_field(data, "password")
     captcha_token = string_field(data, "captcha_token")
@@ -329,32 +523,35 @@ def register_user_with_captcha(bcrypt, request):
     if not captcha_token:
         return jsonify({"msg": "CAPTCHA verification required"}), 400
 
+    refused = _SIGN_UP.address_refusal(email, now)
+    if refused:
+        return refused
+
     # Verify CAPTCHA
     ip_address = request.remote_addr
     captcha_success, captcha_score = verify_recaptcha(captcha_token, ip_address)
     if not captcha_success:
         return jsonify({"msg": "CAPTCHA verification failed"}), 400
 
-    # Check if user already exists
-    existing_user = users_collection.find_one({"email": email})
-    if existing_user:
-        return _already_exists()
-
     # Validate email format
     if "@" not in email or "." not in email.split("@")[1]:
         return jsonify({"msg": "Invalid email format"}), 400
 
-    # Validate password strength (minimum 8 characters)
+    # The password: at least 8 characters, and no longer than bcrypt reads
     if len(password) < 8:
         return jsonify({"msg": "Password must be at least 8 characters long"}), 400
+    if _longer_than_bcrypt_reads(password):
+        return jsonify({"msg": PASSWORD_TOO_LONG}), 400
 
-    # Generate verification token
+    # Hashed before the lookup, so a taken address costs the work a new one does.
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    if users_collection.find_one({"email": email}):
+        return _answer_a_taken_address(email)
+
     verification_token = generate_verification_token()
     verification_token_expires = get_token_expiry(hours=1)
 
-    # Hash password
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    
     # Create user document
     user_doc = {
         "id": str(uuid.uuid4()),
@@ -373,29 +570,24 @@ def register_user_with_captcha(bcrypt, request):
     
     result = _insert_unless_taken(user_doc)
     if result is None:
-        return _already_exists()
-    
+        return _answer_a_taken_address(email)
+
     if result.inserted_id:
         # Send verification email
         email_sent = send_verification_email(email, verification_token)
         if not email_sent:
             # Email failed - rollback user creation to prevent orphaned unverified accounts
             users_collection.delete_one({"_id": result.inserted_id})
-            return jsonify({
-                "msg": "Registration failed: Unable to send verification email. Please check your email configuration or contact support.",
-                "error": "email_send_failed"
-            }), 500
-        
-        return jsonify({
-            "msg": "User registered successfully. Please check your email to verify your account."
-        }), 201
+            return _sign_up_send_failed()
+
+        return _signed_up()
     else:
         return jsonify({"msg": "Failed to register user"}), 500
 
 
-def verify_email(request):
+def verify_email():
     """Verify user's email with token."""
-    data = request.json
+    data = json_object(required=False)
     token = string_field(data, "token")
 
     if not token:
@@ -431,13 +623,22 @@ def verify_email(request):
     return jsonify({"msg": "Email verified successfully"}), 200
 
 
-def resend_verification_email(request):
-    """Resend verification email to user."""
-    data = request.json
+def resend_verification_email():
+    """Resend verification email to user, bounded per caller and per address (``_Bounds``)."""
+    now = _limit_clock()
+    refused = _VERIFICATION_LINK.caller_refusal(now)
+    if refused:
+        return refused
+
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
+
+    refused = _VERIFICATION_LINK.address_refusal(email, now)
+    if refused:
+        return refused
 
     # Find user
     user_doc = users_collection.find_one({"email": email})
@@ -455,31 +656,37 @@ def resend_verification_email(request):
     verification_token_expires = get_token_expiry(hours=1)
 
     # Update user with new token
-    users_collection.update_one(
-        {"email": email},
-        {
-            "$set": {
-                "verification_token": verification_token,
-                "verification_token_expires": verification_token_expires
-            }
-        }
-    )
+    written = {
+        "verification_token": verification_token,
+        "verification_token_expires": verification_token_expires,
+    }
+    users_collection.update_one({"email": email}, {"$set": written})
 
-    # Send verification email
+    # Send verification email; the link already in the inbox keeps working if it could not be sent
     email_sent = send_verification_email(email, verification_token)
     if not email_sent:
+        _put_back(email, written, user_doc)
         return jsonify({"msg": "Failed to send verification email"}), 500
 
     return jsonify({"msg": "Verification email sent"}), 200
 
 
-def request_password_reset(request):
-    """Request password reset link."""
-    data = request.json
+def request_password_reset():
+    """Request password reset link, bounded per caller and per address (``_Bounds``)."""
+    now = _limit_clock()
+    refused = _RESET_LINK.caller_refusal(now)
+    if refused:
+        return refused
+
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
+
+    refused = _RESET_LINK.address_refusal(email, now)
+    if refused:
+        return refused
 
     # Find user
     user_doc = users_collection.find_one({"email": email})
@@ -490,53 +697,45 @@ def request_password_reset(request):
 
     # One link at a time: refused until an hour after the last link expired (two hours after it was
     # sent), unless that link was used, which clears its expiry.
-    last_reset_time = user_doc.get("password_reset_token_expires")
-    if last_reset_time:
-        try:
-            last_reset = datetime.fromisoformat(last_reset_time.replace('Z', '+00:00'))
-            if last_reset.tzinfo is None:
-                last_reset = last_reset.replace(tzinfo=timezone.utc)
-            time_since_last = datetime.now(timezone.utc) - last_reset
-            if time_since_last < timedelta(hours=1):
-                return jsonify({"msg": "Please wait before requesting another password reset"}), 429
-        except (ValueError, AttributeError):
-            pass
+    wait = _wait_after(user_doc.get("password_reset_token_expires"), RESET_WAIT, now)
+    if wait is not None:
+        return jsonify(
+            {"msg": NEXT_RESET_LATER.format(wait=sign_in_limits.wait_in_words(wait))}), 429
 
     # Generate reset token
     reset_token = generate_reset_token()
     reset_token_expires = get_token_expiry(hours=1)
 
     # Update user with reset token
-    users_collection.update_one(
-        {"email": email},
-        {
-            "$set": {
-                "password_reset_token": reset_token,
-                "password_reset_token_expires": reset_token_expires
-            }
-        }
-    )
+    written = {
+        "password_reset_token": reset_token,
+        "password_reset_token_expires": reset_token_expires,
+    }
+    users_collection.update_one({"email": email}, {"$set": written})
 
-    # Send password reset email
+    # Send password reset email; if it could not be sent, the next request may ask again at once
     email_sent = send_password_reset_email(email, reset_token)
     if not email_sent:
+        _put_back(email, written, user_doc)
         return jsonify({"msg": "Failed to send password reset email"}), 500
 
     return jsonify({"msg": "If an account exists, a password reset email has been sent"}), 200
 
 
-def reset_password(bcrypt, request):
+def reset_password(bcrypt):
     """Reset password with reset token."""
-    data = request.json
+    data = json_object(required=False)
     token = string_field(data, "token")
     new_password = string_field(data, "new_password")
 
     if not token or not new_password:
         return jsonify({"msg": "Token and new password required"}), 400
 
-    # Validate password strength
+    # The password: at least 8 characters, and no longer than bcrypt reads
     if len(new_password) < 8:
         return jsonify({"msg": "Password must be at least 8 characters long"}), 400
+    if _longer_than_bcrypt_reads(new_password):
+        return jsonify({"msg": PASSWORD_TOO_LONG}), 400
 
     # Find user with matching token
     user_doc = users_collection.find_one({"password_reset_token": token})
@@ -569,13 +768,22 @@ def reset_password(bcrypt, request):
     return jsonify({"msg": "Password reset successfully"}), 200
 
 
-def request_otp(request):
-    """Request OTP for passwordless login."""
-    data = request.json
+def request_otp():
+    """Request OTP for passwordless login, bounded per caller and per address (``_Bounds``)."""
+    now = _limit_clock()
+    refused = _CODE_REQUEST.caller_refusal(now)
+    if refused:
+        return refused
+
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
+
+    refused = _CODE_REQUEST.address_refusal(email, now)
+    if refused:
+        return refused
 
     # Find user
     user_doc = users_collection.find_one({"email": email})
@@ -588,100 +796,90 @@ def request_otp(request):
     if not user_doc.get("email_verified", False):
         return jsonify({"msg": SIGN_IN_VERIFY_FIRST}), 403
 
-    # One code at a time: refused until an hour after the last code expired, unless it was used or
-    # five wrong tries discarded it, either of which clears its expiry.
-    last_otp_time = user_doc.get("otp_expires")
-    if last_otp_time:
-        try:
-            last_otp = datetime.fromisoformat(last_otp_time.replace('Z', '+00:00'))
-            if last_otp.tzinfo is None:
-                last_otp = last_otp.replace(tzinfo=timezone.utc)
-            time_since_last = datetime.now(timezone.utc) - last_otp
-            if time_since_last < timedelta(hours=1):
-                return jsonify({"msg": "Please wait a moment before asking for another code."}), 429
-        except (ValueError, AttributeError):
-            pass
+    # One code at a time: refused until an hour after the last code expired, unless it was used,
+    # which clears its expiry. A code five wrong tries discarded keeps its wait.
+    wait = _code_wait(user_doc.get("otp_expires"), now)
+    if wait is not None:
+        return jsonify(
+            {"msg": NEXT_CODE_LATER.format(wait=sign_in_limits.wait_in_words(wait))}), 429
 
     # Generate OTP
     otp = generate_otp()
     otp_expires = get_otp_expiry(minutes=5)
 
     # Update user with OTP
-    users_collection.update_one(
-        {"email": email},
-        {
-            "$set": {
-                "otp": otp,
-                "otp_expires": otp_expires,
-                "otp_attempts": 0
-            }
-        }
-    )
+    written = {"otp": otp, "otp_expires": otp_expires, "otp_attempts": 0}
+    users_collection.update_one({"email": email}, {"$set": written})
 
-    # Send OTP email
+    # Send OTP email; if it could not be sent, the next request may ask again at once
     email_sent = send_otp_email(email, otp)
     if not email_sent:
+        _put_back(email, written, user_doc)
         return jsonify({"msg": "The sign-in code could not be sent. Please try again."}), 500
 
     return jsonify({"msg": "If an account exists for that address, a sign-in code has been sent to it."}), 200
 
 
-def login_with_otp(login_user, request):
-    """Login with OTP code."""
-    data = request.json
+def login_with_otp(login_user):
+    """The code sign-in, bounded per caller and per address (``_Bounds``) as the password is.
+
+    A try is counted on the code in the same update that reads it, so no more than ``CODE_TRIES``
+    tries ever reach one code, even when they arrive at once; a right code takes its try back,
+    whether it signs in or answers that the address needs verifying first.
+    """
+    now = _limit_clock()
+    refused = _CODE_SIGN_IN.caller_refusal(now)
+    if refused:
+        return refused
+
+    data = json_object(required=False)
     email = normalized_email(string_field(data, "email"))
     otp = string_field(data, "otp")
 
     if not email or not otp:
         return jsonify({"msg": "Enter your email address and the code."}), 400
 
-    # Find user
-    user_doc = users_collection.find_one({"email": email})
-    
+    refused = _CODE_SIGN_IN.address_refusal(email, now)
+    if refused:
+        return refused
+
+    # No account, no code, or a code whose tries are all counted: nothing for this try to reach.
+    user_doc = users_collection.find_one_and_update(
+        {"email": email, "otp": {"$ne": None}, "otp_attempts": {"$lt": CODE_TRIES}},
+        {"$inc": {"otp_attempts": 1}},
+        return_document=ReturnDocument.AFTER,
+    )
     if not user_doc:
         return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
 
-    # Check if OTP exists and matches
-    stored_otp = user_doc.get("otp")
-    if not stored_otp or stored_otp != otp:
-        # Increment attempts
-        attempts = user_doc.get("otp_attempts", 0) + 1
-        users_collection.update_one(
-            {"email": email},
-            {"$set": {"otp_attempts": attempts}}
-        )
-        
-        if attempts >= 5:
-            # Clear OTP after max attempts
+    stored_otp = user_doc["otp"]
+    if not secrets.compare_digest(stored_otp.encode("utf-8"), otp.encode("utf-8")):
+        if user_doc["otp_attempts"] >= CODE_TRIES:
+            # The last try discards the code, and keeps its expiry, which holds back the next
+            # code. It answers as every wrong code does, with an account or without.
             users_collection.update_one(
-                {"email": email},
-                {"$set": {"otp": None, "otp_expires": None, "otp_attempts": 0}}
+                {"email": email, "otp": stored_otp}, {"$set": {"otp": None, "otp_attempts": 0}}
             )
-            return jsonify({"msg": "Too many wrong codes. Ask for a new one."}), 429
-        
         return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
 
-    # Check if OTP has expired
-    expires_at = user_doc.get("otp_expires")
-    if not verify_token_expiry(expires_at):
-        return jsonify({"msg": "That code has expired. Ask for a new one."}), 400
+    expires_at = _moment(user_doc.get("otp_expires"))
+    if expires_at is None or expires_at <= now:
+        next_code = _next_code(user_doc.get("otp_expires"), now)
+        return jsonify({"msg": f"{CODE_EXPIRED} {next_code}"}), 400
 
-    # Check if email is verified
     if not user_doc.get("email_verified", False):
+        _CODE_SIGN_IN.take_back(email, now)
         return jsonify({"msg": SIGN_IN_VERIFY_FIRST}), 403
 
-    # Clear OTP and attempts
-    users_collection.update_one(
-        {"email": email},
-        {
-            "$set": {
-                "otp": None,
-                "otp_expires": None,
-                "otp_attempts": 0
-            }
-        }
+    # Consumed only if it is still this code: of two right tries, one signs in.
+    consumed = users_collection.update_one(
+        {"email": email, "otp": stored_otp},
+        {"$set": {"otp": None, "otp_expires": None, "otp_attempts": 0}},
     )
+    if consumed.modified_count != 1:
+        return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
 
+    _CODE_SIGN_IN.take_back(email, now)
     return _sign_in(login_user, user_doc, flag_field(data, "remember"))
 
 
@@ -719,7 +917,7 @@ def get_user_raw(email: str) -> Optional[dict]:
     return None
 
 
-def delete_user(request, authenticated_email: str):
+def delete_user(authenticated_email: str):
     """Delete the authenticated user's own account.
 
     ``authenticated_email`` is the session's identity, supplied by the caller of this function and
@@ -735,7 +933,7 @@ def delete_user(request, authenticated_email: str):
     leaves the data consistent. An owner with nobody to transfer to is not trapped either: deleting
     the organization is something its owner may do, and then this succeeds.
     """
-    data = request.json or {}
+    data = json_object(required=False)
     email_to_delete = normalized_email(string_field(data, "email"))
 
     if not email_to_delete:

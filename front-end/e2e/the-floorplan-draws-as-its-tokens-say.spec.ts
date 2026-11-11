@@ -28,7 +28,7 @@ test.describe('The floorplan beta on its tokens', () => {
   test.beforeEach(async ({ request }) => {
     const orgId = await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
     const created = await request.post(`${BACKEND_URL}/markets`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         name: `Floorplan Tokens ${Date.now()}`,
         creationDate: new Date().toISOString(),

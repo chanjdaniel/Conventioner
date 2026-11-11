@@ -253,7 +253,6 @@ async function downloadCsv(): Promise<void> {
 
 .result-figure strong {
   font-size: var(--text-lg);
-  font-weight: 600;
 }
 
 .result-link {

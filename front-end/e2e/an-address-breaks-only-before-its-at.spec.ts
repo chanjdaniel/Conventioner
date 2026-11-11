@@ -1,6 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { expectWholeAddress } from './helpers/addressBreaks';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { mongoEval } from './helpers/mongo';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { SEED_MARKET_DATE } from './helpers/seeds';
 import { seedTheScreens } from './helpers/seedTheScreens';
@@ -82,6 +83,52 @@ for (const size of SIZES) {
     await expectWholeAddress(sentence, reviewer);
   });
 }
+
+test('the All view\'s giver, "Followed up by" and "is looking at this" lines break an address only before its "@" or a dot', async ({
+  authenticatedPage: page,
+}) => {
+  // The seed's verdicts and follow-ups are the organizer's, whose address has no hyphen, so one
+  // approved row and one marked for a follow-up are given to the reviewer here; the second is also
+  // held by them, as though they had it open.
+  const approved = 'applicant4@example.com';
+  const followedUp = 'applicant9@example.com';
+  const person = JSON.parse(
+    mongoEval(
+      `print(JSON.stringify(db.users.findOne({ email: ${JSON.stringify(reviewer)} }, { _id: 0, id: 1, email: 1 })))`,
+    ),
+  ) as { id: string; email: string };
+  const them = JSON.stringify({ user_id: person.id, email: person.email });
+  const where = (email: string) =>
+    `{ market_id: ${JSON.stringify(dealtMarketId)}, applicant_email: ${JSON.stringify(email)} }`;
+  mongoEval(
+    `db.applications.updateOne(${where(approved)}, { $set: { verdict_by: { kind: 'person', ...${them} } } })`,
+  );
+  mongoEval(
+    `db.applications.updateOne(${where(followedUp)}, { $set: { follow_up_owner: ${them}, ` +
+      `held_by: ${them}, held_until: '2099-01-01T00:00:00+00:00' } })`,
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const all = new ApplicationsAllPage(page);
+  await all.goto(dealtMarketId, 'anyone');
+  const holder = all.holders().filter({ hasText: reviewer });
+  // As the phone draws them, then in a line narrower than the address, where it must break.
+  for (const line of [all.giverOf(approved), all.ownerOf(followedUp), holder]) {
+    await expectWholeAddress(line, reviewer);
+    await expectWholeAddress(line, reviewer, true);
+  }
+
+  await all.open(approved);
+  // The drawer says who gave the verdict twice: under the vendor's name, and in the verdict's line.
+  for (const line of [new VendorsPage(page).detailGiver, all.drawerGiver]) {
+    await expectWholeAddress(line, reviewer);
+    await expectWholeAddress(line, reviewer, true);
+  }
+  await all.closeDrawer();
+  await all.open(followedUp);
+  await expectWholeAddress(all.drawerHolder, reviewer);
+  await expectWholeAddress(all.drawerHolder, reviewer, true);
+});
 
 test('Manage organization\'s rows break an address only before its "@" or a dot', async ({
   authenticatedPage: page,
@@ -180,9 +227,7 @@ test('"Who sits here" and "Swap them with" break an address only before its "@" 
     tiers: ['Gold'],
     fullName: 'Sam Seated',
   });
-  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`);
   expect(run.ok()).toBe(true);
   // Applied after the run, so the seat's list has someone with no table to offer.
   seedApprovedVendor(marketId, waiting, {

@@ -11,23 +11,23 @@ import type { Page } from '@playwright/test';
 /**
  * The market frame stays put (E21/F04, variant A of the-market-frame ticket 01).
  *
- * On a desk the market's bar and its whole phase rail pin under the app banner as one block while
+ * On a desk the market's bar and its whole phase rail pin under the app bar as one block while
  * the PAGE scrolls - never a nested scroller - so the market's name, its tabs and the action that
  * moves it on stay in view at any scroll position. On a phone only the bar pins, and the rail
  * scrolls away with the page (T142): the whole block took half a phone's window at the door.
  */
 
-/** Where the frame's and the bar's top edges sit against the banner's bottom, and the rail's bottom. */
+/** Where the frame's and the bar's top edges sit against the app bar's bottom, and the rail's bottom. */
 async function frameGeometry(page: Page) {
   return page.evaluate(() => {
-    const banner = document.querySelector('.app-container > header') as HTMLElement;
+    const appBar = document.querySelector('.app-container > header') as HTMLElement;
     const frame = document.querySelector('[data-testid="market-frame"]') as HTMLElement;
     const bar = document.querySelector('[data-testid="market-bar"]') as HTMLElement;
     const rail = document.querySelector('[data-testid="phase-rail"]') as HTMLElement;
     return {
       frameTop: Math.round(frame.getBoundingClientRect().top),
       barTop: Math.round(bar.getBoundingClientRect().top),
-      bannerBottom: Math.round(banner.getBoundingClientRect().bottom),
+      appBarBottom: Math.round(appBar.getBoundingClientRect().bottom),
       railBottom: Math.round(rail.getBoundingClientRect().bottom),
       scrolled: Math.round(window.scrollY),
     };
@@ -56,7 +56,7 @@ test.describe('The frame stays put', () => {
     marketId = seeded.marketId;
   });
 
-  test('on every tab, scrolling leaves the name, the tabs and the whole rail under the banner', async ({
+  test('on every tab, scrolling leaves the name, the tabs and the whole rail under the app bar', async ({
     authenticatedPage: page,
   }) => {
     // Short enough that every tab is taller than the window, so each one genuinely scrolls.
@@ -67,9 +67,9 @@ test.describe('The frame stays put', () => {
       await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
       await scrollToBottom(page);
 
-      const { frameTop, bannerBottom, scrolled } = await frameGeometry(page);
+      const { frameTop, appBarBottom, scrolled } = await frameGeometry(page);
       expect(scrolled, `the ${tab} tab did not scroll, so this proves nothing`).toBeGreaterThan(0);
-      expect(frameTop, `the frame left the banner on the ${tab} tab`).toBe(bannerBottom);
+      expect(frameTop, `the frame left the app bar on the ${tab} tab`).toBe(appBarBottom);
       await expect(page.getByTestId('market-bar-title')).toBeInViewport();
       await expect(page.getByTestId('market-bar-tab-setup')).toBeInViewport();
       await expect(page.getByTestId('phase-rail')).toBeInViewport({ ratio: 1 });
@@ -135,8 +135,8 @@ test.describe('The frame stays put', () => {
 
     await scrollToBottom(page);
 
-    const { frameTop, bannerBottom } = await frameGeometry(page);
-    expect(frameTop).toBe(bannerBottom);
+    const { frameTop, appBarBottom } = await frameGeometry(page);
+    expect(frameTop).toBe(appBarBottom);
     await expect(blockers).toBeInViewport({ ratio: 1 });
   });
 
@@ -150,7 +150,7 @@ test.describe('The frame stays put', () => {
   }) => {
     // Short enough that Attendance with no check-ins still scrolls: at the full frame width its rail
     // no longer wraps (E22/F04/S01), and it has no Back footer any more (E22/F04/S02). Tall enough
-    // for the frame itself, about 280px under the banner with the rail's two addresses, which a
+    // for the frame itself, about 280px under the app bar with the rail's two addresses, which a
     // published market of either path carries (ADR 0022): at 300 it could not stay put.
     await page.setViewportSize({ width: 1920, height: 400 });
 
@@ -170,14 +170,14 @@ test.describe('The frame stays put', () => {
       expect(boxed, `${screen} scrolls inside a box`).toEqual([]);
 
       await scrollToBottom(page);
-      const { frameTop, bannerBottom, scrolled } = await frameGeometry(page);
+      const { frameTop, appBarBottom, scrolled } = await frameGeometry(page);
       expect(scrolled, `${screen} did not scroll, so this proves nothing`).toBeGreaterThan(0);
-      expect(frameTop, `the frame left the banner on ${screen}`).toBe(bannerBottom);
+      expect(frameTop, `the frame left the app bar on ${screen}`).toBe(appBarBottom);
       await expect(page.getByTestId('phase-rail')).toBeInViewport({ ratio: 1 });
     }
   });
 
-  test('on a phone only the bar stays under the banner, and the page is the only scroller', async ({
+  test('on a phone only the market bar stays under the app bar, and the page is the only scroller', async ({
     authenticatedPage: page,
   }) => {
     // Short enough that the door scrolls its whole rail away on this small market; Tools is
@@ -201,9 +201,9 @@ test.describe('The frame stays put', () => {
 
       const atTop = await frameGeometry(page);
       await scrollToBottom(page);
-      const { barTop, bannerBottom, railBottom, scrolled } = await frameGeometry(page);
+      const { barTop, appBarBottom, railBottom, scrolled } = await frameGeometry(page);
       expect(scrolled, `${screen} did not scroll, so this proves nothing`).toBeGreaterThan(0);
-      expect(barTop, `the bar left the banner on ${screen}`).toBe(bannerBottom);
+      expect(barTop, `the market bar left the app bar on ${screen}`).toBe(appBarBottom);
       expect(railBottom, `the rail did not scroll with the page on ${screen}`).toBe(
         atTop.railBottom - scrolled,
       );

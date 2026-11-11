@@ -26,6 +26,8 @@ export class ApplicationsAllPage {
   /** The drawer's close button. */
   readonly drawerClose: Locator;
   readonly drawerVerdict: Locator;
+  /** Who gave the opened application its verdict, and when. */
+  readonly drawerGiver: Locator;
   readonly drawerHolder: Locator;
   readonly exportButton: Locator;
   /** Why a decided row has no tick, said once over the list (E38/F06/S01). */
@@ -63,6 +65,7 @@ export class ApplicationsAllPage {
     this.drawer = page.getByTestId('vendors-detail-panel');
     this.drawerClose = page.getByTestId('vendors-detail-close');
     this.drawerVerdict = page.getByTestId('applications-all-drawer-verdict');
+    this.drawerGiver = page.getByTestId('applications-all-drawer-giver');
     this.drawerHolder = page.getByTestId('applications-all-drawer-holder');
     this.exportButton = page.getByTestId('applications-all-export-button');
     this.changeReason = page.getByTestId('applications-all-change-reason');

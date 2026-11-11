@@ -86,17 +86,36 @@ def ensure_application_indexes() -> None:
             name=APPLICANT_IDENTITY_INDEX,
         )
     except PyMongoError as exc:
+        # The driver's message is not repeated, nor kept as the cause: a duplicate key error
+        # quotes the applicant's address.
         message = (
             f"The unique index {APPLICANT_IDENTITY_INDEX} on "
             f"({MARKET_ID_FIELD}, {APPLICANT_EMAIL_FIELD}, {APPLICATION_TYPE_FIELD}) could not be "
-            f"built, so nothing is stopping one applicant from holding two applications at one "
-            f"market. If the collection already holds duplicates, that is what is blocking the "
-            f"build, and they have to be merged or removed before applications can be served: "
-            f"{exc}"
+            f"built ({type(exc).__name__}, code {getattr(exc, 'code', None)}), so nothing is "
+            f"stopping one applicant from holding two applications at one market. If the "
+            f"collection already holds duplicates, that is what is blocking the build, and they "
+            f"have to be merged or removed before applications can be served. Applications "
+            f"sharing an identity: {_duplicate_applications()}."
         )
         logger.critical("%s", message)
-        raise ApplicationIndexError(message) from exc
+        raise ApplicationIndexError(message) from None
     _indexes_ready = True
+
+
+def _duplicate_applications() -> str:
+    """The applications sharing an identity, named by id, never by address, for the refusal."""
+    try:
+        stored = applications_collection.find(
+            {}, {"id": 1, MARKET_ID_FIELD: 1, APPLICANT_EMAIL_FIELD: 1, APPLICATION_TYPE_FIELD: 1})
+        by_identity: Dict[tuple, List[str]] = {}
+        for doc in stored:
+            identity = (doc.get(MARKET_ID_FIELD), doc.get(APPLICANT_EMAIL_FIELD),
+                        doc.get(APPLICATION_TYPE_FIELD))
+            by_identity.setdefault(identity, []).append(str(doc.get("id")))
+    except PyMongoError as exc:
+        return f"not read ({type(exc).__name__})"
+    shared = [ids for ids in by_identity.values() if len(ids) > 1]
+    return "; ".join(", ".join(ids) for ids in shared) or "none found"
 
 
 def market_filter(market_id: str) -> Dict[str, Any]:

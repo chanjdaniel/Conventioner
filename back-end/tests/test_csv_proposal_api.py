@@ -18,6 +18,7 @@ skip_without_real_dependencies()
 import app as app_module
 import api.markets as MarketsApi
 import api.users as UsersApi
+from datatypes import MarketRole
 
 OWNER_EMAIL = "owner@example.com"
 OWNER_ID = "user-1"
@@ -186,3 +187,52 @@ def test_confirm_that_loses_a_race_writes_nothing(client, markets, monkeypatch):
                            json={"csvContent": CSV, "year": 2026})
     assert response.status_code == 409
     assert "importMapping" not in collection.doc
+
+
+class TestTheStartAsksAssignWhenItsRulesDiffer:
+    """The start writes the plan, and the assignment rules ride in it: a start whose rules differ
+    from the market's asks the Assign row as the plan write does (E39/F01/S01), so the import row
+    alone does not change a rule the Assign row keeps from this person."""
+
+    ADMIN_EMAIL = "admin@example.com"
+
+    @pytest.fixture
+    def an_admin_the_assignment_row_refuses(self, client, markets, monkeypatch):
+        """A draft whose Assign row asks its owner, confirmed by an Admin, whom the import row
+        lets in. Returns the markets collection."""
+        monkeypatch.setattr(
+            MarketsApi.PermissionsApi, "get_user_market_role",
+            lambda email, *_a, **_k: MarketRole.ADMIN if email == self.ADMIN_EMAIL else None)
+        monkeypatch.setattr(
+            UsersApi, "get_user",
+            lambda email: SimpleNamespace(
+                id="user-3", email=email, is_active=True, is_authenticated=True,
+                is_anonymous=False, get_id=lambda e=email: e,
+            ) if email == self.ADMIN_EMAIL else None,
+        )
+        with client.session_transaction() as session:
+            session["_user_id"] = self.ADMIN_EMAIL
+        return markets({**_market(), "permissions": {"assign": {"role": "owner", "source": "market"}}})
+
+    def test_a_start_setting_a_vendors_most_tables_is_refused_and_writes_nothing(
+            self, client, an_admin_the_assignment_row_refuses):
+        collection = an_admin_the_assignment_row_refuses
+        before = dict(collection.doc)
+
+        response = client.post("/markets/market-1/csv-proposal/confirm",
+                               json={"csvContent": CSV, "year": 2026, "ceiling": 3})
+
+        assert response.status_code == 403, response.get_json()
+        assert "change its assignment rules" in response.get_json()["error"]
+        assert collection.writes == [] and collection.doc == before
+
+    def test_a_start_keeping_the_markets_own_rules_is_written(
+            self, client, an_admin_the_assignment_row_refuses):
+        collection = an_admin_the_assignment_row_refuses
+
+        response = client.post("/markets/market-1/csv-proposal/confirm",
+                               json={"csvContent": CSV, "year": 2026})
+
+        assert response.status_code == 200, response.get_json()
+        assert len(collection.writes) == 1
+        assert "importMapping" in collection.doc

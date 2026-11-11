@@ -32,7 +32,6 @@ import review_team as ReviewTeam
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
 from api.floorplans_templates import floorplans_templates_bp
-from api.floorplans_analysis import floorplans_analysis_bp
 from api.floorplans_calibrate import floorplans_calibrate_bp
 from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
@@ -49,13 +48,14 @@ from flask_login import (
     user_loaded_from_cookie,
 )
 from flask_bcrypt import Bcrypt
-from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, VerdictGiver
+from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, Organization, VerdictGiver
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from market_documents import (
     MarketKeyMigrationError,
     assert_market_key_migration_recorded,
 )
 import db_config
+import pymongo
 from lookup_indexes import ensure_lookup_indexes
 import json
 import os
@@ -74,9 +74,19 @@ from utils.cors import (
     describe_origins,
     install_cors,
 )
+from utils.deployment import (
+    LocalSwitchOnDeployedHostError,
+    assert_no_local_switch_on_deployed_host,
+    deployed_host,
+    insecure_local_dev,
+)
 from utils.email import (
+    MailLinksNotConfiguredError,
     MailerNotConfiguredError,
+    SenderNotConfiguredError,
+    assert_mail_links_configured,
     assert_mailer_configured,
+    assert_sender_configured,
 )
 from utils.proxy import (
     TrustedProxyConfigError,
@@ -232,24 +242,25 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     the database, and they send mail from this domain. What keeps a script off them is a reCAPTCHA
     secret; what makes the session cookie they hand back mean anything is a signing secret; what
     decides which websites may spend that cookie against the organizer API is the browser origin
-    list; what carries the verification link, the reset link, and the login code - the only ways an
-    organizer account is ever reached - is a mail key; what says where that session is kept at all,
+    list; what carries every mail by which an organizer account is ever reached is a mail key, sent
+    from ``FROM_EMAIL`` with links to ``FRONTEND_URL``; what says where that session is kept at all,
     which has no answer that is right for both a container and a serverless function, is
     ``SESSION_TYPE``; and what decides whose address the captcha is actually scored against, when
     something the deployment owns sits in front of Flask, is ``TRUSTED_PROXY_HOPS``.
 
-    Three of the six fail *silently* when unset: the captcha passes everybody, a session cookie
+    Three of the eight fail *silently* when unset: the captcha passes everybody, a session cookie
     signed with a key the repository publishes is a session anyone can forge, and a credentialed
     CORS policy with no origin list hands the organizer API to every website an organizer visits.
-    The mail key and the session backend are here for the mirror-image reason - unset, the first
-    fails *every* registration, reset and OTP with a 500 that names nothing, and the second sends a
-    serverless deployment looking for a disk it does not have, failing at import and naming nothing
-    either - and a variable whose absence has to be diagnosed one broken deployment at a time
-    belongs in the same refusal as the ones whose absence is never diagnosed at all. The hop count
-    is the quietest of all: unset behind a proxy, every signup in the world is reported to Google
-    as coming from one address, and a reCAPTCHA score is the only place it ever shows. As with the
-    market-key migration above, an unknown state is never taken for a safe one: it fails at boot,
-    naming the variables, rather than in production, naming nothing.
+    The mail key, the two mail addresses and the session backend are here for the mirror-image
+    reason - unset, the key fails *every* registration, reset and OTP with a 500 that names nothing,
+    the addresses mail links to a laptop from a sender that delivers to nobody, and the session
+    backend sends a serverless deployment looking for a disk it does not have, failing at import and
+    naming nothing either - and a variable whose absence has to be diagnosed one broken deployment
+    at a time belongs in the same refusal as the ones whose absence is never diagnosed at all. The
+    hop count is the quietest of all: unset behind a proxy, every signup in the world is reported to
+    Google as coming from one address, and a reCAPTCHA score is the only place it ever shows. As with
+    the market-key migration above, an unknown state is never taken for a safe one: it fails at
+    boot, naming the variables, rather than in production, naming nothing.
 
     This is a *check*: it reads configuration and nothing else, so asking whether this deployment is
     configured cannot change it. Installing what it found is ``configure_public_endpoint_defenses``.
@@ -265,7 +276,8 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     ``FLASK_ENV=development`` and nothing overrode it, so the deployments that most needed the
     check were exactly the ones exempt from it. The escape hatch is opt-in and it is loud - see
     ``utils.deployment`` - so a development machine can still boot unconfigured while a deployment
-    that forgets cannot.
+    that forgets cannot. And the hatch, with the test switches it unlocks, is refused first on a
+    host the platform says is deployed, since there it would pass every other check by itself.
 
     Raises:
         PublicEndpointDefenseError: naming every variable that is missing, all at once.
@@ -277,6 +289,11 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     hops = 0
 
     try:
+        assert_no_local_switch_on_deployed_host()
+    except LocalSwitchOnDeployedHostError as e:
+        problems.append(str(e))
+
+    try:
         assert_captcha_configured()
     except CaptchaNotConfiguredError as e:
         problems.append(str(e))
@@ -284,6 +301,16 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     try:
         assert_mailer_configured()
     except MailerNotConfiguredError as e:
+        problems.append(str(e))
+
+    try:
+        assert_mail_links_configured()
+    except MailLinksNotConfiguredError as e:
+        problems.append(str(e))
+
+    try:
+        assert_sender_configured()
+    except SenderNotConfiguredError as e:
         problems.append(str(e))
 
     try:
@@ -309,11 +336,12 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
     if problems:
         message = "\n\n".join([
             f"Refusing to start: {len(problems)} of the things this app's public surface rests on "
-            f"are not configured, and not one of them announces itself when unset - each is either "
-            f"a defense that quietly stops defending, the mail without which no organizer account "
-            f"can be reached at all, the store the session itself is kept in, or the address a "
-            f"caller is taken to be at. All of them are named below. See the required production "
-            f"environment in docs/RELEASING.md before promoting.",
+            f"are not as a deployment needs them, and not one of them announces itself - each is a "
+            f"defense that quietly stops defending, the mail without which no organizer account "
+            f"can be reached, the store the session is kept in, the address a caller is taken to "
+            f"be at, or a local-development switch left on where the platform says this is "
+            f"deployed. All of them are named below. See the required production environment in "
+            f"docs/RELEASING.md before promoting.",
             *problems,
         ])
         logger.critical("%s", message)
@@ -433,26 +461,45 @@ def hold_a_restored_session_to_its_browser(_app: Flask, user: Any) -> None:
 app.register_blueprint(floorplans_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_placement_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_templates_bp, url_prefix="/floorplans")
-app.register_blueprint(floorplans_analysis_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_calibrate_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_export_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_save_bp, url_prefix="/floorplans")
 
 
+# The health check's own bound on its ping, the same as every client's server selection.
+HEALTH_CHECK_TIMEOUT_SECONDS = 5
+
+
 @app.route('/healthz', methods=['GET'])
 def healthz() -> Response:
-    """Whether this deployment can serve a request: it booted, and its database answers.
+    """Whether this deployment can serve a request, and which commit it was deployed from.
 
     Booting already proves the configuration and the migration markers (both refuse at import),
-    so the one thing left that can fail after a good deploy is the database. The post-deploy smoke
-    test and the uptime check read this; it says nothing about any market, so it needs no login.
+    so the one thing left that can fail after a good deploy is the database. The Deploy workflow
+    and the uptime check read this; it says nothing about any market, so it needs no login.
+
+    `commit` is the deployment's `BUILD_COMMIT`, which the Deploy workflow sets on each deployment
+    and compares with the commit it released, so a domain still on an older build cannot pass for
+    the new one. A build with no `BUILD_COMMIT`, or a blank one, says `null`; any other value is
+    reported as given. It is public on purpose: every released commit is on the public `main`.
+
+    `deployed` says whether a platform variable says this host is deployed, and `localDev` whether
+    `ALLOW_INSECURE_LOCAL_DEV` is on (`utils.deployment`). The Deploy workflow refuses a build that
+    does not answer `true` and `false`, so the boot's refusal of local switches is proven armed on
+    every release. Neither is secret: production answers `true` and `false`.
     """
+    commit = os.environ.get("BUILD_COMMIT", "")
+    commit = commit if commit.strip() else None
+    seen = {"commit": commit, "deployed": deployed_host() is not None, "localDev": insecure_local_dev()}
     try:
-        MarketsApi.markets_collection.database.command("ping")
+        # Bounded on its own, so a server that is found but does not answer fails the check
+        # within about 5 seconds too, not after the client's 30-second wait for a reply.
+        with pymongo.timeout(HEALTH_CHECK_TIMEOUT_SECONDS):
+            MarketsApi.markets_collection.database.command("ping")
     except Exception:
         logger.exception("Health check: the database did not answer")
-        return jsonify({"status": "unavailable"}), 503
-    return jsonify({"status": "ok"}), 200
+        return jsonify({"status": "unavailable", **seen}), 503
+    return jsonify({"status": "ok", **seen}), 200
 
 
 # users
@@ -463,16 +510,9 @@ def get_user(sign_in: str) -> Any:
 
 
 
-# curl -k -X POST https://127.0.0.1:5001/register-user \
-#   -H "Content-Type: application/json" \
-#   -d '{"email": "testemail@example.com", "password": "testpassword"}'
-@app.route("/register-user", methods=["POST"])
-def register_user() -> Response:
-    return UsersApi.register_user(bcrypt, request)
-
 @app.route('/login', methods=['POST'])
 def login() -> Response:
-    return UsersApi.login(bcrypt, login_user, request)
+    return UsersApi.login(bcrypt, login_user)
 
 @app.route('/logout', methods=['POST'])
 @login_required
@@ -486,31 +526,31 @@ def check_session() -> Response:
 
 @app.route('/register', methods=['POST'])
 def register() -> Response:
-    return UsersApi.register_user_with_captcha(bcrypt, request)
+    return UsersApi.register_user_with_captcha(bcrypt)
 
 @app.route('/verify-email', methods=['POST'])
 def verify_email() -> Response:
-    return UsersApi.verify_email(request)
+    return UsersApi.verify_email()
 
 @app.route('/resend-verification', methods=['POST'])
 def resend_verification() -> Response:
-    return UsersApi.resend_verification_email(request)
+    return UsersApi.resend_verification_email()
 
 @app.route('/request-password-reset', methods=['POST'])
 def request_password_reset() -> Response:
-    return UsersApi.request_password_reset(request)
+    return UsersApi.request_password_reset()
 
 @app.route('/reset-password', methods=['POST'])
 def reset_password() -> Response:
-    return UsersApi.reset_password(bcrypt, request)
+    return UsersApi.reset_password(bcrypt)
 
 @app.route('/request-otp', methods=['POST'])
 def request_otp() -> Response:
-    return UsersApi.request_otp(request)
+    return UsersApi.request_otp()
 
 @app.route('/login-otp', methods=['POST'])
 def login_otp() -> Response:
-    return UsersApi.login_with_otp(login_user, request)
+    return UsersApi.login_with_otp(login_user)
 
 @app.route('/delete-user', methods=['POST'])
 @login_required
@@ -525,7 +565,7 @@ def delete_user() -> Response:
     There is deliberately no anonymous cleanup path for unverified accounts any more. Cleaning up
     orphaned registrations is maintenance work, not something a stranger may ask for.
     """
-    return UsersApi.delete_user(request, current_user.email)
+    return UsersApi.delete_user(current_user.email)
 
 # organizations
 
@@ -1819,12 +1859,19 @@ def update_vendor_info(market_id: str, application_id: str) -> Response:
     return jsonify(result), status_code
 
 
+class ImportingMarket(NamedTuple):
+    """The stored market an import or a start reads, and the organization its check read."""
+    document: Dict[str, Any]
+    organization: Optional[Organization]
+
+
 def _importing_market_document(market_id: str, requesting_user: str):
     """The stored market document, once the asker may import applications or start the market
     from a CSV - the table's one row for both (E39/F01/S01).
 
-    Returns ``(market_doc, error_response, status)``; the document is the raw stored one, because
-    that is what the essential-offering derivation and the shared write path both read.
+    Returns ``(ImportingMarket, error_response, status)``; the document is the raw stored one,
+    because that is what the essential-offering derivation and the shared write path both read, and
+    the organization is the one the check read, for a write that asks another row of it.
 
     ``requesting_user`` is the session's identity, so it is always present - every caller passes
     ``authenticated_email()`` from behind ``@login_required``.
@@ -1846,15 +1893,16 @@ def _importing_market_document(market_id: str, requesting_user: str):
     market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
     if not market_doc:
         return None, {"error": "Market not found"}, 404
-    return market_doc, None, 200
+    return ImportingMarket(market_doc, context.organization), None, 200
 
 
 def _import_context(market_id: str, requesting_user: str):
     """Load the market and ask ``Actions.IMPORT_APPLICATIONS`` and the phase for the import
     endpoints."""
-    market_doc, error, status = _importing_market_document(market_id, requesting_user)
+    importing, error, status = _importing_market_document(market_id, requesting_user)
     if error:
         return None, error, status
+    market_doc = importing.document
 
     # Enforced here rather than by hiding the entry point: a hidden button is not a rule, and all
     # three import endpoints are reachable directly.
@@ -1877,7 +1925,7 @@ def propose_from_csv(market_id: str) -> Response:
     """What a Google Form's responses CSV proposes this draft becomes. Writes nothing and keeps
     nothing: the file is read and let go. Asks ``Actions.IMPORT_APPLICATIONS``, as the import it
     prepares does."""
-    market_doc, error, status_code = _importing_market_document(
+    importing, error, status_code = _importing_market_document(
         market_id, authenticated_email())
     if error:
         return jsonify(error), status_code
@@ -1886,7 +1934,7 @@ def propose_from_csv(market_id: str) -> Response:
     if not isinstance(data.get('csvContent'), str):
         return jsonify({"error": "csvContent is required"}), 400
 
-    result, status_code = CsvProposal.propose(market_doc, data['csvContent'])
+    result, status_code = CsvProposal.propose(importing.document, data['csvContent'])
     return jsonify(result), status_code
 
 
@@ -1895,14 +1943,16 @@ def propose_from_csv(market_id: str) -> Response:
 def confirm_csv_proposal(market_id: str) -> Response:
     """Write the reviewed proposal: plan facts, form, ceiling and import mapping, in one update,
     or nothing. The file is sent again and not kept. Asks ``Actions.IMPORT_APPLICATIONS``, as the
-    proposal does."""
-    market_doc, error, status_code = _importing_market_document(
+    proposal does, and ``Actions.ASSIGN`` too when the plan changes the assignment rules, as the
+    plan write does."""
+    importing, error, status_code = _importing_market_document(
         market_id, authenticated_email())
     if error:
         return jsonify(error), status_code
 
     data = json_object(required=True)
-    result, status_code = CsvStart.confirm(market_doc, data, authenticated_email())
+    result, status_code = CsvStart.confirm(
+        importing.document, data, authenticated_email(), importing.organization)
     return jsonify(result), status_code
 
 

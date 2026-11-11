@@ -5,6 +5,9 @@ coverage/
 # The component library's data, written by back-end/tests/fixtures/component_library_fixture.py,
 # whose test compares it byte for byte
 src/dev/library/fixture.json
+# The market schema the docs keep, written by back-end/generate_market_schema.py, whose test
+# compares it byte for byte
+../docs/schema.d.ts
 
 # Dependencies
 node_modules/

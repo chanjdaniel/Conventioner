@@ -37,16 +37,14 @@ async function createMarketWithPlan(
 ): Promise<string> {
   const ctx = page.request;
   await loginViaApi(ctx, APP_API, TEST_USER.email, TEST_USER.password);
-  const orgsRes = await ctx.get(`${APP_API}/organizations`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const orgsRes = await ctx.get(`${APP_API}/organizations`);
   const orgs = (await orgsRes.json()).organizations as { id: string }[];
   const orgId = orgs[0]?.id;
   if (!orgId) throw new Error('No organization found');
 
   const marketName = `Essential Fields E2E ${Date.now()}`;
   const createRes = await ctx.post(`${APP_API}/markets`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data: {
       name: marketName,
       creationDate: new Date().toISOString(),
@@ -364,9 +362,7 @@ test.describe('Essential form fields', () => {
 
     // The persisted shape is the contract the solver task consumes - pin it exactly.
     await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    const appsRes = await request.get(`${BACKEND_URL}/markets/${market.marketId}/applications`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const appsRes = await request.get(`${BACKEND_URL}/markets/${market.marketId}/applications`);
     const { applications } = (await appsRes.json()) as {
       applications: Array<{ applicantEmail: string; formData: Record<string, unknown> }>;
     };
@@ -438,9 +434,7 @@ test.describe('Essential form fields', () => {
     expect(saveRes.status()).toBe(200);
 
     // The organizer now wants a fourth date - the plan accepts it...
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${market.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const marketRes = await request.get(`${BACKEND_URL}/markets/${market.marketId}`);
     const { market: marketDoc } = (await marketRes.json()) as {
       market: { setupObject: { marketDates: Array<{ date: string }> } } & Record<string, unknown>;
     };

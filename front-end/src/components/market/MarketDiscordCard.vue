@@ -409,7 +409,7 @@ async function disconnect(): Promise<void> {
               </div>
             </div>
 
-            <p v-if="saveError" class="discord-error" data-testid="discord-save-error">
+            <p v-if="saveError" class="discord-error" role="alert" data-testid="discord-save-error">
               {{ saveError }}
             </p>
             <p
@@ -580,7 +580,6 @@ async function disconnect(): Promise<void> {
 .discord-server-name {
   display: block;
   font-size: var(--text-md);
-  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -606,7 +605,6 @@ async function disconnect(): Promise<void> {
 }
 
 .discord-warning-title strong {
-  font-weight: 600;
   color: var(--mm-text-yellow-on-tint);
 }
 
@@ -686,8 +684,9 @@ async function disconnect(): Promise<void> {
   color: var(--mm-text-muted);
 }
 
+/* A refusal reads in red, whatever the card (the design language's Colour). */
 .discord-error {
-  color: var(--mm-text-yellow);
+  color: var(--mm-red);
 }
 
 .discord-read {

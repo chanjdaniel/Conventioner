@@ -51,8 +51,4 @@ const text = computed(() =>
 .table-share-notice {
   border-left-color: var(--mm-yellow);
 }
-
-.table-share-notice strong {
-  font-weight: 600;
-}
 </style>

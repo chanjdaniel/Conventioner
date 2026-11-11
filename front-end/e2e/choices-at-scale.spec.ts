@@ -163,8 +163,9 @@ test.describe('the import, on a later file', () => {
     await fix.field.scrollIntoViewIfNeeded();
     const nextBefore = await nextField.boundingBox();
     await fix.field.click();
-    await expect(fix.options).toHaveCount(50);
-    await expect(fix.more).toHaveText('80 more, type to narrow');
+    // "Ignore this value" and 50 of the 129 answers: it leads outside the cap.
+    await expect(fix.options).toHaveCount(51);
+    await expect(fix.more).toHaveText('79 more, type to narrow');
     await expect(fix.options.first()).toHaveText('Ignore this value');
     expect(await nextField.boundingBox()).toEqual(nextBefore);
 
@@ -184,9 +185,10 @@ test.describe('the import, on a later file', () => {
 
     await expectAccessible('a value fix open among 129');
 
-    // Words that name no answer offer no row, and clear on leaving: a fix must be offered.
+    // Words that name no answer offer no row of their own, only "Ignore this value", which is
+    // drawn whatever the words, and clear on leaving: a fix must be offered.
     await fix.field.fill('Nothing anyone sells');
-    await expect(fix.options).toHaveCount(0);
+    await expect(fix.options).toHaveText(['Ignore this value']);
     await expect(fix.none).toHaveText('Nothing matches "Nothing anyone sells".');
     await fix.field.press('Tab');
     await expect(fix.field).toHaveValue('');
@@ -199,7 +201,7 @@ test.describe('the import, on a later file', () => {
     await expect(fix.field).toHaveValue(answer);
     await expect(importer.unresolvedWarning).toContainText('145 values still need');
 
-    // "Ignore this value", which the cap never hides.
+    // "Ignore this value", which neither the cap nor the words ever hide.
     await importer.ignoreValue(ignored);
     await expect(importer.valueFix(ignored).field).toHaveValue('Ignore this value');
     await expect(importer.unresolvedWarning).toContainText('144 values still need');
@@ -577,8 +579,9 @@ test.describe('an automatic rejection, on the question of 129 answers', () => {
       const fixed = new ChoiceField(viewerPage, `rejection-answers-${key}`);
       await expect(fixed.chips).toHaveCount(1);
       await expect(fixed.chips).toContainText(first.label);
-      await expect(fixed.field).toBeDisabled();
-      await expect(fixed.chipRemoves).toBeDisabled();
+      // Only its answers: no field to find more in, and no button to take one away.
+      await expect(fixed.field).toHaveCount(0);
+      await expect(fixed.chipRemoves).toHaveCount(0);
       await expect(viewerPage.getByTestId('rejection-rule-add')).toHaveCount(0);
       expect((await sweep(viewerPage)).failures, 'the fixed rule has text below AA').toEqual([]);
     });

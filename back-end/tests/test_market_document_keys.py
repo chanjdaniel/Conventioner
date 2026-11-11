@@ -62,7 +62,7 @@ def _market(market_id, org_key="organizationId", org_id=ORG_ID, roles=None):
 
 
 def _organization(org_id):
-    """An organization as ``get_organization`` and ``get_organizations_for_user`` return it."""
+    """An organization as ``get_organization`` and ``organization_documents_of`` return it."""
     return {
         "id": org_id, "_id": f"mongo-{org_id}", "name": "Test Org",
         "owner": "org-owner", "admins": [], "members": [USER_ID], "markets": [],
@@ -175,7 +175,7 @@ def collection(monkeypatch):
         UsersApi, "get_user_by_id", lambda _uid: SimpleNamespace(id=USER_ID, email=USER_EMAIL)
     )
     monkeypatch.setattr(
-        OrgsApi, "get_organizations_for_user", lambda _email: [_organization(ORG_ID)]
+        OrgsApi, "organization_documents_of", lambda _user_id: [_organization(ORG_ID)]
     )
     monkeypatch.setattr(
         OrgsApi, "get_organization", lambda oid: _organization(oid) if oid == ORG_ID else None
@@ -189,7 +189,8 @@ def collection(monkeypatch):
 def test_org_membership_alone_lists_the_org_markets(collection):
     listed = {m["id"]: m for m in MarketsApi.get_markets_for_user(USER_EMAIL)}
 
-    assert listed["camel-market"]["user_role"] == MarketRole.VIEWER.value
+    assert listed["camel-market"]["actionRefusals"] == MarketsApi.role_action_refusals(
+        MarketRole.VIEWER, MarketsApi.phase_from_market_document(listed["camel-market"]), {})
 
 
 def test_org_name_attaches_to_the_list_entry(collection):

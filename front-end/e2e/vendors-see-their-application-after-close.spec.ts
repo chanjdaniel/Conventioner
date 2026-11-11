@@ -24,7 +24,7 @@ const CODE = '864213';
 
 async function post(request: APIRequestContext, path: string, data: object = {}) {
   const res = await request.post(`${BACKEND_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    headers: { 'Content-Type': 'application/json' },
     data,
   });
   expect(res.ok(), `${path}: ${await res.text()}`).toBeTruthy();

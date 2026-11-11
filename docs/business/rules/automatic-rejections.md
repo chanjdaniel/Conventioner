@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/application/AutomaticRejections.vue
   - front-end/src/components/application/ChoiceConditions.vue
   - back-end/api/markets.py#may_overturn
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - wayfinding/november-2026-dry-run/map
   - wayfinding/rejection-visibility/map
@@ -24,6 +24,7 @@ sources:
   - E38/F06/S01
   - T206
   - T223
+  - T263
 ---
 
 # Automatic rejections
@@ -84,8 +85,8 @@ The form tab's line and the import's done line name who may overturn from the ma
 - The import judges at its end, and its preview judges without writing ([the CSV import](../../implementation/modules/csv-import.md)).
 - Review setup saves them as it saves the highlights, through one composable (`useSavedOnTheMarket`, `front-end/src/utils/savedOnTheMarket.ts`).
 - The organizer sets them on the form tab's Review setup ([F3](../flows/form-tab.md#f3-what-a-reviewer-reads-first), [`AutomaticRejections.vue`](../../../front-end/src/components/application/AutomaticRejections.vue)), and reads and overturns them in [the review](../flows/review.md#i2-change-a-decision).
-- A rule is drawn by [`ChoiceConditions.vue`](../../../front-end/src/components/application/ChoiceConditions.vue), the one condition builder, comparing the answers its question offers with `COMBOBOX_PAST`: past it a `SearchPicker` of several capped at 50, `disabled` where the rule is shown fixed, its chips still reading, and an answer the form no longer offers a chip of its own words, named by the line under it; "Add a rule on" is a [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) counting every question the rules may name.
-It is the builder a price group's conditions use too ([a price follows the table](a-price-follows-the-table.md#price-groups)); `Rulebook.met` judges a rule and a group's condition alike, and `Rulebook.broken` says a group's condition names a question or an answer the form no longer has, and the group keeps it, shown broken, where a rule's gone question or answer is simply left out.
+- A rule is drawn by [`ChoiceConditions.vue`](../../../front-end/src/components/application/ChoiceConditions.vue), the one condition builder, comparing the answers its question offers with `COMBOBOX_PAST`: past it a `SearchPicker` of several capped at 50, and where the rule is shown fixed only its answers, as chips in the picker's look with nothing to remove them, or "No answer chosen", with no field under them (T263), and an answer the form no longer offers a chip of its own words, named by the line under it; "Add a rule on" is a [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) counting every question the rules may name.
+  It is the builder a price group's conditions use too ([a price follows the table](a-price-follows-the-table.md#price-groups)); `Rulebook.met` judges a rule and a group's condition alike, and `Rulebook.broken` says a group's condition names a question or an answer the form no longer has, and the group keeps it, shown broken, where a rule's gone question or answer is simply left out.
 - A save that changes the rules or `no_automatic_rejections` is recorded in [the market's history](../../implementation/data/history.md) (`rejection_rules`), counting the applications they rejected and returned, and said "decided no automatic rejections" when the flag turned true; a rule's verdict is never an entry of its own, so the write that judged counts it: the form, an applicant's save, an organizer's update of a vendor's info, an import.
 
 ## Evidence

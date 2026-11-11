@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/market/ReviewerName.vue
   - front-end/src/components/application/VerdictUndoLine.vue
   - front-end/src/utils/verdictUndo.ts
-verified: 2026-11-06
+verified: 2026-11-10
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -56,6 +56,8 @@ sources:
   - T181
   - T204
   - T217
+  - T262
+  - T263
 ---
 
 # Reviewing applications
@@ -66,7 +68,7 @@ sources:
 
 Applications arrive and are reviewed in one phase, shown as Review on a Google Form market and Applications on one whose vendors apply on its page ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 Verdicts are open from the first application until the market enters Assignment, and reopen when Back to review takes the market back to the review, until results are published, so reviewing starts as soon as applications arrive and must be finished before Begin assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
-A line above the review says where the market stands, in words: what arrives ("Every response you imported from your Google Form is here.", "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."); from Assignment on, why the review is closed and what to do instead, in the server's words (`verdictsSettledReason`, the browser keeping no copy): in Assignment, "The review is closed while tables are allocated. To change a verdict, choose Back to review under More… on the phase rail; tables are then allocated again."; once results are published, "The review closed when results were published. To change who has a table, place or free a seat on Assignments."; on a Google Form market that went live, that the review closed when the market went live ([what a closed review says](../rules/verdicts-settle-on-entering-assignment.md#what-a-closed-review-says)).
+A line above the review says where the market stands, in words: on a market's own form, what arrives ("This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."), while on a Google Form market the rail's sentence just above says it ("Every imported response is here.") and the page adds no line of its own; from Assignment on, why the review is closed and what to do instead, in the server's words (`verdictsSettledReason`, the browser keeping no copy): in Assignment, "The review is closed while tables are allocated. To change a verdict, choose Back to review under More… on the phase rail; tables are then allocated again."; once results are published, "The review closed when results were published. To change who has a table, place or free a seat on Assignments."; on a Google Form market that went live, that the review closed when the market went live ([what a closed review says](../rules/verdicts-settle-on-entering-assignment.md#what-a-closed-review-says)).
 How many are left to decide is the rail's to say, as the blocker on Begin assignment.
 The page offers no import on either path ([review needs an import](../rules/review-needs-an-import.md)).
 The page has two views ([`MarketApplicationsTab.vue`](../../../front-end/src/components/market/MarketApplicationsTab.vue)), chosen under "How do you want to review?" with a line on what each is: "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)), first and the default, and "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)).
@@ -118,6 +120,7 @@ The card on screen is always the one the newest Next, verdict, refresh or load h
 Taking the follow-ups in or out while a hand-out is on its way asks again of the walk as it is now, so a card marked for follow-up and taken straight back in comes up again, not "Every application left is open with another reviewer." (T151).
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
 Covered by:
+
 - `a-chosen-reviewer-decides.spec.ts`
 - `a-reviewer-holds-what-they-look-at.spec.ts`
 - `a-verdict-says-who.spec.ts`
@@ -150,16 +153,17 @@ The story asked the line and the reviewed list to name the applicant's business 
 
 ## I2. Change a decision
 
-**Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change one as of E38/F06/S01: `changing-a-verdict-is-its-own-row.spec.ts`; the list's order and rows as of E38/F10/S01: `undoing-a-verdict.spec.ts`; the dialog as of T217: `the-reviewed-list-opens-as-a-dialog.spec.ts`).
+**Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change one as of E38/F06/S01: `changing-a-verdict-is-its-own-row.spec.ts`; the list's order and rows as of E38/F10/S01: `undoing-a-verdict.spec.ts`; the dialog as of T217 and its held order as of T262: `the-reviewed-list-opens-as-a-dialog.spec.ts`).
 "Show N reviewed", beside the tally above the card, opens the "Reviewed applications" dialog over the card, which does not move.
-It lists the decided applications, newest verdict first (those with no verdict time last, in arrival order), each by name then email with its verdict and who gave it, either address breaking as the history's addresses do ([reading the market's history](reading-the-markets-history.md#l6-read-the-markets-history)), and "Approve instead" on a rejection or "Reject instead" on an approval.
+It lists the decided applications, newest verdict first as it opens (those with no verdict time last, in arrival order), each by name then email with its verdict and who gave it, either address breaking as the history's addresses do ([reading the market's history](reading-the-markets-history.md#l6-read-the-markets-history)), and "Approve instead" on a rejection or "Reject instead" on an approval.
 It shows 50 rows and "Show N more", and past 12 rows a field finds one by name or address, the dialog's top holding as the rows go; the words go when it closes.
 **Changing a verdict is its own row of the table**, "Change a verdict, or overturn an automatic rejection" (default Admin), on top of giving one ([what each role may do](../rules/what-each-role-may-do.md)): "Approve instead" and "Reject instead", an automatic rejection's included, are offered only to someone it lets change one, and a reviewer it refuses reads its sentence once, above the list in the dialog: "Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."
 A verdict is approved or rejected: deciding a follow-up is giving one, while sending an approved or rejected application back to needs follow-up is changing one, so the change row asks it too (E38/F06/S01).
 A follow-up is not listed here: it is decided from its own card, or from All.
 From Assignment on the list only reads.
 
-A verdict changed in the dialog leaves it open, with the rows shown as they were and focus on that row's new button, the row itself going to the head of the list as the newest verdict.
+A verdict changed in the dialog leaves it open, with the rows shown as they were and focus on that row's new button, the row keeping its place so the reviewer keeps theirs.
+The order holds while the dialog is open: a changed row goes to the head of the list, as the newest verdict, at the next opening, and a row a re-read brings while it is open goes first.
 What the server refuses is said in the dialog, and the card and the Undo line behind stay as they are.
 Closed with the answer still out, the refusal is said on the card's error line instead, naming the application ("jane@example.com was not changed: ..."), beside what the card already says, and the next opening starts clean.
 An address on that line, or in the refusal on the card that names who changed it, breaks the same way.
@@ -167,6 +171,7 @@ A change that is written takes the undo on offer away ([undoing a verdict just g
 While the dialog is open A, R, S, N and Z do nothing, it closes when the view stops being visible or another market opens, and closing gives focus back to "Show N reviewed" with the same application up.
 A link naming a reviewed application, as a refused assignment's does, opens the dialog with the words set to its address and its row marked, however far down the list it lies; closing clears the words.
 Covered by:
+
 - `automatic-rejections.spec.ts` ("the preview lists the rows a rule will reject, an import rejects them, and a reviewer overturns one")
 - `changing-a-verdict-is-its-own-row.spec.ts`
 - `the-all-view.spec.ts` ("a verdict changes while the review is open, then the drawer only shows it")
@@ -241,6 +246,7 @@ Done, the close, Escape and the backdrop each close the dialog, with focus back 
 With the dialog open, A, R, S, N and Z do nothing to the card, and a key held for a card still arriving does not play behind it: a verdict says it did not count, and a Z leaves the undo on offer.
 The dialog closes when the view stops showing, when another market opens, and when the person may no longer change the form.
 Covered by:
+
 - `choosingWhatLeadsTheCard.test.ts`
 - `review-highlights.spec.ts`
 - `the-market-on-a-phone.spec.ts`
@@ -250,6 +256,7 @@ Covered by:
 **Status:** Works (read from the code as of E38/F04/S01 and E38/F07/S02: `market-journey.spec.ts`, `every-move-lands.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`, `the-first-import-offers-the-reviewers.spec.ts`).
 An own-form market enters by "Open applications", which offers someone who may choose reviewers the choice in the same step, so the review is divided from the first application ([taking applications](taking-applications.md#h1-open-applications)); a Google Form market by its first import, confirmed and written, whose preview step offers the same choice of reviewers ([the import](import.md#h2a-first-import-everything-maps)), and which takes the move itself, so the import's done step reads "This market is now in Review: …" and leads to the review with "Go to the review" ([review needs an import](../rules/review-needs-an-import.md)).
 Covered by:
+
 - `every-move-lands.spec.ts`
 - `market-journey.spec.ts`
 - `open-applications-offers-the-reviewers.spec.ts`
@@ -267,6 +274,7 @@ From Review or Applications, "Begin assignment", disabled before the click with 
 
 It lands on the Assignment tab's Settings page, and the verdicts settle there; an own-form market's application page closes with it.
 Covered by:
+
 - `needs-a-follow-up.spec.ts`
 - `phase-state-machine.spec.ts`
 - `placement-pins.spec.ts`
@@ -276,6 +284,7 @@ Covered by:
 **Status:** Works (read from the code as of E38/F04/S03: `a-late-export.spec.ts`).
 On the Google Form path, More…, "Redo import": the import reads the whole responses file again, and the market stays in Review ([H2j](import.md#h2j-import-after-review-has-begun)).
 Covered by:
+
 - `a-late-export.spec.ts`
 
 Publishing the results, I7, is a step of the assignment: [the assignment and its result](assignment-and-result.md#i7-publish-results).

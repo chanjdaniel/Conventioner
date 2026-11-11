@@ -103,10 +103,10 @@ export async function seedExampleMarket(
   label = 'E2E Price Groups',
 ) {
   const userId = await loginViaApi(request, baseURL, email, password);
-  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL);
   const name = uniqueMarketName(label);
   const created = await request.post(`${baseURL}/markets`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    headers: { 'Content-Type': 'application/json' },
     data: {
       name,
       creationDate: new Date().toISOString(),

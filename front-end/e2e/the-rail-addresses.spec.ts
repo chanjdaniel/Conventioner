@@ -1,4 +1,5 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, APP_API } from './fixtures';
+import { seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { transitionMarket } from './helpers/seedPhaseMarket';
 import { marketScreenPath } from './helpers/marketScreens';
@@ -44,5 +45,35 @@ test.describe("The rail's addresses", () => {
       'href',
       new RegExp(`/${seed.marketSlug}$`),
     );
+  });
+
+  // A short address left the chip's floor empty after Copy, which then stood mid-chip (T260).
+  test("Copy stands at the chip's end, however short the address", async ({
+    authenticatedPage: page,
+  }) => {
+    const market = await seedApplicantMarket(
+      page.request,
+      APP_API,
+      TEST_USER.email,
+      TEST_USER.password,
+      { name: `c${Date.now().toString(36).slice(-5)}` },
+    );
+    const chip = page.getByTestId('phase-rail-vendor-page');
+
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(marketScreenPath(market.marketId, 'applications'));
+      await expect(chip).toBeVisible();
+      const ends = await chip.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const inner =
+          element.getBoundingClientRect().right -
+          parseFloat(style.borderRightWidth) -
+          parseFloat(style.paddingRight);
+        const copy = element.querySelector('button')!.getBoundingClientRect().right;
+        return { inner, copy };
+      });
+      expect(ends.copy, `Copy's right edge at ${width}px`).toBeCloseTo(ends.inner, 0);
+    }
   });
 });

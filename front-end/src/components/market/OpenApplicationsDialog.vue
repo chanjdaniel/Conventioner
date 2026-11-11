@@ -26,6 +26,7 @@ import { leadingLabels } from '@/utils/reviewHighlights';
 import {
   chooseReviewers,
   reviewerAddresses,
+  unableReviewers,
   sameTeam,
   teamToChange,
   unansweredWrite,
@@ -122,6 +123,7 @@ async function confirm() {
       v-model="ticked"
       :candidates="market?.reviewerCandidates ?? []"
       :current="reviewerAddresses(market)"
+      :unable="unableReviewers(market)"
       :disabled="saving || moving"
     />
     <section class="review-setup" aria-labelledby="open-applications-review-setup">

@@ -91,7 +91,8 @@ def client(monkeypatch, organizations):
     """A real client with login ENABLED - the point of these tests.
 
     Session protection is relaxed because these assert authorization, not session hardening;
-    ``strong`` would log the test session out over a user-agent hash it has no reason to care about.
+    ``strong`` would answer the test client's requests as signed out over a user-agent hash it has no
+    reason to care about.
     """
     organizations()
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)

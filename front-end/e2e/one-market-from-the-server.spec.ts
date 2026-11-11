@@ -47,7 +47,7 @@ test.describe('One market, from the server', () => {
 
     // Somewhere else - another tab, another device - the market is archived.
     const archived = await request.post(`${BACKEND_URL}/markets/${seeded.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'archived' },
     });
     expect(archived.ok()).toBe(true);
@@ -122,7 +122,7 @@ test.describe('One market, from the server', () => {
       intakeMode: 'form',
     });
     const form = await request.put(`${BACKEND_URL}/markets/${seed.marketId}/application-form`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         fields: [
           {

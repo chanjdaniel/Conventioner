@@ -29,8 +29,6 @@ def as_text_cell(value: str) -> str:
     """The applicant's own text as a cell no spreadsheet runs: a value beginning with a formula
     character gets a leading single quote, which Excel and Sheets show as text; any other value,
     a blank one included, is written exactly as it is.
-
-    A name is the applicant's own text, so it is written as text.
     """
     return "'" + value if value.startswith(FORMULA_LEADS) else value
 

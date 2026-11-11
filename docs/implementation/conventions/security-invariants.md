@@ -28,7 +28,11 @@ describes:
   - scripts/real_data_check.py
   - scripts/real_data_terms.txt
   - .githooks/
-verified: 2026-11-01
+  - back-end/tests/test_every_route_asks.py
+  - back-end/api/applicant_auth.py#_send_code_email
+  - back-end/tests/test_the_code_mail_carries_only_words.py
+  - front-end/vite.config.ts#assertNoLocalHatchOnVercel
+verified: 2026-11-11
 sources:
   - T74
   - T109
@@ -36,6 +40,9 @@ sources:
   - E38/F14/S01
   - T169
   - T177
+  - T254
+  - T251
+  - T273
 ---
 
 # Security invariants
@@ -46,18 +53,20 @@ The secure state is the one a forgetful operator gets; anything less secure has 
 
 ## The boot check
 
-The back end refuses to boot without six things, all checked by [`check_public_endpoint_defenses()`](../../../back-end/app.py) and named together in one refusal, so an operator does not meet them one redeploy at a time:
+The back end refuses to boot without eight things, all checked by [`check_public_endpoint_defenses()`](../../../back-end/app.py) and named together in one refusal, so an operator does not meet them one redeploy at a time:
 
-| Variable | Read by | Defends |
-| --- | --- | --- |
-| `SECRET_KEY` | `utils/secret_key.py` | the session cookie: without it any organizer's session can be forged |
-| `RECAPTCHA_SECRET_KEY` | [`utils/captcha.py`](../../../back-end/utils/captcha.py) | `POST /register`, the public signup |
-| `CORS_ALLOWED_ORIGINS` | [`utils/cors.py`](../../../back-end/utils/cors.py) | which websites may spend the organizer's `SameSite=None` cookie, and which origins a browser's write is taken from ([where a write comes from](#where-a-write-comes-from)); `*` is refused, and so is an entry that is not an origin |
-| `RESEND_API_KEY` | [`utils/email.py`](../../../back-end/utils/email.py) | the mail that carries every verification link, reset link and sign-in code |
-| `SESSION_TYPE` | [`utils/session_storage.py`](../../../back-end/utils/session_storage.py) | where the session is kept: `null` (the signed cookie, a serverless host) or `filesystem` (a container or VM), with no default |
-| `TRUSTED_PROXY_HOPS` | [`utils/proxy.py`](../../../back-end/utils/proxy.py) | the address reCAPTCHA scores a signup on, and the caller the applicant sign-in limits count |
+| Variable               | Read by                                                                  | Defends                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SECRET_KEY`           | `utils/secret_key.py`                                                    | the session cookie: without it any organizer's session can be forged                                                                                                                                                                 |
+| `RECAPTCHA_SECRET_KEY` | [`utils/captcha.py`](../../../back-end/utils/captcha.py)                 | `POST /register`, the public signup                                                                                                                                                                                                  |
+| `CORS_ALLOWED_ORIGINS` | [`utils/cors.py`](../../../back-end/utils/cors.py)                       | which websites may spend the organizer's `SameSite=None` cookie, and which origins a browser's write is taken from ([where a write comes from](#where-a-write-comes-from)); `*` is refused, and so is an entry that is not an origin |
+| `RESEND_API_KEY`       | [`utils/email.py`](../../../back-end/utils/email.py)                     | the mail that carries every verification link, reset link and sign-in code                                                                                                                                                           |
+| `FRONTEND_URL`         | [`utils/email.py`](../../../back-end/utils/email.py)                     | where every mailed link points: an `https://` origin with no path, or each link points at a laptop                                                                                                                                   |
+| `FROM_EMAIL`           | [`utils/email.py`](../../../back-end/utils/email.py)                     | the sender every mail is from: never Resend's shared `onboarding@resend.dev`, which delivers only to the Resend account's own address                                                                                                |
+| `SESSION_TYPE`         | [`utils/session_storage.py`](../../../back-end/utils/session_storage.py) | where the session is kept: `null` (the signed cookie, a serverless host) or `filesystem` (a container or VM), with no default                                                                                                        |
+| `TRUSTED_PROXY_HOPS`   | [`utils/proxy.py`](../../../back-end/utils/proxy.py)                     | the address reCAPTCHA scores a signup on, and the caller the applicant's and the organizer's sign-in limits count                                                                                                                    |
 
-Three fail silently when unset (the captcha passes everybody, a forgeable session, a credentialed policy for every origin); the mail key and the session store fail loudly but name nothing; the hop count fails more quietly than any, showing only in a reCAPTCHA score.
+Three fail silently when unset (the captcha passes everybody, a forgeable session, a credentialed policy for every origin); the mail key, the two mail addresses and the session store fail loudly but name nothing; the hop count fails more quietly than any, showing only in a reCAPTCHA score.
 What each one is, and what an unset one would do, is the deployment's checklist in [RELEASING.md](../../RELEASING.md#pre-deploy-required-production-environment); **keep that table in step with the check**, because a deploy doc that is wrong is worse than one that is missing: it will be trusted.
 
 **The check is a check.**
@@ -67,17 +76,23 @@ Keep them apart: flask-cors installs an `after_request` handler per call, so a c
 **A boot requirement defends something the product serves.**
 A requirement with nothing behind it teaches operators to work around the check.
 `TRUSTED_PROXY_HOPS` is required because `request.remote_addr` is what organizer signup hands Google as reCAPTCHA's `remoteip` (`api/users.py`), and it became load-bearing the moment `RECAPTCHA_SECRET_KEY` did: before, a deployment with no secret took the bypass and no token reached Google.
-The applicant sign-in limits count each caller by the same address ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)), so a wrong hop count would put every applicant behind one caller's limit.
+The applicant's and the organizer's sign-in limits count each caller by the same address (`sign_in_limits.caller()`, [a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)), so a wrong hop count would put every applicant, and every organizer, behind one caller's limit.
 Make a requirement follow its caller, not the module it was first written for.
 The converse holds too: a value that turns on a feature and defends nothing is optional, read through `configured_secret` when asked for, and never a boot requirement: `TYPESAFE_API_KEY`, and the three Discord values, without which the Discord card says Discord is not set up ([the Discord connection](../modules/discord.md)).
 
 ## The one escape hatch
 
-**`ALLOW_INSECURE_LOCAL_DEV` is the only escape hatch for the six** ([`back-end/utils/deployment.py`](../../../back-end/utils/deployment.py)), and it defaults to off.
-Under it a missing value boots: a random signing key for the process's lifetime, loopback origins, sessions on disk, zero hops, no captcha secret and no mail key; each is logged as a defense turned off.
+**`ALLOW_INSECURE_LOCAL_DEV` is the only escape hatch for the eight** ([`back-end/utils/deployment.py`](../../../back-end/utils/deployment.py)), and it defaults to off.
+Under it a missing value boots: a random signing key for the process's lifetime, loopback origins, sessions on disk, zero hops, no captcha secret, no mail key, and links to `http://127.0.0.1:5173` from `onboarding@resend.dev`; each is logged as a defense turned off.
 `DISABLE_CAPTCHA`, `DISABLE_EMAIL` and `DISCORD_FAKE` are honoured only under the hatch, so a deployment that inherited any of them from a copied env file is not silently unprotected, nor answered by a fake Discord ([a fake Discord](../../TESTING.md#a-fake-discord)).
 The hatch never excuses a published secret ([ADR 0010](../../adr/0010-no-secret-has-a-fallback.md)).
 `docker-compose.yml` and `back-end/.env.example` set it; it must never be set on a deployed environment.
+
+**A deployed host refuses every local switch.**
+A back end that sees a variable only the platform sets (`VERCEL`, `VERCEL_ENV`, `VERCEL_REGION` or `AWS_LAMBDA_FUNCTION_NAME`, by `deployed_host()`) refuses to boot with any of `LOCAL_SWITCHES` on: the hatch, `DISABLE_CAPTCHA`, `DISABLE_EMAIL` and `DISCORD_FAKE`, each read by the one `switch_on()`.
+The refusal is listed with every other problem the boot check finds, and is usually the only one a deployment carrying the hatch meets, since the hatch passes every check but the refusal of a published secret.
+A platform variable is used only to refuse, never to permit, so its absence turns nothing off; whether it is present is what `/healthz` reports as `deployed`, beside the hatch as `localDev`, and the Deploy workflow refuses a back end that does not answer `true` and `false` ([RELEASING.md](../../RELEASING.md#a-deployed-host-refuses-local-switches)).
+A test fails when the back end's source names a `DISABLE_*` or `*_FAKE` switch that is not in `LOCAL_SWITCHES`, so a new test switch cannot skip the refusal.
 
 **A stack under the hatch listens on `127.0.0.1` only.**
 Such a stack has fixed database credentials, mongo-express's `admin` / `admin`, no captcha and a random signing key, so it must not be on the local network: [`docker-compose.yml`](../../../docker-compose.yml) publishes every port on loopback, and so does the worktree overlay for every agent and `nm-test.sh` stack ([the treehouse runbook](../../../scripts/README-treehouse.md)).
@@ -115,6 +130,9 @@ A placeholder that is truthy is worse than a blank, because a check that asks on
 A bundle with no site key sends a placeholder token ([`front-end/src/utils/captcha.ts`](../../../front-end/src/utils/captcha.ts)), which a back end with a real secret hands to Google, who never issued it, so every signup answers 400 on a deployment that looks healthy.
 So `vite build` refuses a bundle without it ([`assertCaptchaSiteKey`](../../../front-end/vite.config.ts)), with the escape hatch of the same name, `VITE_ALLOW_INSECURE_LOCAL_DEV`, under which the bundle warns and sends the placeholder, which only a back end with `DISABLE_CAPTCHA` accepts.
 A keyless bundle built without the hatch throws rather than sending it.
+**A Vercel build refuses the hatch outright** ([`assertNoLocalHatchOnVercel`](../../../front-end/vite.config.ts)): when Vercel's `VERCEL` is set non-blank in the build's process environment and `VITE_ALLOW_INSECURE_LOCAL_DEV` is `true`, `vite build` fails, whatever else is set, since the hatch also lets a bundle build with no API address ([`docs/RELEASING.md`](../../RELEASING.md#the-front-end-has-two-requirements-the-back-ends-address-and-the-other-half-of-the-recaptcha-pair)).
+`VERCEL` is read from the process, not through `loadEnv`, so no `.env` file can set it; the dev server never checks it.
+Vercel sets it in a build only while the project's "Enable access to System Environment Variables" setting is ticked, as the back end's [deployed-host signals](#the-one-escape-hatch) need at runtime, so the front end's refusal is armed only with that box ticked on the front-end project.
 A defense on only one side of the wire is not one.
 Vite's `loadEnv` reads `front-end/.env` and never `.env.example`, so `cp .env.example .env` is a step in `front-end/` too; [STARTUP.md](../../STARTUP.md) names both copies.
 
@@ -124,12 +142,12 @@ Vite's `loadEnv` reads `front-end/.env` and never `.env.example`, so `cp .env.ex
 Conventioner's repository is public, so a branch is published the moment it is pushed: a check on GitHub can stop a merge, never the exposure, and taking applicants' details back out once took a rewrite of the whole history.
 So the check runs on the PC, before anything leaves it, and CI is only the backstop.
 
-| Where | What it reads |
-| --- | --- |
-| [`.githooks/pre-commit`](../../../.githooks/pre-commit) | the staged lines, so an ignored export added with `git add -f`, or its rows pasted next to a tracked file, is refused |
-| [`.githooks/pre-push`](../../../.githooks/pre-push) | each commit the push sends that no remote-tracking branch already has, its lines and its message: the second net, for a commit made with the hooks skipped |
-| the gate's [`nm-test.sh`](../../../scripts/nm-test.sh) | each commit since `origin/dev`, then every file of the tree at `HEAD`, before any suite, since the gate pushes the branch |
-| CI's `real-data` job | the pull request's commits, then every file of the merge it checks out, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection |
+| Where                                                   | What it reads                                                                                                                                                                          |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`.githooks/pre-commit`](../../../.githooks/pre-commit) | the staged lines, so an ignored export added with `git add -f`, or its rows pasted next to a tracked file, is refused                                                                  |
+| [`.githooks/pre-push`](../../../.githooks/pre-push)     | each commit the push sends that no remote-tracking branch already has, its lines and its message: the second net, for a commit made with the hooks skipped                             |
+| the gate's [`nm-test.sh`](../../../scripts/nm-test.sh)  | each commit since `origin/dev`, then every file of the tree at `HEAD`, before any suite, since the gate pushes the branch                                                              |
+| CI's `real-data` job                                    | the pull request's commits, then every file of the merge it checks out, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection |
 
 **The gate's own commits are CI's to check.**
 Its document, lint and CI-fix steps commit after its test step has run `nm-test.sh`, and the gate pushes them from its own repository under `~/.no-mistakes/`, where `core.hooksPath` is not set, so neither the hooks nor `nm-test.sh` read them: CI's `real-data` job on the pull request is the only check they get.
@@ -234,6 +252,8 @@ A 403 with these words on a deployment means the page's origin is not in `CORS_A
 **A value read from a request body reaches a query only as a string**: the rule, its one helper and its test are [a request value is a string](a-request-value-is-a-string.md).
 The checks above make the process boot safe; that one makes safe each lookup a request then asks of it.
 
+**Every route asks for a session unless the walk's public list names it with its reason**: [`test_every_route_asks.py`](../../../back-end/tests/test_every_route_asks.py) walks every registered route-method: one in no class (`PUBLIC`, `CALLERS_OWN`, or scoped by the market, organization, image or template its rule or body names) fails it, every one but `PUBLIC` answers 401 without a session, and a signed-in stranger is refused, 403 or 404, on every scoped one, with nothing written.
+
 **An exception never reaches a client**: a refusal is answered in copy our code wrote, and any other failure is logged and answered a bare `{"error": "Internal server error"}`; the types, the two handlers and their tests are [an exception never reaches a client](an-exception-never-reaches-a-client.md).
 
 **The front end has no DOM or HTML sink today** (no `v-html`, no `innerHTML`), and its lint refuses `v-html` anywhere ([every control is named](every-control-is-named.md#how-it-is-enforced)).
@@ -264,18 +284,30 @@ VITE_ALLOW_INSECURE_LOCAL_DEV=true npm run build-only && VITE_BACKEND_URL="https
 ```
 
 `VITE_ALLOW_INSECURE_LOCAL_DEV` lets the build go without a site key ([the front end's half](#the-front-ends-half)); sign in at the address the preview prints.
-[`securityHeaders.test.ts`](../../../front-end/src/__tests__/securityHeaders.test.ts) pins the headers and the policy's shape, and that `vite preview` serves them on the root and a deep link; the Deploy workflow checks that `conventioner.io` sends every one after each front-end deploy.
+[`securityHeaders.test.ts`](../../../front-end/src/__tests__/securityHeaders.test.ts) pins the headers and the policy's shape, and that `vite preview` serves them on the root and a deep link; the Deploy workflow checks that the staged front end sends every one before it is promoted, and that `conventioner.io` does once it serves the new commit.
 
 **Every API answer carries `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`**, added by one `after_request`, [`install_security_headers()`](../../../back-end/utils/security_headers.py), so a route added later, an error answer and a CORS preflight carry them without doing anything.
 The API answers JSON, a CSV export and floorplan images, never a page, so it sends no policy of its own.
 It is installed after the [error answers](an-exception-never-reaches-a-client.md), outside `configure_public_endpoint_defenses()`, because it depends on no configuration; it only adds headers, so it leaves the order of the defenses above, flask-cors's `after_request` among them, as it was.
-[`test_security_headers.py`](../../../back-end/tests/test_security_headers.py) reads both on a JSON answer, a 401, a 404 and a preflight that CORS still answers; the Deploy workflow checks `api.conventioner.io/healthz` for both after each back-end deploy.
+[`test_security_headers.py`](../../../back-end/tests/test_security_headers.py) reads both on a JSON answer, a 401, a 404 and a preflight that CORS still answers; the Deploy workflow checks `/healthz` for both on the staged back end before it is promoted, and on `api.conventioner.io` once it serves the new commit.
+
+## A mail carries a stranger's words only as words
+
+**Every mail goes through `send_mail`** in [`back-end/utils/email.py`](../../../back-end/utils/email.py): the four account mails and the vendor's sign-in code (`_send_code_email` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)).
+So the disabled path, the missing key, the log that names a mail's kind and never its address, and the timeout are one code path.
+Resend's client gives up after `MAIL_TIMEOUT_SECONDS`, 10, set once at import as `resend.default_http_client`, in place of the library's 30; a send that times out returns False like any other failed send.
+
+**A value someone other than the server made is escaped in a mail's HTML and put on one line in its subject and text.**
+The one such value today is the market's name in the vendor's code mail ([a vendor signs in before they have applied](../../business/rules/a-vendor-signs-in-before-applying.md)): anyone can register, name a market, and ask for a code to any address, so an unescaped name holding a link sent that link, in a stranger's words, from the product's own sender.
+The HTML holds `html.escape(name, quote=True)` and the subject and text `one_line(name)`, which reads each run of whitespace or control characters as one space and trims the ends.
+The other four mails carry only the server's own values: a token, a code and the configured `FRONTEND_URL`.
 
 ## How it is enforced
 
-- One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, and the template boots.
+- One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, a deployed host refuses each local switch, and the template boots.
 - [`test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py) signs in through `/login` and `/login-otp`, reads both cookies' `Set-Cookie` settings and expiry, moves the server's clock past each length, sends a cookie and sessions of the shape before, and sends one request from another browser or without its User-Agent, which is refused while the browser that signed in stays signed in: in the store on disk too, with nobody reading the answer, and for a session made permanent.
 - [`test_the_request_origin_check.py`](../../../back-end/tests/test_the_request_origin_check.py) tables the decision for a production-shaped list and the loopback pattern, and sends publish-results, sign-out and a floorplan upload from another site (refused, nothing done) and from the app (done).
+- [`test_the_code_mail_carries_only_words.py`](../../../back-end/tests/test_the_code_mail_carries_only_words.py) asks for a code on a market whose name holds a link and a `Bcc:` line, and finds the name escaped in the HTML and on one line in the subject and text; it proves the send asks `requests` for a 10-second timeout where the library sends, and that a send that times out returns False and logs its kind and the exception's type alone.
 - `test_configured_secret.py` and `test_env_file.py` pin the machinery underneath; [TESTING.md](../../TESTING.md#back-end-tests) lists them.
 - `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address, a real-shaped phone and an Atlas host fail, a fixture one passes, an exact value of a fake export fails, as do eight words of its header's question in order, a link or a handle from it, in a line, a message, a cell and the tree, while seven words, an answer and the exempt files pass, a workbook or OpenDocument sheet is read and an unreadable spreadsheet refused, the synthetic corpus passes, a refusal sends a fixture to the generator, and no value is printed in full; `tree` fails a planted row in a committed CSV, workbook or zip and a name listed after its file was committed, and passes a clean tree and the exempt files; CI's tree step fails real data already on the base branch; `test_nm_test.py` fails a gate run on a finding in the branch's commits or in the tree, before anything else.
-- What breaks it: a default for any of the six, a check that installs something, a secret read at import, a template that prints a value, or a hatch that excuses a published key.
+- What breaks it: a default for any of the eight, a test switch read outside `switch_on()`, a check that installs something, a secret read at import, a template that prints a value, or a hatch that excuses a published key.

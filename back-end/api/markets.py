@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import unicodedata
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
@@ -11,6 +12,7 @@ from client_errors import (
     NotFoundError,
     field_named_copy,
     parse_failure_detail,
+    traceback_without_messages,
 )
 from datatypes import (
     FORM_FIELD_KEY_PATTERN,
@@ -69,6 +71,7 @@ import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
 import history as History
+import floorplan_limits as FloorplanLimits
 import pricing as Pricing
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
@@ -89,6 +92,7 @@ import vendor_notes as VendorNotes
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
+import services.gridfs_service as GridfsService
 from utils.email_address import normalized_email
 
 logging.basicConfig(level=logging.INFO)
@@ -150,8 +154,22 @@ def _load_organization(organization_id: Optional[str]) -> Optional[Organization]
     return organization
 
 
+class LoadedMarket(NamedTuple):
+    """A market and its organization, as a loader read them to ask a row (``_load_market_for``)."""
+    market: Market
+    organization: Optional[Organization]
+
+
 def _load_market_for(market_id: str, requesting_user: str, action: Actions.Action) -> Market:
     """Load a market and assert the requesting user may take ``action`` on it (E39/F01/S01)."""
+    return _load_market_and_organization_for(market_id, requesting_user, action).market
+
+
+def _load_market_and_organization_for(
+    market_id: str, requesting_user: str, action: Actions.Action,
+) -> LoadedMarket:
+    """``_load_market_for``, with the organization it read to ask the row, for a write that asks
+    another row too and so need not read the organization again."""
     market_dict = markets_collection.find_one({"id": market_id})
     if not market_dict:
         raise MarketNotFoundError("Market not found")
@@ -167,7 +185,7 @@ def _load_market_for(market_id: str, requesting_user: str, action: Actions.Actio
     if refused:
         raise ForbiddenError(refused)
 
-    return market
+    return LoadedMarket(market, organization)
 
 
 ARCHIVED_REFUSAL = (
@@ -242,27 +260,6 @@ def role_action_refusals(
     market's chosen reviewers (``Actions.is_chosen``), who may take the giving row by it.
     """
     return _answers(phase, lambda row: Actions.role_refusal(row, role, rows, chosen))
-
-
-def deprecated_screen_reasons(
-    refusals: Dict[str, Optional[str]], verdicts_settled: Optional[str],
-    adding_vendors: Optional[str], publish_waits: Optional[str],
-) -> Dict[str, Optional[str]]:
-    """Deprecated: the reasons the screens read before each asked its row (E39/F01/S02), each now
-    its row's answer and the rule of the market's life it carried.
-
-    The back end deploys before the front end, and a tab keeps its bundle until it reloads; an old
-    bundle reads a missing reason as "allowed" and offers what the server refuses. Served for one
-    more release so it keeps refusing; the next release removes them, and the read's ``user_role``.
-    """
-    return {
-        # The old bundle says these words only on the import screens, and asks the rest only
-        # whether it is null: the import row's answer is the move row's yes and no in its words.
-        'adminActionsReason': refusals[Actions.IMPORT_APPLICATIONS.id],
-        'verdictLockReason': refusals[Actions.GIVE_VERDICTS.id] or verdicts_settled,
-        'addVendorReason': refusals[Actions.ADD_VENDOR.id] or adding_vendors,
-        'publishResultsReason': refusals[Actions.PUBLISH_RESULTS.id] or publish_waits,
-    }
 
 
 def read_only_reason(market: Market, refusals: Dict[str, Optional[str]]) -> Optional[str]:
@@ -397,11 +394,18 @@ def _load_market_to_change(
     write that loads through this cannot forget it. Roles and deletion do not come through here:
     who may see a record, and whether to keep it, are decisions about the record, not changes to it.
     """
-    market = _load_market_for(market_id, requesting_user, action)
-    refusal = archived_refusal(market)
+    return _load_market_and_organization_to_change(market_id, requesting_user, action).market
+
+
+def _load_market_and_organization_to_change(
+    market_id: str, requesting_user: str, action: Actions.Action,
+) -> LoadedMarket:
+    """``_load_market_to_change``, with the organization it read to ask the row."""
+    loaded = _load_market_and_organization_for(market_id, requesting_user, action)
+    refusal = archived_refusal(loaded.market)
     if refusal:
         raise MarketArchivedError(refusal)
-    return market
+    return loaded
 
 
 def application_form_lock_reason(market: Market) -> Optional[str]:
@@ -948,9 +952,6 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
 
     market_dict['_id'] = str(market_dict['_id'])
     leave_out_what_no_read_serves(market_dict)
-    # Deprecated: no screen reads the role since each asks the table (E39/F01/S02); an old bundle's
-    # Manage market does, and the next release removes it with ``deprecated_screen_reasons``.
-    market_dict['user_role'] = user_role.value
     _stamp_effective_market_state(market_dict, market.phase)
     # The form lock rides on the market every screen reads (E21/F02/S03): it depends on whether an
     # application exists, which only the server knows, and the store re-reads the market after every
@@ -1027,9 +1028,6 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # answer, so the rail offers the action exactly when the endpoint would take it.
     market_dict['applicationsStopped'] = market.applications_stopped
     market_dict['applicationsStopReason'] = ApplicantsApi.applications_stop_refusal(market)
-    # Deprecated, for a tab still on the old bundle; the next release removes them.
-    market_dict.update(deprecated_screen_reasons(
-        refusals, verdicts_settled, adding_vendors, publish_waits))
     # What would refuse each move open from this phase (E31/F02/S01), judged as the transition
     # endpoint judges it, so the rail can disable a move and name why before anyone clicks it.
     market_dict['transitionBlockers'] = {
@@ -1177,10 +1175,11 @@ class _SummaryLookups:
 
 def _decorate_market_summary(
     market: Dict[str, Any], parsed: Market, user_role: Optional[MarketRole],
-    lookups: _SummaryLookups,
+    lookups: _SummaryLookups, *, chosen: bool,
 ) -> Dict[str, Any]:
     """Add the read-time fields every market list entry carries to the stored document ``market``,
-    whose model ``parsed`` is, as ``_readable_market`` read it.
+    whose model ``parsed`` is, as ``_readable_market`` read it. ``chosen`` says whether the reader
+    is one of the market's chosen reviewers, as the read asks it (``Actions.is_chosen``).
 
     Kept in one place so a market exposes the same derived state - phase included -
     whether it was served by the list endpoint or by ``get_market_for_user``.
@@ -1192,13 +1191,12 @@ def _decorate_market_summary(
     leave_out_what_is_not_served(market)
     # Every answer a market keeps, which would grow the list by every market it names (ADR 0023).
     leave_out_every_answer(market)
-    # Deprecated, as the market read's: an old bundle's card offers Manage on it.
-    market['user_role'] = user_role.value if user_role else None
     phase = phase_from_market_document(market)
     _stamp_effective_market_state(market, phase)
     # The table's answers for the role the entry names, asked of the market's rows as the read
-    # parses them, so the card offers Manage on its row as the market's own page does (E39/F01/S02).
-    market['actionRefusals'] = role_action_refusals(user_role, phase, parsed.permissions)
+    # parses them, so the card offers Manage on its row as the market's own page does (E39/F01/S02),
+    # and of whether the reader is chosen, which lets them give verdicts (E38/F07/S03).
+    market['actionRefusals'] = role_action_refusals(user_role, phase, parsed.permissions, chosen)
     organization_id = market_doc_field(market, 'organization_id')
     if organization_id:
         org = lookups.organization(organization_id)
@@ -1219,24 +1217,25 @@ def _summary_role(market: Market, user_id: str, lookups: _SummaryLookups) -> Opt
 
 
 def _listed(
-    document: Dict[str, Any], user_id: str, lookups: _SummaryLookups,
+    document: Dict[str, Any], user_id: str, user_email: str, lookups: _SummaryLookups,
 ) -> Optional[Dict[str, Any]]:
     """A stored market as its list entry, or None when the market read would not serve it to this
     reader: the list asks the read's own question (``read_refused``), so no card opens on "not
-    found"."""
+    found". The reader is named by id, as roles are, and by address, as chosen reviewers are."""
     market = _readable_market(document)
     if market is None:
         return None
     role = _summary_role(market, user_id, lookups)
     if read_refused(market, role):
         return None
-    return _decorate_market_summary(document, market, role, lookups)
+    return _decorate_market_summary(
+        document, market, role, lookups, chosen=Actions.is_chosen(user_email, market))
 
 
 def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     """
     Get all markets a user has access to (via explicit role or organization): exactly those the
-    market read serves them, each with their effective role included.
+    market read serves them, each entry with the table's answers the read gives this reader.
     """
     user = UsersApi.get_user(user_email)
     if not user:
@@ -1246,7 +1245,7 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     seen_ids = set()
     result = []
 
-    user_orgs = OrgsApi.get_organizations_for_user(user_email)
+    user_orgs = OrgsApi.organization_documents_of(user_id)
     lookups = _SummaryLookups(user_orgs)
 
     # A role is a key of the market's roles map, so "has one" is that key existing - which the
@@ -1266,7 +1265,7 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
             if mid in seen_ids:
                 continue
             seen_ids.add(mid)
-            entry = _listed(document, user_id, lookups)
+            entry = _listed(document, user_id, user_email, lookups)
             if entry is not None:
                 result.append(entry)
 
@@ -1333,7 +1332,7 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["id"] = market_id
     market_dict = convert_keys_to_camel_case(market_dict)
     
-    refusal = public_address_refusal(market.name)
+    refusal = market_name_refusal(market.name) or public_address_refusal(market.name)
     if refusal:
         raise BadRequestError(refusal)
     
@@ -1361,6 +1360,31 @@ def _organization_default_rows(organization_id: Optional[str]) -> Dict[str, Dict
     organization = OrgsApi.get_organization(organization_id) if organization_id else None
     rows = Actions.organization_rows((organization or {}).get(OrgsApi.DEFAULT_PERMISSIONS))
     return {row_id: held.model_dump() for row_id, held in rows.items()}
+
+
+MARKET_NAME_MAX = 100
+
+
+def market_name_refusal(name: str) -> Optional[str]:
+    """Why no market may be called this, in words for the organizer, or None when it may (T273).
+
+    The name is the market's heading on every screen and its words in the vendor's sign-in code
+    mail, so it is something, at most ``MARKET_NAME_MAX`` characters (code points, as ``len``
+    counts; a browser's ``maxlength`` counts UTF-16 units, so it is never looser), and on one line.
+    Blank and the length are judged with the ends trimmed, as a rename stores it; a control
+    character (a line break, a tab) or a line or paragraph separator (U+2028, U+2029) is refused
+    anywhere in the name as sent, since a create stores the name as given. Asked only by a create
+    and a rename: a name stored before the rule still loads, lists and is mailed, escaped and on
+    one line (``utils.email.one_line``).
+    """
+    trimmed = (name or "").strip()
+    if not trimmed:
+        return "A market needs a name."
+    if any(unicodedata.category(character) in ("Cc", "Zl", "Zp") for character in name):
+        return "A market's name must be on one line."
+    if len(trimmed) > MARKET_NAME_MAX:
+        return f"A market's name can be at most {MARKET_NAME_MAX} characters."
+    return None
 
 
 def public_address_refusal(name: str, market_id: Optional[str] = None) -> Optional[str]:
@@ -2144,12 +2168,13 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
                 swept["swept"],
                 market_id,
             )
-        except Exception:
+        except Exception as error:
+            # By its type and frames: a database error's message can quote a document it touched.
             logger.error(
                 "Phase advanced to market_days for market %s but the "
-                "assignment_sent -> vendor_refused sweep failed",
+                "assignment_sent -> vendor_refused sweep failed\n%s",
                 market_id,
-                exc_info=True,
+                traceback_without_messages(error),
             )
     # After the sweep, so the move's entry counts the offers it turned to refusals: no entry of
     # their own says who refused those vendors.
@@ -2567,9 +2592,10 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
     Its own write - the whole-market PUT that used to carry it is gone - carrying only the name, and
     held to the same public-address rule as creation. Asks ``Actions.CHANGE_SETUP``.
     """
-    name = (name or "").strip()
-    if not name:
-        raise BadRequestError("A market needs a name.")
+    refusal = market_name_refusal(name)
+    if refusal:
+        raise BadRequestError(refusal)
+    name = name.strip()
 
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_SETUP)
     if market.phase is not MarketPhase.DRAFT:
@@ -2610,7 +2636,8 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     phase and says which mode it holds. The assignment rules close the same way once the market can
     no longer run its assignment (``assignment_rules_lock_reason``), and restating them is likewise
     not a change. Asks ``Actions.CHANGE_SETUP``, and ``Actions.ASSIGN`` too when it changes the
-    assignment rules, which are that row's though they ride in the plan (E39/F01/S01).
+    assignment rules, which are that row's though they ride in the plan (E39/F01/S01,
+    ``Actions.ask_assign_if_the_rules_change``).
     """
     extra = sorted(set(body) - set(PLAN_WRITE_FIELDS))
     if extra:
@@ -2618,14 +2645,10 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     if "setupObject" not in body:
         raise BadRequestError("setupObject is required.")
 
-    market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_SETUP)
-    update = prepared_plan(market, body)
-    plan = SetupObject.model_validate(convert_keys_to_snake_case(body["setupObject"]))
-    if assignment_rules(plan) != assignment_rules(market.setup_object):
-        refused = Actions.refusal(
-            Actions.ASSIGN, requesting_user, market, _load_organization(market.organization_id))
-        if refused:
-            raise ForbiddenError(refused)
+    market, organization = _load_market_and_organization_to_change(
+        market_id, requesting_user, Actions.CHANGE_SETUP)
+    plan, update = prepared_plan(market, body)
+    Actions.ask_assign_if_the_rules_change(market, plan, requesting_user, organization)
     markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
     _record_plan(market, plan, update, requesting_user)
 
@@ -2661,8 +2684,38 @@ def _record_plan(
                        assignment_rules(market.setup_object), assignment_rules(plan)))
 
 
-def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
-    """The plan write's ``$set``, judged against ``market`` and not yet written.
+#: Why a floorplan naming an image another market, no market or nothing holds is refused (T272).
+UNTIED_FLOORPLAN_IMAGE = "The floorplan's image was not uploaded for this market."
+
+
+def _floorplans_refusal(market: Market, plan: SetupObject) -> Optional[str]:
+    """Why a plan's floorplans may not be written, or None: their bounds (``floorplan_limits``),
+    and each changed floorplan's image, which must be one uploaded for this market.
+
+    A floorplan the market already holds, restated unchanged, is judged by neither: restating is
+    not a change, so a market stored before the bounds keeps saving its plan.
+    """
+    proposed = plan.floorplans or []
+    stored = (market.setup_object.floorplans if market.setup_object else None) or []
+    refused = FloorplanLimits.floorplans_refusal(proposed, stored)
+    if refused:
+        return refused
+    for floorplan in FloorplanLimits.changed_floorplans(proposed, stored):
+        image = floorplan.image_gridfs_id
+        if image is not None and GridfsService.get_image_market_id(image) != market.id:
+            return UNTIED_FLOORPLAN_IMAGE
+    return None
+
+
+class PreparedPlan(NamedTuple):
+    """A plan write judged and not yet written: the plan as parsed, and the ``$set`` that writes it."""
+    plan: SetupObject
+    update: Dict[str, Any]
+
+
+def prepared_plan(market: Market, body: Dict[str, Any]) -> PreparedPlan:
+    """The plan write's ``$set``, judged against ``market`` and not yet written, beside the plan it
+    parsed, so a caller reading the plan does not parse it again.
 
     The one statement of what a plan write may carry and when; ``save_plan`` writes it, and the
     CSV start writes it in the same update as the form and the mapping it makes.
@@ -2681,6 +2734,9 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     priced = Pricing.pricing_refusal(plan)
     if priced:
         raise BadRequestError(priced)
+    floorplan_refused = _floorplans_refusal(market, plan)
+    if floorplan_refused:
+        raise BadRequestError(floorplan_refused)
     update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
 
     if body.get("intakeMode") is not None:
@@ -2706,7 +2762,7 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     settled = assignment_rules_lock_reason(market)
     if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
         raise BadRequestError(settled)
-    return update
+    return PreparedPlan(plan, update)
 
 
 #: Why "Nothing leads the card" is refused beside a marked answer (T206): it would read as decided

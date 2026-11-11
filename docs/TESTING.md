@@ -5,7 +5,7 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-11-03
+verified: 2026-11-10
 sources:
   - E34/F03/S02
   - E35/F02/S01
@@ -14,13 +14,14 @@ sources:
   - E41/F01/S01
   - T200
   - T205
+  - T263
 ---
 
 # Testing Conventioner
 
 How to run each suite, and what each covers.
 The testing nodes of the [knowledge graph](implementation/testing/README.md) hold the sharp edges of each; the [Google Form corpus](../back-end/tests/test_data/README.md) is the suite's realistic data.
-The sharp edges are in the testing nodes: [E2E patterns](implementation/testing/e2e-patterns.md), [E2E seeds](implementation/testing/e2e-seeds.md), [the market journey spec](implementation/testing/the-market-journey-spec.md), [floorplan E2E](implementation/testing/floorplan-e2e.md), [CI and the gate](implementation/testing/ci-and-the-gate.md) and [the assignment behaviour suite](implementation/testing/assignment-behaviour-suite.md).
+The sharp edges are in the testing nodes: [E2E patterns](implementation/testing/e2e-patterns.md), [E2E seeds](implementation/testing/e2e-seeds.md), [the market journey spec](implementation/testing/the-market-journey-spec.md), [floorplan E2E](implementation/testing/floorplan-e2e.md), [CI and the gate](implementation/testing/ci-and-the-gate.md), [the assignment behaviour suite](implementation/testing/assignment-behaviour-suite.md) and [the real-MongoDB suite](implementation/testing/real-mongo-suite.md).
 The stack is seeded by [`scripts/seed_fixture.sh`](../scripts/seed_fixture.sh), Playwright is configured in [`front-end/playwright.config.ts`](../front-end/playwright.config.ts), and the no-mistakes gate runs every suite but Playwright through [`scripts/nm-test.sh --skip-e2e`](../scripts/nm-test.sh).
 Before a merge, Playwright runs only in CI's required `e2e` shards: on the laptop it was most of every gate run and the heaviest load the machine saw, and CI ran it again anyway ([CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)).
 
@@ -97,11 +98,11 @@ either passes or it does not.
 
 `test_attendance_api.py` additionally pins the public slug lookup (queried via the
 stored `slug` field for an indexed, O(1) lookup rather than a collection scan), which
-decides whether a market's public check-in URL is live: it serves a market past `draft`
+decides whether the market's vendor page is live: it serves a market past `draft`
 and refuses a draft, on both a document that stores a `phase` and one written before the
 field existed (where the phase is derived from `isDraft`).
 
-The market phase lifecycle adds six suites:
+The market phase lifecycle adds seven suites:
 
 - `test_guards.py` - the guard registry (`back-end/guards.py`) in isolation: which edges
   are valid, the `form_has_fields` guard passing and failing, and the import-time
@@ -125,7 +126,7 @@ The market phase lifecycle adds six suites:
   where a document carries both, the slug is backfilled from the name and repaired
   when it disagrees, the index is built, and it is idempotent.
 - `test_migrate_is_draft_consistency.py` - the `isDraft`/`phase` reconciliation migration:
-  a market the old build published (`phase: "draft"` + `isDraft: false`) has its *phase*
+  a market the old build published (`phase: "draft"` + `isDraft: false`) has its _phase_
   advanced to `archived` rather than being confirmed as a draft, a stale `isDraft` on an
   already-advanced market is recomputed from the phase instead, a document with no `phase`
   is left untouched (it is `migrate_phase.py`'s to backfill, and flipping `isDraft` would
@@ -141,12 +142,28 @@ machinery underneath: `test_configured_secret.py` (a blank or published placehol
 configured secret) and `test_env_file.py` (the `.env` loader, and that the real environment
 wins over the file).
 
-Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
-(tests use in-memory fakes). The fakes read a filter (`mongo_matches`) and a projection
-(`mongo_project`) as Mongo does, a sub-document compared whole and a dotted key reaching into one, so a read that fetches too
-little fails here rather than in production. Shared module stubs live in `back-end/tests/conftest.py`, which
-also points the `.env` loader at a path that does not exist - the suite reads no `.env`, so a
-stale one on your machine cannot change its result.
+Requirements: `pytest` (listed in `requirements-dev.txt`), and no database connection, since the tests use in-memory fakes, except for the real-MongoDB suite below.
+Most shared fakes in `back-end/tests/conftest.py` read a filter with `mongo_matches` (the applications, markets and organizations fakes, the sign-in attempts fake's conditional `$inc` and the GridFS fake's `find`), and so do many fakes of a single test file; it answers as MongoDB does for every case in `back-end/tests/mongo_cases.py` and raises `UnmodelledQuery` on an operator it does not model, so a test of a filter it cannot read fails instead of passing.
+`test_the_shared_matcher.py` checks it against that table on every run, and the real-MongoDB suite checks the table against the server.
+`FakeApplicationsCollection`, which stands in for applications and every record beside a market, writes with `mongo_update`, sorts and limits, and projects with `mongo_project` as the server does, and answers the server's matched and modified counts; it refuses an update operator, sort or projection it does not model the same way, and `test_the_shared_applications_fake.py` checks it against the same module's update, read and projection tables.
+`FakeMarketsCollection` and `FakeSlugMarketsCollection`, the markets fakes, apply an `update_one`'s filter with `mongo_matches` and its update with `mongo_update` and answer the same counts, so a market write that holds what it read matches nothing over a market that no longer holds it; `test_the_shared_markets_fakes.py` checks them against the update table.
+So a read that fetches too little, or a write the server would apply otherwise, fails here rather than in production.
+Shared module stubs live in `back-end/tests/conftest.py`, which also points the `.env` loader at a path that does not exist.
+The suite reads no `.env`, so a stale one on your machine cannot change its result.
+
+### The real-MongoDB suite
+
+`back-end/tests/real_mongo/` runs against a real MongoDB server, named by `REAL_MONGODB_URI`, each test on a database of its own that it drops.
+Unset, every test there skips, so the gate's run stays hermetic; CI's `backend` job runs it on a `mongo:7` service, the local stack's version ([why not production's 8.0](implementation/testing/real-mongo-suite.md#the-mongodb-version)), and sets `REAL_MONGODB_REQUIRED=true` so it can never skip.
+It refuses a `mongodb+srv://` URI, a host that is not loopback and the primary checkout's port 27017.
+Run it against a worktree stack's MongoDB, its port from `scripts/th-compose.sh ports`:
+
+```bash
+cd back-end
+REAL_MONGODB_URI="mongodb://admin:secret@127.0.0.1:<port>/?authSource=admin" python -m pytest tests/real_mongo
+```
+
+[The real-MongoDB suite](implementation/testing/real-mongo-suite.md) says how each test's database is made and bound, and what its fixtures give.
 
 ## Front-End Unit Tests
 
@@ -236,7 +253,7 @@ browsing with filtering (`tables.spec.ts`). The tier-2 suite (`tier2.spec.ts`)
 covers organization CRUD (create, add admin/member, remove member, rename,
 delete), market role management (add user with role, change role, remove user),
 assignment CSV export (download and verify columns), and publishing a market
-(verify the check-in URL is reachable). Tier-3 authentication and robustness
+(verify the market's vendor page, where its vendors check in, is reachable). Tier-3 authentication and robustness
 journeys (`auth.spec.ts`) cover new-user registration, the full password reset
 flow (including reading the real reset token from MongoDB), posting an assignment
 and login/OTP error states. The organization-required suite
@@ -341,9 +358,9 @@ token when `VITE_RECAPTCHA_SITE_KEY` is unset (as in test/dev builds), so the fl
 still reaches the back-end where the `DISABLE_CAPTCHA` bypass applies.
 
 Similarly, set `DISABLE_EMAIL=true` (or `1`) so the Resend-backed
-`send_verification_email`, `send_password_reset_email`, and `send_otp_email`
-helpers skip the actual send and report success. This is also honored only under
-`ALLOW_INSECURE_LOCAL_DEV`, defaults OFF in the back end, and is forwarded by
+`send_verification_email`, `send_account_exists_email`, `send_password_reset_email`,
+and `send_otp_email` helpers skip the actual send and report success. This is also
+honored only under `ALLOW_INSECURE_LOCAL_DEV`, defaults OFF in the back end, and is forwarded by
 `docker-compose.yml`; the CI e2e job and `scripts/nm-test.sh` set it, and a worktree's
 stack (`scripts/th-compose.sh`) defaults it to `true` (pass `DISABLE_EMAIL=false` to send).
 The primary checkout's plain `docker compose up` does not, so export it in the shell that
@@ -377,12 +394,12 @@ Each limit sits well above that service's peak in a full `scripts/nm-test.sh` ru
 
 Measured on 2026-10-23 on a 12-core, 31 GiB Linux machine (Compose 5.6.1), one gate run at a time, `docker stats` read about twice a second per service over the stack's whole life (22.6 minutes, 375 E2E tests); CPU is in cores, as `docker stats` gives it (100% is one core):
 
-| Service | Limit: memory / CPUs / PIDs | Peak memory | Peak CPU | Peak PIDs |
-| - | - | - | - | - |
-| mongodb | 1g / 2 / 512 | 479 MiB (47%) | 119% (59%) | 62 (12%) |
-| backend | 768m / 1 / 256 | 134 MiB (17%) | 59% (59%) | 19 (7%) |
-| frontend | 1g / 2 / 256 | 471 MiB (46%) | 151% (75%) | 38 (15%) |
-| mongo-express | 256m / 0.5 / 64 | not started by an `nm-test.sh` run | | |
+| Service       | Limit: memory / CPUs / PIDs | Peak memory                        | Peak CPU   | Peak PIDs |
+| ------------- | --------------------------- | ---------------------------------- | ---------- | --------- |
+| mongodb       | 1g / 2 / 512                | 479 MiB (47%)                      | 119% (59%) | 62 (12%)  |
+| backend       | 768m / 1 / 256              | 134 MiB (17%)                      | 59% (59%)  | 19 (7%)   |
+| frontend      | 1g / 2 / 256                | 471 MiB (46%)                      | 151% (75%) | 38 (15%)  |
+| mongo-express | 256m / 0.5 / 64             | not started by an `nm-test.sh` run |            |           |
 
 MongoDB started at 768m and 1 CPU: the first run took it to 630 MiB (82%) and 101% of its one core, so it was raised and the run repeated.
 Neither run had a container killed for memory (`docker events --filter event=oom` over each run).
@@ -402,14 +419,13 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   own browser owned (E07/F01/S02).
   Do not reintroduce it, and do not add another header like it - `test_session_is_the_identity.py`
   fails the build if one appears in `app.py` or any blueprint under `api/`.
-  Several e2e specs still pass the header on their own request contexts; it is inert, and those
-  helpers authenticate properly by logging in.
+  The e2e helpers authenticate by logging in, and no spec or seed sends an identity header.
 - **Email verification**: The seed fixture creates users with `email_verified=true`
   via `back-end/create_test_user.py` so they can log in immediately.
 - **The Google Forms fixture**: `back-end/tests/test_data/google_forms/five-day-grid.csv` is a
   synthetic response export in a Google Form's shape, written by
   `back-end/tests/fixtures/synthetic_form_exports.py`.
-  It exists because three MVP blockers came from the *shape* of a real export and every CSV test
+  It exists because three MVP blockers came from the _shape_ of a real export and every CSV test
   before it wrote its own short single-line headers.
   `back-end/tests/test_data/README.md` lists the six properties it must preserve;
   `test_form_export_shapes.py` asserts them, but for the duplicate and organizer columns, which the
@@ -427,8 +443,8 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `pam_faillock` lockout. The machine's own package manager provides the system libraries;
   CI's workflow keeps `--with-deps`, which is right on GitHub's Ubuntu runners.
 - **`nm-test.sh` runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs (without `--skip-e2e`) on one machine
-  run their unit suites side by side, but the second waits, saying `nm-test: waiting for the
-  end-to-end lock since ...` and naming the run it waits for, until the first's stack is down,
+  run their unit suites side by side, but the second waits, saying
+  `nm-test: waiting for the end-to-end lock since ...` and naming the run it waits for, until the first's stack is down,
   because a stack starting or stopping breaks another run's browser with
   `net::ERR_NETWORK_CHANGED`. `lsof ~/.local/state/conventioner/e2e.lock` lists the holder and
   every waiting run; [CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)
@@ -469,8 +485,8 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   So a change to the source needs no build, `scripts/th-compose.sh up -d` builds an image only
   when none has its tag yet, and `scripts/th-compose.sh build` rebuilds one anyway (say for a
   newer base image). After the front end's dependencies change, a stack keeps its old
-  `node_modules` volume however its front end is recreated: `scripts/th-compose.sh rm -s -f -v
-  frontend` then `up -d` refills it from the new image (`up --renew-anon-volumes` would too, but
+  `node_modules` volume however its front end is recreated:
+  `scripts/th-compose.sh rm -s -f -v frontend` then `up -d` refills it from the new image (`up --renew-anon-volumes` would too, but
   leaves the old volume behind). The primary stack and CI build their own images from
   `docker-compose.yml`, as before.
 - **Driving the Konva floorplan canvas**: calibration is a real mouse drag, but section grouping

@@ -1,5 +1,6 @@
 """
-Email service integration using Resend for sending verification emails, password reset emails, and OTP emails.
+Email service integration using Resend for every mail this product sends; what each is, and so what
+``RESEND_API_KEY`` delivers, is listed in ``docs/RELEASING.md``'s required environment.
 
 Every value this module needs is read from the environment when it is used, never captured into a
 module global on the way up. The key used to be read at import and the client initialized there, and
@@ -12,12 +13,17 @@ to what it claims. ``utils.secret_key`` and ``utils.captcha`` read on call for t
 
 import os
 import logging
+import unicodedata
+from urllib.parse import urlsplit
+
 import resend
+from resend.exceptions import ResendError
 
 from utils.configured_secret import configured_secret, is_published
 from utils.deployment import (
     INSECURE_LOCAL_DEV_VAR,
     insecure_local_dev,
+    switch_on,
     warn_insecure_local_dev,
 )
 
@@ -25,9 +31,32 @@ from utils.deployment import (
 logger = logging.getLogger(__name__)
 
 RESEND_API_KEY_VAR = "RESEND_API_KEY"
+FRONTEND_URL_VAR = "FRONTEND_URL"
+FROM_EMAIL_VAR = "FROM_EMAIL"
 
 DEFAULT_FRONTEND_URL = "http://127.0.0.1:5173"
-DEFAULT_FROM_EMAIL = "onboarding@resend.dev"  # Default Resend email
+#: Resend's shared sender, which delivers only to the Resend account's own address.
+SHARED_SENDER = "onboarding@resend.dev"
+DEFAULT_FROM_EMAIL = SHARED_SENDER
+
+#: How long a send waits on Resend before it gives up and counts as failed. The library's own
+#: client waits 30 seconds, which held a request, and a vendor or organizer behind it, that long.
+MAIL_TIMEOUT_SECONDS = 10
+
+# Resend 2.50.0 sends through the client in ``resend.default_http_client``; this one is the
+# library's own ``requests`` client with the shorter timeout. It depends on no variable, so it is
+# set once, here.
+resend.default_http_client = resend.RequestsClient(timeout=MAIL_TIMEOUT_SECONDS)
+
+
+def one_line(text: str) -> str:
+    """``text`` on one line: every run of whitespace or control characters is one space, ends trimmed.
+
+    For a value someone else typed that goes into a mail's subject or text part, where a line break
+    could start a header line or a paragraph in their words.
+    """
+    spaced = "".join(" " if unicodedata.category(c) == "Cc" else c for c in text)
+    return " ".join(spaced.split())
 
 
 def configured_value() -> str:
@@ -48,13 +77,114 @@ def sendable_key() -> str:
 
 
 def frontend_url() -> str:
-    """The origin the verification and reset links this module sends point back at."""
-    return os.getenv("FRONTEND_URL") or DEFAULT_FRONTEND_URL
+    """The origin every link this product mails points back at, with no trailing ``/``.
+
+    One trailing ``/`` is dropped, so ``https://conventioner.io/`` makes no ``//verify-email``.
+    """
+    url = os.getenv(FRONTEND_URL_VAR, "").strip() or DEFAULT_FRONTEND_URL
+    return url[:-1] if url.endswith("/") else url
 
 
 def from_email() -> str:
     """The address this product's mail is sent from."""
-    return os.getenv("FROM_EMAIL") or DEFAULT_FROM_EMAIL
+    return os.getenv(FROM_EMAIL_VAR, "").strip() or DEFAULT_FROM_EMAIL
+
+
+class MailLinksNotConfiguredError(RuntimeError):
+    """``FRONTEND_URL`` is unset or not an https origin, so every mailed link points elsewhere."""
+
+
+class SenderNotConfiguredError(RuntimeError):
+    """``FROM_EMAIL`` is unset or Resend's shared sender, so no mail reaches anybody."""
+
+
+def _an_https_origin(url: str) -> bool:
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "https"
+        and bool(host)
+        and parts.path in ("", "/")
+        and not parts.query
+        and not parts.fragment
+    )
+
+
+def assert_mail_links_configured() -> None:
+    """Refuse a deployment whose mailed links would point at a laptop, or at no origin at all.
+
+    Under the hatch an unset one keeps ``DEFAULT_FRONTEND_URL`` with a warning, and a set one is
+    used as given, ``http://`` included.
+
+    Raises:
+        MailLinksNotConfiguredError: outside the hatch, when it is blank or not an ``https://``
+            address with a host and no path past ``/``.
+    """
+    value = os.getenv(FRONTEND_URL_VAR, "").strip()
+    if insecure_local_dev():
+        if not value:
+            warn_insecure_local_dev(
+                f"a configured address for mailed links ({FRONTEND_URL_VAR}: they point at "
+                f"{DEFAULT_FRONTEND_URL})"
+            )
+        return
+    if not value:
+        raise MailLinksNotConfiguredError(
+            f"{FRONTEND_URL_VAR} is not set. It is where every link this product mails points - "
+            f"the verification link, the reset link, the vendor's page, the door's link - and "
+            f"Discord's redirect after connecting a server. Unset, each points at "
+            f"{DEFAULT_FRONTEND_URL}. Set it to the address organizers sign in at "
+            f"(https://conventioner.io in production), or set {INSECURE_LOCAL_DEV_VAR}=true if "
+            f"this really is a local development machine."
+        )
+    if not _an_https_origin(value):
+        raise MailLinksNotConfiguredError(
+            f"{FRONTEND_URL_VAR} is {value!r}, which is not an https:// address with no path. "
+            f"Every mailed link is this address plus a path, so it must be the origin organizers "
+            f"sign in at, such as https://conventioner.io."
+        )
+
+
+def assert_sender_configured() -> None:
+    """Refuse a deployment whose mail would go from an address that delivers to nobody.
+
+    A display-name form such as ``Conventioner <registration@conventioner.io>`` passes. Under the
+    hatch an unset one keeps ``DEFAULT_FROM_EMAIL`` with a warning, and a set one is used as given.
+
+    Raises:
+        SenderNotConfiguredError: outside the hatch, when it is blank, holds no ``@``, or holds
+            Resend's shared sender.
+    """
+    value = os.getenv(FROM_EMAIL_VAR, "").strip()
+    if insecure_local_dev():
+        if not value:
+            warn_insecure_local_dev(
+                f"a configured sender ({FROM_EMAIL_VAR}: mail goes from {DEFAULT_FROM_EMAIL})"
+            )
+        return
+    if value and "@" not in value:
+        raise SenderNotConfiguredError(
+            f"{FROM_EMAIL_VAR} is {value!r}, which is not an address. It is the address every mail "
+            f"this product sends is from. Set it to an address on the domain verified in Resend "
+            f"(registration@conventioner.io in production)."
+        )
+    if not value:
+        raise SenderNotConfiguredError(
+            f"{FROM_EMAIL_VAR} is not set. It is the address every mail this product sends is "
+            f"from. Unset, mail goes from Resend's shared {SHARED_SENDER}, which delivers only to "
+            f"the Resend account's own address. Set it to an address on the domain verified in "
+            f"Resend (registration@conventioner.io in production), or set "
+            f"{INSECURE_LOCAL_DEV_VAR}=true if this really is a local development machine."
+        )
+    if SHARED_SENDER in value.lower():
+        raise SenderNotConfiguredError(
+            f"{FROM_EMAIL_VAR} is Resend's shared {SHARED_SENDER}, which delivers only to the "
+            f"Resend account's own address, so no organizer or vendor would receive a mail. Set it "
+            f"to an address on the domain verified in Resend."
+        )
 
 
 def ready_mailer() -> bool:
@@ -77,11 +207,12 @@ class MailerNotConfiguredError(RuntimeError):
 def assert_mailer_configured() -> None:
     """Refuse to serve endpoints whose whole purpose is the mail they cannot send.
 
-    Every route into an organizer account runs through this key. Registration rolls the new user
-    back and answers 500 when the verification mail does not go out; an account that is never
-    verified cannot log in; and the password-reset and OTP endpoints answer 500 as well. So a
-    deployment that forgot this variable does not degrade - it cannot onboard a single organizer,
-    and it says so one failed signup at a time, in a 500 that names nothing.
+    Every route into an organizer account runs through this key (what it delivers is listed in
+    ``docs/RELEASING.md``). Registration rolls the new user back and answers 500 when the
+    verification mail does not go out; an account that is never verified cannot log in; and the
+    password-reset and OTP endpoints answer 500 as well. So a deployment that forgot this variable
+    does not degrade - it cannot onboard a single organizer, and it says so one failed signup at a
+    time, in a 500 that names nothing.
 
     That is the mirror image of the three defenses beside it, whose absence is never reported at
     all, and it wants the same answer: name the variable once, at boot, where an operator is
@@ -111,11 +242,11 @@ def assert_mailer_configured() -> None:
         warn_insecure_local_dev(f"outbound email ({RESEND_API_KEY_VAR})")
         return
     raise MailerNotConfiguredError(
-        f"{RESEND_API_KEY_VAR} is not set. It delivers the email-verification link, the "
-        f"password-reset link, and the OTP login code - every route by which an organizer account "
-        f"is reached. Without it, registration fails and rolls the account back, an unverified "
-        f"organizer can never log in, and reset and OTP answer 500: not a degraded deployment, one "
-        f"that cannot onboard anybody. Set {RESEND_API_KEY_VAR} (https://resend.com/api-keys), or "
+        f"{RESEND_API_KEY_VAR} is not set. It delivers every mail this product sends, and so every "
+        f"route by which an organizer account is reached (docs/RELEASING.md lists them). Without "
+        f"it, registration fails and rolls the account back, an unverified organizer can never "
+        f"log in, and reset and OTP answer 500: not a degraded deployment, one that cannot onboard "
+        f"anybody. Set {RESEND_API_KEY_VAR} (https://resend.com/api-keys), or "
         f"set {INSECURE_LOCAL_DEV_VAR}=true if this really is a local development machine."
     )
 
@@ -130,7 +261,48 @@ def _email_disabled() -> bool:
     """
     if not insecure_local_dev():
         return False
-    return os.getenv("DISABLE_EMAIL", "").lower() in ("true", "1")
+    return switch_on("DISABLE_EMAIL")
+
+
+def send_mail(kind: str, email: str, subject: str, html: str, text: str) -> bool:
+    """Send one email; True when the provider accepted it (or email is disabled in dev).
+
+    Every mail this product sends goes through here, so the disabled path, the missing key, the log
+    and the timeout are one code path. A send that gives up after ``MAIL_TIMEOUT_SECONDS`` reaches
+    here as a ``ResendError`` and returns False like any other failure.
+
+    The log names the email's ``kind`` and never the address, nor an exception's text or the
+    provider's response body, which can each carry the address back: a failed send logs the
+    exception's type and, for the provider's own refusal, its status code.
+    """
+    if _email_disabled():
+        logger.info("DISABLE_EMAIL is enabled - skipping %s email", kind)
+        return True
+
+    if not ready_mailer():
+        logger.error("Cannot send %s email: RESEND_API_KEY not set", kind)
+        return False
+
+    try:
+        response = resend.Emails.send({
+            "from": from_email(),
+            "to": [email],
+            "subject": subject,
+            "html": html,
+            "text": text,
+        })
+    except ResendError as e:
+        logger.error("Error sending %s email: %s, status %s", kind, type(e).__name__, e.code)
+        return False
+    except Exception as e:
+        logger.error("Error sending %s email: %s", kind, type(e).__name__)
+        return False
+
+    if response and hasattr(response, "id"):
+        logger.info("Sent the %s email, Resend ID: %s", kind, response.id)
+        return True
+    logger.error("The %s email send returned no message id (%s)", kind, type(response).__name__)
+    return False
 
 
 def send_verification_email(email: str, token: str) -> bool:
@@ -179,46 +351,60 @@ def send_verification_email(email: str, token: str) -> bool:
     If you didn't create an account, please ignore this email.
     """
     
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping verification email")
-        return True
+    return send_mail("verification", email, "Verify your email address", html_content, text_content)
 
-    if not ready_mailer():
-        logger.error("Cannot send verification email: RESEND_API_KEY not set")
-        return False
 
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": "Verify your email address",
-            "html": html_content,
-            "text": text_content,
-        })
-        
-        if response and hasattr(response, 'id'):
-            logger.info(f"Verification email sent successfully to {email}, Resend ID: {response.id}")
-            return True
-        else:
-            logger.error(f"Verification email send returned unexpected response: {response}")
-            return False
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(f"Error sending verification email to {email}: {error_type} - {error_msg}")
-        
-        # Log additional details if available
-        if hasattr(e, 'response'):
-            logger.error(f"API response: {e.response}")
-        if hasattr(e, 'status_code'):
-            logger.error(f"HTTP status code: {e.status_code}")
-        if hasattr(e, 'message'):
-            logger.error(f"Error message: {e.message}")
-            
-        # Log full exception traceback for debugging
-        logger.debug(f"Full exception details:", exc_info=True)
-        return False
+def send_account_exists_email(email: str) -> bool:
+    """Tell an account's owner that someone signed up with its address, and how to get back in.
+
+    A sign-up for an address that has an account sends this in place of a verification link, and
+    answers as a new address's sign-up does, so the answer says nothing of which addresses have an
+    account. It carries no token: the links are the sign-in page and the page that asks for a reset
+    link, and nothing about the account changes.
+
+    Args:
+        email: The account's address
+
+    Returns:
+        True if email sent successfully, False otherwise
+    """
+    sign_in_url = f"{frontend_url()}/login"
+    reset_url = f"{frontend_url()}/reset-password-request"
+    subject = "You already have a Conventioner account"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{subject}</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #36826f;">{subject}</h1>
+        <p>Someone, maybe you, tried to create a Conventioner account with this email address. You already have one.</p>
+        <p>Sign in: <a href="{sign_in_url}" style="color: #36826f; word-break: break-all;">{sign_in_url}</a></p>
+        <p>Forgot your password? Reset it: <a href="{reset_url}" style="color: #36826f; word-break: break-all;">{reset_url}</a></p>
+        <p style="color: #777474; font-size: 12px; margin-top: 30px;">If this wasn't you, you can ignore this email: nothing about your account has changed.</p>
+    </body>
+    </html>
+    """
+
+    # The bare links below have no full stop after them on purpose: a mail client can read a full
+    # stop as part of the link.
+    text_content = f"""
+    {subject}
+
+    Someone, maybe you, tried to create a Conventioner account with this email address. You already have one.
+
+    Sign in: {sign_in_url}
+
+    Forgot your password? Reset it: {reset_url}
+
+    If this wasn't you, you can ignore this email: nothing about your account has changed.
+    """
+
+    return send_mail("existing account", email, subject, html_content, text_content)
 
 
 def send_password_reset_email(email: str, token: str) -> bool:
@@ -267,46 +453,7 @@ def send_password_reset_email(email: str, token: str) -> bool:
     If you didn't request a password reset, please ignore this email.
     """
     
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping password reset email")
-        return True
-
-    if not ready_mailer():
-        logger.error("Cannot send password reset email: RESEND_API_KEY not set")
-        return False
-
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": "Reset your password",
-            "html": html_content,
-            "text": text_content,
-        })
-        
-        if response and hasattr(response, 'id'):
-            logger.info(f"Password reset email sent successfully to {email}, Resend ID: {response.id}")
-            return True
-        else:
-            logger.error(f"Password reset email send returned unexpected response: {response}")
-            return False
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(f"Error sending password reset email to {email}: {error_type} - {error_msg}")
-        
-        # Log additional details if available
-        if hasattr(e, 'response'):
-            logger.error(f"API response: {e.response}")
-        if hasattr(e, 'status_code'):
-            logger.error(f"HTTP status code: {e.status_code}")
-        if hasattr(e, 'message'):
-            logger.error(f"Error message: {e.message}")
-            
-        # Log full exception traceback for debugging
-        logger.debug(f"Full exception details:", exc_info=True)
-        return False
+    return send_mail("password reset", email, "Reset your password", html_content, text_content)
 
 
 def send_otp_email(email: str, otp: str) -> bool:
@@ -351,43 +498,4 @@ def send_otp_email(email: str, otp: str) -> bool:
     If you didn't request this code, please ignore this email.
     """
     
-    if _email_disabled():
-        logger.info("DISABLE_EMAIL is enabled - skipping OTP email")
-        return True
-
-    if not ready_mailer():
-        logger.error("Cannot send OTP email: RESEND_API_KEY not set")
-        return False
-
-    try:
-        response = resend.Emails.send({
-            "from": from_email(),
-            "to": [email],
-            "subject": "Your sign-in code",
-            "html": html_content,
-            "text": text_content,
-        })
-        
-        if response and hasattr(response, 'id'):
-            logger.info(f"OTP email sent successfully to {email}, Resend ID: {response.id}")
-            return True
-        else:
-            logger.error(f"OTP email send returned unexpected response: {response}")
-            return False
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
-        logger.error(f"Error sending OTP email to {email}: {error_type} - {error_msg}")
-        
-        # Log additional details if available
-        if hasattr(e, 'response'):
-            logger.error(f"API response: {e.response}")
-        if hasattr(e, 'status_code'):
-            logger.error(f"HTTP status code: {e.status_code}")
-        if hasattr(e, 'message'):
-            logger.error(f"Error message: {e.message}")
-            
-        # Log full exception traceback for debugging
-        logger.debug(f"Full exception details:", exc_info=True)
-        return False
+    return send_mail("sign-in code", email, "Your sign-in code", html_content, text_content)

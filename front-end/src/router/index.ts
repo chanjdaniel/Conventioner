@@ -6,6 +6,7 @@ import {
 } from 'vue-router';
 import { marketPath } from '@/utils/market';
 import { loginAddress, safeNext } from '@/utils/signInNext';
+import { signedInEmail } from '@/utils/signedIn';
 import { SETUP_VIEW_PAGES } from '@/utils/marketPage';
 import LoginView from '@/views/LoginView.vue';
 import EmailVerificationView from '@/views/EmailVerificationView.vue';
@@ -182,12 +183,14 @@ const router = createRouter({
       component: () => import('@/views/FloorplanEditorView.vue'),
     },
     // A market's vendor page (ADR 0022): sign-in, status, the application and the result, at the
-    // market's own address.
+    // market's own address. It is the vendors', so the app bar holds none of the organizer app's
+    // way about on it, even for an organizer who opens it (T260), unless it answers "Page not
+    // found", as it does for a slug naming no market and a gated market's.
     {
       path: '/:marketSlug',
       name: 'vendor-page',
       component: () => import('@/views/VendorPage.vue'),
-      meta: { public: true },
+      meta: { public: true, vendorFacing: true },
     },
     // Anything deeper than one segment matched no route at all, so the app rendered a blank
     // page. `/:marketSlug` catches single-segment addresses and answers for itself.
@@ -229,9 +232,13 @@ if (import.meta.env.DEV) {
  * (`App.vue`) reads `meta.public` to decide whether to probe the organizer's session. The two
  * disagreed, so a signed-out person opening a password-reset or verification link was let in by
  * this guard and then sent to `/login` by the shell's failed probe before the page could be used.
+ *
+ * Who is signed in is read by `signedInEmail()`, as everywhere else: a stored value that is not an
+ * address is nobody, never a navigation that throws. It only chooses the page; the server judges
+ * every request on the session.
  */
 export const requireSignIn: NavigationGuard = (to) => {
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const user = signedInEmail();
 
   // Before the public check, or it can never fire: `/login` is public. A stale `user` costs one
   // hop, since the shell's session probe clears it and comes back here. The page it carries is

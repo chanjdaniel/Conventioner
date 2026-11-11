@@ -11,6 +11,7 @@ import {
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { SEED_MARKET_DATE, ensureTestOrgAuthenticated } from './helpers/seeds';
+import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { MarketsPage } from './pages/MarketsPage';
 
 const SECOND_USER = {
@@ -24,18 +25,9 @@ const THIRD_USER = {
 };
 
 test.describe('Tier 2 - Organization CRUD', () => {
-  test.beforeAll(async ({ request }) => {
+  test.beforeAll(() => {
     for (const user of [SECOND_USER, THIRD_USER]) {
-      const res = await request.post(`${BACKEND_URL}/register-user`, {
-        data: { email: user.email, password: user.password },
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (!res.ok()) {
-        const body = await res.text();
-        if (res.status() !== 409 && !body.includes('already exists')) {
-          throw new Error(`Failed to create user ${user.email}: ${res.status()} ${body}`);
-        }
-      }
+      ensureVerifiedUser(user.email, user.password);
     }
   });
 
@@ -98,16 +90,7 @@ test.describe('Tier 2 - Market role management', () => {
   let marketName: string;
 
   test.beforeAll(async ({ request }) => {
-    const userRes = await request.post(`${BACKEND_URL}/register-user`, {
-      data: { email: SECOND_USER.email, password: SECOND_USER.password },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (!userRes.ok()) {
-      const body = await userRes.text();
-      if (userRes.status() !== 409 && !body.includes('already exists')) {
-        throw new Error(`Failed to create second user: ${userRes.status()} ${body}`);
-      }
-    }
+    ensureVerifiedUser(SECOND_USER.email, SECOND_USER.password);
 
     const loginRes = await request.post(`${BACKEND_URL}/login`, {
       data: { email: TEST_USER.email, password: TEST_USER.password },
@@ -119,11 +102,11 @@ test.describe('Tier 2 - Market role management', () => {
     const loginBody = (await loginRes.json()) as { user_data: { id: string } };
     const userId = loginBody.user_data.id;
 
-    const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
+    const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL);
 
     marketName = `E2E Market Roles ${Date.now()}`;
     const marketRes = await request.post(`${BACKEND_URL}/markets`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         name: marketName,
         creationDate: new Date().toISOString(),
@@ -269,9 +252,7 @@ test.describe('Tier 2 - Publish market', () => {
     // is shared across this file's tests, so walk only the steps still ahead of it. Its vendors
     // are already approved, so the review guard passes.
     const PATH_TO_ASSIGNMENT = ['draft', 'applications', 'assignment'];
-    const marketRes = await page.request.get(`${APP_API}/markets/${encodeURIComponent(marketId)}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const marketRes = await page.request.get(`${APP_API}/markets/${encodeURIComponent(marketId)}`);
     expect(marketRes.ok()).toBeTruthy();
     const marketData = (await marketRes.json()).market as Record<string, unknown>;
     const startAt = PATH_TO_ASSIGNMENT.indexOf(String(marketData.phase ?? 'draft'));
@@ -279,7 +260,7 @@ test.describe('Tier 2 - Publish market', () => {
       const res = await page.request.post(
         `${APP_API}/markets/${encodeURIComponent(marketId)}/transition`,
         {
-          headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+          headers: { 'Content-Type': 'application/json' },
           data: { toPhase },
         },
       );

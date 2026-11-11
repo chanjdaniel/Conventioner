@@ -74,9 +74,7 @@ async function openImport(
   request: APIRequestContext,
   marketId: string,
 ): Promise<void> {
-  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
   const { market } = (await res.json()) as { market: Record<string, unknown> };
   await importPage.open(market);
 }
@@ -99,9 +97,7 @@ async function listApplications(
   request: APIRequestContext,
   marketId: string,
 ): Promise<ApplicationRow[]> {
-  const res = await request.get(`${BACKEND_URL}/markets/${marketId}/applications`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}/applications`);
   return ((await res.json()) as { applications: ApplicationRow[] }).applications;
 }
 
@@ -121,6 +117,8 @@ test.describe('CSV vendor import', () => {
 
     // An import writes applications into one market, and the page used to name none of them.
     await expect(importPage.targetMarket).toContainText(seed.marketName);
+    // Its name is bold: a bare `strong` is 600, not the reset's 400 (T200).
+    await expect(importPage.targetMarket.locator('strong')).toHaveCSS('font-weight', '600');
     await expect(importPage.dropZone).toBeVisible();
 
     await importPage.chooseFile(CSV);
@@ -208,6 +206,9 @@ test.describe('CSV vendor import', () => {
     // Applications. The first import took the market into Review (E38/F04/S01), so it leads there.
     const finish = page.getByTestId('import-finish-button');
     await expect(finish).toHaveText('Go to the review');
+    // The market has been read in Review by now, and the done step still names what this import
+    // was: the first, not a redo, since it redid nothing.
+    await expect(importPage.heading).toHaveText('Import responses');
     await finish.click();
     await expect(page).toHaveURL(/\/applications$/);
   });
@@ -621,7 +622,7 @@ test.describe('CSV vendor import', () => {
     )!;
     const reviewRes = await request.put(
       `${BACKEND_URL}/markets/${seed.marketId}/applications/${imported.id}/review`,
-      { headers: { 'X-Owner-Email': TEST_USER.email }, data: { status: 'reviewer_approved' } },
+      { data: { status: 'reviewer_approved' } },
     );
     expect(reviewRes.ok()).toBeTruthy();
 
@@ -657,7 +658,6 @@ test.describe('CSV vendor import', () => {
     const importPage = new CsvImportPage(page);
     const transition = async (toPhase: string) => {
       const res = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
         data: { toPhase },
       });
       expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
@@ -673,7 +673,7 @@ test.describe('CSV vendor import', () => {
     // Server-side, not merely a hidden button: the endpoint refuses directly.
     const direct = await request.post(
       `${BACKEND_URL}/markets/${seed.marketId}/applications/import/inspect`,
-      { headers: { 'X-Owner-Email': TEST_USER.email }, data: { csvContent: CSV } },
+      { data: { csvContent: CSV } },
     );
     expect(direct.status()).toBe(409);
     expect(await direct.text()).toContain('no more applications');
@@ -805,7 +805,6 @@ test.describe('CSV vendor import', () => {
 
       seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'imported@example.com');
       const moved = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
         data: { toPhase: 'applications' },
       });
       expect(moved.ok(), await moved.text()).toBeTruthy();
@@ -1052,7 +1051,7 @@ test.describe('CSV vendor import', () => {
     for (const application of applications) {
       const res = await request.put(
         `${BACKEND_URL}/markets/${seed.marketId}/applications/${application.id}/review`,
-        { headers: { 'X-Owner-Email': TEST_USER.email }, data: { status: 'reviewer_approved' } },
+        { data: { status: 'reviewer_approved' } },
       );
       expect(res.ok()).toBeTruthy();
     }

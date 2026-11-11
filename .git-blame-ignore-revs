@@ -4,3 +4,6 @@
 
 # style(frontend): one-time Prettier reformat with CI enforcement (#43)
 426aee8424691da721aa564f665c2489e08e4cec
+
+# docs: one-time Prettier reformat of docs/, by npm run format (T263)
+9185d0fee72c4b1b82595febf1bcfa0bdc8a9d1e

@@ -67,6 +67,7 @@ On the Google Form path the essential questions are the answers each import read
 
 What the questions offer follows the plan until the first applicant answers, and is frozen from then on ([essential fields](../../implementation/modules/essential-fields.md)).
 Covered by:
+
 - `ask-this-stays-off.spec.ts`
 - `essential-fields.spec.ts`
 - `section-preference.spec.ts`
@@ -76,26 +77,31 @@ Covered by:
 
 **Status:** Works (walked live).
 
-1. On "Your questions", "Add Field"; set Label (the Key is derived), Type (Text, Number, Select, Multi-Select, Checkbox, Date, Email), Required, Options for Select and Multi-Select ("Add option"), Help text.
+1. On "Your questions", "Add field"; set Label (the Key is derived), Type (Text, Number, Select, Multi-Select, Checkbox, Date, Email), Required, Options for Select and Multi-Select ("Add option"), Help text.
 2. Drag to reorder; "Remove" deletes.
 3. "Save Form"; expect "Saved".
 
-"Add Discord username", beside "Add Field" ([`FormBuilder.vue`](../../../front-end/src/components/application/FormBuilder.vue)), adds an optional Text question "Discord username" in one click, for a market that gives its vendors a role on Discord; the Discord card picks it up as the question that holds each vendor's username when the market connects ([the Discord connection](../../implementation/modules/discord.md#the-discord-card)).
+"Add Discord username", beside "Add field" ([`FormBuilder.vue`](../../../front-end/src/components/application/FormBuilder.vue)), adds an optional Text question "Discord username" in one click, for a market that gives its vendors a role on Discord; the Discord card picks it up as the question that holds each vendor's username when the market connects ([the Discord connection](../../implementation/modules/discord.md#the-discord-card)).
 It is not offered once the form has a Text question whose label names Discord.
 Covered by:
+
 - `formBuilder.test.ts`
 - `the-tools-tab.spec.ts`
 
 A question with more than 20 options shows its first 20 and "Show all 230 options", which unfolds the rest in place and becomes "Show fewer", so one question does not fill the step; it folds on a locked form too.
 "Add option" on a folded question unfolds it and brings the new row into view; removing an option leaves the fold as it is.
+A fold stays with its question when another question is removed or dragged past it.
+When "Save Form" is refused for a blank option behind a question's fold, that question unfolds, so the blank row shows; a fold the organizer makes after that stays.
 A fold changes what is drawn and nothing the question holds, so "Save Form" and "Use the answers in your file" reach the options behind it.
 Covered by:
+
 - `formBuilder.test.ts`
 - `the-questions-come-from-the-file.spec.ts`
 
 "Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_`, may not be one the import reads as something else (`applicant_email`, `submitted_at`, `sheet_note`), and must be unique.
-A form with no questions of its own says "No questions of your own yet. Add Field adds one."
+A form with no questions of its own says "No questions of your own yet. Add field adds one."
 Covered by:
+
 - `application-form.spec.ts`
 
 On a market started from its Google Form's responses, the questions also draw on the file it was started from, which the start kept the answers of, as far as they name nobody ([the CSV proposal and start](../../implementation/modules/csv-proposal-and-start.md)); the start itself is one-shot, and this is where what it got wrong is fixed (E38/F02):
@@ -116,6 +122,7 @@ On a market started from its Google Form's responses, the questions also draw on
 
 A question that did not come from the file behaves as above, its options plain inputs, and a market not started from one offers none of this; nor does a locked form, whose options stay read only.
 Covered by:
+
 - `exampleColumns.test.ts`
 - `formBuilder.test.ts`
 - `the-questions-come-from-the-file.spec.ts`
@@ -132,6 +139,7 @@ In a draft that has not decided, the section says "Not decided yet. Opening appl
 The rules stay editable while the review is open; from Assignment on they are shown fixed, saying why in the review's words ([automatic rejections](../rules/automatic-rejections.md)): in Assignment, "The automatic rejections are closed while tables are allocated. To change a rule, choose Back to review under More… on the phase rail; tables are then allocated again."
 Once the rules are fixed, the section shows no notice, no "No automatic rejections" button and no read-back.
 Covered by:
+
 - `automatic-rejections.spec.ts`
 - `review-highlights.spec.ts`
 
@@ -146,6 +154,7 @@ Once locked, the essential questions and "Your questions" are read only under th
 - in Draft with an application: "Application form is locked. N applications have already been submitted for this market. The form cannot be modified once applicants have submitted."
 
 Covered by:
+
 - `application-form.spec.ts` ("an existing application locks the form in the builder and on every route")
 - `screens-name-things.spec.ts`
 - `what-to-show-and-when.spec.ts`
@@ -158,6 +167,7 @@ A Google Form market is a draft until its first import, so its form is edited in
 Refused once any application exists: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported."
 The first import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).
 Covered by:
+
 - `every-move-lands.spec.ts` ("a move back lands on its phase's page too")
 - `what-to-show-and-when.spec.ts` ("a move the server would refuse says why in the menu")
 

@@ -4,6 +4,8 @@ kind: testing
 describes:
   - front-end/e2e/pages/
   - front-end/e2e/fixtures.ts
+  - front-end/e2e/helpers/browserSaid.ts
+  - front-end/e2e/helpers/withUser.ts
   - front-end/e2e/helpers/mongo.ts
   - front-end/e2e/helpers/marketScreens.ts
   - front-end/e2e/helpers/upcoming.ts
@@ -16,7 +18,7 @@ describes:
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
-verified: 2026-11-09
+verified: 2026-11-10
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -39,6 +41,9 @@ sources:
   - T211
   - T205
   - T223
+  - T251
+  - T260
+  - T263
 ---
 
 # E2E patterns
@@ -58,6 +63,7 @@ A new page follows the existing ones (`LoginPage`, `MarketsPage`, `NewMarketPage
 `MarketSetupPage` holds more than the plan: the market's tabs and the phase rail are there too, because every market page stands in the same frame, and `publishResults`, which a walk into market days takes on either path.
 `VendorPage` is the one object for a market's vendor page, signed out and in, the application form on it included.
 Its `decideOnReviewSetup` follows the rail's "Decide what reviewers read first" to Review setup and chooses "Nothing leads the card" and "No automatic rejections", so a walk that opens Review through the screens decides as an organizer does ([review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md)).
+On a form of essential questions alone the rail offers the form first (T260), so `decideOnReviewSetupAskingNothingOfTheirOwn` waits for that offer by its name, opens Review setup as the form tab's last step and decides the same way.
 A dialog that more than one screen opens has an object of its own (`FollowUpDialog`, opened from One by one's card and from the All view's drawer), so a test id renamed in it is one line to change for every spec that drives the dialog through the object.
 
 **The Application Form tab is a sequence of steps** (E33/F01): the builder, the preview and the highlights are never all on screen.
@@ -68,9 +74,11 @@ A spec opens the step it asserts on, with `ApplicationFormPage.openStep(step)`, 
 [`front-end/e2e/fixtures.ts`](../../../front-end/e2e/fixtures.ts) is what a spec imports `test` and `expect` from.
 It provides `TEST_USER` (`e2e@example.com`) and `NO_ORG_USER` (`e2e-noorg@example.com`, in no organization), the `authenticatedPage` fixture (signed in through the login page before the test), `BACKEND_URL` (the `BACKEND_URL` variable, else `stack().backendURL`) for direct API calls from a request context of their own, `APP_API` (`/api`, the address the app's pages call the API at) for calls made with a page's cookies (`page.request`), and re-exports of the page objects.
 A spec that needs several people at once drives each in a browser context of its own with `withUser()` ([`front-end/e2e/helpers/withUser.ts`](../../../front-end/e2e/helpers/withUser.ts)), so no two share a session cookie.
-Every `page` is wrapped so that a failing test carries what the browser said (console errors, page errors, crashes, failed requests other than a navigation's aborts), since the suite has failed on pages that never painted with nothing in the stack's logs to say why.
+Every `page`, and the page `withUser()` opens, is watched by [`helpers/browserSaid.ts`](../../../front-end/e2e/helpers/browserSaid.ts) so that a failing test carries what the browser said (console errors, page errors, crashes, failed requests other than a navigation's aborts), since the suite has failed on pages that never painted with nothing in the stack's logs to say why.
+The fixture's page attaches it when the test fails, and a `withUser()` page when its sign-in or body throws, headed with whose page it was; [`a-stalled-helper-says-why.spec.ts`](../../../front-end/e2e/a-stalled-helper-says-why.spec.ts) shows both that and the people-at-scale wait for quiet naming each API request still open and its age.
 `expectAccessible(state)` runs axe over the page as it stands and fails on any WCAG A or AA violation, one line per element as `rule (impact) target`; its configuration and why `color-contrast` is off are [the design language's](../../design-system.md#what-keeps-this-true).
 `settle(page)` ([`helpers/settle.ts`](../../../front-end/e2e/helpers/settle.ts)) waits, bounded, for CSS transitions to end, since a control mid-transition reports its passing paint rather than its own; every sweep calls it before it looks.
+A sweep's tests are registered by `walkTheScreens()`, so Playwright reports each under [`helpers/screens.ts`](../../../front-end/e2e/helpers/screens.ts), the line of its `test()` call, never the sweep's spec file; the describe title names the sweep, and `npx playwright test e2e/<sweep>.spec.ts` still runs that sweep alone.
 So does `expectInside`, the window check of the phone journeys ([`helpers/phoneWindow.ts`](../../../front-end/e2e/helpers/phoneWindow.ts)), since a box read in a slide's last frames stands a fraction of a thousandth of a pixel past where it rests, enough to fail an exact comparison with the window's edge.
 The same fixture hides the Vue DevTools floating panel (`#__vue-devtools-container__`) that the dev server injects, in every tab of its context: it overlays the app and intercepts clicks aimed at it, so a test failed on a click that hit that button instead of its own target.
 A context a test opens itself with `browser.newContext()` is outside the fixture, so it calls [`hideDevToolsPanel`](../../../front-end/e2e/helpers/hideDevToolsPanel.ts), as `withUser()` does: a click there may otherwise wait on the panel until the test times out, as the vendor's Send code did on the Google Form market's page.
@@ -105,11 +113,14 @@ A `csv` market enters `applications` only holding an application, so a spec that
 
 ## Sharp edges
 
-**Several specs and seeds still send an `X-Owner-Email` header, and it is inert**: identity comes from the session cookie alone, and the helpers authenticate by logging in.
+**Identity comes from the session cookie alone**: the helpers authenticate by logging in, and no spec or seed sends an identity header.
 That, the self-signed certificate and the other suite-wide traps are TESTING.md's [testing gotchas](../../TESTING.md#testing-gotchas).
 
 **Applicant sign-in is rate limited** ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)): an address is sent at most five codes per 15 minutes and may try ten, and a caller 300 of each, which the whole serial run shares.
 [`global-setup.ts`](../../../front-end/e2e/global-setup.ts) clears the counters at the start of every run; a spec that signs the same address in more than that within one run trips the limit, so a spec that spends a code's five tries uses an address of its own.
+**The organizer's password and code sign-ins are rate limited too** ([the sign-in is bounded](../data/users-and-email.md#the-sign-in-is-bounded)): ten tries per address per 15 minutes on each, and fifty per caller on the password, sixty on the code.
+A try that signs in takes its count back, so the suite's hundreds of fixture sign-ins cost nothing; wrong passwords and codes share the caller's fifty and sixty across the serial run, so a spec that goes past a limit, or tries many wrong ones, clears the counters in its `finally` (`db.sign_in_attempts.deleteMany({})`), as `the-sign-in-says-what-to-do-next.spec.ts` does.
+Asking for an organizer's code, a reset link or a verification link, and signing up, take nothing back: five of each per address and thirty per caller per 15 minutes, so a spec that goes past one clears the counters in its `finally` too.
 Every signed-out vendor page, and every vendor request that finds its tab's sign-in ended, also asks to resume a remembered sign-in, 300 per caller per 15 minutes; a refused resume draws the sign-in as no cookie does, so only a spec that needs a resume to pass clears the counters first, as `remember-me-on-the-vendor-page.spec.ts` does.
 
 **A run starts once the host's container network has settled.**

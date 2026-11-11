@@ -7,11 +7,12 @@ never "log in":
   from the other; the sign-in screen puts "Forgot password?" beside it.
 - A right password on an account not yet verified answers that the address needs verifying first;
   the screen offers to send the link again. The code sign-in and asking for a code answer the same.
-- A code for an address with no account answers as a wrong code does.
+- A code for an address with no account answers as a wrong code does, at every try.
 """
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -23,6 +24,7 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.users as UsersApi
+import sign_in_limits
 
 
 FIXTURE_EMAIL = "fixture-user@example.com"
@@ -46,9 +48,22 @@ class Accounts:
             return mongo_project(dict(self.doc), projection)
         return None
 
+    def find_one_and_update(self, query, update, return_document=None):
+        if not mongo_matches(self.doc, query):
+            return None
+        self._apply(update)
+        return dict(self.doc)
+
     def update_one(self, query, update):
-        if mongo_matches(self.doc, query):
-            self.doc.update(update["$set"])
+        if not mongo_matches(self.doc, query):
+            return SimpleNamespace(matched_count=0, modified_count=0)
+        self._apply(update)
+        return SimpleNamespace(matched_count=1, modified_count=1)
+
+    def _apply(self, update):
+        self.doc.update(update.get("$set", {}))
+        for field, amount in update.get("$inc", {}).items():
+            self.doc[field] = self.doc.get(field, 0) + amount
 
 
 def _account(verified: bool):
@@ -182,11 +197,12 @@ def _wrong_codes(client, email, tries):
             for _ in range(tries)]
 
 
-def test_the_first_four_wrong_codes_answer_alike_with_an_account_or_without(client, verified):
-    """Alike up to the fifth: an account's fifth wrong code discards its code and says to ask for
-    a new one, which an address with no account has no count for. Counting every address alike is
-    the sign-in limits' (E47/F02/S01)."""
-    assert _wrong_codes(client, NO_ACCOUNT_EMAIL, 4) == _wrong_codes(client, FIXTURE_EMAIL, 4)
+def test_every_wrong_code_answers_alike_with_an_account_or_without(client, verified):
+    """Alike at every try the sign-in limits let through: an account's fifth wrong code discards
+    its code in silence, so it and the tries after it answer as an address with no code does."""
+    tries = sign_in_limits.ORGANIZER_CODE_PER_ADDRESS.attempts
+    assert _wrong_codes(client, NO_ACCOUNT_EMAIL, tries) == _wrong_codes(client, FIXTURE_EMAIL, tries)
+    assert verified.doc["otp"] is None
 
 
 # The password is checked whether or not the address has an account.

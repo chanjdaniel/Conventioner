@@ -58,7 +58,7 @@ function shareAnswers(email: string): Record<string, unknown> {
 async function seedOpenMarketWithAForm(request: APIRequestContext): Promise<string> {
   await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   const orgId = await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const headers = { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email };
+  const headers = { 'Content-Type': 'application/json' };
 
   const created = await request.post(`${BACKEND_URL}/markets`, {
     headers,
@@ -159,9 +159,7 @@ test.describe('A table-share request that pairs nobody is shown', () => {
         },
       });
     }
-    const run = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const run = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`);
     expect(run.ok(), await run.text()).toBeTruthy();
 
     await signIn(page);

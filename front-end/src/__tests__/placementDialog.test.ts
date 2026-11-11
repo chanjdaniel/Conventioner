@@ -26,6 +26,9 @@ function applicant(email: string, overrides: Partial<PlaceableVendor> = {}): Pla
     availableDates: [DATE],
     acceptedTiersByDate: {},
     maxDates: null,
+    notApproved: null,
+    inTheRun: true,
+    addedByHand: false,
     ...overrides,
   };
 }

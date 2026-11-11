@@ -44,7 +44,8 @@ describes:
   - front-end/src/components/application/LongQuestion.vue
   - front-end/src/components/PagedList.vue
   - front-end/src/utils/useGroupFolds.ts
-verified: 2026-11-09
+  - front-end/src/components/AuthCard.vue
+verified: 2026-11-10
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -101,6 +102,7 @@ sources:
   - T223
   - T224
   - T229
+  - T263
 ---
 
 # Conventioner's design language
@@ -119,7 +121,7 @@ Do not add a 72nd set of local decisions: reach for the tokens and the primitive
 Two halves, decided differently, and it matters which is which.
 
 - **The card idiom was extracted, not invented.** The screens `E09` through `E13` built had already converged on something coherent - 6px controls, 10px cards, a three-layer shadow, 12px gaps. That is written down below as it was found.
-- **The type and spacing scales were authored.** There was nothing to extract: 24 font sizes using essentially every integer from 11px to 20px, and 32 spacing values, means no file ever chose a *step* - they each chose a pixel.
+- **The type and spacing scales were authored.** There was nothing to extract: 24 font sizes using essentially every integer from 11px to 20px, and 32 spacing values, means no file ever chose a _step_ - they each chose a pixel.
 
 That distinction matters when something looks off: a screen that disagrees with the card idiom is a bug, while one that disagrees with a scale is code not yet migrated.
 
@@ -130,14 +132,14 @@ None is left.
 
 Two families, and only two.
 
-| Role | Family | Notes |
-| --- | --- | --- |
-| Headings | `Merge One` | Deep descenders; never give it a tight line box. |
-| Everything else | `Outfit` | The product's real UI face. |
+| Role            | Family      | Notes                                            |
+| --------------- | ----------- | ------------------------------------------------ |
+| Headings        | `Merge One` | Deep descenders; never give it a tight line box. |
+| Everything else | `Outfit`    | The product's real UI face.                      |
 
 Both ship as WOFF2 from `front-end/public/fonts/`, converted losslessly from Google Fonts' TTFs with the variable `wght` axis kept; a new face ships as WOFF2 too.
 
-**The family is `Outfit`, not `Outfit Regular`.** The old name put a *weight* in the *family* slot, which is why nobody added the other weights: static Medium, SemiBold and Bold files shipped alongside the variable Outfit, which covers the whole axis, and none of them were ever declared. The variable face (`public/fonts/Outfit-VariableFont_wght.woff2`) is the only Outfit that ships now; the unused statics are gone. 65 declarations asked for 500, 600 or bold and got a browser-synthesised smear of the regular.
+**The family is `Outfit`, not `Outfit Regular`.** The old name put a _weight_ in the _family_ slot, which is why nobody added the other weights: static Medium, SemiBold and Bold files shipped alongside the variable Outfit, which covers the whole axis, and none of them were ever declared. The variable face (`public/fonts/Outfit-VariableFont_wght.woff2`) is the only Outfit that ships now; the unused statics are gone. 65 declarations asked for 500, 600 or bold and got a browser-synthesised smear of the regular.
 
 `Inter` is retired. `body` declared it while 354 component rules named a face of their own - 274 Outfit, 80 Merge One - so Inter survived in 2 rules and in the one place nothing overrode it: form controls, which do not inherit `font-family` and fell through to the user agent's Arial instead.
 
@@ -151,13 +153,13 @@ Of those 274 Outfit declarations, 273 only restated what `body` now says and are
 
 Six steps. Adjacent 1px steps are not distinguishable, so they carry no meaning - they only let two screens disagree.
 
-| Step | Size | Use |
-| --- | --- | --- |
-| `--text-xs` | 12px | Captions, metadata, table labels, chips |
-| `--text-sm` | 14px | Body, form fields, buttons, list rows |
-| `--text-md` | 16px | Lead paragraphs, emphasis within body |
-| `--text-lg` | 20px | Section headings, card titles |
-| `--text-xl` | 26px | Page and screen titles |
+| Step         | Size | Use                                                |
+| ------------ | ---- | -------------------------------------------------- |
+| `--text-xs`  | 12px | Captions, metadata, table labels, chips            |
+| `--text-sm`  | 14px | Body, form fields, buttons, list rows              |
+| `--text-md`  | 16px | Lead paragraphs, emphasis within body              |
+| `--text-lg`  | 20px | Section headings, card titles                      |
+| `--text-xl`  | 26px | Page and screen titles                             |
 | `--text-2xl` | 32px | Display figures - the assignment summary's numbers |
 
 Nothing below 12px, which is the readable minimum.
@@ -169,20 +171,21 @@ No `font-size` in `front-end/src` is smaller.
 
 **Weight does not inherit here.**
 The global reset in `base.css` gives every element `font-weight: 400`, so a span inside a 600 cell is 400 until it says otherwise.
+The one exception is bold text: `base.css` gives `strong` and `b` 600 after the reset, so a bare `<strong>` is bold without a rule of its own.
 
 ## Spacing
 
 A 4px grid, seven steps, plus one exception.
 
-| Token | Value |
-| --- | --- |
-| `--space-1` | 4px |
-| `--space-2` | 8px |
-| `--space-3` | 12px |
-| `--space-4` | 16px |
-| `--space-6` | 24px |
-| `--space-8` | 32px |
-| `--space-12` | 48px |
+| Token        | Value |
+| ------------ | ----- |
+| `--space-1`  | 4px   |
+| `--space-2`  | 8px   |
+| `--space-3`  | 12px  |
+| `--space-4`  | 16px  |
+| `--space-6`  | 24px  |
+| `--space-8`  | 32px  |
+| `--space-12` | 48px  |
 
 **The one exception is a 2px hairline**, for gaps between an icon and its label or between two lines of the same field. It is not a step and nothing should be laid out on it.
 
@@ -214,7 +217,7 @@ The market screen's `height: 80%`, which pinned it to most of the window and hid
 
 **The organizer's screens are designed for 1920x1080**, and since T79 the [layout sweep](#what-keeps-this-true) also measures them at 1440x900; no other width is a layout requirement new work is held to (wayfinding/readable-journey/06), though the focus sweep walks every state at a phone's width but the floorplan beta's wizard steps ([what keeps this true](#what-keeps-this-true)).
 The vendor page, where vendors check in, is the carve-out: it is not an organizer screen, it is held in a hand at a door, and it works on a phone ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)).
-The [account pages](business/flows/accounts.md) are the way to it, so they work on a phone too: sign in with its tabs, both password-reset pages and email verification stand in one `AuthCard`, 600px wide at most, with a 16px page gutter at each side, and `sign-in-fits-a-phone.spec.ts` fails on any of them that scrolls sideways at 390px (T73).
+The [account pages](business/flows/accounts.md) are the way to it, so they work on a phone too: sign in with its tabs, both password-reset pages and email verification stand in one [`AuthCard`](../front-end/src/components/AuthCard.vue), 600px wide at most, with a 16px page gutter at each side, and `sign-in-fits-a-phone.spec.ts` fails on any of them that scrolls sideways at 390px (T73).
 `the-sign-in-fits-a-small-phone.spec.ts` holds the sign-in's tabs and fields inside their column and their boxes at 320px, at 390px and at a desk (T211).
 Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each with the dialogs, menus and drawers that open over it; listed in the router's order, one place a line:
 
@@ -250,10 +253,10 @@ Payments on a phone narrows its gutter to 16px too: the search takes its row wit
 Stats on a phone narrows its gutter to 16px too: its headlines stand one to a line, each a 44px row and each link a 44px target, the money set apart from the placements by a rule above it rather than beside it; the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone, and the cards stand one to a row, narrower than their 18rem where the window is, as on a 320px phone.
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
-| Token | Value | Screens |
-| --- | --- | --- |
+| Token             | Value  | Screens                                                                   |
+| ----------------- | ------ | ------------------------------------------------------------------------- |
 | `--workspace-max` | 1440px | Every market page and flow: Market Setup to Attendance, Import, Floorplan |
-| `--list-max` | 1100px | Markets, Organizations |
+| `--list-max`      | 1100px | Markets, Organizations                                                    |
 
 The applicant's own pages are a reading column, not a screen of cards: `--applicant-max` (640px), the vendor page, its application form included.
 The form tab's preview is drawn at the same width, so it is the form as an applicant sees it (E33/F01/S01).
@@ -285,10 +288,12 @@ Two other rules were prototyped and rejected: two columns by purpose truncated t
 
 **A market screen's frame stays put** (E21/F04, from the-market-frame ticket 01).
 `MarketFrame` pins the screen's bar and the whole phase rail directly under [the app bar](implementation/modules/app-bar.md), at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
-On a phone (640px and below) it pins the bar alone, and the rail scrolls away with the page, since the whole block took half a phone's window ([the market frame](implementation/modules/market-frame.md#sharp-edges), T142).
+Up to 1023px only the market bar pins; from 1024px the whole frame does.
+Up to that break, a phone or a portrait tablet, the rail scrolls away with the page, since the whole block took half a phone's window, and with Payments' toolbar 459px of a 720x900 tablet's ([the market frame](implementation/modules/market-frame.md#sharp-edges), T142, T263).
+It is the frame's own break, beside the app's phone break at 640px, which every other phone rule keeps.
 `--banner-h` (`44px`, at every window size) is the app bar's height as a token, so nothing measures the bar at run time.
 What the frame pins is the one thing that is measured: on a desk it grows with whatever the rail shows, so no token could state it.
-`MarketFrame` measures it, the bar alone on a phone, and publishes `--market-frame-h` on its card (declared as `0px` in `base.css`, which is what it is outside a frame), and a screen's own sticky column - the proposal ledger's rail - sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
+`MarketFrame` measures it, the bar alone up to 1023px, and publishes `--market-frame-h` on its card (declared as `0px` in `base.css`, which is what it is outside a frame), and a screen's own sticky column - the proposal ledger's rail - sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
 A frame screen never scrolls inside its card: a sticky element inside an `overflow` ancestor stops sticking.
 
 **The frame places itself** (E26/F10/S01).
@@ -310,18 +315,22 @@ On a phone nothing gives way: the spine scrolls sideways, each address is a one-
 Three equal tracks (`repeat(3, minmax(0, 1fr))`) made the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs.
 The assignment tab's `.plan-row--asymmetric` is `3fr 2fr` for the same reason.
 
+**A section that lists what happened unfolds in place; a section that changes something opens a dialog** (T263).
+In a window of sections, as Manage market and Manage organization are, a History section's heading opens and closes it where it stands ([`HistorySection.vue`](../front-end/src/components/HistorySection.vue)), since it only reads, while Permissions is a heading, one line and a Show button opening its rows in a dialog of their own ([`MarketPermissions.vue`](../front-end/src/components/MarketPermissions.vue)), since its owner sets them there.
+The next such section takes the side of what it does.
+
 ## Radius
 
 Extracted from the newer screens. Three values.
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `--radius-control` | 6px | Buttons, inputs, selects, small chips |
-| `--radius-card` | 10px | Cards, panels, dialogs |
-| `--radius-pill` | 999px | Pills and fully-rounded badges |
+| Token              | Value | Use                                   |
+| ------------------ | ----- | ------------------------------------- |
+| `--radius-control` | 6px   | Buttons, inputs, selects, small chips |
+| `--radius-card`    | 10px  | Cards, panels, dialogs                |
+| `--radius-pill`    | 999px | Pills and fully-rounded badges        |
 
 "Fully rounded" has one spelling, `--radius-pill`.
-It was spelled four ways (`999px`, `100px`, `30px`, `20px`); one `20px` is left, in the floorplan beta.
+It was spelled four ways (`999px`, `100px`, `30px`, `20px`); none is left, the floorplan beta's last `20px` having moved to `--radius-pill`.
 
 ## Elevation
 
@@ -329,9 +338,7 @@ One elevation shadow, extracted from the newer screens, where it is already used
 
 ```css
 --shadow-card:
-  0 0 0 1px rgba(0, 0, 0, 0.07),
-  0 2px 4px rgba(0, 0, 0, 0.07),
-  0 6px 14px rgba(0, 0, 0, 0.08);
+  0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 6px 14px rgba(0, 0, 0, 0.08);
 ```
 
 **The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic. That rule is elevation's; the focus halo below is a focus indicator, deliberately a flat ring that hugs the control.
@@ -344,6 +351,10 @@ On the dark ground, where a dark shade is lost, it is `--edge-shade-on-dark`, wh
 `base.css` remains the owner and its existing comments remain authoritative: **a token whose name says it carries text must reach WCAG AA (4.5:1) on the grounds it appears on**, and `src/__tests__/contrast.test.ts` asserts it.
 WCAG AA is the product's stated standard, held over the whole palette rather than the colours someone happened to measure; raising the muted grey changed the texture of every screen, and that was accepted (wayfinding/readable-journey/map).
 The product has one theme, light: nothing in `front-end/src` answers `prefers-color-scheme`, so a pair is held on the grounds it is drawn on, white and the beige of a hovered row among them, and a dark theme, when there is one, is a palette of its own to check.
+
+**A refusal reads in red (`--mm-red`), whatever the card.**
+A line saying why something was not done, a save the server refused or a check that failed, takes the red the Vendors row's refusal reads in; yellow is a warning, as the Discord card's role above the bot's is, and never a refusal (T263).
+`aRefusalReadsRed.test.ts` holds the Discord card's refusals and Market Setup's failed plan save to the Vendors row's red.
 
 ### The contrast contract
 
@@ -375,10 +386,10 @@ The deep focus border reads less on a darker fill: 3.17:1 on `--mm-green-hover`,
 
 Both are desaturated, which is what lets them sit beside `--mm-green`. Every saturated candidate (the Material reds, the two badge blues) looks borrowed next to it.
 
-| Token | Value | White text on it | Replaces |
-| --- | --- | --- | --- |
-| `--mm-red` | `#c0392b` | 5.44:1 | nine hardcoded reds, 77 occurrences |
-| `--mm-blue` | `#1a6f8b` | 5.69:1 | two badge blues; same hue as `--mm-text-link` |
+| Token       | Value     | White text on it | Replaces                                      |
+| ----------- | --------- | ---------------- | --------------------------------------------- |
+| `--mm-red`  | `#c0392b` | 5.44:1           | nine hardcoded reds, 77 occurrences           |
+| `--mm-blue` | `#1a6f8b` | 5.69:1           | two badge blues; same hue as `--mm-text-link` |
 
 `--mm-red` and `--mm-text-red` were both **referenced but never defined** - see `E16/F01`. `var(--mm-red, #cc0000)` carried 24 usages on its fallback, which is how `#cc0000` became the most-used red in the product without anyone choosing it.
 
@@ -386,7 +397,7 @@ Three of the reds being retired cannot carry white text at all: `#e74c3c` (3.82)
 
 ### The brand green is `--mm-green` (`#36826f`)
 
-The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.7:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo's mark is `--mm-green`; its wordmark is black ([brand files and icons](#brand-files-and-icons)).
+The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#00DC82` gives white text 1.8:1, so it can never be a button or a link - a brand colour the product would be forbidden from using on any control. The logo's mark is `--mm-green`; its wordmark is black ([brand files and icons](#brand-files-and-icons)).
 
 ### Two grounds, not one
 
@@ -400,12 +411,12 @@ Translucent tints took on the beige review card beneath them and fell below AA t
 
 The brand has one folder, [`front-end/src/assets/brand/`](../front-end/src/assets/brand/):
 
-| File | What it is for |
-| --- | --- |
-| `conventioner-logo.svg` | The full logo, mark and wordmark; [the app bar](implementation/modules/app-bar.md) draws it. |
-| `conventioner-mark.svg` | The mark alone, in its colour, for wherever the logo does not fit. |
-| `conventioner-mark-currentcolor.svg` | The mark in `currentColor`, for a dark ground or a coloured control. |
-| `conventioner-wordmark.svg` | The wordmark alone. |
+| File                                 | What it is for                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `conventioner-logo.svg`              | The full logo, mark and wordmark; [the app bar](implementation/modules/app-bar.md) draws it. |
+| `conventioner-mark.svg`              | The mark alone, in its colour, for wherever the logo does not fit.                           |
+| `conventioner-mark-currentcolor.svg` | The mark in `currentColor`, for a dark ground or a coloured control.                         |
+| `conventioner-wordmark.svg`          | The wordmark alone.                                                                          |
 
 The mark is `#36826F`, which is `--mm-green`, and the wordmark is black.
 An `<img>` does not inherit colour, so the `currentColor` copy only takes the colour around it when it is inlined.
@@ -413,13 +424,13 @@ The mark and the wordmark are the logo's own two paths, unchanged, and [`theBran
 
 The favicon set in [`front-end/public/`](../front-end/public/) is generated from the mark, and [`front-end/index.html`](../front-end/index.html) links it:
 
-| File | Size | Ground | For |
-| --- | --- | --- | --- |
-| `favicon.svg` | vector | transparent | Every browser that takes an SVG favicon; a byte-for-byte copy of the mark. |
-| `favicon.ico` | 16, 32, 48 | transparent | A browser that does not. |
-| `apple-touch-icon.png` | 180 | white, the mark at 140 | iOS, which fills transparency with black. |
-| `icon-192.png`, `icon-512.png` | 192, 512 | transparent | The manifest's `any` icons. |
-| `icon-maskable-512.png` | 512 | white, the mark at 384 | The manifest's `maskable` icon: a launcher crops it to its own shape, and the mark stays inside the central 409px circle. |
+| File                           | Size       | Ground                 | For                                                                                                                       |
+| ------------------------------ | ---------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `favicon.svg`                  | vector     | transparent            | Every browser that takes an SVG favicon; a byte-for-byte copy of the mark.                                                |
+| `favicon.ico`                  | 16, 32, 48 | transparent            | A browser that does not.                                                                                                  |
+| `apple-touch-icon.png`         | 180        | white, the mark at 140 | iOS, which fills transparency with black.                                                                                 |
+| `icon-192.png`, `icon-512.png` | 192, 512   | transparent            | The manifest's `any` icons.                                                                                               |
+| `icon-maskable-512.png`        | 512        | white, the mark at 384 | The manifest's `maskable` icon: a launcher crops it to its own shape, and the mark stays inside the central 409px circle. |
 
 When the mark changes, run `npm run brand-icons` in `front-end/` and commit what it writes.
 [`scripts/brand-icons.ts`](../front-end/scripts/brand-icons.ts) renders with the Chromium `@playwright/test` installs and writes the ICO itself, so it adds no dependency, and neither CI nor the build runs it.
@@ -442,13 +453,14 @@ They and `AppDialog` are the app's components: it installs no component library,
 The searchable picker is the app's own, and the ADR records why that combobox did not take a headless one.
 Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
 A link on a line of its own is `.link-alone`, a target `--target-min` tall in the link ink, underlined under the pointer: "Forgot password?" under sign-in and "Back to sign in" under the password and verification pages, which each carried a copy of the rule as their own `.link` (T181).
+A control that changes the form and goes nowhere is a button, even in that look: "Use a different email" under the code sign-in is a `.link-alone` button with its own ground, border and padding taken off (T263).
 A link inside a sentence is not one, since it sits on the sentence's line.
-A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, a named group with nothing matching saying so and one with no name drawing nothing, unless the caller gives `hidesEmptiedGroups`, as `ChoiceField` does, and then a group the words emptied is not drawn and words that find nothing say so once; the caller says what the words find.
+A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, a named group with nothing matching saying so and one with no name drawing nothing, unless the caller gives `hidesEmptiedGroups`, as `ChoiceField` does, and then a group the words emptied is not drawn and words that find nothing say so once, in a line under the listbox and outside it, since a listbox holds options and groups only; the caller says what the words find.
 In a short scroller that list can lie past the foot, so opening it and typing bring the list and the field into view, the field first where both do not fit, unless the caller gives `listOver`.
 Chips above them may then lie past the top.
 Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
-A picker with no choices at all never opens its list, and "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
-Given a `cap`, it draws at most that many matches, counted across the groups in order, over a line "N more, type to narrow" that stands under what scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and a choice past the cap is named by the field, with no row active, so Enter keeps it.
+A picker with no choices at all never opens its list, so the note beside it says why there is nothing to choose; in a picker with choices, "Nobody matches" (the caller's `noneWord` in place of "Nobody", where the choices are not people) shows once the words find none.
+Given a `cap`, it draws at most that many matches, counted across the groups in order, over a line "N more, type to narrow" that stands under what scrolls and that the keys skip; a group the cap alone leaves out is not drawn, and one choice held while the matches pass the cap is drawn first, as several are, and is the active row, so Enter keeps it (T263).
 Without a `cap` it draws every match.
 The list is a frame holding a `ScrollBox` and that line, so the bottom shade lies above the line and never over it; the arrow keys bring the active row into view clear of a shade, by its `scroll-margin-block`, and a row under the pointer is not moved, or the pointer would be left on the next row in the shade's depth.
 Every row is a `--target-min` target at least, its one line centred in it and its tick on that line, on a phone's 44px too for every picker (`--row-inset`); a row that wraps grows down from there.
@@ -469,20 +481,21 @@ Given `listOver`, its list lies over what follows and moves nothing, as those tw
 "Who" gives its list the width of both its columns, so a phone reads an address on one line; in a dialog, what passes the scroller's edge takes a scroll.
 Given `hideLabel`, its label is `.visually-hidden`, for a row that says what the field is; given `invalid`, its field is `aria-invalid="true"` and ringed in `--mm-red`, as Pricing rings a field, and the words saying why are the caller's, through `describedBy`.
 An option whose value is `''` is a real row under `holdsChoice`, chosen while the value is `''`, as "Ignore this column" needs.
+Given `leads`, those options are drawn first whatever the words, outside the `cap` and its count and ahead of `Use "<words>"`, as a way out that must stay in reach needs ("Ignore this value"), and the line saying the words find nothing still shows under them; opened with no words and nothing held the keys start on the first, while words start them on what the words find, a lead only where the words find it too, so Enter never sets a value aside for words that meant something else (T263).
 An option that is `disabled` may not be taken, as a target another column holds: drawn in `--mm-text-muted` with `aria-disabled="true"`, its `detail` saying why, passed by the keys and as the first active row, taken by neither a click, Enter nor words naming it; words still find it and the cap still counts it, so nobody wonders where it went.
 Given `clearsOnChoice`, on one choice, each choice is added elsewhere, as a ranked list's next answer: after emitting, the field empties, the list closes and the focus stays, ready for the next word, and the value stays `''`.
 Given `fieldId`, its field has that id, for a link elsewhere on the screen to name.
 Its exposed `show()` takes the focus and opens the list, for a link elsewhere on the screen, and answers whether the list is open; its `showChoice()` has the field name the choice that holds again, for a screen whose server refused the one just taken, leaving words being typed.
 A choice from a set that can grow is [`ChoiceField.vue`](../front-end/src/components/ChoiceField.vue) (T223): a native select at 12 choices or fewer, the same to its screen as the `SearchPicker` it mounts past that, so no screen writes the threshold, the cap or the two markups.
 **The threshold is one number**: its `COMBOBOX_PAST` is `ListFrame`'s `LIST_FIND_FROM`, 12, the length past which a list has its find field too, and a screen drawing its own small form compares against that export, with `COMBOBOX_CAP` and `labelHolds` for the `SearchPicker` it mounts past that, as `ChoiceConditions` does: a choice of several has no `ChoiceField`.
-It counts the whole set, `wholeCount` where the screen gives it, else the options drawn, so a set that shrinks as it is used never turns into the other control under the caret; the import's value fixes give it the question's answers, leaving "Ignore this value" out of the count.
+It counts the whole set, `wholeCount` where the screen gives it, else the options drawn, so a set that shrinks as it is used never turns into the other control under the caret; the import's value fixes give it the question's answers, leaving "Ignore this value" out of the count, and pass that choice as `leads`, the select's first row after "Choose…" and the picker's `leads`, so neither the cap nor the words hide it; `leads` count toward no threshold (T263).
 At 12 or fewer the select carries the `testid` and the `name`, a group with a label is an `optgroup`, and `placeholder` is its empty row.
 Past 12 the picker's root carries the `testid`, it draws 50 of what the words find, its words find by the label unless the screen gives `finds`, and its list lies over what follows, at least 22rem wide, or the window's width less twice `--space-8` where that is narrower, with its right edge on the field's, so a long answer reads on a line or two in a narrow column.
 A card's body scrolls nothing and clips nothing ([`ElementSettingContainer.vue`](../front-end/src/components/elements/ElementSettingContainer.vue)), so such a list passes a card's foot whole.
 A host that clips or scrolls, as the frame of Pricing's table does, gives `listInFlow`, so the list pushes what follows down rather than being cut off; `ChoiceConditions` does, on either card.
 An option that is `disabled` is an `option` that is `disabled` in the select, its `detail` on its line, since a select's row has one, and in the field a row as above.
 It never keeps typed words, so a fix can only name what the question offers; a free-text field is `SearchPicker` itself.
-`writes` is the picker's `holdsChoice`, for a choice acted on as it is taken; `noneRow` is for a choice that may go back to none, as the Discord card's: while one holds, its words are the field's first row, whose value is `''`, as the select's empty row is, counting toward no threshold; `adds` says each choice is added elsewhere, as a rule's "Add an answer" and "Add from your file" do: the value stays `''`, the select goes back to its empty row and the field is the picker's `clearsOnChoice`, and the screen gives `wholeCount`, since such a set shrinks as it is used; its `open()` opens the list from elsewhere on the screen, and answers false where nothing opened, on a browser with no `HTMLSelectElement.showPicker` or one that refused it; its `showHeld()` shows what `modelValue` holds again, for a screen whose server refused the choice just taken; and `fieldId` is the control's id, the select's or the field's, for a link elsewhere on the screen to name.
+`writes` is the picker's `holdsChoice`, for a choice acted on as it is taken; `noneRow` is for a choice that may go back to none, as the Discord card's: while one holds, its words are the field's first row, whose value is `''`, as the select's empty row is, counting toward no threshold, and the picker's first lead, so it stands above the choice held and is drawn whatever the words (T263); `adds` says each choice is added elsewhere, as a rule's "Add an answer" and "Add from your file" do: the value stays `''`, the select goes back to its empty row and the field is the picker's `clearsOnChoice`, and the screen gives `wholeCount`, since such a set shrinks as it is used; its `open()` opens the list from elsewhere on the screen, and answers false where nothing opened, on a browser with no `HTMLSelectElement.showPicker` or one that refused it; its `showHeld()` shows what `modelValue` holds again, for a screen whose server refused the choice just taken; and `fieldId` is the control's id, the select's or the field's, for a link elsewhere on the screen to name.
 The applicant's form compares a question's options against the same number ([`LongQuestion.vue`](../front-end/src/components/application/LongQuestion.vue), T223): past 12 a `select` is a `SearchPicker` capped at 50 and a `multi_select` the same with `multiple`, in the page's flow, and at 12 or fewer each stays the select or the checkboxes it was.
 The question's words stay where every question has them, hidden from a reader and tied to no control, a press on them putting the caret in the field, and the field takes those words as its name, required mark and all, so the question is heard once.
 It is never `holdsChoice`, as a form acts on Save: the first word lets a choice go, and words not chosen clear on leaving the field.
@@ -574,17 +587,17 @@ Busy, while its caller reads or uploads a file, it takes no file and mutes its m
 It judges no file: it hands the one chosen or dropped to its caller, which checks it and says any error.
 The import and the start from a Google Form take their CSV on it, and the floorplan wizard its plan image or PDF.
 
-| | Variants | Notes |
-| --- | --- | --- |
-| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
-| `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred - but for the sign-in code's field above. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. `--select` also draws the one chevron, 13px from the right edge as its text is from the left, with room so a long option ends in an ellipsis before it, muted when disabled: two files, `public/icons/select-chevron.svg` and `select-chevron-disabled.svg`, never a `data:` URI, which the Content-Security-Policy's `img-src 'self' blob:` would refuse once it enforces. Under forced colours it keeps the browser's own arrow. A select's own class may size or place it and never sets `padding`, `background` or `appearance`. `every-select-draws-one-chevron.spec.ts` holds the look on the library's primitives entry and on the screens whose selects once drew their own, and `everySelectWearsThePrimitive.test.ts` holds, from the source, that every `<select>` wears it and that no class of its own draws it, nor any rule of its file that reaches it by `select` or `.field--select`. |
-| `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive`; `--small` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. `--small` is a proposal (T200), a size step rather than a tone: the type is already the scale's floor, so it takes the padding in and takes `--radius-control`, and no screen wears it yet. |
-| `.data-table` | `--one-line` | A proposal (T200) for the six tables that each draw their own, and only Export vendors' preview wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. In a `ScrollBox` with `axis="x"`, a `label` naming the region and `.data-table-scroll` on its root, it scrolls sideways alone and never moves the page: the root keeps the border, the radius and the corners, and the box is a Tab stop while the table scrolls. A cell wraps; `--one-line` keeps each on one line, for a table read across, and on paper lets them wrap to the page, with each word whole and sizing its column, so a table whose longest words outgrow the paper runs off it. An address drawn by `EmailAddress` stays in its pieces there too. |
-| `.link-alone` | none | A link on a line of its own is a target: a line box `--target-min` tall, 44px on a phone, with no padding, so it still sits on its text. |
+|               | Variants                                                                                | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.btn`        | `--primary`, `--secondary`, `--destructive`, `--compact`                                | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `.field`      | `--select`, `--textarea`                                                                | Left-aligned always - 18 of 27 controls on Market Setup were centred - but for the sign-in code's field above. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. `--select` also draws the one chevron, 13px from the right edge as its text is from the left, with room so a long option ends in an ellipsis before it, muted when disabled: two files, `public/icons/select-chevron.svg` and `select-chevron-disabled.svg`, never a `data:` URI, which the Content-Security-Policy's `img-src 'self' blob:` would refuse once it enforces. Under forced colours it keeps the browser's own arrow. A select's own class may size or place it and never sets `padding`, `background` or `appearance`. `every-select-draws-one-chevron.spec.ts` holds the look on the library's primitives entry and on the screens whose selects once drew their own, and `everySelectWearsThePrimitive.test.ts` holds, from the source, that every `<select>` wears it and that no class of its own draws it, nor any rule of its file that reaches it by `select` or `.field--select`. |
+| `.chip`       | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive`; `--small` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. `--small` is a proposal (T200), a size step rather than a tone: the type is already the scale's floor, so it takes the padding in and takes `--radius-control`, and no screen wears it yet.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `.data-table` | `--one-line`                                                                            | A proposal (T200) for the six tables that each draw their own, and only Export vendors' preview wears it yet: a muted header, a rule between rows and the cells' padding, in a `<table>` whose columns are the screen's own. In a `ScrollBox` with `axis="x"`, a `label` naming the region and `.data-table-scroll` on its root, it scrolls sideways alone and never moves the page: the root keeps the border, the radius and the corners, and the box is a Tab stop while the table scrolls. A cell wraps; `--one-line` keeps each on one line, for a table read across, and on paper lets them wrap to the page, with each word whole and sizing its column, so a table whose longest words outgrow the paper runs off it. An address drawn by `EmailAddress` stays in its pieces there too.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `.link-alone` | none                                                                                    | A link on a line of its own is a target: a line box `--target-min` tall, 44px on a phone, with no padding, so it still sits on its text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.
 A proper name keeps its capitals: "Connect Discord", "Back to Market Setup", where Market Setup is the tab's name.
-A few older buttons still read in Title Case, to be changed rather than copied: the form builder's "Add Field" and the floorplan beta's buttons.
+A few older buttons still read in Title Case, to be changed rather than copied: the Form tab's "Save Form" and the floorplan beta's buttons.
 
 **A row's destructive action is quiet; the confirmation's is filled** (E38/F15/S01).
 `.btn--secondary.btn--destructive` is the destructive intent at the secondary weight: red ink (`--mm-red`, 5.44:1 on white) on the secondary button's white and border, at 400, not a fourth intent.
@@ -592,8 +605,8 @@ A list of people with a filled red Remove on every row shouted the one action no
 It keeps the `btn--destructive` class, so [a dialog](implementation/conventions/dialogs.md) still never opens on it.
 
 **On a phone every target is 44px**, the size a thumb wants (T82).
-The heights are tokens in `base.css`: `--control-height` (36px) for `.btn`, `.field` and `.add-row`, `--control-height-compact` (28px) for `.btn--compact`, and `--target-min` (24px, WCAG 2.5.8's floor), the least any other target may be: a tab, a link on its own line, a Show toggle, a Copy button, a choice's label.
-At `width <= 640px`, the market frame's phone break, all three are 44px, the app bar's own height, so a control that takes its height from a token is a thumb's size there with nothing of its own; a bespoke control takes `min-height: var(--target-min)` (and `min-width` where it is narrow) rather than a phone rule of its own.
+The heights are tokens in `base.css`: `--control-height` (36px) for `.btn`, `.field` and `.add-row`, `--control-height-compact` (28px) for `.btn--compact`, and `--target-min` (24px, WCAG 2.5.8's floor), the least any other target may be: a tab, a link on its own line, a Show toggle, a Copy button, a choice's label, a disclosure's `summary` (the Notes toggle, "N more answers").
+At `width <= 640px`, the app's phone break, all three are 44px, the app bar's own height, so a control that takes its height from a token is a thumb's size there with nothing of its own; a bespoke control takes `min-height: var(--target-min)` (and `min-width` where it is narrow) rather than a phone rule of its own.
 Three exceptions take their minimum in a phone rule, since on a desk a 24px box would move the rows: `.answer-link--alone`, an answer that is only a link, its height, since on a desk the same link sits in a review card's line; the All view's row tick (`.all-tick`), its width, since on a desk a 24px square would push every row 11px right; and One by one's "Choose what leads the card" (`.choose-highlights-open`), its height, since on a desk it would push the card's verdicts 9px down.
 A desk keeps its denser 36px and 28px.
 
@@ -642,7 +655,7 @@ They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Se
 
 A convention nothing enforces is how the product got here. Six checks, the first three in `E16/F01` and `E16/F02`:
 
-1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
+1. **Stylelint** bans raw hex, a raw `font-size` in `px`, `rem` or `em` (the door code's print rule sets its sizes in `pt`), raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
    It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`, by the values the [Spacing](#spacing) section lists, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
    `npm run lint:css` is the design-language gate, and **every rule is an error in every file**, with `--max-warnings 0` on the script as well: a warning CI let pass reached `dev`, and then landed on whichever later change touched the file (T221).
    Only the floorplan GUI's own values, it being a beta whose nearest token would change what it draws, and a value that is not spacing carry a `stylelint-disable`, with its reason on that declaration ([Spacing](#spacing)).
@@ -659,7 +672,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
    It landed with what it found fixed (T75): an empty `<html lang>`, no `main` landmark, a market row that was a `role="button"` around its own Manage button, a calendar marked as an ARIA grid with no rows, an unnamed close button on the navigation drawer, and buttons whose `aria-label` replaced the words on them ([every control is named](implementation/conventions/every-control-is-named.md#the-rules)).
    An automated check finds some WCAG failures, not all of them: a pass is a floor, not a verdict.
 5. **A layout sweep**, [`e2e/layout-sweep.spec.ts`](../front-end/e2e/layout-sweep.spec.ts), measures every state at each size it ships at (1920x1080 and 1440x900 for an organizer's screen; 1920x1080 and 390x844 for a public page; all three for a screen that fits a phone, the `FITS_A_PHONE` list in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts)) with the detectors in [`e2e/helpers/layoutDetectors.ts`](../front-end/e2e/helpers/layoutDetectors.ts) (T79, from T67's trial).
-   It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, a scroller without a shade, and a tap target under 44px on a phone, a control's visible label counting toward its target and a link inside a run of text exempt, unless it is drawn as a block of its own (T142).
+   It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, a scroller without a shade, and a tap target under 44px on a phone, a disclosure's `summary` among them, a control's visible label counting toward its target and a link inside a run of text exempt, unless it is drawn as a block of its own (T142).
    Each failure names the state, the size, the element and the measurement.
    It also fails when the market bar stands at a different x or width on one market screen than on the others of its size, which no screen can see alone (bug 12), and when it found the bar on fewer than two market screens of one size, so a renamed test id cannot leave that check passing on nothing.
    On a phone it fails when a market screen pins more than its window's top 150px, naming the screen and the measurement: `pinnedBottom` scrolls the page by a window's height, or to its end, and takes the lowest bottom of the app bar and whatever is `sticky` or `fixed` at its `top`, a dialog, a drawer, a scrim or the app bar's open sheet aside, and the door pinned 409px of 844 until only [the market frame](implementation/modules/market-frame.md#sharp-edges)'s bar pinned there (T142).
@@ -685,7 +698,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
    A menu's items are no Tab stop, so in every state it opens each menu with Enter on its button (`aria-haspopup="menu"`) and judges each item it reaches with the arrow keys; Enter, and each arrow key that moves to the next item, must land focus on a `[role='menuitem']` of the menu it opened, or the sweep names the menu, its button and where focus is, so a menu that keeps focus on its button cannot pass.
    [`e2e/focus-sweep-detectors.spec.ts`](../front-end/e2e/focus-sweep-detectors.spec.ts) proves them on fixtures: a halo at the edge of a box that holds it through each of `transform`, `filter`, `will-change: transform` and `contain: paint`, placed absolutely and fixed, is caught, as is one in a static box around a transformed box that holds it, and one in a static box is not; a menu whose arrows leave focus on its button is caught, and a working one passes; and a drop zone that shows no focus for its file input is caught, and one that wears the halo passes; and a button that wears the halo, draws its border outside its edge or over its words, draws the plain green on a green fill or its own green border, draws the deep green where the plain shows, or is resized by focus is caught, as is a text button whose border is cut off by a box or runs off the window, and a button, a text button clear of its words or a card around one drawing it rightly passes.
    [`e2e/a-focused-button-moves-nothing.spec.ts`](../front-end/e2e/a-focused-button-moves-nothing.spec.ts) reads each button and the boxes around it focused and at rest, on the library's primitives and on Markets, at a desk and on a phone.
-   It also proves that `alsoAt` adds its size to a copy of a screen's sizes, so a sweep's added size never reaches the sizes another sweep walks, which screens share.
+   `focus-sweep-detectors.spec.ts` also proves that `alsoAt` adds its size to a copy of a screen's sizes, so a sweep's added size never reaches the sizes another sweep walks, which screens share.
    It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; the floorplan beta's wizard steps, which cannot be walked that narrow, are marked `deskOnly`.
    Each dialog window a state shows is focused as a keyboard user's would be and must draw no outline, a window behind another dialog on top aside, since it is inert (T148), and a test opens Manage market from the keyboard, where the window takes focus while the market loads (T140).
    Its phone walk found a dialog's buttons running out past the window's left edge where they were wider than it, and the actions row now wraps.

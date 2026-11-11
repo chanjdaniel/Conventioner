@@ -13,11 +13,12 @@
  * - `amend-form/`
  * - `amend-form/resumed`
  */
-import type { RejectionQuestion } from '@/assets/types/datatypes';
+import type { IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
 import type { ChangedField } from '@/utils/marketHistory';
 import { formatPrice } from '@/utils/pricing';
 import {
   asDetail,
+  changedFields,
   fieldName,
   listed,
   sentence,
@@ -44,6 +45,44 @@ const SETUP_FIELDS: Record<string, string> = {
   intake_mode: 'how vendors apply',
   name: 'name',
 };
+
+/** What a saved floorplan holds, as its history entry counts it, in the wizard's words and order. */
+const FLOORPLAN_COUNTS: Record<string, string> = {
+  tables: 'Tables',
+  walls: 'Walls',
+  no_go_zones: 'Obstacle zones',
+  table_types: 'Table types',
+};
+
+/** The digest a floorplan save records of the saved floorplan's layout: it differs whenever a
+ * table, a wall, a zone, a type, the scale or the image does, and is never shown itself. */
+const LAYOUT_DIGEST = 'layout_digest';
+
+/**
+ * A floorplan save's rows (T272): the plan's fields it changed as any setup change draws them, then
+ * the saved floorplan's counts, then whether its layout moved, since a table moved changes no
+ * count. The entry records a summary of the floorplan, never the floorplan itself.
+ */
+function floorplanChanges(before: Detail, after: Detail, path: IntakeMode): ChangedField[] {
+  const summary = new Set([...Object.keys(FLOORPLAN_COUNTS), LAYOUT_DIGEST]);
+  const planOnly = (side: Detail) =>
+    Object.fromEntries(Object.entries(side).filter(([key]) => !summary.has(key)));
+  const rows = changedFields(planOnly(before), planOnly(after), path);
+  for (const [key, field] of Object.entries(FLOORPLAN_COUNTS)) {
+    if (key in before || key in after) {
+      rows.push({ field, before: valueText(before[key]), after: valueText(after[key]) });
+    }
+  }
+  if (LAYOUT_DIGEST in before || LAYOUT_DIGEST in after) {
+    const drawnBefore = Boolean(before[LAYOUT_DIGEST]);
+    rows.push({
+      field: 'Layout',
+      before: drawnBefore ? 'as saved before' : 'none',
+      after: after[LAYOUT_DIGEST] ? (drawnBefore ? 'changed' : 'drawn') : 'none',
+    });
+  }
+  return rows;
+}
 
 /** The Pricing card's fields, in the card's order and words (`pricing_fields` in
  * `back-end/pricing.py`, which stores them in another order). */
@@ -118,7 +157,8 @@ function groupText(value: unknown, currency: string, questions: readonly Rejecti
  * condition does not read as a line of its own. Where the groups stand in another order than they
  * did, a row of their names in each order follows, so a move or a group added between others says
  * where it went: the card's order decides which group a price names when two price a vendor alike
- * (`back-end/pricing.py`). A group added last, or in a removed one's place (a rename), has not moved.
+ * (`back-end/pricing.py`). A group added last, or in a removed one's place (a rename), has not moved,
+ * unless two or more were renamed in one place.
  */
 function groupChanges(
   before: unknown,
@@ -151,21 +191,31 @@ function groupChanges(
     if (!named(now, name)) rows.push(row(name, read(group, currencies.before), 'removed'));
   }
   // Where the groups stand other than where they were: moved, or a group added between others.
-  // Groups are matched by name, so a group renamed is one taken away and one added; an added group
-  // standing in a removed one's place, or added last, has not moved, and needs no order row.
+  // Groups are matched by name, so a group renamed is one taken away and one added. A group's place
+  // is how many kept groups stand before it: an added group in a removed one's place (a rename), or
+  // after every kept group (added last), has not moved, and needs no order row. Where two or more
+  // were taken away and two or more added in one place, which became which cannot be told, so the
+  // row says where they went.
   const names = (groups: Detail[]) => groups.map((g) => str(g.name));
-  const added = names(now).filter((name) => !named(was, name));
-  const kept = names(was).filter((name) => named(now, name));
-  const inPlace = (() => {
-    const waiting = [...added];
-    const placed = names(was).flatMap((name) =>
-      named(now, name) ? [name] : waiting.length ? [waiting.shift() as string] : [],
-    );
-    return [...placed, ...waiting];
-  })();
-  const unmoved = [[...kept, ...added], inPlace].some(
-    (expected) => expected.join('\n') === names(now).join('\n'),
-  );
+  const kept = new Set(names(was).filter((name) => named(now, name)));
+  const inOrder = (groups: Detail[]) => names(groups).filter((name) => kept.has(name));
+  const places = (groups: Detail[]) => {
+    const counts = new Map<number, number>();
+    let keptBefore = 0;
+    for (const name of names(groups)) {
+      if (kept.has(name)) keptBefore += 1;
+      else counts.set(keptBefore, (counts.get(keptBefore) ?? 0) + 1);
+    }
+    return counts;
+  };
+  const removed = places(was);
+  const unmoved =
+    inOrder(was).join('\n') === inOrder(now).join('\n') &&
+    [...places(now)].every(([place, added]) => {
+      const gone = removed.get(place) ?? 0;
+      if (gone >= 2 && added >= 2) return false;
+      return added <= gone || place === kept.size;
+    });
   if (!unmoved) {
     rows.push({
       field: 'Order of the groups',
@@ -227,6 +277,13 @@ export const readers: HistoryReaders = {
     parts(entry, context) {
       const { actor, text } = sentence(entry, context);
       return [actor, text('saved a floorplan to the market')];
+    },
+    changes(entry, { path }) {
+      const detail = asDetail(entry.detail);
+      return {
+        changed: floorplanChanges(asDetail(detail.before), asDetail(detail.after), path),
+        recorded: [],
+      };
     },
   },
   'change-setup/floorplan_image_deleted': {

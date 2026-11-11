@@ -178,7 +178,7 @@ test.describe('Intake mode - a market that stops serving applicants', () => {
     // applicant. The vendor's sign-in still holds; their page must not blame their connection
     // for a market that is no longer there.
     const back = await request.post(`${BACKEND_URL}/markets/${market.marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase: 'draft' },
     });
     expect(back.ok(), await back.text()).toBeTruthy();

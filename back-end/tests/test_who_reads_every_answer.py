@@ -135,7 +135,7 @@ def test_leaving_them_out_never_touches_the_stored_document(market):
 def test_the_markets_list_never_carries_them(monkeypatch, email):
     doc = stored_market(_id="mongo-m1", roles=ROLES, exampleColumns=[_column(answers=ANSWERS)])
     monkeypatch.setattr(MarketsApi, "markets_collection", FakeSlugMarketsCollection([doc]))
-    monkeypatch.setattr(OrgsApi, "get_organizations_for_user", lambda _email: [])
+    monkeypatch.setattr(OrgsApi, "organization_documents_of", lambda _user_id: [])
 
     [listed] = MarketsApi.get_markets_for_user(email)
 

@@ -6,6 +6,7 @@ describes:
   - back-end/datatypes.py#OrganizationRole
   - back-end/datatypes.py#MarketRole
   - back-end/api/organizations.py#create_organization
+  - back-end/api/organizations.py#organization_documents_of
   - back-end/api/organizations.py#get_organizations_for_user
   - back-end/api/organizations.py#update_organization
   - back-end/api/organizations.py#add_org_admin
@@ -31,7 +32,7 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - E20/F04/S01
   - E21/F03/S01
@@ -48,6 +49,7 @@ sources:
   - T204
   - T224
   - T217
+  - T263
 ---
 
 # The organization document, and roles
@@ -60,20 +62,20 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 ## The organization
 
-| Field | What it is |
-| --- | --- |
-| `id` | a UUID, the primary key; the name is a display field |
-| `name` | unique among organizations: creating a second of one name is refused |
-| `owner` | the user id of its one owner |
-| `admins`, `members` | user ids; the owner is in neither (`validate_owner_not_in_other_roles`); an admin cannot be added as a member, but a member made an admin stays in `members` too |
-| `markets` | the ids of its markets, added when a market is created and pulled when one is deleted |
-| `theme` | carried, never applied |
-| `default_permissions` | the rows of the table it sets for the markets it will hold: row id to `{role}`, absent when it sets none ([its default table](#its-default-table)) |
+| Field                 | What it is                                                                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                  | a UUID, the primary key; the name is a display field                                                                                                             |
+| `name`                | creating one with a name another organization has is refused ("Organization already exists"); a rename is not checked, and no index holds the name unique        |
+| `owner`               | the user id of its one owner                                                                                                                                     |
+| `admins`, `members`   | user ids; the owner is in neither (`validate_owner_not_in_other_roles`); an admin cannot be added as a member, but a member made an admin stays in `members` too |
+| `markets`             | the ids of its markets, added when a market is created and pulled when one is deleted                                                                            |
+| `theme`               | carried, never applied                                                                                                                                           |
+| `default_permissions` | the rows of the table it sets for the markets it will hold: row id to `{role}`, absent when it sets none ([its default table](#its-default-table))               |
 
 Every key is one word but `default_permissions`, which no other spelling of has ever been written, so the spelling question the market document has does not arise.
 Membership is recorded on both sides: each user's `organizations` lists the ids of the organizations they are in, kept in step by every membership write ([users and email](users-and-email.md)).
-`get_organizations_for_user` finds a person's organizations with an `$or` over `owner`, `admins` and `members`, each a [lookup index](lookup-indexes.md).
-It then reads every owner, admin and member of all of them in one `get_users_by_ids` ([users and email](users-and-email.md#lookups)), never one account at a time, so an organization of 150 members costs the Organizations page and Manage organization one read of them (T204).
+`organization_documents_of` finds a person's organizations with an `$or` over `owner`, `admins` and `members`, each a [lookup index](lookup-indexes.md), and answers the stored documents; the Markets list reads them so, since it needs no person's address and no count of what removing someone takes (`get_markets_for_user` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)), and `test_the_list_reads_its_readers_organizations_without_their_people_or_removals` in [`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) fails when it reads either.
+`get_organizations_for_user` makes the same find, then reads every owner, admin and member of all of them in one `get_users_by_ids` ([users and email](users-and-email.md#lookups)), never one account at a time, so an organization of 150 members costs the Organizations page and Manage organization one read of them (T204).
 It serves each organization's admins and members as `{userId, email}` pairs, `adminPeople` and `memberPeople`, in the stored order, an account that is gone left out, and the owner's address as `ownerEmail`.
 Manage organization draws its rows from the pairs, each section a [list frame](../../design-system.md) over them, and each row keyed and removed by its own `userId`: it paired the address list with `admins` by position, so one deleted account shifted every later row onto the next person's id, and Remove could name one person and remove another.
 `adminEmails` and `memberEmails`, with their snake-case twins, are the same people by address alone, deprecated and kept only for a tab still on the old bundle; the next release removes them.
@@ -113,6 +115,7 @@ Creating the organization and deleting it record nothing here: its history start
 **Its owner, its admins and its members read it**, in Manage organization's History section ([`ManageOrgOverlay.vue`](../../../front-end/src/views/ManageOrgOverlay.vue), with its entries drawn by [`OrganizationHistory.vue`](../../../front-end/src/components/OrganizationHistory.vue)), through `get_history` (`GET /organizations/:id/history`), 25 at a time as the end of its box scrolls into view ([`PagedList`](../../../front-end/src/components/PagedList.vue)); anyone else is refused, 403.
 So every one of its people has "Manage" on the organization's card; a member's dialog holds the owner, the default permissions (read-only) and the History, and none of the other people or controls the owner and the admins manage.
 A change made in the dialog shows in its History as it lands: the section reads its first page again after each.
+A first page that fails says so in its place, "The history could not be loaded." unless the failure says more, with "Try again", which reads it again ([`ReadFailed`](../../../front-end/src/components/ReadFailed.vue)), as the market's history does.
 **The organization itself is its people's too**: `GET /organizations/:id` (`read_organization`) answers its owner, admins and members, and anyone else 403, an organization nobody has 404, as its other routes do; it answered anyone signed in who had its id, its people's ids among it.
 The screens read an organization only through the list, `get_organizations_for_user`, which was always scoped.
 The first page also names every row of the market's table by its label, for the changes to its default table, recorded under `change-the-default`.
@@ -152,8 +155,8 @@ Every market check asks a row there, and the market read serves every row's answ
 The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations, each kept only where the market's own read would serve it to them (T181).
 It reads each document as the read does (`_readable_market`), resolves the person's role by the read's rule (`_summary_role`, through `market_role_of`, with the organization parsed as the read parses it, from the list's memo, so an organization whose document fails validation grants nothing through it here either) and asks the read's question of that role (`read_refused`).
 A document the model refuses is logged by `_log_unreadable_market` and left out with the rest still listed, and a market whose read row refuses the person is left out too, so no card opens onto "not found".
-The entry's `actionRefusals` are asked of the same role, so each control the card and Manage market offer is offered to exactly the people the market lets take it.
-[`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client: every listed market opens for its reader, and an unknown role in a roles map or an organization that does not parse leaves the market out of the list as it leaves it out of the read.
+The entry's `actionRefusals` are asked of the same role, and of whether the reader is a chosen reviewer (`is_chosen`, by their address, as the read asks it), so each control the card and Manage market offer is offered to exactly the people the market lets take it.
+[`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client: every listed market opens for its reader, and an unknown role in a roles map or an organization that does not parse leaves the market out of the list as it leaves it out of the read, and a chosen Viewer's entry answers every row as their read does.
 
 ## A market's organization
 

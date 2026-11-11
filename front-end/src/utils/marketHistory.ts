@@ -132,7 +132,7 @@ export function entryChanges(entry: MarketHistoryEntry, given: HistoryContext = 
       ? { before: asDetail(detail.before), after: asDetail(detail.after) }
       : null;
   const changed = changes ? changedFields(changes.before, changes.after, path) : [];
-  return { changed, recorded: recordedFields(entry, detail, path, !!changes) };
+  return { changed, recorded: recordedFields(entry, detail, context, !!changes) };
 }
 
 /**

@@ -13,6 +13,7 @@ sources:
   - wayfinding/what-to-show-and-when/03
   - E31/F04
   - E31/F04/S03
+  - T263
 ---
 
 # Vendor notes
@@ -23,18 +24,18 @@ The vendor's request itself is not here: it is their answer on the application, 
 
 ## Its interface
 
-| Function | What it does |
-| --- | --- |
-| `write_note(market_id, vendor_email, text, by)` | replaces the organizer's note, stamping who and when, and returns the note as it was and as it is |
-| `mark_request_handled(market_id, vendor_email, handled, by)` | sets the mark, or clears it, and returns whether it was set |
-| `replace_sheet_notes(market_id, by_vendor)` | the import's write: every vendor's "From your sheet" line replaced, and a vendor the file no longer has a line for loses theirs |
-| `notes_for_market(market_id)` | every vendor's entry on one market, by lowercased address, camelCased for the wire |
-| `delete_for_market(market_id)` | the market's notes, taken with the market ([market deletion](market-deletion.md)) |
+| Function                                                     | What it does                                                                                                                    |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `write_note(market_id, vendor_email, text, by)`              | replaces the organizer's note, stamping who and when, and returns the note as it was and as it is                               |
+| `mark_request_handled(market_id, vendor_email, handled, by)` | sets the mark, or clears it, and returns whether it was set                                                                     |
+| `replace_sheet_notes(market_id, by_vendor)`                  | the import's write: every vendor's "From your sheet" line replaced, and a vendor the file no longer has a line for loses theirs |
+| `notes_for_market(market_id)`                                | every vendor's entry on one market, by lowercased address, camelCased for the wire                                              |
+| `delete_for_market(market_id)`                               | the market's notes, taken with the market ([market deletion](market-deletion.md))                                               |
 
 Three routes in [`back-end/app.py`](../../../back-end/app.py) serve it: `GET /markets/:id/vendor-notes` (VIEWER), `PUT /markets/:id/vendor-notes/:email` with `{note}` and `PUT .../request-handled` with `{handled}` (both EDITOR, through the change loader, so an archived market refuses them).
 The read joins each vendor's request in from their application, so the screens get both kinds by address, each under its own key.
 
-On the front end, [`front-end/src/utils/vendorNotes.ts`](../../../front-end/src/utils/vendorNotes.ts) reads a market's notes once per page and re-reads after every write, never patching, as every market write does; [`front-end/src/components/VendorNotes.vue`](../../../front-end/src/components/VendorNotes.vue) is the one disclosure every page draws, its summary marked when anything is inside.
+On the front end, [`front-end/src/utils/vendorNotes.ts`](../../../front-end/src/utils/vendorNotes.ts) reads a market's notes once per page and re-reads after every write, never patching, as every market write does; [`front-end/src/components/VendorNotes.vue`](../../../front-end/src/components/VendorNotes.vue) is the one disclosure every page draws, its summary marked when anything is inside and at least `--target-min` each way, a thumb's 44px on a phone.
 
 ## Sharp edges
 

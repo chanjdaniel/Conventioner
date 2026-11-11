@@ -1,6 +1,7 @@
 import { test, expect, TEST_USER, LoginPage, PasswordResetPage } from './fixtures';
 import { mongoEval } from './helpers/mongo';
 import { deleteUser } from './helpers/deleteUser';
+import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 const REGISTER_PASSWORD = 'E2eRegister123!';
 const NEW_PASSWORD = 'E2eNewPass456!';
@@ -105,12 +106,8 @@ test.describe('Authentication journeys', () => {
     test('completes full reset flow using real token from DB', async ({ page, request }) => {
       const email = uniqueEmail();
 
-      // Step 1: Create a user via the back-end API (no CAPTCHA).
-      const regRes = await request.post('/api/register-user', {
-        data: { email, password: REGISTER_PASSWORD },
-        headers: { 'Content-Type': 'application/json' },
-      });
-      expect(regRes.ok()).toBeTruthy();
+      // Step 1: Make a verified account, as the fixture users are made.
+      ensureVerifiedUser(email, REGISTER_PASSWORD);
 
       try {
         // Step 2: Request a password reset via the back-end API to
@@ -217,9 +214,7 @@ test.describe('Authentication journeys', () => {
       await loginPage.otpSubmitButton.click();
 
       await expect(loginPage.otpErrorMessage).toBeVisible({ timeout: 10000 });
-      await expect(loginPage.otpErrorMessage).toContainText(
-        /That code is not right|Too many wrong codes/,
-      );
+      await expect(loginPage.otpErrorMessage).toContainText('That code is not right.');
     });
   });
 });

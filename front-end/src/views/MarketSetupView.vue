@@ -563,8 +563,9 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   color: var(--mm-green);
 }
 
+/* A refusal reads in red, whatever the card (the design language's Colour). */
 .plan-save-status--error {
-  color: var(--mm-text-yellow);
+  color: var(--mm-red);
 }
 
 .settings-body-stacked {

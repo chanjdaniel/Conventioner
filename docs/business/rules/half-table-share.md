@@ -6,12 +6,15 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment._half_table_share
   - back-end/assignment/assignment.py#MarketAssignment.is_max_half_tables
   - back-end/assignment/assignment.py#MarketAssignment.get_valid_vendors
+  - back-end/assignment/assignment.py#MarketAssignment.assign_table
   - back-end/datatypes.py#AssignmentOptionObject
-verified: 2026-10-30
+verified: 2026-11-10
 sources:
   - wayfinding/november-2026-dry-run/08
   - E27
   - E27/F01/S02
+  - T253
+  - T263
 ---
 
 # The half-table share
@@ -25,7 +28,7 @@ It bounds only vendors who chose Either and have no partner: once their section 
 
 - **An Either chooser with no partner**, when their turn comes: below the share they take half a table, beside the next vendor who accepts a half; at or above it, a whole table.
   The share is checked only on their own turn: an Either chooser picked to fill the other half beside a Half chooser takes it whatever the share (measured with a share of 0%).
-- **Never a Half chooser**: they are seated on a half whatever the share, and take a whole table only when nobody is left who could share it.
+- **Never a Half chooser**: they are seated on a half whatever the share, and take a whole table only when nobody is left who could share it, and then hold both of its seats, so nobody else is put there.
 - **Never a table-share pair**: a pair is an exception to the share, and sits together even in a section that has used it ([table-share pairing](table-share-pairing.md)).
 - A Full chooser always takes a whole table.
 
@@ -39,7 +42,7 @@ The solver ignored the setting until E27 and ran every market at a hard-coded 30
 
 ## Where it is kept
 
-- `_half_table_share` and `is_max_half_tables` in [`back-end/assignment/assignment.py`](../../../back-end/assignment/assignment.py), with the 30% as `MAX_HALF_TABLES_PER_SECTION`; who fills the other half is `get_valid_vendors`; the module is [the assignment solver](../../implementation/modules/assignment-solver.md).
+- `_half_table_share` and `is_max_half_tables` in [`back-end/assignment/assignment.py`](../../../back-end/assignment/assignment.py), with the 30% as `MAX_HALF_TABLES_PER_SECTION`; who fills the other half is `get_valid_vendors`, and a vendor given a whole table is seated in both of its seats by `assign_table`; the module is [the assignment solver](../../implementation/modules/assignment-solver.md).
 - The setting is `max_half_table_proportion_per_section` on `AssignmentOptionObject` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), a whole percentage the plan write refuses outside 0 to 100, set on the Assignment tab ([`ElementAssignmentOptions.vue`](../../../front-end/src/components/elements/ElementAssignmentOptions.vue)), which caps what is typed at 100.
 - A pin on half a table counts against the share, since it occupies a real seat ([placements](../../implementation/modules/placements.md#pins)).
 - Once the market can no longer reach `assignment`, the setting locks with the other assignment rules ([the assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md)).

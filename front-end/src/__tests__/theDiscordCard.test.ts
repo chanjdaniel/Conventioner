@@ -349,6 +349,8 @@ describe('a market connected, for an Admin', () => {
     expect(find(wrapper, 'discord-save-error').text()).toBe(
       'That role is not one Conventioner can give.',
     );
+    // Announced, as the invite link's refusal is: the choice it answers is still in focus (T210).
+    expect(find(wrapper, 'discord-save-error').attributes('role')).toBe('alert');
     expect(find(wrapper, 'discord-invite-error').exists()).toBe(false);
     expect(wrapper.emitted('changed')).toBeUndefined();
   });
@@ -519,7 +521,7 @@ describe('a server of many roles', () => {
       expect(api.put).toHaveBeenCalledOnce();
       expect(api.put).toHaveBeenCalledWith('/markets/market-123/discord', { roleId: null });
 
-      await wrapper.setProps({ market: market({ discord: { ...CONNECTED, roleId: null } }) });
+      await wrapper.setProps({ market: market({ discord: { ...CONNECTED, roleId: undefined } }) });
       await flushPromises();
       const field = input(wrapper, ROLE);
       expect((field.element as HTMLInputElement).value).toBe('');

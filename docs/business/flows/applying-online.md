@@ -29,6 +29,7 @@ A vendor signs in before anything about them is known, and the first valid save 
 **Status:** Works (re-walked live on 2026-10-03; the sign-in and what a vendor reads read from the code as of T202: `front-end/src/views/VendorPage.vue`, `front-end/src/utils/vendorPage.ts`, `front-end/src/utils/applicantOutcome.ts`).
 Each case below is one of its branches.
 Covered by:
+
 - `a-first-time-vendor-applies.spec.ts`
 - `applicant.spec.ts`
 - `essential-fields.spec.ts`
@@ -48,11 +49,13 @@ Covered by:
 3. The code arrives; they enter it under "Sign-in code" and choose "Sign in".
 4. The page reads "You have not applied to this market yet." with "Apply", which opens the form in its place, on the same page and address: "Apply", the essential questions, then "More questions" (the custom ones); "Save application" and "Cancel".
 5. Saved, the form closes on "Your answers" with "Edit", and the page reads "Submitted" (H3c).
+
 A save the server refuses says why above "Save application", and every answer typed stays; a required answer left blank is named under its question before anything is sent.
-A one-choice answer the form no longer offers counts as blank there, since its control shows nothing chosen.
+A one-choice answer the form no longer offers counts as blank there, since its control shows nothing chosen: a required one is named, and an optional one is sent unanswered (`answersToSend` in [`applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)), so the server does not refuse it with a list of every option.
 A question of more than 12 options is a field they type in to find an answer, one choice or several as chips; words they typed and did not choose clear when they leave the field ([the design language](../../design-system.md)).
 The vendor page reads the form and the saved application together before it draws; when either does not load within 15 seconds, or the request fails, it says "This page could not be loaded" with "Try again", never that the market is not open and never an endless "Loading..." (E06/F01/S01).
 Covered by:
+
 - `a-first-time-vendor-applies.spec.ts`
 - `choices-at-scale.spec.ts`
 - `essential-fields.spec.ts`
@@ -65,6 +68,7 @@ Sign in as H3a steps 1 to 3 with an address that already has an application; the
 A reload or a direct link in the same tab keeps them signed in; a new tab asks them to sign in again (bug 36).
 The first applicant save of any kind freezes the essential questions' offering ([F1](form-tab.md#f1-the-essential-questions)).
 Covered by:
+
 - `returning-vendors-edit-their-answers.spec.ts`
 
 ### H3c. A vendor checks their application
@@ -76,6 +80,7 @@ Until the results are published ([I7](assignment-and-result.md#i7-publish-result
 After, exactly one of "You have a table", with each date's table and location listed, or "You did not get assigned"; never a verdict and never a reason ([an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md)).
 A vendor can sign in and read their application in every phase after Draft; applying and changing answers stop when the organizer stops taking applications, and an address with no application then reads "You have no application at this market, and it is not taking applications."
 Covered by:
+
 - `a-first-time-vendor-applies.spec.ts` ("a vendor a rule rejects as they apply reads "Submitted", as anyone would")
 - `results-wait-for-the-allocation.spec.ts`
 - `the-vendor-page.spec.ts`
@@ -89,6 +94,7 @@ A wrong code reads "That code isn't right. Check you typed the newest code and t
 After the fifth wrong try, or once the code has expired or been replaced, the step reads "That code no longer works. Send yourself a new code.", the field and "Sign in" go, and "Send a new code" is its one action.
 "Code already sent - retry in Ns", "Resend code in 60s" and "Send a new code in Ns" pace requests; neither refusal reveals whether an address applied.
 Covered by:
+
 - `a-sign-in-code-takes-five-tries.spec.ts`
 - `applicant.spec.ts`
 
@@ -97,6 +103,7 @@ Covered by:
 **Status:** Works (walked live; the vendor page read from the code as of T202).
 `/<slug>` of a market whose vendors apply on the organizer's own Google Form answers exactly as for a market that does not exist; the vendor page says the page does not exist rather than taking an address ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 Covered by:
+
 - `intake-mode.spec.ts`
 
 ## The rules it obeys

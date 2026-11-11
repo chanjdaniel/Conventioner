@@ -200,52 +200,24 @@ class TestTheRulesOfTheMarketsLifeAreServedOnTheirOwn:
         assert read(MarketRole.EDITOR)["publishOutcomes"] is None
 
 
-#: The reasons an old bundle reads, served for one more release, and the row and the rule of the
-#: market's life each stands for; the next release removes them.
-DEPRECATED_REASONS = {
-    "adminActionsReason": ("import-applications", None),
-    "verdictLockReason": ("give-verdicts", "verdictsSettledReason"),
-    "addVendorReason": ("add-vendor", "addingVendorsReason"),
-    "publishResultsReason": ("publish-results", "publishWaitsReason"),
-}
+#: The reasons the screens read before each asked its row, served for old tabs by the release that
+#: brought the rows (1.1.0), and gone in the release after, with the market's role.
+GONE_FIELDS = (
+    "adminActionsReason", "verdictLockReason", "addVendorReason", "publishResultsReason",
+    "user_role",
+)
 
 
-class TestTheReasonsAnOldBundleReads:
-    """The back end deploys before the front end, and an old bundle reads a missing reason as
-    allowed: each reason it reads is served one more release, as its row's answer."""
+@pytest.mark.parametrize("role", ROLES[1:], ids=str)
+@pytest.mark.parametrize("phase", [
+    MarketPhase.APPLICATIONS, MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS,
+    MarketPhase.ARCHIVED], ids=str)
+def test_the_read_serves_no_old_reason_and_no_role(read, role, phase):
+    """Every screen asks the table's rows and the rules of the market's life, so the read serves
+    nothing role-shaped beside them."""
+    served = read(role, phase)
 
-    @pytest.mark.parametrize("role", ROLES[1:], ids=str)
-    @pytest.mark.parametrize("phase", [
-        MarketPhase.APPLICATIONS, MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS,
-        MarketPhase.ARCHIVED], ids=str)
-    def test_each_is_its_rows_answer_then_its_rule(self, read, role, phase):
-        served = read(role, phase)
-
-        for reason, (row, rule) in DEPRECATED_REASONS.items():
-            expected = served["actionRefusals"][row] or (served[rule] if rule else None)
-            assert served[reason] == expected, reason
-
-    def test_each_refuses_whom_its_row_refuses(self, read):
-        served = read(MarketRole.EDITOR, MarketPhase.ASSIGNMENT)
-
-        assert served["adminActionsReason"] == (
-            "Only an Admin or the owner may import applications or start this market from a CSV.")
-        assert served["addVendorReason"] is None
-
-    @pytest.mark.parametrize("role", ROLES[1:], ids=str)
-    def test_the_role_its_manage_market_and_card_read_is_served_too(self, read, role):
-        assert read(role)["user_role"] == role.value
-
-    def test_each_carries_its_rule_for_someone_the_row_lets(self, read, monkeypatch):
-        monkeypatch.setattr(ApplicantsApi, "publish_results_refusal", lambda _m: "Run it first.")
-
-        served = read(MarketRole.OWNER, MarketPhase.ASSIGNMENT)
-
-        assert served["verdictLockReason"] == served["verdictsSettledReason"]
-        assert served["verdictLockReason"].startswith("The review is closed while tables")
-        assert served["publishResultsReason"] == "Run it first."
-        assert read(MarketRole.OWNER, MarketPhase.APPLICATIONS)["addVendorReason"] == (
-            MarketsApi.NOT_YET_ADDING)
+    assert [field for field in GONE_FIELDS if field in served] == []
 
 
 class TestTheMarketsList:

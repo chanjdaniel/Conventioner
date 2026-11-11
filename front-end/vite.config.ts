@@ -47,6 +47,53 @@ function assertCaptchaSiteKey(env: Record<string, string>) {
 }
 
 /**
+ * Refuse to build a bundle with no API address (T273).
+ *
+ * `VITE_FLASK_HOST` is baked into the bundle at build time as the base of every API request. With
+ * none, each request goes to the front end's own origin, whose rewrite answers every path with
+ * `index.html` and 200, so the deployment looks healthy and nothing works. The hatch is the site
+ * key's: a bundle built under `VITE_ALLOW_INSECURE_LOCAL_DEV` warns and builds, as CI's and the
+ * gate's builds do.
+ */
+function assertApiHost(env: Record<string, string>) {
+  if (env.VITE_FLASK_HOST?.trim()) {
+    return;
+  }
+  if (env.VITE_ALLOW_INSECURE_LOCAL_DEV === 'true') {
+    console.warn(
+      '[api] VITE_ALLOW_INSECURE_LOCAL_DEV is set: building a bundle with no VITE_FLASK_HOST. It ' +
+        'calls its own origin. Never deploy this bundle.',
+    );
+    return;
+  }
+  throw new Error(
+    'VITE_FLASK_HOST is not set, so this bundle would send every API request to its own origin, ' +
+      "where every path answers index.html with 200 and nothing works. Set it to the back end's " +
+      'address (https://api.conventioner.io in production), or set ' +
+      'VITE_ALLOW_INSECURE_LOCAL_DEV=true if this build only ever talks to a local back end.',
+  );
+}
+
+/**
+ * Refuse the hatch on a Vercel build outright (T273): it lets a bundle build with no site key and
+ * no API address, and a build Vercel makes is one that may be served. Vercel's build sets
+ * `VERCEL=1` while the project's "Enable access to System Environment Variables" setting is ticked,
+ * and not otherwise, so the refusal is armed only with that box ticked. It is not a `VITE_`
+ * variable, so it is read from the build's process environment, as `BUILD_COMMIT` is, and no `.env`
+ * file can set it.
+ */
+function assertNoLocalHatchOnVercel(env: Record<string, string>) {
+  if (!process.env.VERCEL?.trim() || env.VITE_ALLOW_INSECURE_LOCAL_DEV !== 'true') {
+    return;
+  }
+  throw new Error(
+    'VITE_ALLOW_INSECURE_LOCAL_DEV is set on a Vercel build. It lets a bundle build with no ' +
+      'reCAPTCHA site key or API address, which a deployed front end must never ship. Remove it ' +
+      "from the front-end project's environment on Vercel.",
+  );
+}
+
+/**
  * The headers `vercel.json` sends on every path, so `vite preview` serves a production build under
  * the same security headers and Content-Security-Policy as production does. `vercel.json` is the one
  * place they are declared; walk a page with `npm run build-only && npm run preview` to see what the
@@ -70,6 +117,12 @@ export const VUEDRAGGABLE_SOURCE = {
   find: /^vuedraggable$/,
   replacement: 'vuedraggable/src/vuedraggable.js',
 };
+
+/** A module of Vue (its `@vue/` packages included), the router or Pinia, by its id. */
+const VUE_RUNTIME = /[\\/]node_modules[\\/](@vue|vue|vue-router|pinia)[\\/]/;
+
+/** The id `@vitejs/plugin-vue` gives the helper it imports into every single-file component. */
+const VUE_SFC_HELPER = '\0plugin-vue:export-helper';
 
 /**
  * `src/dev/` spelled as Vite spells a module id, so they compare: its real path, since Vite resolves
@@ -121,16 +174,45 @@ export function noDevModules(): Plugin {
   };
 }
 
+/**
+ * Every build says which commit it was built from (T254): it emits `version.json` at the root of
+ * its output, `{"commit":"<sha>"}`, or `{"commit":null}` for a build made without one (CI's, the
+ * gate's, a local one), so it is never mistaken for a released commit.
+ *
+ * The Deploy workflow reads it, on the staged deployment and then on `conventioner.io`, to prove
+ * the domain serves the commit it released; a person reads it with
+ * `curl https://conventioner.io/version.json` to learn which build is live. The workflow sets
+ * `BUILD_COMMIT` with `vercel deploy --build-env`, and this reads it from the build's process
+ * environment. It is not a `VITE_` variable, and not read through `loadEnv`, so it is never inlined
+ * into the bundle, a new commit leaves every chunk's hash as it was, and no `.env` file can set it.
+ */
+export function buildCommit(): Plugin {
+  return {
+    name: 'conventioner:build-commit',
+    apply: 'build',
+    generateBundle() {
+      const commit = process.env.BUILD_COMMIT;
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ commit: commit?.trim() ? commit : null }),
+      });
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_');
 
   if (command === 'build') {
+    assertNoLocalHatchOnVercel(env);
     assertCaptchaSiteKey(env);
+    assertApiHost(env);
   }
 
   return {
-    plugins: [vue(), vueJsx(), vueDevTools(), noDevModules()],
+    plugins: [vue(), vueJsx(), vueDevTools(), noDevModules(), buildCommit()],
     resolve: {
       alias: [
         { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
@@ -144,6 +226,13 @@ export default defineConfig(({ command, mode }) => {
           // Lucide icons carry ISC's notice as a `/*! @license */` comment, and that licence (like
           // the MIT notices of the libraries bundled here) asks for it in all copies.
           comments: { legal: true, annotation: false, jsdoc: false },
+          // Vue, its router and Pinia, which every page runs, as a chunk named for them. Left to
+          // itself the build named that shared chunk `_plugin-vue_export-helper`, after the helper
+          // the Vue plugin adds to every single-file component, which read as one helper rather
+          // than the runtime; the helper goes in with them, so it is no chunk of its own either.
+          codeSplitting: {
+            groups: [{ name: 'vue', test: (id) => VUE_RUNTIME.test(id) || id === VUE_SFC_HELPER }],
+          },
         },
       },
     },

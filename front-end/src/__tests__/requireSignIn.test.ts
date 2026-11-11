@@ -49,6 +49,38 @@ describe('the sign-in guard', () => {
     expect(router.currentRoute.value.path).toBe('/login');
   });
 
+  // The stored user is read one way, by `signedInEmail()`: a value that is not an address is
+  // nobody signed in, never a thrown navigation.
+  it.each(['not json', '{}', 'null', '""'])(
+    'sends a stored user of %s from a protected page to the login page',
+    async (stored) => {
+      localStorage.setItem('user', stored);
+      const router = routerUnderGuard();
+
+      await router.push('/markets');
+
+      expect(router.currentRoute.value.path).toBe('/login');
+    },
+  );
+
+  it('lets a stored user of not json open the login page', async () => {
+    localStorage.setItem('user', 'not json');
+    const router = routerUnderGuard();
+
+    await router.push('/login');
+
+    expect(router.currentRoute.value.path).toBe('/login');
+  });
+
+  it('takes the stored address the app writes as signed in', async () => {
+    localStorage.setItem('user', JSON.stringify('organizer@example.com'));
+    const router = routerUnderGuard();
+
+    await router.push('/markets');
+
+    expect(router.currentRoute.value.path).toBe('/markets');
+  });
+
   it('lets a signed-out person open a public page', async () => {
     const router = routerUnderGuard();
 

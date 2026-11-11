@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-04
+verified: 2026-11-10
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -18,6 +18,9 @@ sources:
   - T181
   - T209
   - T211
+  - T251
+  - E47/F02/S01
+  - T263
 ---
 
 # Accounts
@@ -31,7 +34,7 @@ An account is one email address: an address differing only in case or spacing is
 
 ## A1. Register and verify an organizer account
 
-**Status:** Works; a signed-out person sees the confirmation at step 4 since bug 22 was fixed (`auth.spec.ts`, `account-links.spec.ts`), and since E32/F03/S04 a double click or a race makes one account and one email (`a-signup-is-sent-once.spec.ts`).
+**Status:** Works; a signed-out person sees the confirmation at step 4 since bug 22 was fixed (`auth.spec.ts`, `account-links.spec.ts`), and since E32/F03/S04 a double click makes one account and one email, and two sign-ups racing for one address make one account (`a-signup-is-sent-once.spec.ts`).
 Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real keys and refuses automated browsers).
 **Task:** "Create an account for yourself."
 
@@ -41,9 +44,17 @@ Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real k
 4. Open the emailed link, which lands on `/verify-email`; expect confirmation and "Redirecting to sign in…"; three seconds later the page goes to sign in.
 5. Sign in (A2).
 
-Branches: mismatched passwords ("Passwords do not match"), short password, an email already registered, an expired or reused link.
+Branches: mismatched passwords ("Passwords do not match"), short password, a password too long, an email already registered, an expired or reused link, asking too often.
+
+- An email already registered says what a new one says at step 3, after the same checks, and makes no account: the account's owner is emailed "You already have a Conventioner account", with a link to sign in and one to reset the password, and nothing about the account changes ([a sign-up answers alike](../../implementation/data/users-and-email.md#a-sign-up-answers-alike)).
+
+- A password longer than 72 bytes, which may be fewer than 72 characters since an accented letter or an emoji takes more than one, says "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one." and makes no account ([a password longer than 72 bytes](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
+
+- Past five sign-ups for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address, before the reCAPTCHA check ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
+
 Depends on: reCAPTCHA (bypassed locally), Resend.
 Covered by:
+
 - `a-signup-is-sent-once.spec.ts`
 - `account-links.spec.ts`
 - `auth.spec.ts` ("Register new user")
@@ -62,10 +73,13 @@ Covered by:
 The page asks for the address on the page itself, in a labelled field.
 "Send the link again" with nothing typed says "Type your email address." under the field and sends nothing; a double click sends one link.
 A server's fault or no answer says so, and keeps the form and the address to try again.
+Past five links asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes." in place of a link on its way, the same for every address, and keeps the form and the address.
 "Back to sign in" under it is a link to `/login`.
 
-A sign-in refused because the address is not verified yet offers "Send the link again" too (A2), which says the same sentence (E38/F14/S02).
+A sign-in refused because the address is not verified yet offers "Send the link again" too (A2), which says the same sentences (E38/F14/S02); past the limit it offers the link no more.
+When the button goes with the newer line, the focus moves to that line, so a keyboard is not left on the page itself; a link not sent for want of an answer offers the button again, and the focus stays on it.
 Covered by:
+
 - `the-sign-in-says-what-to-do-next.spec.ts`
 - `the-verification-page-asks-on-the-page.spec.ts`
 
@@ -80,17 +94,20 @@ Covered by:
 2. Expect the Markets list (`/markets`), or the page the address carried in `next` (E38/F11/S01).
 3. Choose "Sign out" in the app bar ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
 
-Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the Markets list).
+Branches: wrong password, unverified account, too many tries, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the Markets list).
 A market link opened while signed out returns there after sign-in, by password or by code, rather than to the Markets list.
 A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
 A browser closed and reopened is signed out unless "Remember me" was ticked.
 
 Each form says one line at a time, the newer replacing the older, and says what to do next (E38/F14/S02):
 
-- A wrong password and an address with no account say the same, "That email and password do not match.", with "Forgot password?" in it (A4).
+- A wrong password and an address with no account say the same, "That email and password do not match.", with "Forgot password?" in it (A4); so does a password longer than 72 bytes.
+- Past ten tries at one address in 15 minutes, or fifty from one caller, the next says "Too many sign-in attempts. Try again in N minutes, or reset your password.", with "Forgot password?" in it, the same for every address.
+  A right password takes its own try back, so only wrong ones count, and a few mistyped passwords cost nothing ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 - A right password on an account not yet verified says "Verify your email address first: we sent you a link when you registered.", with "Send the link again" (A1a).
 
 Covered by:
+
 - `a-failure-says-what-to-do.spec.ts`
 - `auth.spec.ts`
 - `remember-me.spec.ts`
@@ -106,10 +123,18 @@ Covered by:
 
 1. At `/login`, choose the "Sign-in code" tab, enter email, choose "Send code".
 2. Enter the code from the email, tick "Remember me" or leave it, and choose "Sign in"; the choice is the Sign in tab's, kept between the two (A2).
-3. "Use a different email" returns to step 1.
+3. "Use a different email", a button, returns to step 1 with the focus in the Email field.
 
-Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, up to the fifth try; too many wrong codes; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
+Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, at every try; a right code that has expired; too many tries; asking for another code too soon; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
+
+- The fifth wrong code discards the code and says "That code is not right." as the others do, so the right code after it is refused alike.
+- A right code that has expired says "That code has expired. You can ask for a new code in N minutes.": a new code can be asked for an hour after the last one expired, whether it expired or five wrong tries discarded it, and once that wait is over it says "Ask for a new one." instead.
+- Asking for another code before then says "You can ask for a new code in N minutes.".
+- Past five codes asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address.
+- Past ten tries at one address in 15 minutes, or sixty from one caller, the next says "Too many sign-in attempts. Try again in N minutes, or reset your password.", the same for every address; a right code takes its own try back, as a right password does ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
+
 Covered by:
+
 - `a-failure-says-what-to-do.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
 - `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code
 - `remember-me.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
@@ -125,10 +150,20 @@ Covered by:
 2. Follow the emailed link to `/reset-password`, set a new password; every browser signed in to the account, remembered or not, is signed out.
 3. Sign in with the new password.
 
+Branches: asking for another link before an hour has passed since the last one expired ("You can ask for another reset link in N minutes."), asking too often, a new password too short or too long.
+
+- A link that could not be mailed says "Failed to send password reset email", and asking again sends one at once ([a failed send puts back what it replaced](../../implementation/data/users-and-email.md#a-failed-send-puts-back-what-it-replaced)).
+
+- A new password longer than 72 bytes says "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one.", as at sign-up (A1), and leaves the password and the link as they were.
+
+- Past five links asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
+
 Covered by:
+
 - `account-links.spec.ts`
 - `auth.spec.ts` ("Password reset")
 - `sign-in-fits-a-phone.spec.ts`
+- `the-sign-in-says-what-to-do-next.spec.ts` ("past its limit, asking for a reset link says how long to wait")
 - `the-way-in-lines-up.spec.ts` ("asking for a reset reads like signing in")
 
 ## A4a. Change a password while signed in
@@ -145,6 +180,7 @@ Covered by:
 A link that is refused, as expired or already used, changes nothing, and the person stays signed in.
 How the bar and the two password pages do this is in [the app bar](../../implementation/modules/app-bar.md#change-password).
 Covered by:
+
 - `account-links.spec.ts`
 - `the-app-bar.spec.ts` ("Change password, at a desk" and "on a phone")
 

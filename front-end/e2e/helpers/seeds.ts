@@ -55,9 +55,6 @@ export interface PublishedSeedResult extends SeedResult {
 }
 
 /**
- * Replicate the front-end marketNameToKebabSlug logic for URL-safe slugs.
- */
-/**
  * Publish a market's results, as its owner, in Assignment with a current run stored. Every market
  * publishes them before it may enter `market_days`, on either path (E36/F04/S02, ADR 0022), and
  * after it the run is refused, so a spec publishes only once it has the run it wants.
@@ -68,14 +65,13 @@ export async function publishResults(
   email: string,
   marketId: string,
 ): Promise<void> {
-  const res = await request.post(`${baseURL}/markets/${marketId}/publish-results`, {
-    headers: { 'X-Owner-Email': email },
-  });
+  const res = await request.post(`${baseURL}/markets/${marketId}/publish-results`);
   if (!res.ok()) {
     throw new Error(`Publishing results failed: ${res.status()} ${await res.text()}`);
   }
 }
 
+/** Replicates the front end's `marketNameToKebabSlug`: a market's URL-safe slug. */
 export function marketNameToSlug(name: string): string {
   return name
     .trim()
@@ -121,11 +117,8 @@ export async function loginViaApi(
 export async function ensureTestOrgAuthenticated(
   request: APIRequestContext,
   baseURL: string,
-  email: string,
 ): Promise<string> {
-  const orgsRes = await request.get(`${baseURL}/organizations`, {
-    headers: { 'X-Owner-Email': email },
-  });
+  const orgsRes = await request.get(`${baseURL}/organizations`);
   if (!orgsRes.ok()) {
     throw new Error(`Organization list failed: ${orgsRes.status()} ${await orgsRes.text()}`);
   }
@@ -137,7 +130,6 @@ export async function ensureTestOrgAuthenticated(
   const createRes = await request.post(`${baseURL}/organizations`, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Owner-Email': email,
     },
     data: { name: 'E2E Test Org' },
   });
@@ -223,16 +215,14 @@ export async function ensureTestOrgs(
   count: number,
 ): Promise<void> {
   await loginViaApi(request, baseURL, email, password);
-  const orgsRes = await request.get(`${baseURL}/organizations`, {
-    headers: { 'X-Owner-Email': email },
-  });
+  const orgsRes = await request.get(`${baseURL}/organizations`);
   if (!orgsRes.ok()) {
     throw new Error(`Organization list failed: ${orgsRes.status()} ${await orgsRes.text()}`);
   }
   const { organizations = [] } = (await orgsRes.json()) as { organizations?: unknown[] };
   for (let n = organizations.length; n < count; n++) {
     const res = await request.post(`${baseURL}/organizations`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+      headers: { 'Content-Type': 'application/json' },
       data: { name: `E2E Test Org ${n + 1} ${Date.now()}` },
     });
     if (!res.ok()) {
@@ -253,7 +243,7 @@ export async function ensureTestOrg(
   password: string,
 ): Promise<string> {
   await loginViaApi(request, baseURL, email, password);
-  return ensureTestOrgAuthenticated(request, baseURL, email);
+  return ensureTestOrgAuthenticated(request, baseURL);
 }
 
 /**
@@ -306,13 +296,12 @@ export async function seedMarketWithVendors(
 ): Promise<SeedResult> {
   const [firstDate, ...moreDates] = options.dates ?? [SEED_MARKET_DATE];
   const userId = await loginViaApi(request, baseURL, email, password);
-  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL);
 
   const marketName = options.name ?? uniqueMarketName('E2E Market');
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Owner-Email': email,
     },
     data: {
       name: marketName,
@@ -335,7 +324,6 @@ export async function seedMarketWithVendors(
   const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Owner-Email': email,
     },
     data: MINIMAL_APPLICATION_FORM,
   });
@@ -391,13 +379,12 @@ export async function seedPublishedMarketWithAssignments(
   const marketDate = options.marketDate ?? SEED_MARKET_DATE;
   const vendors = options.vendors ?? ['alice@example.com', 'bob@example.com'];
   const userId = await loginViaApi(request, baseURL, email, password);
-  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL);
 
   const marketName = uniqueMarketName(options.namePrefix ?? 'E2E Published');
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Owner-Email': email,
     },
     data: {
       name: marketName,
@@ -418,7 +405,6 @@ export async function seedPublishedMarketWithAssignments(
   const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Owner-Email': email,
     },
     data: MINIMAL_APPLICATION_FORM,
   });
@@ -472,7 +458,7 @@ export async function seedPublishedMarketWithAssignments(
   // than taking a shortcut through it.
   const transitionTo = async (toPhase: string) => {
     const res = await request.post(`${baseURL}/markets/${marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+      headers: { 'Content-Type': 'application/json' },
       data: { toPhase },
     });
     if (!res.ok()) {
@@ -484,9 +470,7 @@ export async function seedPublishedMarketWithAssignments(
     await transitionTo(toPhase);
   }
 
-  const assignRes = await request.post(`${baseURL}/markets/${marketId}/assignment`, {
-    headers: { 'X-Owner-Email': email },
-  });
+  const assignRes = await request.post(`${baseURL}/markets/${marketId}/assignment`);
   if (!assignRes.ok()) {
     throw new Error(`Assignment run failed: ${assignRes.status()} ${await assignRes.text()}`);
   }

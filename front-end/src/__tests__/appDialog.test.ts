@@ -99,7 +99,7 @@ function windowMarkup(): string {
   const comments: Node[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT);
   while (walker.nextNode()) comments.push(walker.currentNode);
-  comments.forEach((comment) => comment.remove());
+  comments.forEach((comment) => comment.parentNode?.removeChild(comment));
   [root, ...root.querySelectorAll('*')].forEach((element) => {
     for (const attribute of [...element.attributes]) {
       if (/^data-v-[0-9a-f]+$/.test(attribute.name)) element.removeAttribute(attribute.name);
@@ -112,14 +112,14 @@ function windowMarkup(): string {
  * These pin the markup of a dialog that asks for no `scroll`. It changed once, on purpose, in T217:
  * the window became a rounded frame that no longer scrolls, with a `ScrollBox` inside it over the
  * title and the body, so a bar can never square its corners and its close stays put. Everything
- * inside that box is as it was.
+ * inside that box is as it was, but for the error line's `role="alert"` (T263), so it is announced.
  */
 describe('a dialog that asks for none of the new props scrolls whole, in a ScrollBox', () => {
   it('a single form', async () => {
     await openFromTheButton({ error: 'That did not save.' });
 
     expect(windowMarkup()).toMatchInlineSnapshot(
-      `"<div class="dialog-window" role="dialog" aria-modal="true" aria-label="Choose people" data-testid="people-window" tabindex="-1"><button type="button" class="dialog-close" aria-label="Close" data-dialog-close="" data-testid="people-close-button"> × </button><div class="scroll-box dialog-whole" data-scroll-box=""><div class="scroll-box__scroller scroll-box__scroller--y" data-testid="people-scroll"><div class="scroll-box__content"><div class="dialog-parts"><h2 class="dialog-title">Choose people</h2><form class="dialog-body"><input data-testid="people-find" class="field"><p data-testid="people-long-row">A long row of people</p><p class="dialog-error" data-testid="people-error">That did not save.</p><footer class="dialog-actions"><button type="button" class="btn btn--secondary" data-testid="people-cancel-button">Cancel</button><button type="submit" class="btn btn--primary" data-testid="people-submit-button">Save</button></footer></form></div></div></div></div></div>"`,
+      `"<div class="dialog-window" role="dialog" aria-modal="true" aria-label="Choose people" data-testid="people-window" tabindex="-1"><button type="button" class="dialog-close" aria-label="Close" data-dialog-close="" data-testid="people-close-button"> × </button><div class="scroll-box dialog-whole" data-scroll-box=""><div class="scroll-box__scroller scroll-box__scroller--y" data-testid="people-scroll"><div class="scroll-box__content"><div class="dialog-parts"><h2 class="dialog-title">Choose people</h2><form class="dialog-body"><input data-testid="people-find" class="field"><p data-testid="people-long-row">A long row of people</p><p class="dialog-error" role="alert" data-testid="people-error">That did not save.</p><footer class="dialog-actions"><button type="button" class="btn btn--secondary" data-testid="people-cancel-button">Cancel</button><button type="submit" class="btn btn--primary" data-testid="people-submit-button">Save</button></footer></form></div></div></div></div></div>"`,
     );
   });
 
@@ -131,7 +131,7 @@ describe('a dialog that asks for none of the new props scrolls whole, in a Scrol
     );
   });
 
-  it.each(['window', 'body'])(
+  it.each(['window', 'body'] as const)(
     "several actions, scroll %s: an inner form's submit is its own, and the dialog emits none",
     async (scroll) => {
       wrapper = mount(AppDialog, {
@@ -177,6 +177,63 @@ describe('with `closeDisabled`', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await flushPromises();
     expect(state.closes).toBe(1);
+  });
+
+  /*
+   * A save in flight disables the control that held the focus, so the browser drops it to
+   * `<body>`, outside the dialog and behind nothing a Tab can reach; a refusal ends the hold with
+   * the dialog still open.
+   */
+  it('a hold released with the focus on the body puts the focus inside the window', async () => {
+    await openFromTheButton({ closeDisabled: true });
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+
+    await wrapper!.setProps({ dialog: { closeDisabled: false } });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('people-find'));
+  });
+
+  it('a hold released with the focus already inside leaves it where it is', async () => {
+    await openFromTheButton({ closeDisabled: true });
+    byTestId('people-submit-button')!.focus();
+
+    await wrapper!.setProps({ dialog: { closeDisabled: false } });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('people-submit-button'));
+  });
+
+  it('a hold released with the focus in another dialog, opened over it, leaves it there', async () => {
+    await openFromTheButton({ closeDisabled: true });
+    const over = document.createElement('div');
+    over.setAttribute('role', 'dialog');
+    over.innerHTML = '<button data-testid="over-button">Done</button>';
+    document.body.append(over);
+    byTestId('over-button')!.focus();
+
+    await wrapper!.setProps({ dialog: { closeDisabled: false } });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('over-button'));
+  });
+
+  it('a hold released with the focus on the page behind puts the focus inside the window', async () => {
+    await openFromTheButton({ closeDisabled: true });
+    byTestId('opener')!.focus();
+
+    await wrapper!.setProps({ dialog: { closeDisabled: false } });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('people-find'));
+  });
+});
+
+describe('its error line', () => {
+  it('is announced, as an alert', async () => {
+    await openFromTheButton({ error: 'That did not save.' });
+    expect(byTestId('people-error')?.getAttribute('role')).toBe('alert');
   });
 });
 
@@ -390,7 +447,7 @@ describe('its footer', () => {
     expect(byTestId('people-cancel-button')).toBeNull();
   });
 
-  it.each(['window', 'body'])(
+  it.each(['window', 'body'] as const)(
     'with the slot alone, scroll %s, it draws and the body is no form',
     async (scroll) => {
       await openFromTheButton({ scroll, confirmLabel: undefined }, false, true);

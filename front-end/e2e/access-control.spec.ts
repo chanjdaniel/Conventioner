@@ -51,7 +51,6 @@ async function createTestOrg(
   const createRes = await request.post(`${BACKEND_URL}/organizations`, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Owner-Email': TEST_USER.email,
     },
     data: { name: orgName },
   });
@@ -71,7 +70,6 @@ async function addOrgMember(
   const res = await request.post(`${BACKEND_URL}/organizations/${orgId}/members`, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Owner-Email': TEST_USER.email,
     },
     data: { user_email: userEmail },
   });
@@ -90,7 +88,6 @@ async function createMarket(
   const res = await request.post(`${BACKEND_URL}/markets`, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Owner-Email': TEST_USER.email,
     },
     data: {
       name,
@@ -117,9 +114,7 @@ async function apiGetMarket(
   marketId: string,
 ): Promise<{ status: number; body: unknown }> {
   await loginViaApi(request, BACKEND_URL, email, password);
-  const res = await request.get(`${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`, {
-    headers: { 'X-Owner-Email': email },
-  });
+  const res = await request.get(`${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`);
   let body: unknown;
   try {
     body = await res.json();
@@ -202,7 +197,6 @@ test.describe('Market visibility - explicit role', () => {
     const roleRes = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Owner-Email': TEST_USER.email,
       },
       data: { user_email: EXPLICIT_USER.email, role: 'viewer' },
     });
@@ -295,7 +289,6 @@ test.describe('Market visibility - org membership changes', () => {
         {
           headers: {
             'Content-Type': 'application/json',
-            'X-Owner-Email': TEST_USER.email,
           },
         },
       );
@@ -365,7 +358,7 @@ test.describe('Market visibility - org deletion', () => {
     // An explicit role, so Phase 3 proves the market is GONE rather than merely unreachable.
     await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
     await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      headers: { 'Content-Type': 'application/json' },
       data: { user_email: TEST_USER.email, role: 'owner' },
     });
 

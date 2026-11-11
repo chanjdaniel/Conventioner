@@ -147,18 +147,18 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/login');
 
-    const gapUnderBanner = async () =>
+    const gapUnderAppBar = async () =>
       page.evaluate(() => {
-        const banner = document.querySelector('.app-container > header') as HTMLElement;
+        const appBar = document.querySelector('.app-container > header') as HTMLElement;
         const title = document.querySelector('[data-testid="market-bar-title"]') as HTMLElement;
         const card = title.closest('[data-testid="market-frame-card"]') as HTMLElement;
-        return Math.round(card.getBoundingClientRect().top - banner.getBoundingClientRect().bottom);
+        return Math.round(card.getBoundingClientRect().top - appBar.getBoundingClientRect().bottom);
       });
 
     for (const tab of ['applications', 'setup', 'form', 'settings']) {
       await page.goto(marketSetupPath(draft.marketId, tab));
       await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
-      expect(await gapUnderBanner(), `the ${tab} tab is not at the top`).toBe(0);
+      expect(await gapUnderAppBar(), `the ${tab} tab is not at the top`).toBe(0);
     }
   });
 
@@ -182,10 +182,9 @@ test.describe('Every organizer screen sizes itself the same way', () => {
           measure.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
           const label = select.options[select.selectedIndex]?.text ?? '';
           const needed = measure.measureText(label).width;
-          const box = select.getBoundingClientRect();
-          // 18px for the native arrow.
+          // The room for the value: the box less its padding, which holds the chevron's room too.
           const room =
-            box.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 18;
+            select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
           return needed > room
             ? `"${label}" needs ${Math.round(needed)}px, has ${Math.round(room)}px`
             : '';

@@ -374,12 +374,12 @@ export function detectLayout(opts: DetectOptions): Finding[] {
       leaves.push({ el, r });
     }
 
-    // Tap targets. A link inside a run of text is exempt (WCAG 2.5.8's inline exception), but not
-    // one drawn as a block of its own beside that text, and a control's label is a target for it
-    // too: tapping "Gold" ticks the 20px box beside it.
+    // Tap targets, a details' summary among them. A link inside a run of text is exempt (WCAG
+    // 2.5.8's inline exception), but not one drawn as a block of its own beside that text, and a
+    // control's label is a target for it too: tapping "Gold" ticks the 20px box beside it.
     if (
       el.matches(
-        'a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=tab],[role=menuitem],[role=checkbox],[role=radio],[role=switch]',
+        'a[href],button,summary,input:not([type=hidden]),select,textarea,[role=button],[role=tab],[role=menuitem],[role=checkbox],[role=radio],[role=switch]',
       )
     ) {
       const inlineLink =
@@ -539,7 +539,7 @@ export function detectLayout(opts: DetectOptions): Finding[] {
   return findings;
 }
 
-/** px, the most of a phone's window the banner and a market's pinned frame may take (T142). */
+/** px, the most of a phone's window the app bar and a market's pinned frame may take (T142). */
 export const PINNED_MAX = 150;
 
 /** The bottom of what stays pinned at the window's top, and the element whose bottom it is. */

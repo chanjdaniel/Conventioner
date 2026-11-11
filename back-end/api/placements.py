@@ -16,6 +16,7 @@ the tiers, sections and table counts the whole assignment is computed from, so w
 one vendor between two seats" protects nothing.
 """
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from assignment.assignment import (
@@ -26,6 +27,8 @@ from assignment.assignment import (
 )
 from assignment.utils import convert_keys_to_camel_case
 from datatypes import (
+    FULL_TABLE,
+    TABLE_CHOICES,
     Market,
     MarketPhase,
     SectionObject,
@@ -41,13 +44,6 @@ import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError, ForbiddenError
 import history as History
 from utils.email_address import normalized_email
-
-# The three seats a table holds. A table holds two, and a placement therefore always names a
-# side: "the vendor at Front Row 1" is not an address anyone can stand at.
-FULL_TABLE = "Full Table"
-HALF_TABLE_LEFT = "Half Table (Left)"
-HALF_TABLE_RIGHT = "Half Table (Right)"
-TABLE_CHOICES = (FULL_TABLE, HALF_TABLE_LEFT, HALF_TABLE_RIGHT)
 
 
 class PlacementError(BadRequestError):
@@ -316,6 +312,8 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     # Read before the run, which replaces the market's assignment with the one it produced.
     read_revision = market.assignment_object.revision
     market.assignment_object.assignment_statistics = None
+    # Raises ``BrokenAllocationError`` on an allocation that breaks the solver's own rules (T253),
+    # so nothing below it runs then: no store, no history entry, no payment change.
     assigned_market = assign_market(market, vendors)
     assignment = assigned_market.assignment_object
 
@@ -349,6 +347,16 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     return payload, 200
 
 
+def _said_day(date: str) -> str:
+    """A market date as the screens say it, "May 1, 2099"; one that is not a calendar day as
+    stored."""
+    try:
+        day = datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return date
+    return f"{day:%b} {day.day}, {day.year}"
+
+
 def write_placement(
     market_id: str, placement_data: Dict[str, Any], requesting_user: str
 ) -> Tuple[Dict[str, Any], int]:
@@ -377,8 +385,8 @@ def write_placement(
     if occupant is not None:
         raise SeatTakenError(
             f"{occupant.email} already holds {placement.table_code} "
-            f"({occupant.table_choice}) on {placement.date}. "
-            "Free that seat first, or swap the two vendors."
+            f"({occupant.table_choice}) on {_said_day(placement.date)}. "
+            "Choose another seat, or swap the two vendors."
         )
 
     stored = market.assignment_object.vendor_assignments

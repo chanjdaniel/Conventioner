@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { blockerLink } from '@/utils/blockerLink';
+import { isHere } from '@/utils/market';
 
 const props = withDefaults(
   defineProps<{
@@ -22,7 +23,6 @@ const props = withDefaults(
 );
 
 const route = useRoute();
-const router = useRouter();
 
 /**
  * Each blocker with its resolution link kept only where following it would go somewhere, and only
@@ -35,18 +35,17 @@ const router = useRouter();
  * the organizer concludes the panel is broken rather than that they are already where they need
  * to be (E14/F01/S03).
  *
- * The comparison is `router.resolve(...).fullPath` against the current one, so a link is a link to
- * a place rather than a string: `/markets/<id>/applications` and the same page reached by clicking
- * its tab match. It is NOT normalisation - a different query order or an extra parameter
- * reads as a different place - so a guard's link must be spelled as the route it lands on, and must
- * not be a redirect, which `resolve` does not follow.
+ * The page is judged by `isHere`, as the rail judges its own links (T206): the same path, and every
+ * query value the link names held by the current address. So a link to `applications` is here on
+ * One by one (`applications?view=one`), and a link to `form?step=review` is not here on the form's
+ * first step. A guard's link must be spelled as the route it lands on, and must not be a redirect.
  */
 const rows = computed(() =>
   props.blockers.map((blocker) => {
     const link = blockerLink(props.market, blocker);
     return {
       blocker,
-      fixLink: link && router.resolve(link).fullPath !== route.fullPath ? link : null,
+      fixLink: link && !isHere(link, route) ? link : null,
     };
   }),
 );

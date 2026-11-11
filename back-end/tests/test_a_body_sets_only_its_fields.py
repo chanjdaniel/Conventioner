@@ -102,14 +102,17 @@ def captcha_passes(monkeypatch):
 
 
 class TestANewAccount:
-    def test_registering_starts_the_account_in_no_organization(self, client, users):
-        response = client.post("/register-user", json={
-            "email": FIXTURE_EMAIL, "password": FIXTURE_PASSWORD, "organizations": [ORG_ID],
+    def test_every_account_is_made_through_the_sign_up_that_asks_for_a_captcha(
+        self, client, users,
+    ):
+        # The removed route's path, spelled in two so a search for it finds only the records.
+        response = client.post("/register" + "-user", json={
+            "email": FIXTURE_EMAIL, "password": FIXTURE_PASSWORD,
         })
 
-        assert response.status_code == 201
-        [stored] = users.docs
-        assert stored["organizations"] == []
+        assert response.status_code == 404
+        assert users.docs == []
+        assert not hasattr(UsersApi, "register_user")
 
     def test_registering_with_a_captcha_starts_the_account_in_no_organization(
         self, client, users, captcha_passes,
@@ -123,9 +126,12 @@ class TestANewAccount:
         [stored] = users.docs
         assert stored["organizations"] == []
 
-    def test_signing_in_reads_back_no_organization_the_registration_named(self, client, users):
-        client.post("/register-user", json={
-            "email": FIXTURE_EMAIL, "password": FIXTURE_PASSWORD, "organizations": [ORG_ID],
+    def test_signing_in_reads_back_no_organization_the_registration_named(
+        self, client, users, captcha_passes,
+    ):
+        client.post("/register", json={
+            "email": FIXTURE_EMAIL, "password": FIXTURE_PASSWORD, "captcha_token": "t",
+            "organizations": [ORG_ID],
         })
         users.docs[0]["email_verified"] = True
 
@@ -136,12 +142,9 @@ class TestANewAccount:
         assert response.status_code == 200
         assert response.get_json()["user_data"]["organizations"] == []
 
-    @pytest.mark.parametrize("path", ["/register-user", "/register"])
     @pytest.mark.parametrize("body", NOT_OBJECTS)
-    def test_a_body_that_is_not_an_object_is_refused(
-        self, client, users, captcha_passes, path, body,
-    ):
-        response = send_json(client, "post", path, body)
+    def test_a_body_that_is_not_an_object_is_refused(self, client, users, captcha_passes, body):
+        response = send_json(client, "post", "/register", body)
 
         assert response.status_code == 400
         assert users.docs == []

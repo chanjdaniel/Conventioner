@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/DiscordRoleReport.vue
   - front-end/src/components/ExportVendorsForm.vue
   - front-end/src/components/ColumnChecklist.vue
-verified: 2026-11-08
+verified: 2026-11-10
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -40,6 +40,7 @@ sources:
   - T210
   - T217
   - T223
+  - T263
 ---
 
 # Vendors
@@ -74,6 +75,7 @@ When the server cannot say where vendors sit, the page shows its reason above th
 
 Before a run the page lists the vendors and says nothing is assigned yet.
 Covered by:
+
 - `lists-at-scale.spec.ts`, 120 vendors at 1280 and 390
 - `placing-someone-not-approved.spec.ts`
 - `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, the refused read
@@ -86,6 +88,7 @@ Covered by:
 From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Assignments page.", with Name and Email, each marked required; on a market whose price groups read questions of its own form, "Their price is set by these answers." and each of those questions, required, a checkbox's unticked state its answer; "Add vendor", offered once each is answered.
 They are listed as "Added" and Unassigned until seated, offered under "Added by hand" in the place dialog ([J6](placing-by-hand.md#j6-place-a-vendor-in-an-empty-seat)), and never placed by a run ([adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md)).
 Covered by:
+
 - `adding-a-vendor.spec.ts`
 - `an-added-vendor-is-unassigned.spec.ts`
 - `the-price-answers.spec.ts`
@@ -96,6 +99,7 @@ Covered by:
 On the drawer's Assignments tab each date the vendor did not get states why, in words: "Not available on this date", "Already has as many dates as they asked for", "Already has as many dates as the market allows per vendor", "No table at a tier they accept", "Every table they accept is taken", or "A table is free - they could be assigned".
 Only the last offers "Assign them", which opens the Assignments page on that date, searched for them; a date stopped by a limit offers no placing.
 Covered by:
+
 - `vendors-and-limits.spec.ts`
 - `vendors.spec.ts` ("an unplaced vendor is opened from the payoff screen and told why")
 
@@ -137,6 +141,7 @@ An amount is the server's own, written from whole cents, so it is left as it is:
 Where a minus would lead a currency's letters, as "-A$15.00", "-US$15.00" or "-NZ$15.00" would, each a minus and a cell reference that Excel evaluates, the amount is written with the minus sign "−" (U+2212) instead, which no spreadsheet reads as a formula.
 No column set is saved between exports yet.
 Covered by:
+
 - `back-end/tests/test_exporting_vendors.py`
 - `back-end/tests/test_the_exports_money_columns.py`
 - `exporting-a-payment-reminder.spec.ts` ("Owes" gives exactly the vendors whose Payment tab reads "Owes", with what it says they owe, and the Payments page's "Owes" list)
@@ -155,7 +160,7 @@ Covered by:
 On a market connected to a Discord server with a username question chosen ([the Discord connection](../../implementation/modules/discord.md#who-is-in-the-server)), the organizer finds who has joined, so they can ask the rest, by email, to join or to correct their username (T92 Q10).
 
 1. "Check Discord", above the list, for an Admin or the owner (the table's "Connect Discord and give roles" row), reads the server's members and matches each vendor's username to theirs, by username alone, never a display name; it reads "Checking Discord…" while it runs.
-2. Each row then shows the vendor's state: "Has the role", "In the server", "Not found" (not joined yet, or the username is wrong, which cannot be told apart) or "No username"; and two that say more: "Possible match", a vendor not found who was offered a member whose name looks like their username ([J17](#j17-answer-a-possible-discord-match)), and "Check again", a vendor whose username was updated after the check, which their state was not read for; the server works both out, so the page, the drawer and the export agree.
+2. Each row then shows the vendor's state: "Has the role", "In the server", "Not found" (not joined yet, or the username is wrong, which cannot be told apart) or "No username"; and two that say more: "Possible match", a vendor not found who was offered a member whose name looks like their username ([J20](#j20-answer-a-possible-discord-match)), and "Check again", a vendor whose username was updated after the check, which their state was not read for; the server works both out, so the page, the drawer and the export agree.
 3. The "Discord" filter lists the vendors shown in one of those six, each with how many are in it; it stays in the address, so a link to "Not found" is the list of whom to email, and Export opens on it ([J15](#j15-export-the-vendors-to-a-csv)).
 4. "Checked 5 minutes ago" says when the states were read; they change only when someone checks again.
 
@@ -166,12 +171,13 @@ Each row's columns keep their place down the list at every width: the Discord st
 
 A check that cannot run says why on a row of its own under the actions: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took too long to list the server's members ("Check Discord again"), or the bot is no longer in the server.
 Covered by:
+
 - `back-end/tests/test_discord_connection.py`
 - `giving-the-discord-role.spec.ts` (where the row's filter, actions and error stand at 1280, 390 and 320)
 - `who-is-in-the-discord-server.spec.ts`
 - `whoIsInTheDiscordServer.test.ts`
 
-## J17. Answer a possible Discord match
+## J20. Answer a possible Discord match
 
 **Status:** Works against the stack's fake Discord (E46/F01/S05, `possible-discord-matches.spec.ts`); not yet walked against a real server.
 A vendor often writes a display name, a real name or a shop's name where the form asks for a Discord username, and the check, which matches by username alone, does not find them ([J16](#j16-see-who-is-in-the-discord-server)).
@@ -185,6 +191,7 @@ For such a vendor it offers the members whose username, display name or server n
 Someone either row refuses reads the members offered with no control.
 Both are in [the market's history](reading-the-markets-history.md) and the vendor's own: the update as every update is, and "said the Discord member @<username> is not <vendor>".
 Covered by:
+
 - `back-end/tests/test_discord_connection.py` (`TestPossibleMatches`, `TestWhatThePageShows`)
 - `possible-discord-matches.spec.ts`
 - `possibleDiscordMatches.test.ts`
@@ -202,11 +209,12 @@ The card points here: its "Giving roles" block says what is still missing, and o
    It asks Discord for under a minute: the vendors it had no time for are "Not given yet", and running it again gives them.
 4. Its report ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)) stays above the list for everyone who reads the page: "Vendor Nov 2026, last run 5 minutes ago", how many ended in each group ("2 given, 1 already had it, 1 not found, 1 no username"), and "Show who" opens a dialog, titled with that same line, of each group's vendors, a failure's reason, or why the rest are not given yet, said once for the vendors it held back, so a long list never pushes the table down.
    Past 12 vendors the dialog opens on "Find by name or address" and shows 50 at a time, "Show N more" drawing the next, each group's outcome, whole count and reason standing over its first vendor shown, so the organizer of a market of every vendor finds one in it rather than reading down (T223); at 12 or fewer it reads with no field.
-   A vendor the run did not find whom the check now offers a possible match ([J17](#j17-answer-a-possible-discord-match)) is counted beside "not found", as their row says it: "1 not found (1 possible match)", and the group says "1 has a possible match to confirm or decline."
+   A vendor the run did not find whom the check now offers a possible match ([J20](#j20-answer-a-possible-discord-match)) is counted beside "not found", as their row says it: "1 not found (1 possible match)", and the group says "1 has a possible match to confirm or decline."
 
 **A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
 Covered by:
+
 - `back-end/tests/test_discord_connection.py`
 - `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, "Show who" over a table that stays put, its body scrolling under its title, a report of 12 opened by a mouse on its body with no halo, its ways of closing, and it and Give roles inside the window there)
 - `givingTheDiscordRole.test.ts`

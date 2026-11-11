@@ -205,14 +205,40 @@ test.describe('The reviewed applications, in a dialog', () => {
 
     await expect(monitor.decidedDialog).toBeVisible();
     await expect(monitor.decidedRows).toHaveCount(100);
-    await expect(monitor.decidedEmails.first()).toHaveText(row);
+    await expect(monitor.decidedEmails.nth(80)).toHaveText(row);
 
     // Tab goes on from that row, to the next row's change.
     await page.keyboard.press('Tab');
-    await expect(monitor.decidedRows.nth(1).getByRole('button')).toBeFocused();
+    await expect(monitor.decidedRows.nth(81).getByRole('button')).toBeFocused();
 
     await monitor.closeDecided();
     await expect(monitor.email).toHaveText(up);
+  });
+
+  test('a changed row keeps its place while the dialog is open, and leads the list once it reopens', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const monitor = await theCardUp(page, await aMarket(request));
+    const firstFive = () =>
+      monitor.decidedEmails.evaluateAll((emails) =>
+        emails.slice(0, 5).map((email) => email.textContent?.trim()),
+      );
+    await monitor.openDecided();
+    expect(await firstFive()).toEqual([1, 2, 3, 4, 5].map(address));
+
+    // Row 3 was rejected and row 2 approved: each change is the newest verdict, and neither moves.
+    await monitor.changeButton('approve', address(3)).click();
+    await expect(monitor.decidedStatusOf(address(3))).toHaveText('Approved');
+    expect(await firstFive()).toEqual([1, 2, 3, 4, 5].map(address));
+    await monitor.changeButton('reject', address(2)).click();
+    await expect(monitor.decidedStatusOf(address(2))).toHaveText('Rejected');
+    expect(await firstFive()).toEqual([1, 2, 3, 4, 5].map(address));
+    await expect(monitor.changeButton('reject', address(3))).toBeEnabled();
+
+    await monitor.closeDecided();
+    await monitor.openDecided();
+    expect(await firstFive()).toEqual([2, 3, 1, 4, 5].map(address));
   });
 
   test('a change the server refuses is said in the dialog, and the card stays', async ({

@@ -216,5 +216,4 @@ export interface MarketSchema {
       name: string;
     }[];
   };
-  userRole?: string;
 }

@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
   - front-end/src/components/elements/ElementPricing.vue
-verified: 2026-11-04
+verified: 2026-11-10
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -29,6 +29,7 @@ sources:
   - E43/F01/S02
   - T205
   - T217
+  - T263
 ---
 
 # Planning the market
@@ -47,6 +48,7 @@ Any pending edit is saved before a phase move, so the guards judge what the orga
 The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
 The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, tables at every tier, and Review setup's two decisions ([the lifecycle](lifecycle.md#what-refuses-a-move), [review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
 Covered by:
+
 - `plan-saves-once.spec.ts`
 
 **Task for the section:** "Your market runs on two Saturdays in October in Pier Hall, with 4 premium tables in the North Row and 6 standard tables in the South Row. Set that up."
@@ -69,6 +71,7 @@ It accepts a date in the past without comment; leaving Draft is refused while on
 Each day is a toggle button named by its full date ("Monday, November 20, 2023").
 The solver fills the dates one at a time, in the order they were picked ([dates fill one at a time, in the plan's order](../rules/dates-fill-in-calendar-order.md)).
 Covered by:
+
 - `date-display-timezone.spec.ts`
 - `market-dates-by-month.spec.ts`
 
@@ -89,6 +92,7 @@ A market needs at least one before it leaves Draft.
 "+" adds a row of name, Location, Tier and Count; "Total tables" sums the counts; tables are named after their section ("North Row 1" to "North Row 4").
 A section may have no tier; a plan without tiers assigns, and its form asks no tier preference (bug 23; re-walked live as P1).
 Covered by:
+
 - `alignment.spec.ts`
 - `market-pipeline.spec.ts`
 - `plan-cards-share-a-row.spec.ts`
@@ -106,6 +110,7 @@ Under it, "Draft from a Google Form's responses" opens the start from a Google F
 A help line under the button says, by the choice above as it is clicked, that it drafts the market's dates, tiers and questions and imports no one, and how vendors come in after: on the market's page, or by Import responses, the phase rail's next step, once the market is ready (T205).
 A market whose vendors are imported has applicant pages that answer exactly as a nonexistent market's ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 Covered by:
+
 - `intake-mode.spec.ts`
 - `where-a-form-starts.spec.ts`
 
@@ -118,14 +123,17 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
 2. `/markets/<id>/floorplan`, a five-step wizard with "← Back" and "Next →":
    1. **Upload:** "Drop a floorplan image or PDF here, or choose a file", the app's one drop zone (PNG, JPG, WebP or PDF; a PDF of more than one page asks which page).
    2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
-   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted.
-   4. **Edit Layout:** draw walls and no-go zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
+   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted, and when fewer did, whether the room had no space for the rest or Auto-Place ran out of time before them.
+   4. **Edit Layout:** draw walls and obstacle zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
    5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" writes the sections to the plan.
+      The market opens afterwards with the floorplan's sections and locations and the rest of its plan as it was, or an empty plan when none had been saved, and saving again replaces the floorplan rather than adding a copy.
 
 The wizard makes no AI calls; placement is a geometry solver ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
 Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
 Covered by:
+
+- `a-floorplan-save-keeps-the-market-readable.spec.ts`
 - `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures)
 - `the-floorplan-beta-places-tables.spec.ts`
 
@@ -155,6 +163,7 @@ What else freezes, and when:
 **Status:** Works (re-walked live on 2026-10-03).
 While the market is a draft, the "Application form" card says what the plan still lacks ("Add dates, tiers, two or more sections above, and this form will have something to ask about."), offers "Build the application form" once it can, and once the form has questions of its own or is locked says so, with "Open the application form" or "See the application form" (bug 16).
 Covered by:
+
 - `the-words-say-what-is-true.spec.ts` ("the plan says what the application form is")
 
 ## E9. Pricing
@@ -168,7 +177,7 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
    A vendor pays the cheapest group they are in at their table's tier, and "Everyone else" when they are in none ([a price follows the table](../rules/a-price-follows-the-table.md#price-groups)).
    A condition on a question the form no longer asks, or an answer it no longer offers, is drawn red with what is missing, headed "A question no longer on the form" where the question is gone, and until it is fixed Open applications waits, the rail naming the group, and from another page of the market the rail offers "Fix the price groups".
    A form that asks no question with answers to choose offers no group: the card says every vendor pays "Everyone else".
-   A table of many tiers too wide for the card scrolls inside it, a shade at the end with more beyond it.
+   A table of many tiers too wide for the card scrolls inside it, a shade at the end with more beyond it, under its caption ("A full table for one market day, in CAD"), which stays in view.
 2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
 3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
 4. Expect "Plan saved"; a cell shows what is typed until it is left, then the price as kept in the market's currency ("35.5" becomes "$35.50", "US$35.50" in US dollars, and a currency picked re-reads every cell); focused again, it gives the plain number, "35.50" ([an amount reads to the cent](../rules/an-amount-reads-to-the-cent.md#an-amount-field)).

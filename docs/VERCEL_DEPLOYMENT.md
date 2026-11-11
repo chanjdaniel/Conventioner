@@ -4,7 +4,9 @@ kind: runbook
 describes:
   - back-end/vercel.json
   - front-end/vercel.json
-verified: 2026-10-28
+verified: 2026-11-09
+sources:
+  - T254
 ---
 
 # Building Production on Vercel
@@ -38,13 +40,13 @@ MongoDB Atlas is not in Vercel's Marketplace; it is set up in Atlas directly.
 
 Both import this repository from GitHub, each with its own root directory:
 
-| | Front end | Back end |
-| --- | --- | --- |
-| Root directory | `front-end` | `back-end` |
-| Framework preset | Vite (build `npm run build`, output `dist`) | Python (install `pip install -r requirements.txt`) |
-| Runtime | Node 24.x (build only), from `front-end/package.json`'s `engines` | Python 3.12, from `back-end/.python-version` |
+|                    | Front end                                                                                                                                                                                                                                     | Back end                                                                                                                                                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Root directory     | `front-end`                                                                                                                                                                                                                                   | `back-end`                                                                                                                                                                                                                               |
+| Framework preset   | Vite (build `npm run build`, output `dist`)                                                                                                                                                                                                   | Python (install `pip install -r requirements.txt`)                                                                                                                                                                                       |
+| Runtime            | Node 24.x (build only), from `front-end/package.json`'s `engines`                                                                                                                                                                             | Python 3.12, from `back-end/.python-version`                                                                                                                                                                                             |
 | Config in the repo | [`front-end/vercel.json`](../front-end/vercel.json): every path that is not a file serves `index.html`, so deep links work, and every path carries the [security headers](implementation/conventions/security-invariants.md#security-headers) | [`back-end/vercel.json`](../back-end/vercel.json): Fluid compute on, so a request may run for 300 seconds, the Hobby plan's default and maximum, which a ["Give roles" run](implementation/modules/discord.md#giving-the-role) relies on |
-| Custom domain | `conventioner.io` | `api.conventioner.io` |
+| Custom domain      | `conventioner.io`                                                                                                                                                                                                                             | `api.conventioner.io`                                                                                                                                                                                                                    |
 
 The back end's Functions settings keep the Default Max Duration at its 300 seconds: `back-end/vercel.json` sets no `maxDuration`, so a lower default there would end a "Give roles" run, which asks Discord for up to 50 seconds, before it writes what it did.
 
@@ -62,15 +64,17 @@ Set on each project's **Production** environment (Settings, Environment Variable
 The back end needs `MONGODB_URI`, `SECRET_KEY`, `SESSION_TYPE=null`, `CORS_ALLOWED_ORIGINS`, `TRUSTED_PROXY_HOPS=1`, `FRONTEND_URL`, `FROM_EMAIL`, `RESEND_API_KEY` and `RECAPTCHA_SECRET_KEY` (and optionally `TYPESAFE_API_KEY`, and `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` together); the front end needs `VITE_FLASK_HOST` and `VITE_RECAPTCHA_SITE_KEY` at build time.
 Nothing reads `FLASK_ENV`, `USE_HTTPS`, `MONGODB_DB` or the separate `MONGODB_HOST`/`MONGODB_USER`/`MONGODB_PASSWORD` variables in production; do not set them.
 
-All six of `SECRET_KEY`, `SESSION_TYPE`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY` and `TRUSTED_PROXY_HOPS` are **boot-time requirements**: the function refuses to start without them, so a deployment that is missing one serves nothing at all.
+All eight of `SECRET_KEY`, `SESSION_TYPE`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `FRONTEND_URL`, `FROM_EMAIL` and `TRUSTED_PROXY_HOPS` are **boot-time requirements**: the function refuses to start without them, so a deployment that is missing one serves nothing at all.
 See [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment) for what each one defends and what an unset value would do.
+Never set `ALLOW_INSECURE_LOCAL_DEV`, `DISABLE_CAPTCHA`, `DISABLE_EMAIL` or `DISCORD_FAKE` on either project: the back end refuses to start with any of them on ([a deployed host refuses local switches](RELEASING.md#a-deployed-host-refuses-local-switches)).
+Tick "Enable access to System Environment Variables" in the back-end project's Environment Variables settings, so its runtime sees `VERCEL` and `VERCEL_ENV`; the Deploy workflow refuses a back end that does not.
 
 `TRUSTED_PROXY_HOPS=1` is the right answer on Vercel: a request reaches the function through Vercel's own ingress, so the peer address Flask sees is the ingress, not the caller.
 That address is what organizer signup reports to Google as reCAPTCHA's `remoteip`, and reCAPTCHA v3 scores on it - so a function that has not been told about the hop in front of it reports the same client for every signup in the world.
 Do not raise it above the number of proxies you actually own: `X-Forwarded-For` is written by the caller, and a hop you do not own is a hop the caller fills in.
 
 The three secrets above are written as `<...>` on purpose, and pasting one of those brackets in verbatim is refused: **every value this repository has printed where a secret goes is rejected by name**, along with anything shaped like a placeholder (a run of x's, a `your-` prefix).
-This guide used to print `RESEND_API_KEY=your-resend-api-key` and `RECAPTCHA_SECRET_KEY=6Lcxxxxx...` as if they were fill-in values, and a placeholder is *truthy* - so a deployment that copied one passed the boot check with a secret that cannot do its job, and the failure landed later, as a 500 that named nothing.
+This guide used to print `RESEND_API_KEY=your-resend-api-key` and `RECAPTCHA_SECRET_KEY=6Lcxxxxx...` as if they were fill-in values, and a placeholder is _truthy_ - so a deployment that copied one passed the boot check with a secret that cannot do its job, and the failure landed later, as a 500 that named nothing.
 
 `SECRET_KEY` must be **generated**, not typed: it refuses the old `TEMP_KEY_CHANGE_IN_PRODUCTION` fallback and every placeholder this repo has published, because each is readable by anyone who can read it.
 It also refuses anything under 32 characters.
@@ -93,8 +97,8 @@ The back end no longer waves that through - it has a real secret now, and Google
 
 1. In GitHub, create the environment `production` and in it the secret `VERCEL_TOKEN` (a Vercel token scoped to the team); add the repository variables `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID`.
 2. Run the **Deploy** workflow from `main` (Actions, Deploy, Run workflow, or `gh workflow run deploy.yml --ref main`); it is the only way production moves (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
-   It deploys the back end, waits for `/healthz` and checks its security headers, then deploys the front end and checks a deep link and its security headers.
-3. If a domain still serves an older build afterwards, the project is in Vercel's rolled-back state: promote the new deployment once (`vercel promote <deployment>`), and later deploys reach the domain again.
+   It refuses a commit whose Test run on `main` has not passed, builds both projects as production deployments that take no domain and proves each on its own address, then promotes the back end, waits until `api.conventioner.io` serves the new commit, promotes the front end and waits for `conventioner.io`, checking that the back end sees it is deployed with its hatch off, each domain's security headers and the front end's deep link.
+3. The deploy promotes each build itself, so a project left in Vercel's rolled-back state is put back on the new build by the run; when a run refuses or a domain does not move, [when a deploy refuses or times out](RELEASING.md#when-a-deploy-refuses-or-times-out) says what to do.
 
 ## Troubleshooting a back end that will not boot
 
@@ -102,7 +106,8 @@ The back end no longer waves that through - it has a real secret now, and Google
 - **MongoDB Connection Issues**: Check your MongoDB Atlas network access settings
 - **Session Issues**: Verify `SESSION_TYPE=null` is set for Vercel. There is no default - the function refuses to boot without it - and `filesystem` is a store a serverless function does not keep between requests.
 - **CORS Issues**: Ensure `CORS_ALLOWED_ORIGINS` lists your frontend's origin exactly as the browser sends it (`https://conventioner.io` - scheme and host, no trailing slash, no path). A preview deployment served from a different domain is a different origin and has to be listed too. `FRONTEND_URL` is used for the links in outgoing mail and for Discord's OAuth2 redirect (`FRONTEND_URL` + `/discord/connected`), and has no say in CORS.
-- **"Refusing to start: N of the things this app's public surface rests on are not configured"**: one or more of `SECRET_KEY`, `SESSION_TYPE`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `TRUSTED_PROXY_HOPS` is unset. The log names every one of them, and each names what it defends, delivers or stores. Set them and redeploy; do not work around it by setting `ALLOW_INSECURE_LOCAL_DEV`, which turns all of that off. See [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment).
+- **"Refusing to start: N of the things this app's public surface rests on are not as a deployment needs them"**: one or more of the eight, `SECRET_KEY`, `SESSION_TYPE`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `FRONTEND_URL`, `FROM_EMAIL`, `TRUSTED_PROXY_HOPS`, is unset or unusable, or a local switch is on. The log names every one of them, and each names what it defends, delivers or stores. Set them and redeploy; do not work around it by setting `ALLOW_INSECURE_LOCAL_DEV`, which turns all of that off. See [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment).
+- **"This process runs on a deployed host (`VERCEL` is set, and only the platform sets it), and ... on"**: `ALLOW_INSECURE_LOCAL_DEV`, `DISABLE_CAPTCHA`, `DISABLE_EMAIL` or `DISCORD_FAKE` is on in the back-end project's environment, or a `back-end/.env` was deployed. Remove each one it names and redeploy ([RELEASING.md](./RELEASING.md#a-deployed-host-refuses-local-switches)).
 - **"`SECRET_KEY` is set to a value this repository has published"**: the key you set is one of the placeholders or fallbacks that appear in this repo (or its history), so it is readable by anyone who can read the repo. Generate a real one with `python -c 'import secrets; print(secrets.token_urlsafe(48))'`. This ends every session signed with the old key, so organizers log in again once - that is the cost of the key not being public.
 - **"`RECAPTCHA_SECRET_KEY` / `RESEND_API_KEY` is set to a placeholder this repository has printed"**: the value you set is one of the example strings from an env template or an older version of this guide (`6Lcxxxxx...`, `re_xxxxx...`, `your-...`), not a secret an issuer ever gave you. Google and Resend both reject it, so the captcha would fail every signup and no verification mail would ever be delivered - a check that passed on a value nothing works with is the failure this refusal exists to move to boot time. Set the real key from the linked console, or, if this is a local machine, clear the variable and set `ALLOW_INSECURE_LOCAL_DEV=true` with `DISABLE_CAPTCHA=true` / `DISABLE_EMAIL=true`.
 - **"The market-document migration has not been applied to this database"**: the function is refusing to boot because it cannot confirm the migration (see step 5 above). Run `migrations/migrate_market_keys.py` against the Atlas database and redeploy. The same error appears when the marker simply cannot be read - an unknown migration state is treated as unmigrated - so check network access too.

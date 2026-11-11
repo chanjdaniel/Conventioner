@@ -54,7 +54,8 @@ def today() -> Date:
 
 def _too_many(retry_after: Optional[int]):
     """The check-in's refusal for a limit that says to wait, or None (``sign_in_limits.too_many``)."""
-    return sign_in_limits.too_many(retry_after, "check-in", key="error")
+    return sign_in_limits.too_many(
+        retry_after, "Too many check-in attempts. Please try again in {wait}.", key="error")
 
 
 def _refused(message: str, status: int):
@@ -95,7 +96,7 @@ def _within_the_window(day: str) -> bool:
 
 def check_in(market_slug: str) -> Tuple[Any, int]:
     """Handle POST /public/markets/<slug>/vendor/check-in ``{date, doorCode}``."""
-    caller = request.remote_addr or "unknown"
+    caller = sign_in_limits.caller()
     token, refused = _signed_in_vendor()
     if refused:
         return refused

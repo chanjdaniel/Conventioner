@@ -9,7 +9,7 @@ describes:
   - back-end/tests/fixtures/component_library_fixture.py
   - back-end/tests/test_component_library_fixture.py
   - front-end/e2e/helpers/componentLibrary.ts
-verified: 2026-11-08
+verified: 2026-11-10
 sources:
   - T200
   - T191
@@ -19,6 +19,8 @@ sources:
   - T223
   - T217
   - T224
+  - T254
+  - T263
 ---
 
 # The component library
@@ -62,7 +64,7 @@ An entry is drawn from the parts in `parts/`:
 - `ChoicesForYou`: the note that ends an entry with choices left for Daniel, one item per choice; an entry whose choices are all answered has none.
 
 An entry's own parts sit beside these in `parts/`, such as `PagedApplicationRows` and `SeatRow`.
-The `combobox` entry draws [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) too: the real `ValueFixes` at 12 answers, a select, and at 13, a field, C1's long list of values through `ChoiceField`, which keeps no typed words, C2, "Maps to" as the import builds it, with two targets taken, and C12, "Add an answer", a choice that adds, and C13, the role on the Discord card, a choice that may go back to none.
+The `combobox` entry draws [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) too: the real `ValueFixes` at 12 answers, a select, and at 13, a field, C1's long list of values through `ChoiceField`, which keeps no typed words, its "Ignore this value" one of `leads`, C2, "Maps to" as the import builds it, with two targets taken, and C12, "Add an answer", a choice that adds, and C13, the role on the Discord card, a choice that may go back to none.
 The `list-frame` entry draws [`PagedList`](../../../front-end/src/components/PagedList.vue) beside `ListFrame`: a box of its own, a page that fails once until "Try again" brings it, and a body-scroll dialog whose body is the box, each with a `ReadOut` of how many it has read.
 Each pages the fixture's 359 applications 25 at a time through `pagedRead`, a short timer in the entry in place of a request, so a page is seen to land with no endpoint and no store.
 

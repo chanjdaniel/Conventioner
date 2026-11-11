@@ -27,6 +27,7 @@ sources:
   - E38/F04
   - E38/F15/S04
   - T207
+  - T260
 ---
 
 # The market lifecycle at a glance
@@ -73,14 +74,14 @@ The review stays closed while the market sits in Assignment ([verdicts settle on
 
 ## The phases
 
-| Phase (online path / Google Form path) | What happens here | Page it opens on | Forward step | More… |
-| --- | --- | --- | --- | --- |
-| Draft / Draft | Plan the market, build the form | Market Setup | Open applications / Import responses (the fix), then Begin review | Archive market |
-| Applications / Review | Online applications arrive and are reviewed as they do / every imported response is reviewed | Applications | Begin assignment | Stop taking applications or Take applications again / Redo import; Reopen for editing, Archive market |
-| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Settings, then Assignments once run | Publish market | Back to review (disabled once results are published), Archive market |
-| Offers (planned) | Vendors accept or refuse | Assignments once run, else Settings | Publish market | Archive market |
-| Market Days / Market Days | Vendors check in | Attendance | Archive market, once every date has passed | Archive market, until then |
-| Archived / Archived | Read only | Assignments if it was assigned, else Market Setup | none | none |
+| Phase (online path / Google Form path) | What happens here                                                                            | Page it opens on                                  | Forward step                                                      | More…                                                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Draft / Draft                          | Plan the market, build the form                                                              | Market Setup                                      | Open applications / Import responses (the fix), then Begin review | Archive market                                                                                        |
+| Applications / Review                  | Online applications arrive and are reviewed as they do / every imported response is reviewed | Applications                                      | Begin assignment                                                  | Stop taking applications or Take applications again / Redo import; Reopen for editing, Archive market |
+| Assignment / Assignment                | Set the rules, run, adjust by hand; on the online path, publish results                      | Settings, then Assignments once run               | Publish market                                                    | Back to review (disabled once results are published), Archive market                                  |
+| Offers (planned)                       | Vendors accept or refuse                                                                     | Assignments once run, else Settings               | Publish market                                                    | Archive market                                                                                        |
+| Market Days / Market Days              | Vendors check in                                                                             | Attendance                                        | Archive market, once every date has passed                        | Archive market, until then                                                                            |
+| Archived / Archived                    | Read only                                                                                    | Assignments if it was assigned, else Market Setup | none                                                              | none                                                                                                  |
 
 "Send offers" is never offered: Offers is a planned phase off the rail, which draws it only for a market actually in it.
 
@@ -88,16 +89,17 @@ The review stays closed while the market sits in Assignment ([verdicts settle on
 
 One sentence per phase and path names the one next step and, for someone who may take its action, links to the page where it is done ([the market guide](../../implementation/modules/market-guide.md), [what each role may do](../rules/what-each-role-may-do.md)).
 When the server would refuse that step, the sentence is its first blocker for someone who may put it right, or for everyone when it is a plain fact, such as "There are no applications for this market.", so the organizer reads what is wrong before trying.
+In Draft the form comes before Review setup: while the form has none of the organizer's own questions, it was not started from a Google Form's responses, and Review setup's decision is what the step waits on, the sentence says "Your form asks only the essential questions so far." and leads to drafting from the Google Form's responses or to Your questions, then names the open decision (T260).
 
-| Phase | Online path | Google Form path |
-| --- | --- | --- |
-| Draft | "Plan the market and its application form, then open applications." | "To begin review: Nothing has been imported yet. Import your Google Form's responses first.", once the plan is complete |
-| Applications / Review | "Applications are open on your vendor page: review them as they arrive. Every application is decided: Begin assignment.", or, stopped, "Your vendor page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin assignment." |
-| Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
-| Assignment, run | "Check the assignments, then publish the market: that opens check-in with the door code, and cannot be undone." | as the online path |
-| Assignment, results published | "Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone." | as the online path |
-| Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
-| Archived | "Archived: the record of what happened stays on its vendor page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
+| Phase                         | Online path                                                                                                                                                                             | Google Form path                                                                                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Draft                         | "Plan the market and its application form, then open applications."                                                                                                                     | "To begin review: Nothing has been imported yet. Import your Google Form's responses first.", once the plan is complete |
+| Applications / Review         | "Applications are open on your vendor page: review them as they arrive. Every application is decided: Begin assignment.", or, stopped, "Your vendor page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin assignment."                                      |
+| Assignment, nothing run       | "Set the rules and allocate tables."                                                                                                                                                    | as the online path                                                                                                      |
+| Assignment, run               | "Check the assignments, then publish the market: that opens check-in with the door code, and cannot be undone."                                                                         | as the online path                                                                                                      |
+| Assignment, results published | "Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone."                                                 | as the online path                                                                                                      |
+| Market Days                   | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened."                                             | as the online path                                                                                                      |
+| Archived                      | "Archived: the record of what happened stays on its vendor page." for a market that ran, else "Archived: this market is the record of what happened."                                   | as the online path                                                                                                      |
 
 Someone whose role the step is not reads instead what they may do there, and is led to it: a Viewer in Draft reads "The market is being planned. Read its plan on Market Setup.", in the stage what the stage is and "Read where each application stands." (on the Google Form path, "each response"), in Assignment that tables are not allocated yet or are, or that results are published, at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance." (E38/F15/S04).
 This holds while the step is refused too: what would refuse it, such as an application still waiting or a form market's results not yet published, is told only to someone who may put it right, save a plain fact that asks nobody to do anything.
@@ -115,28 +117,29 @@ The setup, the form and the assignment rules each say they are settled where the
 
 Each refusal is a blocker line under the rail and beside the move, before the click.
 
-| Move | Refused when | It says |
-| --- | --- | --- |
-| Leaving Draft (Open applications, the first import) | The plan has no dates, or a date has passed | "This market has no market dates. Pick them on Market Setup's calendar." / "N of this market's dates have already passed: …" |
-| Leaving Draft | The plan has no location | "This market has no location. Add one on Market Setup." |
-| Leaving Draft | The plan has no tables, or a tier has none | "This market has no tables yet. Add a section with tables on Market Setup." / "Tier X has no tables. …" |
-| Leaving Draft | The form asks nothing: no custom field, and the plan offers no dates, no tiers and fewer than 2 sections | "The application form asks nothing. …" |
-| Leaving Draft | Nothing says what a reviewer reads first: no answer the market asks is marked to lead the card, and "Nothing leads the card" is not chosen | "Nothing says what a reviewer reads first. On Review setup, tick the answers that lead the card, or choose Nothing leads the card." |
-| Leaving Draft | The automatic rejections are not decided: no rule rejects an answer, and "No automatic rejections" is not chosen | "The automatic rejections are not decided. On Review setup, add a rule that rejects an answer, or choose No automatic rejections." |
-| Leaving Draft, on the Google Form path | Nothing has been imported: the first import, written, is the way in | "Nothing has been imported yet. Import your Google Form's responses first." |
-| The stage → Draft | Any application exists, imported or applied | "N applications are already in, so this market cannot return to draft. …" |
-| Assignment → the stage (Back to review) | Results are published | "Results are published: applicants have read whether they have a table, so the review cannot reopen. To change who has a table, place or free a seat on Assignments." |
-| The stage → Assignment | Any application still Open, Under review or needing a follow-up; or none at all | "N applications are still awaiting review…" / "N applications need a follow-up…" / "There are no applications for this market. …" |
-| The stage → Assignment | An approved applicant named a tier that has no tables | Names the tier and the applicants |
-| The stage → Assignment, and into Market Days | A hand placement names a seat the plan no longer has | Names the vendor, table and date |
-| Assignment → Offers | Any application is still Approved (always true today: M1) | "N applications are still approved but not yet assigned or unassigned. …" |
-| Into Market Days | No assignment is stored | "No tables have been allocated for this market, so its vendor page could not tell anyone where to stand. Allocate tables first." |
-| Into Market Days, on either path | Results are not published | "Vendors have not been told whether they have a table. Publish the results before the market goes live." |
+| Move                                                | Refused when                                                                                                                               | It says                                                                                                                                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Leaving Draft (Open applications, the first import) | The plan has no dates, or a date has passed                                                                                                | "This market has no market dates. Pick them on Market Setup's calendar." / "N of this market's dates have already passed: …"                                          |
+| Leaving Draft                                       | The plan has no location                                                                                                                   | "This market has no location. Add one on Market Setup."                                                                                                               |
+| Leaving Draft                                       | The plan has no tables, or a tier has none                                                                                                 | "This market has no tables yet. Add a section with tables on Market Setup." / "Tier X has no tables. …"                                                               |
+| Leaving Draft                                       | The form asks nothing: no custom field, and the plan offers no dates, no tiers and fewer than 2 sections                                   | "The application form asks nothing. …"                                                                                                                                |
+| Leaving Draft                                       | Nothing says what a reviewer reads first: no answer the market asks is marked to lead the card, and "Nothing leads the card" is not chosen | "Nothing says what a reviewer reads first. On Review setup, tick the answers that lead the card, or choose Nothing leads the card."                                   |
+| Leaving Draft                                       | The automatic rejections are not decided: no rule rejects an answer, and "No automatic rejections" is not chosen                           | "The automatic rejections are not decided. On Review setup, add a rule that rejects an answer, or choose No automatic rejections."                                    |
+| Leaving Draft, on the Google Form path              | Nothing has been imported: the first import, written, is the way in                                                                        | "Nothing has been imported yet. Import your Google Form's responses first."                                                                                           |
+| The stage → Draft                                   | Any application exists, imported or applied                                                                                                | "N applications are already in, so this market cannot return to draft. …"                                                                                             |
+| Assignment → the stage (Back to review)             | Results are published                                                                                                                      | "Results are published: applicants have read whether they have a table, so the review cannot reopen. To change who has a table, place or free a seat on Assignments." |
+| The stage → Assignment                              | Any application still Open, Under review or needing a follow-up; or none at all                                                            | "N applications are still awaiting review…" / "N applications need a follow-up…" / "There are no applications for this market. …"                                     |
+| The stage → Assignment                              | An approved applicant named a tier that has no tables                                                                                      | Names the tier and the applicants                                                                                                                                     |
+| The stage → Assignment, and into Market Days        | A hand placement names a seat the plan no longer has                                                                                       | Names the vendor, table and date                                                                                                                                      |
+| Assignment → Offers                                 | Any application is still Approved (always true today: M1)                                                                                  | "N applications are still approved but not yet assigned or unassigned. …"                                                                                             |
+| Into Market Days                                    | No assignment is stored                                                                                                                    | "No tables have been allocated for this market, so its vendor page could not tell anyone where to stand. Allocate tables first."                                      |
+| Into Market Days, on either path                    | Results are not published                                                                                                                  | "Vendors have not been told whether they have a table. Publish the results before the market goes live."                                                              |
 
 Moves that cannot be undone (Publish market, Archive market) open a confirmation dialog focused on Cancel, and so does Back to review, which can be undone but costs the allocation.
 On the online path, Open applications first offers the reviewers to someone who may choose them.
 Every other move fires on one click.
 Covered by:
+
 - `back-to-review.spec.ts`
 - `phase-state-machine.spec.ts`
 
@@ -149,6 +152,7 @@ A form market's vendor page has a chip of its own on the same row, "Vendor page"
 The spine, the addresses and the moves share one row at the organizer's screen width; where the row cannot hold them, the addresses and the moves take a second row together ([the phase rail](../../implementation/modules/phase-rail.md)).
 A market that leaves the spine freezes it at the furthest phase it reached and says in words what became of it, such as "It was published and ran its market days.": a struck-through spine alone reads as stopped, not as archived.
 Covered by:
+
 - `market-remembers-phases.spec.ts`
 - `the-rail-addresses.spec.ts`
 

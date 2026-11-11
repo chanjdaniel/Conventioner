@@ -29,9 +29,7 @@ test.describe('Floorplan workflow E2E', () => {
     // Create the market via API instead of CSV upload through the UI overlay.
     const ctx = page.request;
     await loginViaApi(ctx, APP_API, TEST_USER.email, TEST_USER.password);
-    const orgsRes = await ctx.get(`${APP_API}/organizations`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const orgsRes = await ctx.get(`${APP_API}/organizations`);
     const orgs = (await orgsRes.json()).organizations as { id: string }[];
     const orgId = orgs[0]?.id;
     if (!orgId) throw new Error('No organization found');
@@ -39,7 +37,6 @@ test.describe('Floorplan workflow E2E', () => {
     const createRes = await ctx.post(`${APP_API}/markets`, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Owner-Email': TEST_USER.email,
       },
       data: {
         name: marketName,
@@ -102,9 +99,7 @@ test.describe('Floorplan workflow E2E', () => {
     // save" this test is named for. It used to assert that rows were RENDERED on that page,
     // which passed only because the tier list was pre-filled by scraping the uploaded
     // spreadsheet's cell values - an artifact of the CSV era, not of the floorplan.
-    const savedRes = await ctx.get(`${APP_API}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const savedRes = await ctx.get(`${APP_API}/markets/${marketId}`);
     expect(savedRes.ok()).toBeTruthy();
     const saved = (await savedRes.json()) as {
       market: { setupObject?: { sections?: unknown[]; locations?: unknown[] } };
@@ -116,9 +111,7 @@ test.describe('Floorplan workflow E2E', () => {
     // from the market the server reported, and a parser that dropped `floorplans` from it would
     // have written the plan back without one on the organizer's next keystroke (E21/F02/S03).
     const floorplansOf = async () => {
-      const res = await ctx.get(`${APP_API}/markets/${marketId}`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
+      const res = await ctx.get(`${APP_API}/markets/${marketId}`);
       const body = (await res.json()) as { market: { setupObject?: { floorplans?: unknown[] } } };
       return body.market.setupObject?.floorplans?.length ?? 0;
     };

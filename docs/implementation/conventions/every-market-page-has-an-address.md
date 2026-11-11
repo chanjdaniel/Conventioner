@@ -9,7 +9,7 @@ describes:
   - front-end/src/views/MarketLanding.vue
   - front-end/src/utils/vendorDrawer.ts
   - front-end/src/utils/market.ts#isHere
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/01
@@ -49,6 +49,8 @@ The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/route
 - `/markets/:marketId/import`, `/floorplan` and `/start-from-csv` are flows, entered from a tab rather than places to go; each stands under one tab, the import under Applications and the other two under Market Setup (see [the market frame](../modules/market-frame.md)).
 - `/dev/components` and `/dev/components/:entry` are not market pages either: they are the [component library](../modules/component-library.md), registered only in a development build, so in production they are "page not found" as any unknown address is.
 - `/discord/connected` is not a market page: it is where Discord's approval screen sends the organizer back, its market named by the state it carries, in the tab Connect Discord opened; it says the outcome and links to that market's Tools ([the Discord connection](../modules/discord.md)).
+- `/:marketSlug` alone is the vendor page, [`VendorPage`](../../../front-end/src/views/VendorPage.vue), flagged `meta.vendorFacing` so the app bar shows it the vendors' way to everyone, an organizer included.
+  A slug naming no market, or a gated market's (a draft's included), answers "Page not found" on the same route, and the organizer keeps the full bar there ([the app bar](../modules/app-bar.md)).
 - `/markets/:marketId` alone is [`MarketLanding`](../../../front-end/src/views/MarketLanding.vue), which opens the market, shows the frame's arrival, and then replaces itself with the page the market is worked on in its phase: `currentPage` in [the market guide](../modules/market-guide.md), a reading of the guide's table.
   Opening a market from the list, its "Previously opened" line or a new market all come through it ([`openMarket`](../../../front-end/src/utils/market.ts)), so none of them has to know which page a phase belongs to.
 

@@ -18,6 +18,8 @@ sources:
   - T74
   - decision/2026-10-20
   - E40/F01/S01
+  - T254
+  - T263
   - T255
 ---
 
@@ -30,24 +32,25 @@ Production went live on 2026-10-18 as v1.0.0.
 
 ## What runs where
 
-| Piece | Where | Name and address |
-| --- | --- | --- |
-| Front end (Vue) | Vercel project `makers-market-management-front-end` (`prj_uWBC9BJyAmG3KITC5y23AHtq7eyN`), root `front-end/` | `https://conventioner.io` |
-| Back end (Flask) | Vercel project `makers-market-management-back-end` (`prj_KlG2FlrqAxbX7afm7xuYEcBzqPeg`), root `back-end/`, Python 3.12 (`back-end/.python-version`) | `https://api.conventioner.io` |
-| Vercel team | `chanjdaniels-projects` (`team_Gbd0cUxeyRWKRqeIhkta9F8Q`), Hobby plan | |
-| Database | MongoDB Atlas project `conventioner-prod`, cluster `conventioner-prod` (Flex, AWS us-east-1, MongoDB 8.0), database `conventioner` | `<cluster>.<id>.mongodb.net`; the real host is in the back end's `MONGODB_URI` (its Vercel environment) and in 1Password |
-| Email | Resend, sending domain `conventioner.io`, sender `registration@conventioner.io` | verification links, password resets, sign-in codes |
-| Captcha | Google reCAPTCHA v3, one property listing `conventioner.io` | organizer sign-up only |
-| CSV help | Hosted TypeSafe (optional) | reading a Google Form export's columns |
-| Discord | Discord Developer Portal, the Conventioner application (optional) | connecting a market to an organizer's server, where a later run gives its vendors a role ([the Discord connection](implementation/modules/discord.md)) |
-| CI and deploys | GitHub Actions: `Test` (`test.yml`), `Deploy` (`deploy.yml`), `Release Please` | `github.com/chanjdaniel/Conventioner` |
+| Piece            | Where                                                                                                                                               | Name and address                                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Front end (Vue)  | Vercel project `makers-market-management-front-end` (`prj_uWBC9BJyAmG3KITC5y23AHtq7eyN`), root `front-end/`                                         | `https://conventioner.io`                                                                                                                              |
+| Back end (Flask) | Vercel project `makers-market-management-back-end` (`prj_KlG2FlrqAxbX7afm7xuYEcBzqPeg`), root `back-end/`, Python 3.12 (`back-end/.python-version`) | `https://api.conventioner.io`                                                                                                                          |
+| Vercel team      | `chanjdaniels-projects` (`team_Gbd0cUxeyRWKRqeIhkta9F8Q`), Hobby plan                                                                               |                                                                                                                                                        |
+| Database         | MongoDB Atlas project `conventioner-prod`, cluster `conventioner-prod` (Flex, AWS us-east-1, MongoDB 8.0), database `conventioner`                  | `<cluster>.<id>.mongodb.net`; the real host is in the back end's `MONGODB_URI` (its Vercel environment) and in 1Password                               |
+| Email            | Resend, sending domain `conventioner.io`, sender `registration@conventioner.io`                                                                     | verification links, password resets, sign-in codes                                                                                                     |
+| Captcha          | Google reCAPTCHA v3, one property listing `conventioner.io`                                                                                         | organizer sign-up only                                                                                                                                 |
+| CSV help         | Hosted TypeSafe (optional)                                                                                                                          | reading a Google Form export's columns                                                                                                                 |
+| Discord          | Discord Developer Portal, the Conventioner application (optional)                                                                                   | connecting a market to an organizer's server, where a later run gives its vendors a role ([the Discord connection](implementation/modules/discord.md)) |
+| CI and deploys   | GitHub Actions: `Test` (`test.yml`), `Deploy` (`deploy.yml`), `Release Please`                                                                      | `github.com/chanjdaniel/Conventioner`                                                                                                                  |
 
 The domains are DNS records at a third-party registrar pointing at Vercel.
 
 ## Health at a glance
 
 ```bash
-curl https://api.conventioner.io/healthz        # {"status":"ok"}: booted, configured, migrated, database answers
+curl https://api.conventioner.io/healthz        # {"commit":"<sha>","deployed":true,"localDev":false,"status":"ok"}: booted, configured, migrated, database answers
+curl https://conventioner.io/version.json       # {"commit":"<sha>"}: the commit the front end was built from
 curl -o /dev/null -w '%{http_code}\n' https://conventioner.io/markets   # 200: the front end and its deep links
 ```
 
@@ -58,44 +61,47 @@ A back end that fails its boot checks answers every request with a 500 and `FUNC
 Everything below is set per environment in the Vercel project (Settings, Environment Variables, **Production**) unless noted.
 Values are never committed, and the app refuses to boot on a blank, a placeholder, or any value this repository has ever printed (see [RELEASING.md](RELEASING.md#pre-deploy-required-production-environment) for what each one defends).
 
-| Variable | Project | Value or source |
-| --- | --- | --- |
-| `MONGODB_URI` | back end | Atlas, Connect, Drivers, with the database user's password |
-| `SECRET_KEY` | back end | generated: `python -c 'import secrets; print(secrets.token_urlsafe(48))'` |
-| `SESSION_TYPE` | back end | `null` (the session lives in the signed cookie) |
-| `CORS_ALLOWED_ORIGINS` | back end | `https://conventioner.io` |
-| `TRUSTED_PROXY_HOPS` | back end | `1` |
-| `FRONTEND_URL` | back end | `https://conventioner.io` (the address organizers sign in at: the links in outgoing mail, and Discord's OAuth2 redirect, this + `/discord/connected`) |
-| `FROM_EMAIL` | back end | `registration@conventioner.io` |
-| `RESEND_API_KEY` | back end | Resend dashboard, API keys |
-| `RECAPTCHA_SECRET_KEY` | back end | reCAPTCHA admin console, the property's secret |
-| `TYPESAFE_API_KEY` | back end | TypeSafe console (optional; unset means the rules alone) |
-| `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN` | back end | Discord Developer Portal, the Conventioner application: OAuth2's client id and secret, Bot's token (optional, all three or none; unset means Discord is off) |
-| `VITE_FLASK_HOST` | front end, **build time** | `https://api.conventioner.io` |
-| `VITE_RECAPTCHA_SITE_KEY` | front end, **build time** | the same reCAPTCHA property's site key |
-| `VERCEL_TOKEN` | GitHub, environment `production`, secret | vercel.com/account/tokens, scoped to the team |
-| `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID`, `VERCEL_FRONTEND_PROJECT_ID` | GitHub, repository variables | the ids in the table above |
+| Variable                                                                   | Project                                  | Value or source                                                                                                                                              |
+| -------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MONGODB_URI`                                                              | back end                                 | Atlas, Connect, Drivers, with the database user's password                                                                                                   |
+| `SECRET_KEY`                                                               | back end                                 | generated: `python -c 'import secrets; print(secrets.token_urlsafe(48))'`                                                                                    |
+| `SESSION_TYPE`                                                             | back end                                 | `null` (the session lives in the signed cookie)                                                                                                              |
+| `CORS_ALLOWED_ORIGINS`                                                     | back end                                 | `https://conventioner.io`                                                                                                                                    |
+| `TRUSTED_PROXY_HOPS`                                                       | back end                                 | `1`                                                                                                                                                          |
+| `FRONTEND_URL`                                                             | back end                                 | `https://conventioner.io` (the address organizers sign in at: the links in outgoing mail, and Discord's OAuth2 redirect, this + `/discord/connected`)        |
+| `FROM_EMAIL`                                                               | back end                                 | `registration@conventioner.io`                                                                                                                               |
+| `RESEND_API_KEY`                                                           | back end                                 | Resend dashboard, API keys                                                                                                                                   |
+| `RECAPTCHA_SECRET_KEY`                                                     | back end                                 | reCAPTCHA admin console, the property's secret                                                                                                               |
+| `TYPESAFE_API_KEY`                                                         | back end                                 | TypeSafe console (optional; unset means the rules alone)                                                                                                     |
+| `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN`          | back end                                 | Discord Developer Portal, the Conventioner application: OAuth2's client id and secret, Bot's token (optional, all three or none; unset means Discord is off) |
+| `VITE_FLASK_HOST`                                                          | front end, **build time**                | `https://api.conventioner.io`                                                                                                                                |
+| `VITE_RECAPTCHA_SITE_KEY`                                                  | front end, **build time**                | the same reCAPTCHA property's site key                                                                                                                       |
+| `VERCEL_TOKEN`                                                             | GitHub, environment `production`, secret | vercel.com/account/tokens, scoped to the team                                                                                                                |
+| `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID`, `VERCEL_FRONTEND_PROJECT_ID` | GitHub, repository variables             | the ids in the table above                                                                                                                                   |
+
+In the back-end project's Environment Variables settings, **"Enable access to System Environment Variables" stays ticked**: it is how the back end's runtime sees `VERCEL` and `VERCEL_ENV`, and so knows it is deployed and refuses the local-development switches ([RELEASING.md](RELEASING.md#a-deployed-host-refuses-local-switches)).
+The Deploy workflow refuses a back end that does not see it, before anything is promoted.
 
 **Changing a variable does nothing until the next deploy**, and a `VITE_` one is baked into the front-end bundle when it is built.
 After changing one, redeploy without a code change: GitHub, Actions, **Deploy**, Run workflow, from `main`.
 
 Rotating `SECRET_KEY` signs every organizer out once; that is expected.
 Rotating the database password means updating `MONGODB_URI` and redeploying, in that order, or the back end cannot boot.
-When `VERCEL_TOKEN` expires, the Deploy workflow fails at "Deploy the back end" with an authentication error; create a new token and set the secret again.
+When `VERCEL_TOKEN` expires, the Deploy workflow fails at "Stage the back end" with an authentication error; create a new token and set the secret again.
 
 ## Accounts and access
 
 There is no site-wide administrator.
 What a person may do is decided per organization and per market:
 
-| Role | Where it comes from | What it allows |
-| --- | --- | --- |
-| Organization owner, admin | Manage organization (Organizations page) | **Admin** on every market the organization holds - never the market's owner |
-| Organization member | Manage organization (Organizations page) | **Viewer** on every market the organization holds |
-| Market owner | creating the market | everything, including roles and deletion |
-| Market admin | Manage market, or being the organization's owner or an admin | phase moves, importing, publishing results, adding editors and viewers, plus everything an editor does |
-| Market editor | Manage market | the plan, the form, verdicts on applications, placements, and checking vendors in at the door |
-| Market viewer | Manage market, or organization membership | reading |
+| Role                      | Where it comes from                                          | What it allows                                                                                         |
+| ------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Organization owner, admin | Manage organization (Organizations page)                     | **Admin** on every market the organization holds - never the market's owner                            |
+| Organization member       | Manage organization (Organizations page)                     | **Viewer** on every market the organization holds                                                      |
+| Market owner              | creating the market                                          | everything, including roles and deletion                                                               |
+| Market admin              | Manage market, or being the organization's owner or an admin | phase moves, importing, publishing results, adding editors and viewers, plus everything an editor does |
+| Market editor             | Manage market                                                | the plan, the form, verdicts on applications, placements, and checking vendors in at the door          |
+| Market viewer             | Manage market, or organization membership                    | reading                                                                                                |
 
 **An organization's owner and admins run every market it holds, and its members read them.**
 A role given on a market is held beside the organization's, and the higher one counts; only the market's owner deletes it.
@@ -154,6 +160,8 @@ Network access is open to `0.0.0.0/0`, because Vercel's functions have no fixed 
 That user currently has the `atlasAdmin` role, which is more than the app needs: a least-privilege user (`readWrite` on `conventioner`, which also covers the collections and indexes `init_database.py` creates) would limit what a leaked URI could do.
 Recommended: create one, move `MONGODB_URI` to it, redeploy, and keep the admin user for operators only.
 
+The client's timeouts and pool size are set in code and win over the same option in `MONGODB_URI`, so changing them means changing [`db_config.py`](../back-end/db_config.py), not the URI ([the database client's bounds](implementation/data/market-document.md#the-database-clients-bounds)).
+
 ### Backups and restoring
 
 Atlas snapshots the Flex cluster **once a day and keeps the last 8**; restore one from the cluster's Backup page in Atlas.
@@ -211,18 +219,19 @@ When it names accounts that would share an address, it writes nothing: decide wi
 **"Could not build the unique index 'user_email' on users.email ... Accounts sharing an address: ..."**.
 Two accounts already hold one address; keep one per address as above, then redeploy.
 
-**"The unique index market_applicant_type_unique ... could not be built"**.
+**"The unique index market_applicant_type_unique ... could not be built ... Applications sharing an identity: ..."**.
 Some applicant holds two applications of one type at one market, which the index exists to forbid ([the application document](implementation/data/application-document.md#indexes)).
+The refusal names each such group by application id, and names Mongo's error by its type and code only, since Mongo's own words quote the address.
 `MONGODB_URI='<URI>' .venv/bin/python migrations/create_applications_collection.py --dry-run` ([`create_applications_collection.py`](../back-end/migrations/create_applications_collection.py)) lists each such applicant with their application ids; it prints their addresses, so keep its output off anything shared.
 Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
 
 **"The indexes on applicant_login_challenges, sign_in_attempts and vendor_remembered_sign_ins could not be built"**.
-The log quotes Mongo's reason.
+The log names Mongo's error by its type and code only, never its words, since a duplicate key error quotes a vendor's address: code 11000 is duplicate challenges, and 85 or 86 an index of the same name with other options or keys.
 These are applicants' sign-in codes, used once and expiring within ten minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
 The third holds vendors' remembered sign-ins ("Remember me" on the vendor page); its one index is the TTL index `remembered_sign_in_ttl`, so drop a conflicting index of that name (`db.vendor_remembered_sign_ins.dropIndex('<name>')`) and keep the documents, whose loss only makes each remembered vendor enter a code once more.
 
-**"Refusing to start: ... are not configured"**, naming variables.
-A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)) and redeploy.
+**"Refusing to start: ... are not as a deployment needs them"**, naming variables.
+A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)), remove each local-development switch it names ([a deployed host refuses local switches](RELEASING.md#a-deployed-host-refuses-local-switches)), and redeploy.
 
 ### Scripts never to run against production
 
@@ -239,22 +248,22 @@ In short (the detail is [RELEASING.md](RELEASING.md)):
 
 - Changes reach `dev` by PR; `dev` requires ten checks, `CodeQL` among them, and `main` six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
 - Promote a commit whose `dev` CI is green: `git fetch origin && git push origin <sha>:main`.
-  The Test workflow runs on `main`; once it is green, start the Deploy workflow by hand (Actions, Deploy, Run workflow, from `main`, or `gh workflow run deploy.yml --ref main`), which deploys the back end, checks `/healthz` and its security headers, deploys the front end, and checks a deep link and its security headers.
+  The Test workflow runs on `main`; once it is green, start the Deploy workflow by hand (Actions, Deploy, Run workflow, from `main`, or `gh workflow run deploy.yml --ref main`), which refuses a commit whose Test run has not passed, builds both projects without giving them a domain and proves each serves this commit, then promotes the back end, waits until `api.conventioner.io` serves the commit, promotes the front end and waits for `conventioner.io` ([how a deploy proves itself](RELEASING.md#how-a-deploy-proves-itself)).
   Nothing deploys by itself: no push, merge or PR reaches Vercel.
-  Watch it under Actions; a failed run says how to roll back in its summary.
+  Watch it under Actions; a failed run's summary says what production serves now and what to do.
 - After release-please's Release PR is merged, merge `main` back into `dev` (a PR from `main` to `dev`), or the next promotion is not a fast-forward.
 - A hotfix goes through `dev` when nothing unreleased is waiting there, and otherwise through a `hotfix/` branch from `main` ([RELEASING.md](RELEASING.md#hotfixes)).
 
 ## Watching it run
 
-| What | Where |
-| --- | --- |
-| Is it up | `curl https://api.conventioner.io/healthz` |
-| Back-end errors and logs | Vercel, the back-end project, Logs; or `vercel logs --deployment <id>` (Vercel CLI, logged in to the team) |
-| Which build a domain serves | `vercel inspect https://api.conventioner.io` (and `https://conventioner.io`) |
-| Deploys and their checks | GitHub, Actions, Deploy |
-| Email delivery | Resend dashboard, Emails (each send, bounce and complaint) |
-| Database load and connections | Atlas, the cluster's Metrics |
+| What                          | Where                                                                                                                                                                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Is it up                      | `curl https://api.conventioner.io/healthz`                                                                                                                                                                                   |
+| Back-end errors and logs      | Vercel, the back-end project, Logs; or `vercel logs --deployment <id>` (Vercel CLI, logged in to the team)                                                                                                                   |
+| Which build a domain serves   | `curl https://api.conventioner.io/healthz` and `curl https://conventioner.io/version.json` (the commit each was built from); `vercel inspect https://api.conventioner.io` (and `https://conventioner.io`) for the deployment |
+| Deploys and their checks      | GitHub, Actions, Deploy                                                                                                                                                                                                      |
+| Email delivery                | Resend dashboard, Emails (each send, bounce and complaint)                                                                                                                                                                   |
+| Database load and connections | Atlas, the cluster's Metrics                                                                                                                                                                                                 |
 
 Vercel's Hobby plan keeps runtime logs for about an hour, so read them while the problem is happening.
 
@@ -262,10 +271,10 @@ Vercel's Hobby plan keeps runtime logs for about an hour, so read them while the
 
 The team heartbeat (agent-team's `team-uptime`, with the checks in the team home's `projects.toml`) reads production every 5 minutes, so nobody has to:
 
-| Check | Fetches | Good when |
-| --- | --- | --- |
-| `api-health` | `https://api.conventioner.io/healthz` | it answers 2xx within 10 seconds, its body holding `"status":"ok"` |
-| `markets-page` | `https://conventioner.io/markets` | it answers 2xx within 10 seconds, its body holding `<div id="app">` |
+| Check          | Fetches                               | Good when                                                           |
+| -------------- | ------------------------------------- | ------------------------------------------------------------------- |
+| `api-health`   | `https://api.conventioner.io/healthz` | it answers 2xx within 10 seconds, its body holding `"status":"ok"`  |
+| `markets-page` | `https://conventioner.io/markets`     | it answers 2xx within 10 seconds, its body holding `<div id="app">` |
 
 - A check that fails two runs in a row posts "Production down" in the team's Discord, channel #coordinator, then "Production still down" every 4 hours while it stays down, and "Production back" once it answers again.
 - A redirect counts as a failure, so each check names the final address.
@@ -279,26 +288,26 @@ The team heartbeat (agent-team's `team-uptime`, with the checks in the team home
 
 Turned on 2026-11-10:
 
-| Service | What | How |
-| --- | --- | --- |
-| Vercel | Deployment failures, and Domains: configuration and renewals | push and email; Hobby has no usage-limit notification |
-| GitHub | failed workflow runs only | email, and GitHub Mobile push |
-| Atlas, project `conventioner-prod` | Data Size above 4 GB (the Flex cluster's cap is 5 GB), and connections above 80% of the configured limit | email |
-| Atlas, the organization | "Credit card is about to expire" | email |
+| Service                            | What                                                                                                     | How                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Vercel                             | Deployment failures, and Domains: configuration and renewals                                             | push and email; Hobby has no usage-limit notification |
+| GitHub                             | failed workflow runs only                                                                                | email, and GitHub Mobile push                         |
+| Atlas, project `conventioner-prod` | Data Size above 4 GB (the Flex cluster's cap is 5 GB), and connections above 80% of the configured limit | email                                                 |
+| Atlas, the organization            | "Credit card is about to expire"                                                                         | email                                                 |
 
 ## Incidents
 
-| Symptom | Likely cause | What to do |
-| --- | --- | --- |
-| Every API call answers 500 `FUNCTION_INVOCATION_FAILED` | The back end refused to boot | Read the back end's log: it names every missing or refused variable, or an unreachable database, or a missing migration marker. Fix the variable or the database, then redeploy (Deploy, Run workflow). |
-| A deploy succeeded but the domain still serves an old build | The project is in Vercel's rolled-back state, which stops new production builds receiving the domain | `vercel promote <deployment>` (or Promote in the dashboard) for the build that should be live. This kept `api.conventioner.io` on an April build until 2026-10-18. |
-| #coordinator says "Production down" for `api-health` | The back end refused to boot, or its database does not answer | `curl -i https://api.conventioner.io/healthz`: a 500 `FUNCTION_INVOCATION_FAILED` is a refused boot (the first row); a 503 `{"status":"unavailable"}` is the database, so read Atlas's status and the cluster's Metrics and connections. Read the back end's Logs within the hour Hobby keeps them. |
-| #coordinator says "Production down" for `markets-page` | The front end's domain or its current build | `curl -i https://conventioner.io/markets`; then the front-end project's Deployments and Domains in Vercel. |
-| The Deploy run fails at "The front end serves a deep link" or "The front end sends its security headers", after its deploy step passed | That step, which does not retry, read the old build in the moment after the alias | Read the domain again with the step's `curl`; if it now answers as expected, the deploy is good. Run 42487768583 (2026-11-08) failed so, 0.44 seconds after the alias; on 2026-11-10 both projects' Production deployments were read, and each domain served that run's build of `18ad1d84` (v1.1.0's code), the newest, with no rollback. |
-| A deploy broke something | | Roll back each affected project in Vercel (Deployments, Instant Rollback), then revert on `dev`, promote the revert, and promote the fixed build so later deploys reach the domain again. See [RELEASING.md](RELEASING.md#rolling-back). |
-| Organizers cannot sign up (400) | The captcha site key and secret are from different properties, or `conventioner.io` is not on the property's domain list | Check both keys in the reCAPTCHA console; a changed site key needs a front-end rebuild. Meanwhile, make the account by hand. |
-| No verification, reset or sign-in email arrives | Resend refused or the domain lost verification | Resend dashboard, Emails and Domains. Meanwhile, `create_account.py verify` the account. |
-| The browser reports a CORS error | The page's origin is not in `CORS_ALLOWED_ORIGINS` | It must be exactly `https://conventioner.io`, no trailing slash; a new front-end domain must be added. |
-| A write answers 403 `Request origin not allowed` | The page's origin is not in `CORS_ALLOWED_ORIGINS`, which also decides which origins a browser's write is taken from ([where a write comes from](implementation/conventions/security-invariants.md#where-a-write-comes-from)) | The same fix as the CORS error: list the page's origin exactly. This refusal names only a write; CORS still blocks that page's reads, so one listed origin fixes both. |
-| The Deploy workflow fails at "Refuse to run half-configured" or "Deploy the back end" | A GitHub variable is missing, or `VERCEL_TOKEN` expired | Set it again (see [Configuration](#configuration-and-secrets)) and re-run. |
-| Vendors cannot check in | The market is not published (`market_days`), they signed in with another address, or the poster is of an old door code | A vendor checks in on their vendor page, signed in with the address they applied with (a Google Form market: the one its form response gave), with the live door code; an editor can check them in from Attendance. |
+| Symptom                                                                                          | Likely cause                                                                                                                                                                                                                  | What to do                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every API call answers 500 `FUNCTION_INVOCATION_FAILED`                                          | The back end refused to boot                                                                                                                                                                                                  | Read the back end's log: it names every missing or refused variable, or an unreachable database, or a missing migration marker. Fix the variable or the database, then redeploy (Deploy, Run workflow).                                                                                                                                                                 |
+| #coordinator says "Production down" for `api-health`                                             | The back end refused to boot, or its database does not answer                                                                                                                                                                 | `curl -i https://api.conventioner.io/healthz`: a 500 `FUNCTION_INVOCATION_FAILED` is a refused boot (the first row); a 503 `{"status":"unavailable"}` is the database, so read Atlas's status and the cluster's Metrics and connections. Read the back end's Logs within the hour Hobby keeps them.                                                                     |
+| #coordinator says "Production down" for `markets-page`                                           | The front end's domain or its current build                                                                                                                                                                                   | `curl -i https://conventioner.io/markets`; then the front-end project's Deployments and Domains in Vercel.                                                                                                                                                                                                                                                              |
+| Deploy fails at "Test passed on main at this commit"                                             | Test is still running on that commit, failed, or never ran on `main`                                                                                                                                                          | Nothing was built. Wait for Test, or fix it on `dev` and promote again, then run Deploy again ([when a deploy refuses or times out](RELEASING.md#when-a-deploy-refuses-or-times-out)).                                                                                                                                                                                  |
+| Deploy fails at "api.conventioner.io serves this commit" or "conventioner.io serves this commit" | The domain still serves the build before, or does not answer, after the promotion; or it serves the commit and a check failed ("sends no ...", "serves no app at /markets")                                                   | Still the build before: the error names the commit it still serves; `vercel inspect <domain>` shows the deployment it points at; `vercel promote` the staged one, and look again with `curl`. A check failed: the build is live without it, so roll back each promoted project ([when a deploy refuses or times out](RELEASING.md#when-a-deploy-refuses-or-times-out)). |
+| A deploy broke something                                                                         |                                                                                                                                                                                                                               | Roll back each affected project in Vercel (Deployments, Instant Rollback), then revert on `dev` and promote the revert; the next Deploy run promotes its build by itself. See [RELEASING.md](RELEASING.md#rolling-back).                                                                                                                                                |
+| Organizers cannot sign up (400)                                                                  | The captcha site key and secret are from different properties, or `conventioner.io` is not on the property's domain list                                                                                                      | Check both keys in the reCAPTCHA console; a changed site key needs a front-end rebuild. Meanwhile, make the account by hand.                                                                                                                                                                                                                                            |
+| No verification, reset or sign-in email arrives                                                  | Resend refused or the domain lost verification                                                                                                                                                                                | Resend dashboard, Emails and Domains. Meanwhile, `create_account.py verify` the account.                                                                                                                                                                                                                                                                                |
+| The browser reports a CORS error                                                                 | The page's origin is not in `CORS_ALLOWED_ORIGINS`                                                                                                                                                                            | It must be exactly `https://conventioner.io`, no trailing slash; a new front-end domain must be added.                                                                                                                                                                                                                                                                  |
+| A write answers 403 `Request origin not allowed`                                                 | The page's origin is not in `CORS_ALLOWED_ORIGINS`, which also decides which origins a browser's write is taken from ([where a write comes from](implementation/conventions/security-invariants.md#where-a-write-comes-from)) | The same fix as the CORS error: list the page's origin exactly. This refusal names only a write; CORS still blocks that page's reads, so one listed origin fixes both.                                                                                                                                                                                                  |
+| The Deploy workflow fails at "Refuse to run half-configured" or "Stage the back end"             | A GitHub variable is missing, or `VERCEL_TOKEN` expired                                                                                                                                                                       | Set it again (see [Configuration](#configuration-and-secrets)) and re-run.                                                                                                                                                                                                                                                                                              |
+| Vendors cannot check in                                                                          | The market is not published (`market_days`), they signed in with another address, or the poster is of an old door code                                                                                                        | A vendor checks in on their vendor page, signed in with the address they applied with (a Google Form market: the one its form response gave), with the live door code; an editor can check them in from Attendance.                                                                                                                                                     |

@@ -8,7 +8,7 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment._magnitude_score
   - back-end/csv_import.py#orders_by_submitted_at
   - front-end/src/components/elements/ElementAssignmentPriority.vue
-verified: 2026-11-05
+verified: 2026-11-09
 sources:
   - wayfinding/v0-1-0/02
   - wayfinding/v0-1-0/03
@@ -19,6 +19,7 @@ sources:
   - E34/F05/S01
   - T211
   - T223
+  - T253
 ---
 
 # Priority and tie-breaks
@@ -72,3 +73,4 @@ Most constrained first places the vendors with the fewest chances while they sti
 - The import's warning is `orders_by_submitted_at` in [`back-end/csv_import.py`](../../../back-end/csv_import.py), which normalises each row's timestamp ([the CSV import](../../implementation/modules/csv-import.md)).
 - Once the market can no longer reach `assignment`, the rules lock ([the assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md)).
 - The cases are pinned in [the assignment behaviour suite](../../implementation/testing/assignment-behaviour-suite.md).
+- Rule 1, fewest dates so far, is pinned by `TestFewestDatesSoFarGoFirst`: removing it from `sort_vendors` fails that case.

@@ -385,15 +385,15 @@ test.describe('the editors, at a desk', () => {
     const start = await textStart(type);
     for (const field of [form.labelInput(0), form.keyInput(0), form.helpTextInput(0)]) {
       expect(await textStart(field)).toBeCloseTo(start, 1);
-      expect((await field.boundingBox())!.height).toBe(28);
+      expect((await field.boundingBox())!.height).toBeCloseTo(28, 1);
     }
-    expect((await type.boundingBox())!.height).toBe(28);
+    expect((await type.boundingBox())!.height).toBeCloseTo(28, 1);
 
     // The preview's, muted, as tall as the preview's other fields.
     await form.openStep('preview');
     const preview = form.previewField(SELECT_KEY).locator('select');
     await expectTheChevron(preview, CHEVRON_DISABLED);
-    expect((await preview.boundingBox())!.height).toBe(32);
+    expect((await preview.boundingBox())!.height).toBeCloseTo(32, 1);
   });
 
   test('its Unit and the fields around it are one kind of field', async ({

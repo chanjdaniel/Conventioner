@@ -18,6 +18,7 @@ from conftest import mongo_matches, reject_malformed_update
 from datatypes import Application, ApplicationStatus, ApplicationType, MarketPhase
 from market_documents import market_name_slug
 
+
 # ── Fake collections for testing ────────────────────────────────────
 
 
@@ -931,11 +932,12 @@ class TestTheCodeEmail:
         """The link a vendor receives is the one they keep: the market's page (ADR 0022)."""
         # Not the module fixture: it replaces the very function under test.
         import resend
+        import utils.email as email_mod
         from api import applicant_auth as applicant_auth_module
 
         sent = []
-        monkeypatch.setattr(applicant_auth_module, "_email_disabled", lambda: False)
-        monkeypatch.setattr(applicant_auth_module, "ready_mailer", lambda: True)
+        monkeypatch.setattr(email_mod, "_email_disabled", lambda: False)
+        monkeypatch.setattr(email_mod, "ready_mailer", lambda: True)
         monkeypatch.setattr(applicant_auth_module, "frontend_url", lambda: "https://app.test")
         monkeypatch.setattr(
             resend.Emails, "send", lambda payload: sent.append(payload) or SimpleNamespace(id="m1")
@@ -958,11 +960,12 @@ class TestTheCodeEmail:
         The number in each subject keeps them apart, and the body says only the newest works.
         """
         import resend
+        import utils.email as email_mod
         from api import applicant_auth as applicant_auth_module
 
         sent = []
-        monkeypatch.setattr(applicant_auth_module, "_email_disabled", lambda: False)
-        monkeypatch.setattr(applicant_auth_module, "ready_mailer", lambda: True)
+        monkeypatch.setattr(email_mod, "_email_disabled", lambda: False)
+        monkeypatch.setattr(email_mod, "ready_mailer", lambda: True)
         monkeypatch.setattr(applicant_auth_module, "frontend_url", lambda: "https://app.test")
         monkeypatch.setattr(
             resend.Emails, "send", lambda payload: sent.append(payload) or SimpleNamespace(id="m1")
@@ -1195,3 +1198,46 @@ class TestSignInIsBounded:
         body, status = self._verify(applicant_auth_module, code="333333")
         assert status == 200
         assert body.get_json()["success"] is True
+
+
+class TestTheBootRefusal:
+    """The boot refuses when the challenge indexes cannot be built, naming no address."""
+
+    def test_the_refusal_names_the_driver_error_by_type_and_never_the_address(
+        self, applicant_auth_module, monkeypatch, caplog
+    ):
+        """The driver's duplicate key error quotes the vendor's address, so neither the boot's
+        logs nor the error that stops it repeat the driver's text, its chained cause included."""
+        import logging
+        import traceback
+
+        from pymongo.errors import OperationFailure
+
+        from conftest import skip_without_real_dependencies
+
+        skip_without_real_dependencies()
+        import app as app_module
+
+        # Importing app boots it, which builds the indexes; this boot is the one that cannot.
+        monkeypatch.setattr(applicant_auth_module, "_indexes_ready", False)
+
+        def duplicate_key(*_args, **_kwargs):
+            raise OperationFailure(
+                "E11000 duplicate key error collection: test.applicant_login_challenges index: "
+                'market_email_unique dup key: { market_id: "market-123", email: "dup-vendor@example.com" }',
+                code=11000,
+            )
+
+        monkeypatch.setattr(applicant_auth_module.challenges_collection, "create_index", duplicate_key)
+
+        with pytest.raises(applicant_auth_module.ApplicantLoginIndexError) as refused:
+            app_module.verify_applicant_login_indexes()
+
+        message = str(refused.value)
+        printed = "".join(traceback.format_exception(refused.value))
+        assert "applicant_login_challenges" in message
+        assert "OperationFailure, code 11000" in message
+        refusals = [r for r in caplog.records if r.levelno == logging.CRITICAL]
+        assert len(refusals) == 2, "the module's refusal and the boot's"
+        assert "dup-vendor@example.com" not in caplog.text
+        assert "dup-vendor@example.com" not in printed

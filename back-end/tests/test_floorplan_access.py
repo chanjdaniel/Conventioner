@@ -5,14 +5,16 @@ editor of it on a market that can still change, and the stored image remembers t
 GridFS metadata, so every later action on the image can be checked against that market.
 """
 import io
+import json
+import sys
 from types import SimpleNamespace
 
 import pytest
 from bson import ObjectId
-from gridfs.errors import NoFile
 from PIL import Image
 
 from conftest import (
+    FakeGridFS,
     FakeMarketsCollection,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
@@ -23,12 +25,12 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.floorplans as FloorplansApi
-import api.floorplans_analysis as FloorplansAnalysisApi
 import api.floorplans_placement as FloorplansPlacementApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.users as UsersApi
 import services.gridfs_service as GridfsService
+import services.placement_service as Placement
 from datatypes import MarketPhase
 
 MARKET_ID = "market-123"
@@ -48,38 +50,6 @@ def _hall_png():
     out = io.BytesIO()
     Image.new("RGB", (400, 300), "white").save(out, format="PNG")
     return out.getvalue()
-
-
-class FakeGridFS:
-    """The floorplan image store, holding each file's bytes, name and metadata as GridFS does."""
-
-    def __init__(self):
-        self.files = {}
-
-    def put(self, data, filename=None, metadata=None):
-        file_id = ObjectId()
-        self.files[file_id] = {"data": data, "filename": filename, "metadata": metadata}
-        return file_id
-
-    def find_one(self, file_filter):
-        stored = self.files.get(file_filter.get("_id"))
-        if stored is None:
-            return None
-        return SimpleNamespace(_id=file_filter["_id"], **stored)
-
-    def get(self, file_id):
-        stored = self.files.get(file_id)
-        if stored is None:
-            raise NoFile(file_id)
-        return SimpleNamespace(read=lambda: stored["data"])
-
-    def delete(self, file_id):
-        if file_id not in self.files:
-            raise NoFile(file_id)
-        del self.files[file_id]
-
-    def metadata_of(self, gridfs_id):
-        return self.files[ObjectId(gridfs_id)]["metadata"]
 
 
 @pytest.fixture
@@ -282,27 +252,8 @@ def hall(images):
     return str(images.put(_hall_png(), filename="hall.png", metadata={"marketId": MARKET_ID}))
 
 
-@pytest.fixture
-def model_calls(monkeypatch):
-    """The analysis model's calls, faked, with a placeholder key so the route reaches the model."""
-    calls = []
-    monkeypatch.setenv("GEMINI_API_KEY", "placeholder-key")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-    def analysed(image_bytes):
-        calls.append(image_bytes)
-        return {"walls": [], "obstacles": [], "rooms": []}
-
-    monkeypatch.setattr(FloorplansAnalysisApi, "_call_gemini", analysed)
-    return calls
-
-
 def _delete(client, gridfs_id):
     return client.delete(f"/floorplans/{gridfs_id}")
-
-
-def _analyze(client, gridfs_id):
-    return client.post("/floorplans/analyze", json={"gridfs_id": gridfs_id})
 
 
 def _calibrate(client, gridfs_id):
@@ -324,25 +275,18 @@ def _export(client, gridfs_id):
     })
 
 
-EDITING_ROUTES = {"delete": _delete, "analyze": _analyze, "calibrate": _calibrate}
+EDITING_ROUTES = {"delete": _delete, "calibrate": _calibrate}
 EVERY_ROUTE = {**EDITING_ROUTES, "export": _export}
 
 
 class TestTheRoutesThatTakeAnImage:
-    """Delete, analyze and calibrate are an editor's work; export is open to anyone on the market."""
+    """Delete and calibrate are an editor's work; export is open to anyone on the market."""
 
     def test_the_organizer_deletes_the_image(self, sign_in, market, hall, images):
         response = _delete(sign_in("owner@example.com"), hall)
 
         assert response.status_code == 200
         assert images.files == {}
-
-    def test_the_organizer_analyzes_the_image(self, sign_in, market, hall, model_calls):
-        response = _analyze(sign_in("owner@example.com"), hall)
-
-        assert response.status_code == 200
-        assert response.get_json() == {"walls": [], "obstacles": [], "rooms": []}
-        assert len(model_calls) == 1
 
     def test_the_organizer_calibrates_the_image(self, sign_in, market, hall):
         response = _calibrate(sign_in("owner@example.com"), hall)
@@ -361,13 +305,13 @@ class TestTheRoutesThatTakeAnImage:
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_an_editor_may_use_the_editing_routes(
-        self, sign_in, market, hall, model_calls, route,
+        self, sign_in, market, hall, route,
     ):
         assert route(sign_in("editor@example.com"), hall).status_code == 200
 
     @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
     def test_an_account_with_no_role_on_the_market_is_refused(
-        self, sign_in, market, hall, images, model_calls, route,
+        self, sign_in, market, hall, images, route,
     ):
         response = route(sign_in("outsider@example.com"), hall)
 
@@ -376,22 +320,20 @@ class TestTheRoutesThatTakeAnImage:
             Actions.refusal_sentence(Actions.READ), Actions.refusal_sentence(Actions.CHANGE_SETUP),
         }
         assert list(images.files) == [ObjectId(hall)]
-        assert model_calls == []
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_a_viewer_is_refused_the_editing_routes(
-        self, sign_in, market, hall, images, model_calls, route,
+        self, sign_in, market, hall, images, route,
     ):
         response = route(sign_in("viewer@example.com"), hall)
 
         assert response.status_code == 403
         assert response.get_json() == {"error": Actions.refusal_sentence(Actions.CHANGE_SETUP)}
         assert list(images.files) == [ObjectId(hall)]
-        assert model_calls == []
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_an_archived_market_refuses_the_editing_routes(
-        self, sign_in, market, hall, images, model_calls, route,
+        self, sign_in, market, hall, images, route,
     ):
         market.doc = stored_market(MarketPhase.ARCHIVED, roles=dict(ROLES))
 
@@ -400,7 +342,6 @@ class TestTheRoutesThatTakeAnImage:
         assert response.status_code == 403
         assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
         assert list(images.files) == [ObjectId(hall)]
-        assert model_calls == []
 
     def test_an_archived_market_still_exports(self, sign_in, market, hall):
         market.doc = stored_market(MarketPhase.ARCHIVED, roles=dict(ROLES))
@@ -413,7 +354,7 @@ class TestTheRoutesThatTakeAnImage:
     @pytest.mark.parametrize("metadata", [None, {}])
     @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
     def test_an_image_that_names_no_market_is_not_found(
-        self, sign_in, market, images, model_calls, route, metadata,
+        self, sign_in, market, images, route, metadata,
     ):
         unowned = images.put(_hall_png(), filename="hall.png", metadata=metadata)
 
@@ -422,10 +363,9 @@ class TestTheRoutesThatTakeAnImage:
         assert response.status_code == 404
         assert response.get_json() == {"error": "Image not found"}
         assert list(images.files) == [unowned]
-        assert model_calls == []
 
     @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
-    def test_an_unknown_image_is_not_found(self, sign_in, market, images, model_calls, route):
+    def test_an_unknown_image_is_not_found(self, sign_in, market, images, route):
         response = route(sign_in("owner@example.com"), str(ObjectId()))
 
         assert response.status_code == 404
@@ -448,19 +388,83 @@ class TestTheRoutesThatTakeAnImage:
 
     @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
     def test_a_route_without_a_session_is_asked_to_sign_in(
-        self, market, hall, images, model_calls, route,
+        self, market, hall, images, route,
     ):
         response = route(app_module.app.test_client(), hall)
 
         assert response.status_code == 401
         assert list(images.files) == [ObjectId(hall)]
-        assert model_calls == []
 
-    def test_the_image_itself_is_read_without_a_session(self, hall):
-        response = app_module.app.test_client().get(f"/floorplans/{hall}")
+
+def _read(client, gridfs_id):
+    return client.get(f"/floorplans/{gridfs_id}")
+
+
+class TestReadingTheImage:
+    """The image is read on the market it was uploaded for: anyone with a role on it reads the
+    bytes, an archived market's too, and to anyone else the image is not there."""
+
+    @pytest.mark.parametrize("email", [
+        "owner@example.com", "editor@example.com", "viewer@example.com",
+    ])
+    def test_anyone_on_the_market_reads_the_image(self, sign_in, market, hall, email):
+        response = _read(sign_in(email), hall)
+
+        assert response.status_code == 200
+        assert response.mimetype == "image/png"
+        assert response.data == _hall_png()
+
+    def test_an_archived_markets_image_is_still_read(self, sign_in, market, hall):
+        market.doc = stored_market(MarketPhase.ARCHIVED, roles=dict(ROLES))
+
+        response = _read(sign_in("viewer@example.com"), hall)
 
         assert response.status_code == 200
         assert response.data == _hall_png()
+
+    def test_a_read_without_a_session_is_asked_to_sign_in(self, market, hall):
+        response = _read(app_module.app.test_client(), hall)
+
+        assert response.status_code == 401
+        assert response.data != _hall_png()
+
+    def test_an_account_with_no_role_on_the_market_finds_no_image(self, sign_in, market, hall):
+        response = _read(sign_in("outsider@example.com"), hall)
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Image not found"}
+
+    @pytest.mark.parametrize("metadata", [None, {}])
+    def test_an_image_that_names_no_market_is_not_found(self, sign_in, market, images, metadata):
+        unowned = images.put(_hall_png(), filename="hall.png", metadata=metadata)
+
+        response = _read(sign_in("owner@example.com"), str(unowned))
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Image not found"}
+
+    @pytest.mark.parametrize("gridfs_id", [str(ObjectId()), "not-an-object-id"],
+                             ids=["unknown", "malformed"])
+    def test_an_unknown_image_is_not_found(self, sign_in, market, images, gridfs_id):
+        response = _read(sign_in("owner@example.com"), gridfs_id)
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Image not found"}
+
+
+class TestNoModelReadsAFloorplan:
+    """The vision endpoint, which sent a floorplan image to a hosted model, is gone: no screen called it."""
+
+    def test_an_editors_analysis_request_is_not_served(self, sign_in, market, hall):
+        """The address now reads as an image id, whose route takes no POST, so it answers 405."""
+        response = sign_in("editor@example.com").post(
+            "/floorplans/analyze", json={"gridfs_id": hall},
+        )
+
+        assert response.status_code == 405
+
+    def test_no_analysis_blueprint_is_registered(self):
+        assert "floorplans_analysis" not in app_module.app.blueprints
 
 
 # ── Auto-Place, which names its market ───────────────────────────────────────
@@ -473,10 +477,10 @@ def placements(monkeypatch):
 
     def placed(**geometry):
         calls.append(geometry)
-        return [{
+        return Placement.PlacementResult(placed=[{
             "x_mm": 1500.0, "y_mm": 1500.0, "rotation": 0.0, "width_mm": 1800, "height_mm": 900,
             "table_type_id": "type_6ft",
-        }]
+        }], timed_out=False)
 
     monkeypatch.setattr(FloorplansPlacementApi, "auto_place_tables", placed)
     return calls
@@ -508,7 +512,18 @@ class TestPlacingTables:
 
         assert response.status_code == 200
         assert [t["table_type_id"] for t in response.get_json()["placed_tables"]] == ["type_6ft"]
+        assert response.get_json()["timed_out"] is False
         assert len(placements) == 1
+
+    def test_the_answer_says_when_the_grid_ran_out_of_time(self, sign_in, market, monkeypatch):
+        """On production's path, with no time to place anything, it answers so rather than blame the room."""
+        monkeypatch.setitem(sys.modules, "pyckingsolver", None)
+        monkeypatch.setattr(Placement, "GRID_TIME_LIMIT_S", 0.0)
+
+        response = _place(sign_in("owner@example.com"))
+
+        assert response.status_code == 200
+        assert response.get_json() == {"placed_tables": [], "timed_out": True}
 
     @pytest.mark.parametrize("email", ["outsider@example.com", "viewer@example.com"])
     def test_anyone_but_an_editor_is_refused(self, sign_in, market, placements, email):
@@ -559,13 +574,276 @@ class TestPlacingTables:
         assert placements == []
 
 
-# ── Every floorplan route but the image read needs a sign-in ─────────────────
+SIX_FOOT = {"id": "type_6ft", "name": "6ft Table", "width_mm": 1800, "height_mm": 900, "max_capacity": 2}
+TOO_MANY_TABLES = "Auto-Place places up to 500 tables at a time."
+TABLE_SIDES = "A table type's width and height must be between 100 mm and 20,000 mm."
+ROOM_TOO_LARGE = "The room must be at most 500 m on each side."
+AISLES = "The wall buffer and table spacing must be between 0 and 10,000 mm."
+TOO_MUCH_GEOMETRY = "Auto-Place takes up to 100 walls, 100 obstacle zones and 100 points in each."
+UNBOUNDED = "A floorplan's measurements must be finite numbers no larger than 10,000,000."
+
+
+def _placement_body(**changes):
+    body = {
+        "market_id": MARKET_ID,
+        "walls": [],
+        "obstacles": [],
+        "table_types": [dict(SIX_FOOT)],
+        "counts": {"type_6ft": 1},
+        "scale_px_per_mm": 0.05,
+        "room_mm": {"width_mm": 8000, "height_mm": 6000},
+        "aisle_config": {"wallBufferMm": 1500, "tableSpacingMm": 1200},
+    }
+    body.update(changes)
+    return body
+
+
+def _place_body(client, body):
+    return client.post("/floorplans/place-tables", json=body)
+
+
+def _place_raw(client, text):
+    """Send a body as text, since no JSON library writes ``NaN`` or ``Infinity``, though Flask reads them."""
+    return client.post("/floorplans/place-tables", data=text, content_type="application/json")
+
+
+def _wall(n):
+    return {"start": [n * 10, 0], "end": [n * 10 + 10, 0], "thickness_mm": 200, "is_exterior": True}
+
+
+def _square_walls(side_mm):
+    corners = [(0, 0), (side_mm, 0), (side_mm, side_mm), (0, side_mm)]
+    return [
+        {"start": list(corners[i]), "end": list(corners[(i + 1) % 4]), "thickness_mm": 200}
+        for i in range(4)
+    ]
+
+
+def _zone(points):
+    return {"polygon": [[i, i % 2] for i in range(points)], "type": "pillar"}
+
+
+class TestAPlacementRequestIsBounded:
+    """Auto-Place parses its body and holds it to ``floorplan_limits``' bounds before it places (T272).
+
+    It read the body field by field and handed it to the service, so a wall missing its thickness or
+    walls enclosing nothing answered "Internal server error", and any number of tables in any size of
+    room held an instance for as long as the grid took.
+    """
+
+    @pytest.mark.parametrize("changes, sentence", [
+        ({"counts": {"type_6ft": 501}}, TOO_MANY_TABLES),
+        ({"table_types": [dict(SIX_FOOT), dict(SIX_FOOT, id="type_8ft")],
+          "counts": {"type_6ft": 300, "type_8ft": 201}}, TOO_MANY_TABLES),
+        ({"table_types": [dict(SIX_FOOT, width_mm=99.9)]}, TABLE_SIDES),
+        ({"table_types": [dict(SIX_FOOT, height_mm=99)]}, TABLE_SIDES),
+        ({"table_types": [dict(SIX_FOOT, width_mm=20001)]}, TABLE_SIDES),
+        ({"table_types": [dict(SIX_FOOT, height_mm=20000.5)]}, TABLE_SIDES),
+        ({"room_mm": {"width_mm": 500001, "height_mm": 6000}}, ROOM_TOO_LARGE),
+        ({"room_mm": {"width_mm": 8000, "height_mm": 500001}}, ROOM_TOO_LARGE),
+        ({"aisle_config": {"wallBufferMm": -1, "tableSpacingMm": 1200}}, AISLES),
+        ({"aisle_config": {"wallBufferMm": 10001, "tableSpacingMm": 1200}}, AISLES),
+        ({"aisle_config": {"wallBufferMm": 1500, "tableSpacingMm": -0.5}}, AISLES),
+        ({"aisle_config": {"wallBufferMm": 1500, "tableSpacingMm": 10001}}, AISLES),
+        ({"walls": [_wall(n) for n in range(101)]}, TOO_MUCH_GEOMETRY),
+        ({"obstacles": [_zone(3) for _ in range(101)]}, TOO_MUCH_GEOMETRY),
+        ({"obstacles": [_zone(3), _zone(101)]}, TOO_MUCH_GEOMETRY),
+    ])
+    def test_a_request_one_over_a_bound_is_refused_with_its_sentence(
+        self, sign_in, market, placements, changes, sentence,
+    ):
+        response = _place_body(sign_in("owner@example.com"), _placement_body(**changes))
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": sentence}
+        assert placements == []
+
+    @pytest.mark.parametrize("changes", [
+        {"counts": {"type_6ft": 500}},
+        {"table_types": [dict(SIX_FOOT, width_mm=100, height_mm=20000)]},
+        {"room_mm": {"width_mm": 500000, "height_mm": 500000}},
+        {"aisle_config": {"wallBufferMm": 0, "tableSpacingMm": 10000}},
+        {"aisle_config": {"wallBufferMm": 10000, "tableSpacingMm": 0}},
+        {"walls": [_wall(n) for n in range(100)]},
+        {"obstacles": [_zone(100) for _ in range(100)]},
+    ])
+    def test_a_request_at_every_bound_places(self, sign_in, market, placements, changes):
+        response = _place_body(sign_in("owner@example.com"), _placement_body(**changes))
+
+        assert response.status_code == 200
+        assert len(placements) == 1
+
+    def test_a_table_type_left_out_of_the_counts_is_one_table_toward_the_bound(
+        self, sign_in, market, placements,
+    ):
+        """The service places one of a type the counts do not name, so the bound counts it too."""
+        body = _placement_body(
+            table_types=[dict(SIX_FOOT), dict(SIX_FOOT, id="type_8ft")], counts={"type_6ft": 500},
+        )
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": TOO_MANY_TABLES}
+
+    @pytest.mark.parametrize("changes, named", [
+        ({"walls": [{"start": [0, 0], "end": [9000, 0], "is_exterior": True}]},
+         "walls.0.thickness_mm: Field required"),
+        ({"walls": "not a list"}, "walls: Input should be a valid list"),
+        ({"obstacles": [{"polygon": [[0, 0], [1, 1], [0, 1]]}]}, "obstacles.0.type: Field required"),
+        ({"table_types": [{"id": "type_6ft", "width_mm": 1800, "height_mm": 900,
+                           "max_capacity": 2}]}, "table_types.0.name: Field required"),
+        ({"counts": {"type_6ft": -1}}, "counts.type_6ft: Input should be greater than or equal to 0"),
+        ({"counts": {"type_6ft": 1.5}}, "counts.type_6ft: Input should be a valid integer"),
+        ({"counts": {"type_6ft": True}}, "counts.type_6ft: Input should be a valid integer"),
+        ({"counts": {"type_6ft": "3"}}, "counts.type_6ft: Input should be a valid integer"),
+        ({"counts": [1]}, "counts: Input should be a valid dictionary"),
+        ({"scale_px_per_mm": "wide"}, "scale_px_per_mm: Input should be a valid number"),
+        ({"room_mm": {"width_mm": 0, "height_mm": 6000}},
+         "room_mm.width_mm: Input should be greater than 0"),
+        ({"room_mm": {"width_mm": 8000}}, "room_mm.height_mm: Field required"),
+        ({"aisle_config": {"wallBufferMm": "wide"}},
+         "aisle_config.wallBufferMm: Input should be a valid number, unable to parse string as a "
+         "number"),
+    ])
+    def test_a_malformed_field_is_refused_by_name(
+        self, sign_in, market, placements, changes, named,
+    ):
+        response = _place_body(sign_in("owner@example.com"), _placement_body(**changes))
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": f"Invalid placement request: {named}"}
+        assert placements == []
+
+    @pytest.mark.parametrize("field", ["walls", "obstacles", "table_types", "counts",
+                                       "scale_px_per_mm"])
+    def test_a_missing_field_is_refused_by_name(self, sign_in, market, placements, field):
+        body = _placement_body()
+        del body[field]
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": f"Invalid placement request: {field}: Field required"}
+
+    @pytest.mark.parametrize("token", ["NaN", "Infinity", "-Infinity"])
+    @pytest.mark.parametrize("changes", [
+        {"walls": [{"start": ["@@", 0], "end": [9000, 0], "thickness_mm": 200}]},
+        {"walls": [{"start": [0, 0], "end": [9000, 0], "thickness_mm": "@@"}]},
+        {"obstacles": [{"polygon": [[0, 0], [1, "@@"], [0, 1]], "type": "pillar"}]},
+        {"table_types": [dict(SIX_FOOT, width_mm="@@")]},
+        {"aisle_config": {"wallBufferMm": 1500, "tableSpacingMm": "@@"}},
+    ])
+    def test_a_number_that_is_not_finite_in_the_geometry_is_refused(
+        self, sign_in, market, placements, token, changes,
+    ):
+        text = json.dumps(_placement_body(**changes)).replace('"@@"', token)
+
+        response = _place_raw(sign_in("owner@example.com"), text)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": UNBOUNDED}
+        assert placements == []
+
+    @pytest.mark.parametrize("token", ["NaN", "Infinity"])
+    @pytest.mark.parametrize("changes, named", [
+        ({"scale_px_per_mm": "@@"}, "scale_px_per_mm"),
+        ({"room_mm": {"width_mm": "@@", "height_mm": 6000}}, "room_mm.width_mm"),
+    ])
+    def test_a_number_that_is_not_finite_in_the_request_is_refused_by_name(
+        self, sign_in, market, placements, token, changes, named,
+    ):
+        text = json.dumps(_placement_body(**changes)).replace('"@@"', token)
+
+        response = _place_raw(sign_in("owner@example.com"), text)
+
+        assert response.status_code == 400
+        assert response.get_json()["error"].startswith(f"Invalid placement request: {named}: ")
+        assert placements == []
+
+    def test_a_number_too_large_in_the_geometry_is_refused(self, sign_in, market, placements):
+        body = _placement_body(walls=[{"start": [0, 0], "end": [10_000_001, 0], "thickness_mm": 200}])
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": UNBOUNDED}
+
+    def test_a_request_with_neither_walls_nor_a_size_is_asked_to_calibrate(
+        self, sign_in, market, placements,
+    ):
+        response = _place_body(sign_in("owner@example.com"), _placement_body(room_mm=None))
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "error": "The floor plan's size is needed to place tables: calibrate it first, "
+                     "or draw its walls.",
+        }
+
+    def test_a_body_that_is_not_an_object_is_refused(self, sign_in, market, placements):
+        response = _place_raw(sign_in("owner@example.com"), "[1, 2]")
+
+        assert response.status_code == 400
+        assert placements == []
+
+    # The real service from here: what it refuses reaches the organizer as its sentence.
+
+    def test_walls_that_enclose_nothing_say_so(self, sign_in, market):
+        walls = [
+            {"start": [0, 0], "end": [10000, 0], "thickness_mm": 200},
+            {"start": [10000, 0], "end": [20000, 0], "thickness_mm": 200},
+        ]
+
+        response = _place_body(sign_in("owner@example.com"), _placement_body(walls=walls, room_mm=None))
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "The walls drawn do not enclose a room."}
+
+    def test_walls_drawn_more_than_500_m_apart_are_refused(self, sign_in, market):
+        response = _place_body(
+            sign_in("owner@example.com"), _placement_body(walls=_square_walls(500_001), room_mm=None),
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": ROOM_TOO_LARGE}
+
+    def test_walls_500_m_apart_are_a_room(self, sign_in, market, monkeypatch):
+        monkeypatch.setitem(sys.modules, "pyckingsolver", None)
+
+        response = _place_body(
+            sign_in("owner@example.com"), _placement_body(walls=_square_walls(500_000), room_mm=None),
+        )
+
+        assert response.status_code == 200
+        assert len(response.get_json()["placed_tables"]) == 1
+
+    def test_the_organizers_wall_buffer_is_the_one_kept(self, sign_in, market, monkeypatch):
+        """The wizard sends the aisle values camel-cased, and the service reads them, not its defaults."""
+        monkeypatch.setitem(sys.modules, "pyckingsolver", None)
+        body = _placement_body(
+            room_mm={"width_mm": 20000, "height_mm": 20000}, counts={"type_6ft": 3},
+            aisle_config={"wallBufferMm": 5000, "tableSpacingMm": 1200},
+        )
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 200
+        placed = response.get_json()["placed_tables"]
+        assert len(placed) == 3
+        for table in placed:
+            half_w, half_h = table["width_mm"] / 2, table["height_mm"] / 2
+            if table["rotation"] == 90:
+                half_w, half_h = half_h, half_w
+            assert 5000 - 1 <= table["x_mm"] - half_w and table["x_mm"] + half_w <= 15000 + 1
+            assert 5000 - 1 <= table["y_mm"] - half_h and table["y_mm"] + half_h <= 15000 + 1
+
+
+# ── Every floorplan route needs a sign-in ────────────────────────────────────
 
 FLOORPLAN_BLUEPRINTS = {
-    "floorplans", "floorplans_placement", "floorplans_templates", "floorplans_analysis",
-    "floorplans_calibrate", "floorplans_export", "floorplans_save",
+    "floorplans", "floorplans_placement", "floorplans_templates", "floorplans_calibrate",
+    "floorplans_export", "floorplans_save",
 }
-PUBLIC_ROUTES = {("GET", "/floorplans/<gridfs_id>")}
 
 
 def _floorplan_routes():
@@ -590,12 +868,10 @@ class TestEveryFloorplanRouteNeedsASignIn:
 
         assert FLOORPLAN_BLUEPRINTS <= registered
 
-    def test_every_route_but_the_image_read_asks_for_a_sign_in(self, market, images):
+    def test_every_route_asks_for_a_sign_in(self, market, images):
         client = app_module.app.test_client()
         open_routes = []
         for method, rule in _floorplan_routes():
-            if (method, rule.rule) in PUBLIC_ROUTES:
-                continue
             values = {arg: str(ObjectId()) for arg in rule.arguments}
             path = rule.build(values, append_unknown=False)[1]
             if client.open(path, method=method, json={}).status_code != 401:
@@ -605,9 +881,3 @@ class TestEveryFloorplanRouteNeedsASignIn:
             f"These floorplan routes answer without a sign-in: {', '.join(open_routes)}. "
             "Give each @login_required, under its @route."
         )
-
-    def test_the_public_image_read_is_still_served(self):
-        """The exemption names a route that exists, so it cannot outlive the route it excused."""
-        served = {(method, rule.rule) for method, rule in _floorplan_routes()}
-
-        assert PUBLIC_ROUTES <= served

@@ -125,23 +125,24 @@ def upload_floorplan():
 # ── GET /api/floorplans/<gridfs_id> ──────────────────────────────────────────
 
 @floorplans_bp.route("/<gridfs_id>", methods=["GET"])
+@login_required
 def get_floorplan(gridfs_id: str):
     """Retrieve a floorplan image by its GridFS ObjectId.
 
-    No authentication required - images are referenced by opaque ID.
+    The image is read on the market it was uploaded for, by anyone the Read row lets in (any role
+    on it), an archived market's too. To anyone else, and for an unknown image or one stored
+    without a market, the image is not there: every refusal answers 404 "Image not found", so the
+    answer never tells a stranger that an id names an image.
     """
-    try:
-        image_data = get_image(gridfs_id)
-        if image_data is None:
-            return jsonify({"error": "Image not found"}), 404
+    if image_refusal(gridfs_id, Actions.READ, edits=False):
+        return jsonify({"error": "Image not found"}), 404
 
-        mimetype = _detect_mimetype(image_data)
-        return send_file(io.BytesIO(image_data), mimetype=mimetype)
+    image_data = get_image(gridfs_id)
+    if image_data is None:
+        return jsonify({"error": "Image not found"}), 404
 
-    except Exception as exc:
-        logger.error(f"Error retrieving floorplan {gridfs_id}: {exc}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    mimetype = _detect_mimetype(image_data)
+    return send_file(io.BytesIO(image_data), mimetype=mimetype)
 
 
 # ── DELETE /api/floorplans/<gridfs_id> ───────────────────────────────────────

@@ -9,7 +9,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import sessions_load_through_get_user, skip_without_real_dependencies
+from conftest import (
+    FakeOrganizations,
+    FakeTemplates,
+    sessions_load_through_get_user,
+    skip_without_real_dependencies,
+)
 
 skip_without_real_dependencies()
 
@@ -35,53 +40,6 @@ ORGANIZATION = {
 TEMPLATE_ID = "template-123"
 
 NOT_STRINGS = [{"$ne": None}, [ORG_ID], 42, True]
-
-
-class FakeTemplates:
-    """The templates collection, matching a filter's fields by equality."""
-
-    def __init__(self, *docs):
-        self.docs = [dict(doc) for doc in docs]
-
-    def _matches(self, doc, query):
-        return all(doc.get(key) == value for key, value in query.items())
-
-    def find_one(self, query):
-        return next((dict(doc) for doc in self.docs if self._matches(doc, query)), None)
-
-    def find(self, query):
-        return [dict(doc) for doc in self.docs if self._matches(doc, query)]
-
-    def insert_one(self, doc):
-        self.docs.append(dict(doc))
-        return SimpleNamespace(inserted_id="inserted")
-
-    def update_one(self, query, update):
-        for doc in self.docs:
-            if self._matches(doc, query):
-                doc.update(update["$set"])
-                return SimpleNamespace(modified_count=1)
-        return SimpleNamespace(modified_count=0)
-
-    def delete_one(self, query):
-        before = len(self.docs)
-        self.docs = [doc for doc in self.docs if not self._matches(doc, query)]
-        return SimpleNamespace(deleted_count=before - len(self.docs))
-
-
-class FakeOrganizations:
-    """The organizations collection, recording every filter it is asked with."""
-
-    def __init__(self, *docs):
-        self.docs = [dict(doc) for doc in docs]
-        self.queries = []
-
-    def find_one(self, query):
-        self.queries.append(query)
-        return next(
-            (dict(doc) for doc in self.docs if all(doc.get(k) == v for k, v in query.items())),
-            None,
-        )
 
 
 def _stored_template(**fields):

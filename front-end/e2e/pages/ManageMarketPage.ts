@@ -42,7 +42,6 @@ export class ManageMarketPage {
   readonly deleteButton: Locator;
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
-  readonly permissions: Locator;
   readonly permissionsOpen: Locator;
   readonly permissionsWindow: Locator;
   readonly permissionsBody: Locator;
@@ -117,8 +116,7 @@ export class ManageMarketPage {
     // Its own destructive dialog (bug 43), so its buttons are that dialog's.
     this.deleteConfirmButton = page.getByTestId('manage-market-delete-submit-button');
     this.deleteCancelButton = page.getByTestId('manage-market-delete-cancel-button');
-    // Who may do what (E39/F01/S04): a section's line, and a button opening the rows' own dialog.
-    this.permissions = page.getByTestId('manage-market-permissions');
+    // Who may do what (E39/F01/S04): the section's button, and the rows' own dialog it opens.
     this.permissionsOpen = page.getByTestId('manage-market-permissions-open');
     this.permissionsWindow = page.getByTestId('manage-market-permissions-window');
     this.permissionsBody = page.getByTestId('manage-market-permissions-body');

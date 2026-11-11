@@ -5,6 +5,7 @@ sources:
   - wayfinding/november-2026-dry-run/07
   - wayfinding/november-2026-dry-run/04
 ---
+
 # Final dry run of the November 2026 market, 2026-10-18
 
 The UBC Makers Market of 18 to 20 November 2026, walked end to end in a real browser on the day it goes to production, with the organizer's real Google Form export and, for the first time, the market's real room.
@@ -16,22 +17,22 @@ Run on `dev` plus [#96](https://github.com/chanjdaniel/Conventioner/pull/96), th
 **The dry run passes, and found no defect.**
 Every pass criterion of the rehearsal map holds on the real room, which has 42% fewer tables than the rehearsal's.
 
-| | Result |
-| --- | --- |
-| Import | 212 of 212 rows; re-import: 0 new, 0 updated, 212 unchanged |
-| Review | 211 approved, 1 rejected (the row the organizer's sheet marks withdrawn), by keyboard in 3 seconds |
-| Assignment | 206 of 211 vendors placed, 244 placements, 177 of 177 table-days, 61% satisfaction, in about 4 seconds |
-| Pairs | 36 table-share requests stand; together on 48 of the 50 dates both are placed, and the other date cannot be shared |
-| Publish and check-in | Published; a vendor looked up and checked in on a phone; Attendance shows the check-in |
+|                      | Result                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Import               | 212 of 212 rows; re-import: 0 new, 0 updated, 212 unchanged                                                        |
+| Review               | 211 approved, 1 rejected (the row the organizer's sheet marks withdrawn), by keyboard in 3 seconds                 |
+| Assignment           | 206 of 211 vendors placed, 244 placements, 177 of 177 table-days, 61% satisfaction, in about 4 seconds             |
+| Pairs                | 36 table-share requests stand; together on 48 of the 50 dates both are placed, and the other date cannot be shared |
+| Publish and check-in | Published; a vendor looked up and checked in on a phone; Attendance shows the check-in                             |
 
 ## The real room
 
 Stated by the organizer on 2026-10-18; it replaces the four-section stand-in of ticket 04.
 
-| Section | Location | Tier | Tables |
-| --- | --- | --- | --- |
-| A | Upper Atrium | Gold | 31 |
-| B | Lower Atrium | Silver | 28 |
+| Section | Location     | Tier   | Tables |
+| ------- | ------------ | ------ | ------ |
+| A       | Upper Atrium | Gold   | 31     |
+| B       | Lower Atrium | Silver | 28     |
 
 59 tables a day on all three days, against 101 in the rehearsal.
 Half tables at the default 30% per section, and no market ceiling on days per vendor.
@@ -42,11 +43,11 @@ Demand is about twice the room: the 211 candidates ask for about 453 vendor-days
 Gold-only demand alone is 51 to 58 vendors a day, against Gold's 31 tables.
 
 | Days placed | Vendors |
-| --- | --- |
-| 0 | 5 |
-| 1 | 168 |
-| 2 | 38 |
-| 3 | 0 |
+| ----------- | ------- |
+| 0           | 5       |
+| 1           | 168     |
+| 2           | 38      |
+| 3           | 0       |
 
 The solver gives each turn to whoever has the fewest days so far, so a scarce room spreads one day across nearly everyone rather than giving a few vendors three.
 Whether the market wants that, or fewer vendors on more days, is the organizer's call; a ceiling on days per vendor is the plan's lever for it.
@@ -65,28 +66,28 @@ Whether the market wants that, or fewer vendors on more days, is the organizer's
 
 Market "UBC Makers Market November 2026 Final Dry Run".
 
-| Step | Result |
-| --- | --- |
-| Proposal | Three dates, the year 2026 (confirmed), Gold and Silver, 6 essential questions and 21 of the organizer's own, the status column and the repeated email column left out. "Keep all" on the three questions with rare answers, as in the rehearsal |
-| Plan | The real room above, saved as typed |
-| Import | 212 of 212, the proposal's mapping restored for every column |
-| Re-import of the same file | 0 new, 0 updated, 212 unchanged |
-| Review | 211 approved and the withdrawn row rejected; the 46 rows the sheet leaves undecided are approved as stand-ins, as in the rehearsal |
-| Rules | Current students before alumni and staff; any listed club before none; no first-come rule |
-| Assign | As in the summary |
-| Publish | The confirmation says what goes on the air and that it cannot be undone |
-| Check in | A vendor placed on two days looked themselves up on a phone and checked in for one |
-| Attendance | Lists the check-in |
+| Step                       | Result                                                                                                                                                                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Proposal                   | Three dates, the year 2026 (confirmed), Gold and Silver, 6 essential questions and 21 of the organizer's own, the status column and the repeated email column left out. "Keep all" on the three questions with rare answers, as in the rehearsal |
+| Plan                       | The real room above, saved as typed                                                                                                                                                                                                              |
+| Import                     | 212 of 212, the proposal's mapping restored for every column                                                                                                                                                                                     |
+| Re-import of the same file | 0 new, 0 updated, 212 unchanged                                                                                                                                                                                                                  |
+| Review                     | 211 approved and the withdrawn row rejected; the 46 rows the sheet leaves undecided are approved as stand-ins, as in the rehearsal                                                                                                               |
+| Rules                      | Current students before alumni and staff; any listed club before none; no first-come rule                                                                                                                                                        |
+| Assign                     | As in the summary                                                                                                                                                                                                                                |
+| Publish                    | The confirmation says what goes on the air and that it cannot be undone                                                                                                                                                                          |
+| Check in                   | A vendor placed on two days looked themselves up on a phone and checked in for one                                                                                                                                                               |
+| Attendance                 | Lists the check-in                                                                                                                                                                                                                               |
 
 ## The pass criteria
 
-| Criterion | Result |
-| --- | --- |
-| All rows import, and re-importing changes nothing | Holds |
-| Nobody on a day they answered None, at a tier they declined that day, beyond their own limit, or on a table size they did not choose | Holds: none, and no table holds more than two |
-| Every approved vendor placed or told why | Holds: each of the 5 unplaced says "Every table they accept is taken" on each date they asked for |
-| Pairs sit together | Holds wherever a shared table exists: 48 of 50 dates. On the other, one partner asked only Silver and the other only Gold that day, and tier is a hard filter |
-| The order is respected | Holds: all 5 unplaced are alumni or staff in no club who want only Gold, and nobody ranked below them holds a seat they would accept |
+| Criterion                                                                                                                            | Result                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| All rows import, and re-importing changes nothing                                                                                    | Holds                                                                                                                                                         |
+| Nobody on a day they answered None, at a tier they declined that day, beyond their own limit, or on a table size they did not choose | Holds: none, and no table holds more than two                                                                                                                 |
+| Every approved vendor placed or told why                                                                                             | Holds: each of the 5 unplaced says "Every table they accept is taken" on each date they asked for                                                             |
+| Pairs sit together                                                                                                                   | Holds wherever a shared table exists: 48 of 50 dates. On the other, one partner asked only Silver and the other only Gold that day, and tier is a hard filter |
+| The order is respected                                                                                                               | Holds: all 5 unplaced are alumni or staff in no club who want only Gold, and nobody ranked below them holds a seat they would accept                          |
 
 ## Findings
 
@@ -115,7 +116,7 @@ The organizer asked for four changes after reading the run; they are built in th
 
 ## Left on the stack
 
-| Market | Id | State |
-| --- | --- | --- |
-| UBC Makers Market November 2026 Final Dry Run | `912bcb54-5206-43e4-943a-1528107a25f6` | Market Days, published, 1 check-in |
-| UBC Makers Market November 2026 Rehearsal 2 | `77f4e0ed-3679-45e6-bb7a-89e795d84d12` | Assignment, re-planned to the real room and assigned again (same result) |
+| Market                                        | Id                                     | State                                                                    |
+| --------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------ |
+| UBC Makers Market November 2026 Final Dry Run | `912bcb54-5206-43e4-943a-1528107a25f6` | Market Days, published, 1 check-in                                       |
+| UBC Makers Market November 2026 Rehearsal 2   | `77f4e0ed-3679-45e6-bb7a-89e795d84d12` | Assignment, re-planned to the real room and assigned again (same result) |

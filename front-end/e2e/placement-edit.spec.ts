@@ -147,7 +147,6 @@ test.describe('Changing a placement on the Tables view', () => {
         const after: string = before ? `&before=${encodeURIComponent(before)}` : '';
         const res = await page.request.get(
           `${APP_API}/markets/${seed.marketId}/history?${query}${after}`,
-          { headers: { 'X-Owner-Email': TEST_USER.email } },
         );
         const body = (await res.json()) as { entries: Entry[]; next: string | null };
         entries.push(...body.entries);
@@ -204,18 +203,14 @@ test.describe('Changing a placement on the Tables view', () => {
 
     const before = await request.get(
       `${BACKEND_URL}/markets/${doomed.marketId}/history?group=Assignment`,
-      { headers: { 'X-Owner-Email': TEST_USER.email } },
     );
     expect(((await before.json()) as { entries: unknown[] }).entries.length).toBeGreaterThan(0);
 
-    const deleted = await request.delete(`${BACKEND_URL}/markets/${doomed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const deleted = await request.delete(`${BACKEND_URL}/markets/${doomed.marketId}`);
     expect(deleted.ok(), await deleted.text()).toBeTruthy();
 
     const after = await request.get(
       `${BACKEND_URL}/markets/${doomed.marketId}/history?group=Assignment`,
-      { headers: { 'X-Owner-Email': TEST_USER.email } },
     );
     expect(after.status()).toBe(404);
   });

@@ -20,7 +20,7 @@ describes:
   - front-end/src/components/vendorPage/VendorCheckIn.vue
   - front-end/src/App.vue#fitsAPhone
   - front-end/src/utils/fitsAPhone.ts
-verified: 2026-11-04
+verified: 2026-11-10
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
@@ -39,6 +39,7 @@ sources:
   - T148
   - E38/F15/S04
   - T202
+  - T251
 ---
 
 # Attendance and the door
@@ -56,14 +57,14 @@ The `(market_id, vendor_email)` index is in [the lookup indexes](../data/lookup-
 
 ## The routes
 
-| Route | Who | Does |
-| --- | --- | --- |
-| `POST /public/markets/<slug>/vendor/check-in` | the vendor, signed in, with the live door code | their own check-in for `date`, `{date, doorCode}` |
-| `DELETE /public/markets/<slug>/vendor/check-in` | the vendor, signed in | the undo of their check-in for `date`, within a day of the server's date, no door code |
-| `GET /markets/<id>/attendance` | the Read row: any role | the roster |
-| `POST`/`DELETE /markets/<id>/attendance` | the Check vendors in row: EDITOR by default | the organizer's check-in, or its undo |
-| `GET /markets/<id>/door-code` | the Check vendors in row | the door code, `{code, madeAt, madeBy, url}`, or `{code: null}` |
-| `POST /markets/<id>/door-code` | the Check vendors in row, in `market_days`, never archived | a new door code, which ends the old one |
+| Route                                           | Who                                                        | Does                                                                                   |
+| ----------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `POST /public/markets/<slug>/vendor/check-in`   | the vendor, signed in, with the live door code             | their own check-in for `date`, `{date, doorCode}`                                      |
+| `DELETE /public/markets/<slug>/vendor/check-in` | the vendor, signed in                                      | the undo of their check-in for `date`, within a day of the server's date, no door code |
+| `GET /markets/<id>/attendance`                  | the Read row: any role                                     | the roster                                                                             |
+| `POST`/`DELETE /markets/<id>/attendance`        | the Check vendors in row: EDITOR by default                | the organizer's check-in, or its undo                                                  |
+| `GET /markets/<id>/door-code`                   | the Check vendors in row                                   | the door code, `{code, madeAt, madeBy, url}`, or `{code: null}`                        |
+| `POST /markets/<id>/door-code`                  | the Check vendors in row, in `market_days`, never archived | a new door code, which ends the old one                                                |
 
 ## Sharp edges
 

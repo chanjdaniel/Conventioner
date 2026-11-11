@@ -16,7 +16,7 @@ describes:
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/tests/test_undoing_a_verdict.py
   - back-end/tests/test_the_market_list_shows_what_the_read_serves.py
-verified: 2026-11-05
+verified: 2026-11-10
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
@@ -43,6 +43,7 @@ sources:
   - E38/F15/S04
   - T181
   - T217
+  - T263
 ---
 
 # What each role may do
@@ -98,6 +99,7 @@ Everything a Viewer may, and:
 - automatic rejections
 - giving verdicts on open applications and follow-ups and undoing their own within 2 minutes
 - marking and handing on follow-ups
+- adding a vendor who never applied
 - vendor notes
 - [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md)
 - allocating tables and assigning, moving, swapping or freeing a seat
@@ -147,13 +149,13 @@ See [the organization document](../../implementation/data/organization-document.
 
 ## Who signs in, and how
 
-| Person | Signs in how | What they do |
-| --- | --- | --- |
-| Organizer | Email and password, or an emailed sign-in code | Runs markets, by the role each market gives them |
-| Organization owner or admin | As an organizer | Runs every market of their organization as its Admin |
-| Organization member | As an organizer | Sees every market of their organization as a Viewer |
-| Vendor applying online | A 6-digit code emailed per market; no account | Applies to a market whose vendors apply on its own page, and reads their application ([a vendor signs in before they have applied](a-vendor-signs-in-before-applying.md)) |
-| Vendor on market day | Nothing: types the address they applied with | Looks up their table and checks in |
+| Person                      | Signs in how                                   | What they do                                                                                                                                                              |
+| --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Organizer                   | Email and password, or an emailed sign-in code | Runs markets, by the role each market gives them                                                                                                                          |
+| Organization owner or admin | As an organizer                                | Runs every market of their organization as its Admin                                                                                                                      |
+| Organization member         | As an organizer                                | Sees every market of their organization as a Viewer                                                                                                                       |
+| Vendor applying online      | A 6-digit code emailed per market; no account  | Applies to a market whose vendors apply on its own page, and reads their application ([a vendor signs in before they have applied](a-vendor-signs-in-before-applying.md)) |
+| Vendor on market day        | Nothing: types the address they applied with   | Looks up their table and checks in                                                                                                                                        |
 
 ## Where it is kept
 
@@ -178,7 +180,7 @@ See [the organization document](../../implementation/data/organization-document.
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's read-only line and its answer for moving the phase; `every-screen-asks-the-table.spec.ts` walks a Viewer, an Editor and an Admin through Market Setup, Applications (the vendor drawer's "Update info" among them), the Assignment tab and Attendance.
 - [`back-end/tests/test_an_organizations_admins_run_its_markets.py`](../../../back-end/tests/test_an_organizations_admins_run_its_markets.py) pins the role each place in an organization gives, the higher of two roles, that the Markets list names the same role, and that an organization admin adds and changes only Editors and Viewers; `screens-match-roles.spec.ts` walks an organization admin swapping two seats on market day.
 - **The Markets list shows a market only where its own page opens for the reader** (T181): the list asks the market read's question of each market, the read row for the role the read resolves, so a market the read answers as absent (its document unreadable, its organization's unreadable and so granting nothing, or no role of the reader's on it) is never a card that opens onto "not found" ([the organization document](../../implementation/data/organization-document.md#what-a-person-may-do-on-a-market)).
-  [`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client.
+  [`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client, and that a chosen Viewer's entry and read answer every row alike.
 - **Giving a verdict and changing one are two rows** (E38/F06/S01): every review write asks "Give verdicts and follow-ups" (`_reviewer_on`), and a verdict or a selection's asks "Change a verdict, or overturn an automatic rejection" too, of each application it writes that is already approved or rejected.
   A single verdict on one is refused with a 403 and the row's sentence ("Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."), a selection skips each with that sentence, and the write itself refuses one decided since the reviewer saw it, so a verdict landing in between is the 409 it always was.
   A write that judges the automatic rejections again returns what a rule rejected to open only for someone the row lets overturn it ([automatic rejections](automatic-rejections.md)).
@@ -192,6 +194,7 @@ See [the organization document](../../implementation/data/organization-document.
   [`back-end/tests/test_undoing_a_verdict.py`](../../../back-end/tests/test_undoing_a_verdict.py) pins each role, a chosen Viewer, the window, someone else's verdict, a stale read, a closed review, and a selection.
 - **Being chosen passes the giving row, in the actions module alone** (E38/F07/S03): `refusal` and `role_refusal` answer None for "Give verdicts and follow-ups" to someone the row refuses who is a chosen reviewer (`is_chosen`, by address, off the market's `reviewTeam`) and whose role reaches `review-when-chosen`.
   A write reads it off the market; the market read passes it once, so `actionRefusals`, `readOnlyReason` and `peopleOnMarket` let a chosen Viewer in, and every review write (`_reviewer_on`) does, with no role named anywhere else.
+  The Markets list passes it for each entry, by the reader's address, so a card's `actionRefusals` answer the giving row as the market's page does.
   The change row, asked on top, still refuses them in its own words.
   `may_be_chosen` asks the same row of someone known by id (`market_role_of` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py)): the reviewers the chooser is offered and which chosen reviewers are still able, dealt to and served `able`.
   The row changes nothing itself, so holding it alone still reads as read-only (`CHANGING_NOTHING`), and the history's kind filter leaves it out, since nothing is recorded under it.

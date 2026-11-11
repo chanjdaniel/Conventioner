@@ -34,9 +34,7 @@ test('a swap partner is found by typing, and the swap is made as before', async 
   ]) {
     seedApprovedVendor(marketId, email!, { dates: [SEED_MARKET_DATE], tiers: ['Gold'], fullName });
   }
-  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
+  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`);
   expect(run.ok()).toBe(true);
 
   const tables = new TablesPage(page);

@@ -22,8 +22,7 @@ export async function seedDraftMarket(
   const { name = uniqueMarketName('E2E Draft'), intakeMode } = options;
   const userId = await loginViaApi(request, baseURL, email, password);
   // The user's first organization unless the caller names one of theirs.
-  const orgId =
-    options.organizationId ?? (await ensureTestOrgAuthenticated(request, baseURL, email));
+  const orgId = options.organizationId ?? (await ensureTestOrgAuthenticated(request, baseURL));
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: { 'Content-Type': 'application/json' },
     data: {
