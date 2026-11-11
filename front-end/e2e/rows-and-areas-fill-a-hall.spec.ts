@@ -265,7 +265,7 @@ test.describe('Rows fill a hall', () => {
     expect(leastSeparation(tables)).toBeGreaterThanOrEqual(-0.05);
   });
 
-  test("a Gap or an Aisle that is no length says what it takes, as Fill's Aisle does, and no row is shown or placed until it is mended", async ({
+  test(`a Gap or an Aisle that is no length says what it takes, as Fill's Aisle does, the Aisle only of more than one row, and no row is shown, counted or placed until it is mended; "Row of N…" is kept off and says why`, async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -282,6 +282,13 @@ test.describe('Rows fill a hall', () => {
     await layout.clickAt([22_000, 3000]);
     await expect(layout.rowPoints).toHaveCount(2);
     await expect(layout.rowTables).toHaveCount(0);
+    // No count is shown while the path holds none, and what is said of it is the refusal.
+    await expect(layout.rowCount).toHaveCount(0);
+    await page.keyboard.press('f');
+    await expect(layout.announcement).toHaveText(
+      "Tables on the left of the line. Type the gap's width in centimetres, 0 to 1,000.",
+    );
+    await page.keyboard.press('f');
     await page.keyboard.press('Enter');
     await expect(layout.announcement).toHaveText(
       "Type the gap's width in centimetres, 0 to 1,000.",
@@ -295,7 +302,13 @@ test.describe('Rows fill a hall', () => {
     await expect(gapError).toHaveCount(0);
     await expect(layout.rowGap).toHaveAttribute('aria-invalid', 'false');
     await expect(aisleError).toHaveText("Type the aisle's width in centimetres, 0 to 1,000.");
+    // One row reads no aisle, so the field is marked but the row stands; two rows refuse.
+    await expect(layout.rowTables).toHaveCount(10);
+    await expect(layout.rowCount).toHaveText('10 tables');
+    await layout.rowRows.fill('2');
     await expect(layout.rowTables).toHaveCount(0);
+    await expect(layout.rowCount).toHaveCount(0);
+    await layout.rowRows.fill('1');
 
     await layout.rowAisle.fill('120');
     await expect(aisleError).toHaveCount(0);
@@ -304,6 +317,21 @@ test.describe('Rows fill a hall', () => {
     await layout.rowAisle.blur();
     await layout.saved(() => page.keyboard.press('Enter'));
     await expect(layout.announcement).toHaveText('Added Gold row 1 to 10.');
+    const placed = await stored(request, seeded.marketId);
+    expect(placed).toHaveLength(10);
+
+    // "Row of N…" in the selection card, with the Gap field off the screen, is kept off and says
+    // why under its button.
+    await layout.rowGap.fill('-5');
+    await layout.toolSelect.click();
+    await expect(layout.rowGap).toBeHidden();
+    await layout.clickAt([placed[0].xMm, placed[0].yMm]);
+    await expect(layout.selectionTitle).toHaveText('Gold row 1');
+    await layout.selectionRow.click();
+    await expect(layout.selectionRowAdd).toBeDisabled();
+    await expect(page.getByTestId('layout-selection-row-gap-error')).toHaveText(
+      "Row of tables' gap is no length. Type it in centimetres, 0 to 1,000, with Row of tables on.",
+    );
     expect(await stored(request, seeded.marketId)).toHaveLength(10);
   });
 

@@ -235,6 +235,9 @@ const row = useRowTool({
 });
 /** What the strip's Gap and Aisle say of a value that is no length, each under its own id. */
 const rowErrors = computed(rowFieldErrors);
+/** What the pending path holds, as its sentences say it: its count, or the refusal of a field
+ *  that is no length, while the path holds and places none. */
+const rowHolds = () => row.refusal.value || row.poses.value.length;
 /** The colours a row is shown in before it is placed: its section's. */
 const rowPaint = computed(
   () =>
@@ -653,7 +656,7 @@ function drawStroke(event: PointerEvent) {
  *  what a shape takes. */
 function closeRow() {
   if (row.closed.value) return;
-  say(row.close() ? saidClosed(row.poses.value.length) : SHAPE_NEEDS_THREE);
+  say(row.close() ? saidClosed(rowHolds()) : SHAPE_NEEDS_THREE);
 }
 
 /** Place the pending row, and say what was added. Placed by keys, the focus goes to its first
@@ -1081,7 +1084,7 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
       const ended = row.endStroke();
       if (ended === 'straight') placeRow();
       else if (ended === 'curve') {
-        say(saidCurveDrawn(row.points.value.length, row.poses.value.length, row.closed.value));
+        say(saidCurveDrawn(row.points.value.length, rowHolds(), row.closed.value));
       }
       return;
     }
@@ -1396,7 +1399,7 @@ function rowKey(event: KeyboardEvent, onStage: boolean): boolean {
       row.moveCrosshair(at);
       // Enter again where a point was just laid lays no second one there: the point is said.
       if (!last || last.xMm !== at.xMm || last.yMm !== at.yMm) row.addPoint(at);
-      say(saidPoint(row.points.value.length, at, row.poses.value.length));
+      say(saidPoint(row.points.value.length, at, rowHolds()));
       return true;
     }
     if (!row.pending.value) return false;
@@ -1525,18 +1528,18 @@ function crosshairStart(): PointMm {
 /** Take back the last thing done to the path: its closing, else its last point. */
 function takeRowPoint() {
   if (row.open()) {
-    say(saidOpened(row.poses.value.length));
+    say(saidOpened(rowHolds()));
     return;
   }
   const number = row.points.value.length;
-  if (row.takePoint()) say(saidPointTaken(number, row.poses.value.length));
+  if (row.takePoint()) say(saidPointTaken(number, rowHolds()));
 }
 
 /** Swap the side of the line a row's tables stand on; nothing while they are centred on it. */
 function flipRow() {
   if (rowChoices.centred) return;
   row.flip();
-  say(saidSide(rowChoices.side, row.pending.value ? row.poses.value.length : null));
+  say(saidSide(rowChoices.side, row.pending.value ? rowHolds() : null));
 }
 
 /** Zoom a step about the middle of the view, keeping the table the keys are on in it. */
@@ -2257,7 +2260,9 @@ watch(
             :poses="row.poses.value"
             :size="row.size.value"
             :points="row.points.value"
-            :countAt="row.pending.value ? (crosshair ?? row.countAt.value) : null"
+            :countAt="
+              row.pending.value && !row.refusal.value ? (crosshair ?? row.countAt.value) : null
+            "
             :closeAt="row.closeAt.value"
             :finished="row.closed.value || row.drawn.value"
             :crosshair="crosshair"

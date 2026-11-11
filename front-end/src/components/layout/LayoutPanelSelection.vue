@@ -16,6 +16,7 @@ import IconExpandDown from '@/components/icons/IconExpandDown.vue';
 import { plural } from '@/utils/historyReaders/shared';
 import { placeInMetres, tableCode, type LayoutSection } from './layoutDrawing';
 import type { Alignment } from './layoutGeometry';
+import { MAX_LENGTH_CM, rowFieldErrors } from './layoutRow';
 
 /** What the Align menu offers: an edge or a centre to line up by, or an even spacing. */
 export type Arrangement = Alignment | 'across' | 'down';
@@ -57,8 +58,17 @@ const rowAsked = computed(() => {
   return Number.isInteger(count) && count >= 1 && count <= MOST_IN_A_ROW ? count : null;
 });
 
+/** Why "Add row" is off while Row of tables' gap, which the row takes, is no length: the Gap
+ *  field and its own sentence stand only in that tool's strip, off the screen here. */
+const gapRefusal = computed(() =>
+  rowFieldErrors().gap
+    ? `Row of tables' gap is no length. Type it in centimetres, 0 to ${MAX_LENGTH_CM.toLocaleString('en')}, with Row of tables on.`
+    : '',
+);
+const rowGapErrorId = useId();
+
 function addRow() {
-  if (rowAsked.value !== null) emit('row', rowAsked.value);
+  if (rowAsked.value !== null && !gapRefusal.value) emit('row', rowAsked.value);
 }
 
 // The count is one table's: it closes when the selection is no longer the one table.
@@ -243,18 +253,27 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
           type="text"
           inputmode="numeric"
           autocomplete="off"
+          :aria-describedby="gapRefusal ? rowGapErrorId : undefined"
           data-testid="layout-selection-row-count"
         />
         <button
           type="submit"
           class="btn btn--secondary"
-          :disabled="rowAsked === null"
+          :disabled="rowAsked === null || !!gapRefusal"
           data-testid="layout-selection-row-add"
         >
           Add row
         </button>
         <p class="selection-row-note">
           They go on along {{ one.code }}'s line, with the gap of Row of tables.
+        </p>
+        <p
+          v-if="gapRefusal"
+          :id="rowGapErrorId"
+          class="selection-row-error"
+          data-testid="layout-selection-row-gap-error"
+        >
+          {{ gapRefusal }}
         </p>
       </form>
     </template>
@@ -320,6 +339,13 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
+}
+
+.selection-row-error {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-red);
 }
 
 /* The menu's button stands in the row of buttons as one of them: the secondary button's edge and

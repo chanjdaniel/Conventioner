@@ -266,10 +266,10 @@ export interface RowTool {
   closeAt: ComputedRef<PointMm | null>;
   /** The smooth path through the points, and the pointer's place while it is over the map. */
   runs: ComputedRef<Run[]>;
-  /** The row that placing would add: none while the gap or the aisle is no length. */
+  /** The row that placing would add: none while `refusal` stands. */
   poses: ComputedRef<PathPose[]>;
-  /** Why no row is shown or placed: the sentence of the gap or the aisle that is no length, else
-   *  ''. */
+  /** Why no row is shown or placed: the sentence of a gap that is no length, or of an aisle that
+   *  is none while more than one row is asked, else ''. */
   refusal: ComputedRef<string>;
   /** The size of the tables it would add. */
   size: ComputedRef<SizeMm>;
@@ -363,10 +363,11 @@ export function useRowTool(options: RowToolOptions): RowTool {
   const runs = computed(() =>
     read.value ? strokeRuns(read.value) : smoothRuns(path.value, { closed: drawnClosed.value }),
   );
-  // While the gap or the aisle is no length, no row is shown or placed: the field says why.
+  // While a field the row reads is no length, no row is shown or placed: the field says why.
+  // The aisle is read only between rows, so it refuses only when more than one is asked.
   const refusal = computed(() => {
     const errors = rowFieldErrors();
-    return errors.gap || errors.aisle;
+    return errors.gap || (rowsOf(rowChoices.rows) > 1 ? errors.aisle : '');
   });
   const poses = computed(() => {
     const now = layout();

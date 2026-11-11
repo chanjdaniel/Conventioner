@@ -159,17 +159,24 @@ export function saidRowAdded(
   return `Added ${first} to ${last.number}.`;
 }
 
-/** How many tables the path holds, as a sentence: "14 tables.", "No tables yet." */
-const held = (count: number) => (count ? `${plural(count, 'table', 'tables')}.` : 'No tables yet.');
+/** What the path holds: a count of tables, or, while the strip's Gap or Aisle refuses, that
+ *  field's sentence, since the path then holds and places none. */
+export type RowHolds = number | string;
+
+/** What the path holds, as a sentence: "14 tables.", "No tables yet.", or the field's refusal. */
+const held = (holds: RowHolds) => {
+  if (typeof holds === 'string') return holds;
+  return holds ? `${plural(holds, 'table', 'tables')}.` : 'No tables yet.';
+};
 
 /** A point laid by the crosshair, and what the path now holds: "Point 3 at 12.4 m, 6.1 m. 14
  *  tables." */
-export function saidPoint(number: number, at: PointMm, count: number): string {
+export function saidPoint(number: number, at: PointMm, count: RowHolds): string {
   return `Point ${number} at ${placeInMetres(at)}. ${held(count)}`;
 }
 
 /** "Point 3 taken back. 9 tables."; the first, "Point 1 taken back. No points left." */
-export function saidPointTaken(number: number, count: number): string {
+export function saidPointTaken(number: number, count: RowHolds): string {
   return `Point ${number} taken back. ${number === 1 ? 'No points left.' : held(count)}`;
 }
 
@@ -180,26 +187,28 @@ export function saidCrosshair(at: PointMm): string {
 
 /** The side a row's tables stand on, and what the path holds there: "Tables on the left of the
  *  line. 12 tables."; with no path, the side alone. */
-export function saidSide(side: 'right' | 'left', count: number | null): string {
+export function saidSide(side: 'right' | 'left', count: RowHolds | null): string {
   const said = `Tables on the ${side} of the line.`;
   return count === null ? said : `${said} ${held(count)}`;
 }
 
 /** A path closed into a shape, and what it holds: "Closed. 10 tables." */
-export function saidClosed(count: number): string {
+export function saidClosed(count: RowHolds): string {
   return `Closed. ${held(count)}`;
 }
 
 /** A closed path opened again, and what it holds: "Opened again. 9 tables." */
-export function saidOpened(count: number): string {
+export function saidOpened(count: RowHolds): string {
   return `Opened again. ${held(count)}`;
 }
 
 /** A curved stroke let go, smoothed into a path that waits: "Curve drawn through 6 points. 10
  *  tables. Enter places it."; one that came back to its start, "Loop drawn through 8 points. 14
- *  tables. Enter places it." */
-export function saidCurveDrawn(points: number, tables: number, closed: boolean): string {
-  return `${closed ? 'Loop' : 'Curve'} drawn through ${points} points. ${held(tables)} Enter places it.`;
+ *  tables. Enter places it."; while a field refuses, its sentence, and no Enter, which would
+ *  place nothing. */
+export function saidCurveDrawn(points: number, tables: RowHolds, closed: boolean): string {
+  const drawn = `${closed ? 'Loop' : 'Curve'} drawn through ${points} points. ${held(tables)}`;
+  return typeof tables === 'string' ? drawn : `${drawn} Enter places it.`;
 }
 
 /** Said when a path of fewer than three points is asked to close. */

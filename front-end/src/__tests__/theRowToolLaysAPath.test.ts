@@ -10,7 +10,10 @@ import type { FloorplanObject, FloorplanTable, SectionObject } from '@/assets/ty
 import LayoutPanelSelection from '@/components/layout/LayoutPanelSelection.vue';
 import {
   ROW_DROPPED,
+  saidClosed,
   saidCrosshair,
+  saidCurveDrawn,
+  saidOpened,
   saidPoint,
   saidPointTaken,
   saidRowAdded,
@@ -151,12 +154,25 @@ describe('a path being drawn', () => {
     expect(row.refusal.value).toBe("Type the gap's width in centimetres, 0 to 1,000.");
 
     rowChoices.gapCm = '0';
+    rowChoices.rows = '2';
     rowChoices.aisleCm = 'abc';
     expect(row.poses.value).toEqual([]);
     expect(row.refusal.value).toBe("Type the aisle's width in centimetres, 0 to 1,000.");
 
     rowChoices.aisleCm = '120';
+    expect(row.poses.value).toHaveLength(20);
+  });
+
+  it('refuses an Aisle that is no length only when more than one row is asked, which reads it', () => {
+    const { row } = aTool();
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
+    rowChoices.aisleCm = 'abc';
+    expect(row.refusal.value).toBe('');
     expect(row.poses.value).toHaveLength(10);
+
+    rowChoices.rows = '2';
+    expect(row.refusal.value).toBe("Type the aisle's width in centimetres, 0 to 1,000.");
+    expect(row.poses.value).toEqual([]);
   });
 
   it('stands its tables on the right of the line drawn, the left once flipped, or on it', () => {
@@ -412,6 +428,19 @@ describe('what the live region says of a row', () => {
     expect(saidPoint(1, p(2000, 3000), 0)).toBe('Point 1 at 2.0 m, 3.0 m. No tables yet.');
   });
 
+  it("says a field's refusal in place of the count while one stands, and no Enter that places nothing", () => {
+    const refused = "Type the gap's width in centimetres, 0 to 1,000.";
+    expect(saidPoint(2, p(12_440, 6060), refused)).toBe(`Point 2 at 12.4 m, 6.1 m. ${refused}`);
+    expect(saidPointTaken(3, refused)).toBe(`Point 3 taken back. ${refused}`);
+    expect(saidSide('left', refused)).toBe(`Tables on the left of the line. ${refused}`);
+    expect(saidClosed(refused)).toBe(`Closed. ${refused}`);
+    expect(saidOpened(refused)).toBe(`Opened again. ${refused}`);
+    expect(saidCurveDrawn(6, refused, false)).toBe(`Curve drawn through 6 points. ${refused}`);
+    expect(saidCurveDrawn(6, 10, false)).toBe(
+      'Curve drawn through 6 points. 10 tables. Enter places it.',
+    );
+  });
+
   it('says a point taken back, the crosshair, the side and a dropped path', () => {
     expect(saidPointTaken(3, 9)).toBe('Point 3 taken back. 9 tables.');
     expect(saidPointTaken(1, 0)).toBe('Point 1 taken back. No points left.');
@@ -475,6 +504,28 @@ describe('"Row of N…" in the selection card', () => {
       await get(wrapper, 'layout-selection-row-form').trigger('submit');
     }
     expect(wrapper.emitted('row')).toBeUndefined();
+  });
+
+  it("is kept off while Row of tables' gap is no length, and says so under it", async () => {
+    rowChoices.gapCm = '-5';
+    const wrapper = card([one]);
+    await get(wrapper, 'layout-selection-row').trigger('click');
+    const add = get(wrapper, 'layout-selection-row-add');
+    expect(add.attributes('disabled')).toBeDefined();
+    const said = get(wrapper, 'layout-selection-row-gap-error');
+    expect(said.text()).toBe(
+      "Row of tables' gap is no length. Type it in centimetres, 0 to 1,000, with Row of tables on.",
+    );
+    expect(get(wrapper, 'layout-selection-row-count').attributes('aria-describedby')).toContain(
+      said.attributes('id'),
+    );
+    await get(wrapper, 'layout-selection-row-form').trigger('submit');
+    expect(wrapper.emitted('row')).toBeUndefined();
+
+    rowChoices.gapCm = '30';
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('[data-testid="layout-selection-row-gap-error"]').exists()).toBe(false);
+    expect(get(wrapper, 'layout-selection-row-add').attributes('disabled')).toBeUndefined();
   });
 
   it('is not offered for several tables, and is folded away again when one is selected', async () => {
