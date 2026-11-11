@@ -12,12 +12,12 @@ describes:
   - back-end/datatypes.py#market_name_slug
   - back-end/datatypes.py#MarketSchemaContract
   - back-end/api/markets.py#create_market
+  - back-end/api/markets.py#new_market
   - back-end/api/markets.py#public_address_refusal
   - back-end/api/markets.py#load_market_context
   - back-end/api/markets.py#_readable_market
   - back-end/api/markets.py#_stamp_effective_market_state
   - back-end/api/markets.py#_normalized_application_form
-  - back-end/api/markets.py#_strip_persisted_assignment_statistics
   - back-end/migrations/migrate_market_keys.py
   - back-end/migrations/migrate_phase.py
   - back-end/migrations/migrate_is_draft_consistency.py
@@ -25,7 +25,8 @@ describes:
   - docs/schema.d.ts
   - back-end/db_config.py#get_mongodb_client
   - back-end/tests/test_db_config.py
-verified: 2026-11-03
+  - back-end/tests/test_the_market_create_body_is_an_allow_list.py
+verified: 2026-11-11
 sources:
   - E02
   - E03/F03
@@ -84,7 +85,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `intakeMode`                                   | `csv` or `form`; absence means `csv` ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)); it [decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md), and a market it gates [answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) through `vendor_page_market_by_slug` (the vendor page) and `applicant_intake_market_by_slug` (applying)                                                                                                                                                                                                                                                                                                                                                                       |
 | `setupObject`                                  | the plan: dates, tiers, locations, sections, priority rules, assignment options, floorplans and `pricing`; null on a market whose plan was never saved                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `applicationForm`                              | the custom fields, `publishedAt`, the frozen `essentialOptions` and `unaskedEssentials`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `assignmentObject`                             | the stored assignment: `vendorAssignments` (each a seat on a date, `handPlaced` for a pin), `assignmentDate`, `madeFrom` (what the run read) and `revision` (how many times its rows were written, which each write is conditional on); its statistics are derived on every read and never stored (`_strip_persisted_assignment_statistics`); its one writer is [placements](../modules/placements.md)                                                                                                                                                                                                                                                                                                                                                                            |
+| `assignmentObject`                             | the stored assignment: `vendorAssignments` (each a seat on a date, `handPlaced` for a pin), `assignmentDate`, `madeFrom` (what the run read) and `revision` (how many times its rows were written, which each write is conditional on); its statistics are derived on every read and never stored; its one writer is [placements](../modules/placements.md)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `importMapping`                                | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `exampleColumns`                               | what [the start from a Google Form's responses](../modules/csv-proposal-and-start.md) kept of each question and left-out column of its file: label, key, the options at least 3 applicants gave that name nobody and, unless its answers are mostly different, every answer less what `_names_someone` catches (`answers`, [ADR 0023](../../adr/0023-every-answer-for-an-option-to-offer.md)), which the read serves only to someone who may change the form while it can still change; server-owned, absent on any other market, so [the market guide](../modules/market-guide.md) reads a list, an empty one included, as the start having run                                                                                                                                  |
 | `reviewHighlights`, `rejectionRules`           | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks, the rules only while the review is open (`review_is_open`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -161,6 +162,14 @@ Every writer of `applicationForm` passes it through `_normalized_application_for
 [`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts) (`applicationFormError`) mirrors these rules so the builder refuses a save before sending it; the back end is the authority.
 Ownership of a market cannot be handed on: no write changes the `owner` entry of `roles`.
 
+## A new market
+
+**A new market takes from its create body only the fields a person chooses at creation**, `MARKET_CREATE_FIELDS` in [`back-end/api/markets.py`](../../../back-end/api/markets.py): `name`, `creationDate`, `organizationId`, `intakeMode`, `setupObject` and `applicationForm`.
+`new_market` builds the market from those alone, and every other field starts at its default, so a field added to `Market` is the server's until someone lists it, as the plan write reads only the plan (`PLAN_WRITE_FIELDS`).
+A key outside the list is dropped, not refused, since a tab still open on an earlier build sends the whole new-market object.
+The server writes the rest itself: a new `id`, `roles` holding the creator alone as owner ([the organization document](organization-document.md#roles-on-a-market)), the dated `draft` entry of `phaseHistory` ([the phase record](../modules/phase-record.md)), and `permissions` copied from the organization's default.
+[`back-end/tests/test_the_market_create_body_is_an_allow_list.py`](../../../back-end/tests/test_the_market_create_body_is_an_allow_list.py) posts a value for every field of `Market` and fails on a field it has no value for.
+
 ## The slug
 
 **`Market.slug` is a computed field**, derived from the name by `market_name_slug` (`datatypes.py`), the same rule the front end builds its links from (`marketNameToKebabSlug` in [`front-end/src/utils/marketSlug.ts`](../../../front-end/src/utils/marketSlug.ts)): accents folded, anything else to `-`.
@@ -178,7 +187,7 @@ The organizer meets it as the create-market dialog's refusal ([a name that is al
 **`phase` is the single source of truth for the market lifecycle; `is_draft` is derived from it.**
 `Market.is_draft` is a Pydantic `@computed_field` (true iff `phase == draft`) and is never independently writable: no request body can set it, and it is recomputed from the stored phase on every write.
 Nothing reads the stored value for a market whose `phase` this build understands.
-It is still persisted, and every writer keeps it in agreement with `phase`: `create_market` stamps both, the transition endpoint sets both in one atomic update, and no other write touches either.
+It is still persisted, and every writer keeps it in agreement with `phase`: `create_market` writes both as a draft, the transition endpoint sets both in one atomic update, and no other write touches either.
 It is kept only because it is the fallback `phase_from_market_document()` drops to when `phase` is missing or unrecognized, and a fallback that contradicted the phase would answer confidently and wrongly.
 **Do not delete `is_draft` from the model, and do not make it writable again.**
 The two endpoints that serve a raw document rather than a parsed `Market`, the market read and the market list, re-stamp `isDraft` from the effective phase before responding (`_stamp_effective_market_state`).

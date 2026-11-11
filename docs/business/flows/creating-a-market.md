@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/NewMarketOverlay.vue
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E24/F03
   - E26/F08
@@ -27,6 +27,7 @@ The answer to the third puts the market on its path from its first screen ([inta
 - "On my own Google Form": "You import its responses. Upload them now, and we'll set up the plan and the form from them." It lands on the upload step of the start from a Google Form ([G3](starting-from-a-google-form.md#g3-upload-and-the-year-question)).
 
 The answer stays changeable on Market Setup while the market is a draft ([E5](planning.md#e5-how-vendors-apply)).
+The dialog sends these three answers and the day, and nothing else: everything else about the market starts empty, or at what its organization sets, and is set on the market's own screens ([a new market](../../implementation/data/market-document.md#a-new-market)).
 
 ## D1. Create a market from scratch
 

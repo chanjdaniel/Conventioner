@@ -26,7 +26,7 @@ describes:
   - front-end/src/components/ScrollBox.vue
   - front-end/src/__tests__/scrollBox.test.ts
   - front-end/e2e/the-long-dialogs-scroll-their-body.spec.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map

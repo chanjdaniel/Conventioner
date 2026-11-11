@@ -10,7 +10,7 @@ describes:
   - back-end/history.py#delete_for_market
   - back-end/services/gridfs_service.py#delete_images_for_market
   - back-end/tests/test_a_deleted_market_takes_its_floorplan_images.py
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E20/F04/S01
   - bug/47

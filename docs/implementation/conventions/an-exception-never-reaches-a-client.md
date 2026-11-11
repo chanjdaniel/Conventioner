@@ -100,7 +100,7 @@ describes:
   - back-end/api/markets.py#take_move
   - back-end/utils/captcha.py#verify_recaptcha
   - back-end/tests/test_captcha.py
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T74
   - E41/F01/S01

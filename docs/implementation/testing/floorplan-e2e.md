@@ -10,7 +10,7 @@ describes:
   - front-end/e2e/fixtures/test-floorplan.png
   - front-end/e2e/the-floorplan-shades-its-scrollers.spec.ts
   - front-end/e2e/the-floorplan-draws-as-its-tokens-say.spec.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - bug/38
   - E26/F09/S01
