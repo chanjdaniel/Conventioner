@@ -15,6 +15,7 @@ describes:
   - front-end/e2e/date-display-timezone.spec.ts
   - front-end/e2e/global-setup.ts
   - front-end/e2e/helpers/networkSettles.ts
+  - front-end/e2e/helpers/stackReady.ts
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
@@ -124,10 +125,14 @@ A try that signs in takes its count back, so the suite's hundreds of fixture sig
 Asking for an organizer's code, a reset link or a verification link, and signing up, take nothing back: five of each per address and thirty per caller per 15 minutes, so a spec that goes past one clears the counters in its `finally` too.
 Every signed-out vendor page, and every vendor request that finds its tab's sign-in ended, also asks to resume a remembered sign-in, 300 per caller per 15 minutes; a refused resume draws the sign-in as no cookie does, so only a spec that needs a resume to pass clears the counters first, as `remember-me-on-the-vendor-page.spec.ts` does.
 
-**A run starts once the host's container network has settled.**
+**A run starts once the stack is ready.**
 A stack's interfaces keep changing for a while after `up` returns: each takes an IPv6 address within a second, and changes link state again about 15 seconds later, and Chromium fails whatever it has in flight with `net::ERR_NETWORK_CHANGED` at each change, so the first spec after a stack started lost a module and failed.
 `global-setup.ts` waits until the host's newest container interface (`veth`, `br-` or `docker`, aged by its `/sys/class/net` entry) is 20 seconds old ([`networkSettles.ts`](../../../front-end/e2e/helpers/networkSettles.ts)), and prints how long; a settled host, or one with no such interface, waits for nothing.
+Then it waits for the stack itself ([`stackReady.ts`](../../../front-end/e2e/helpers/stackReady.ts)), since `up` returns once the back end's and the dev server's containers run, neither having a health check: for `/api/healthz` to answer 200 through the dev server's proxy, for at most 60 seconds, and then for the sign-in page to draw its email field in a browser of its own, for at most 120 seconds.
+It prints `e2e: the stack was ready in <n>s` when that took over 2 seconds, and a stack that never gets ready fails the run with the part that did not, the back end with its last answer or the sign-in page, rather than its first spec.
 Another stack starting or stopping during a run can still abort a request: [CI and the gate](ci-and-the-gate.md#the-no-mistakes-gate) has the lock that keeps two gate runs apart.
+A test that fails after its browser, the fixture's page or a `withUser` page, saw `net::ERR_NETWORK_CHANGED` gains the annotation "network changed", which says so, beside what the browser said ([`browserSaid.ts`](../../../front-end/e2e/helpers/browserSaid.ts)); such a failure is the machine's, so run the test again rather than chase it.
+E2E stays on the dev server rather than a built front end, though a build makes fewer requests per page: an API request fails on a network change all the same, a build goes stale at every source edit, so a spec run after a change would test the old code, and the dev-only component library's specs need the dev server.
 
 **A spec finds a market or an organization by name through the page's search, never by scanning the cards.**
 Markets and Organizations show 50 cards at a time, in date order and in the order the organizations were made, and the shared test user gathers hundreds of markets over runs on one stack, so a card made in the spec can be past the first page.
