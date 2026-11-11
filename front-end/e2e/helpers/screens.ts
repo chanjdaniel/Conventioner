@@ -14,7 +14,7 @@ import { OrganizationsPage } from '../pages/OrganizationsPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { mongoEval } from './mongo';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
-import { loginViaApi } from './seeds';
+import { loginViaApi, UPPER_HALL_TABLES } from './seeds';
 import { calendarToday } from './vendorSignIn';
 import {
   FIRST_IMPORT,
@@ -235,14 +235,22 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
 /**
  * A location's layout (T257) at one of its steps: the draft's first location, whose layout has not
  * begun, on its upload's drop zone; and the layout seed's Upper Hall, its floorplan uploaded and its
- * scale not yet set, calibrating. Nothing is saved, so each walk finds them as seeded.
+ * scale not yet set, calibrating; and the laid-out seed's Upper Hall, drawn as its map, 20 tables
+ * over the faded floorplan with the panel's list of sections. Nothing is saved, so each walk finds
+ * them as seeded.
  */
-function layoutAt(stage: 'upload' | 'calibrating') {
+function layoutAt(stage: 'upload' | 'calibrating' | 'map') {
   return async (page: Page, seed: TheScreensSeed) => {
     const layout = new LayoutPage(page);
     if (stage === 'upload') {
       await layout.goto(seed.draft.marketId);
       await expect(layout.uploadDropzone).toBeVisible();
+      return;
+    }
+    if (stage === 'map') {
+      await layout.goto(seed.laidOut.marketId, seed.laidOut.upper.id);
+      await expect(layout.mapImage).toHaveAttribute('href', /^blob:/);
+      await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
       return;
     }
     await layout.goto(seed.layout.marketId, seed.layout.upper.id);
@@ -1207,6 +1215,13 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: layoutAt('calibrating'),
+  },
+  // The layout drawn (T257): the map's tables, names and zones, and the panel's sections.
+  {
+    name: 'the layout, its map',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: layoutAt('map'),
   },
   {
     name: 'market days, the plan',

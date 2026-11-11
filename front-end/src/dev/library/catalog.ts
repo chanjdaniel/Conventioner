@@ -88,6 +88,14 @@ export const ENTRIES: readonly LibraryEntry[] = [
     summary: 'The real dialog on the fixture: broad, short, its chosen columns a cart',
     serves: 'The export dialog, C11, F03',
   },
+  {
+    id: 'layout-map',
+    title: 'Layout map',
+    summary:
+      'A layout drawn: tables at their size and turn in their section colours, names, zones, at any zoom',
+    serves:
+      "A location's layout page, its editor, the PNG export; later, a public and a market-day map",
+  },
 ];
 
 /** The files under `entries/`, loaded when opened. */

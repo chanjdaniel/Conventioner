@@ -503,20 +503,74 @@ export interface SeededLayout {
   layout: { id: string; revision: number } | null;
 }
 
+/** A table `seedLayout` places: its section (null for none), its centre in millimetres and its
+ *  turn. Numbers run 1 to N in each section, in the order given. */
+export interface SeedTable {
+  section: 'sec-gold' | 'sec-silver' | null;
+  at: [number, number];
+  rotation?: number;
+}
+
+export interface SeedZone {
+  label: string;
+  /** Its top-left corner, its width and its depth, in millimetres. */
+  box: [number, number, number, number];
+}
+
+/** A row of `count` six-foot tables, touching, from its first table's centre: across the hall, or
+ *  down it with each table turned a quarter. */
+export function seedRow(
+  section: SeedTable['section'],
+  from: [number, number],
+  count: number,
+  down = false,
+): SeedTable[] {
+  return Array.from({ length: count }, (_, i) => ({
+    section,
+    at: down ? [from[0], from[1] + i * 1830] : [from[0] + i * 1830, from[1]],
+    rotation: down ? 90 : 0,
+  }));
+}
+
+/**
+ * Upper Hall laid out, in a hall 30 m by 22.5 m: Gold row's 13 tables, 9 down the west wall and 4
+ * along the top; Silver aisle's 6 across the middle; one table in no section, turned 30°; a stage
+ * and a pillar as no-table zones.
+ */
+export const UPPER_HALL_TABLES: SeedTable[] = [
+  ...seedRow('sec-gold', [1200, 4500], 9, true),
+  ...seedRow('sec-gold', [3500, 1200], 4),
+  ...seedRow('sec-silver', [10_000, 11_000], 6),
+  { section: null, at: [24_000, 18_000], rotation: 30 },
+];
+export const UPPER_HALL_ZONES: SeedZone[] = [
+  { label: 'Stage', box: [12_000, 600, 8000, 3000] },
+  { label: '', box: [9000, 15_000, 600, 600] },
+];
+
 /**
  * A draft market with two locations laid out for (T257): Upper Hall with Gold row (13 tables) and
  * Silver aisle (6), Lower Hall with Bronze corner (4), and a third location with no name, which
  * offers no layout. Upper Hall's layout is started when asked: its floorplan
  * `fixtures/test-floorplan.png` uploaded and saved, and calibrated to `metresAcross` when given.
- * Tables are placed by later tickets' specs.
+ * On a calibrated layout `tables` and `zones` are placed by a second save, each table of the
+ * market's first table type, the "Standard 6 ft" the layout's start gave it.
  */
 export async function seedLayout(
   request: APIRequestContext,
   baseURL: string,
   email: string,
   password: string,
-  options: { name?: string; layout?: boolean; metresAcross?: number } = {},
+  options: {
+    name?: string;
+    layout?: boolean;
+    metresAcross?: number;
+    tables?: SeedTable[];
+    zones?: SeedZone[];
+  } = {},
 ): Promise<SeededLayout> {
+  if ((options.tables?.length || options.zones?.length) && !options.metresAcross)
+    throw new Error('seedLayout places tables and zones only on a calibrated layout');
   await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL);
   const marketName = options.name ?? uniqueMarketName('Layout Market');
@@ -586,7 +640,49 @@ export async function seedLayout(
       data: { market_id: marketId, floorplan, revision: 0 },
     });
     if (!saved.ok()) throw new Error(`Layout save failed: ${saved.status()} ${await saved.text()}`);
-    const answer = (await saved.json()) as { floorplan: { id: string; revision: number } };
+    let answer = (await saved.json()) as { floorplan: { id: string; revision: number } };
+
+    if (options.tables?.length || options.zones?.length) {
+      const read = await request.get(`${baseURL}/markets/${marketId}`);
+      if (!read.ok()) throw new Error(`Market read failed: ${read.status()} ${await read.text()}`);
+      const { market } = (await read.json()) as {
+        market: { setupObject: { tableTypes?: { id: string }[] } };
+      };
+      const typeId = market.setupObject.tableTypes?.[0]?.id;
+      if (!typeId) throw new Error("The layout's start gave the market no table type");
+      const numbers = new Map<string, number>();
+      const tables = (options.tables ?? []).map((table, i) => {
+        const number = table.section ? (numbers.get(table.section) ?? 0) + 1 : null;
+        if (table.section && number) numbers.set(table.section, number);
+        return {
+          id: `table-${i + 1}`,
+          sectionId: table.section,
+          number,
+          tableTypeId: typeId,
+          xMm: table.at[0],
+          yMm: table.at[1],
+          rotation: table.rotation ?? 0,
+        };
+      });
+      const zones = (options.zones ?? []).map((zone, i) => ({
+        id: `zone-${i + 1}`,
+        label: zone.label,
+        xMm: zone.box[0],
+        yMm: zone.box[1],
+        widthMm: zone.box[2],
+        depthMm: zone.box[3],
+      }));
+      const placed = await request.post(`${baseURL}/floorplans/save-to-market`, {
+        data: {
+          market_id: marketId,
+          floorplan: { ...answer.floorplan, tables, zones },
+          revision: answer.floorplan.revision,
+        },
+      });
+      if (!placed.ok())
+        throw new Error(`Layout save failed: ${placed.status()} ${await placed.text()}`);
+      answer = (await placed.json()) as typeof answer;
+    }
     layout = { id: answer.floorplan.id, revision: answer.floorplan.revision };
   }
   return { marketId, marketName, upper: UPPER_HALL, lower: LOWER_HALL, layout };

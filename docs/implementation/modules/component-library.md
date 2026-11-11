@@ -9,7 +9,7 @@ describes:
   - back-end/tests/fixtures/component_library_fixture.py
   - back-end/tests/test_component_library_fixture.py
   - front-end/e2e/helpers/componentLibrary.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T200
   - T191
@@ -21,6 +21,7 @@ sources:
   - T224
   - T254
   - T263
+  - T257
 ---
 
 # The component library
@@ -82,6 +83,7 @@ What no file holds (each application's status and reviewer, each person's role, 
 It holds 359 applications (every applicant of the four-day grid with a full name and an address), 150 people with access (the five-day grid's first distinct applicants), 12 reviewers among those who may decide, the question "What kinds of work will you sell?" with its 228 answers and their counts, the 43 answers of the five-day grid the question does not offer, the approved applications seated over four dates in "North Wing" (31 tables, the Gold tier) and "South Wing" (28, Silver), and what the export's preview offers: its 43 columns in its five groups, its default columns, its statuses, dates, sections, tiers, payment and Discord states, and its 6 answer filters.
 Each application's `export` holds what those columns and filters read of a vendor, which the `export-vendors` entry reads: there [`exportVendors.ts`](../../../front-end/src/dev/library/exportVendors.ts) answers as the product's server would, so [`ExportVendorsForm.vue`](../../../front-end/src/components/ExportVendorsForm.vue), the dialog that ships, mounted there on the fixture, follows its filters with no endpoint, and its Download only reads out what it would export.
 The `summaries` entry reads only each approved vendor's Discord state from it, as the outcome of L9's role run.
+The `layout-map` entry reads none of it: its halls are made in [`layoutFixture.ts`](../../../front-end/src/dev/library/layoutFixture.ts), a hall of four sections and 49 tables as the layout's prototype drew it, one of nine sections, and one of 400 tables dealt from a seeded draw, each over a floorplan drawn there as an SVG, and [`LayoutMap`](floorplan-placement.md#the-drawing) draws them in each of its modes, at four zooms and panned, the frames of the pan read out (T257).
 
 **Never edit it by hand**: change the deriver and run `python tests/fixtures/component_library_fixture.py` from `back-end/`.
 [`test_component_library_fixture.py`](../../../back-end/tests/test_component_library_fixture.py) fails when the committed file is not exactly its output, and pins every count above, since the library exists to judge a pattern at the size it must work at.

@@ -8,7 +8,12 @@ import {
   planSetupObject,
   seedApplicantMarket,
 } from './helpers/seedApplicantMarket';
-import { seedLayout, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import {
+  seedLayout,
+  seedPublishedMarketWithAssignments,
+  UPPER_HALL_TABLES,
+  UPPER_HALL_ZONES,
+} from './helpers/seeds';
 import { LayoutPage } from './pages/LayoutPage';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
@@ -345,6 +350,26 @@ test("every control of a layout's upload and its calibration has a name", async 
   await expect(layout.length).toHaveAccessibleName('Length');
   await expect(layout.unit).toHaveAccessibleName('Unit');
   expect(await namelessControls(page), 'the calibration').toEqual([]);
+});
+
+test("every table of a layout's map has a name, and the map its own", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // Upper Hall laid out: tables of two sections and one of none, each a button (T257).
+  const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    metresAcross: 30,
+    tables: UPPER_HALL_TABLES,
+    zones: UPPER_HALL_ZONES,
+  });
+  const layout = new LayoutPage(page);
+
+  await layout.goto(seeded.marketId, seeded.upper.id);
+  await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+  await expect(layout.map).toHaveAccessibleName('Upper Hall layout, 20 tables');
+  await expect(layout.table('Gold row 13, Standard 6 ft')).toBeVisible();
+  await expect(layout.table('Table in no section, Standard 6 ft')).toBeVisible();
+  expect(await namelessControls(page), 'the map').toEqual([]);
 });
 
 test('every control of a vendor notes panel has a name, wherever it opens', async ({

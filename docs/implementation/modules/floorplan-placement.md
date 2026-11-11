@@ -23,6 +23,11 @@ describes:
   - front-end/src/components/layout/FloorplanUploader.vue
   - front-end/src/components/layout/LayoutView.vue
   - front-end/src/components/layout/LayoutCalibration.vue
+  - front-end/src/components/layout/LayoutMap.vue
+  - front-end/src/components/layout/LayoutMapTable.vue
+  - front-end/src/components/layout/LayoutPanelSections.vue
+  - front-end/src/components/layout/layoutGeometry.ts
+  - front-end/src/components/layout/layoutDrawing.ts
   - front-end/src/components/layout/calibration.ts
   - front-end/src/components/layout/layoutSave.ts
   - front-end/src/components/layout/shrinkImage.ts
@@ -67,9 +72,34 @@ Its head row holds "Layout", the switch between the market's named locations (ea
 Before an image the map column is the upload's drop zone and the panel says "Upload the venue's floorplan for Upper Hall to start."; the first save, made as the image is chosen, starts the layout.
 Before a scale it is [`LayoutCalibration.vue`](../../../front-end/src/components/layout/LayoutCalibration.vue): the image in an SVG whose units are its pixels, a line drawn by drag (its ends draggable after) or by keyboard (a crosshair from the centre, the arrows, Enter for each end, a polite live region saying each step), a length in m, cm, mm, ft or in, and "Set the scale", whose arithmetic is [`calibration.ts`](../../../front-end/src/components/layout/calibration.ts): `scalePxPerUnit` is the line's pixels over its millimetres, from a line of at least 10 px.
 Recalibrate draws the line again from the stored one; a table keeps its millimetres, so the image is what moves under it.
+With a scale the map column is [the drawing](#the-drawing) in its read mode, over the floor alone while the image is on its way or could not be fetched (which the page says above it), the whole hall in a box of the floorplan's shape, as wide as the column and as tall as that makes it, and the panel gains "Sections in Upper Hall" ([`LayoutPanelSections.vue`](../../../front-end/src/components/layout/LayoutPanelSections.vue)): each of the location's sections with the colour the map draws it in, its tier and its count of tables on the layout.
 A person the Market Setup row refuses, and anyone past draft (the save's blanket 409 until T257's ticket 11 narrows it), reads the page with nothing to upload or calibrate.
 Each save names the revision of the layout it read ([`layoutSave.ts`](../../../front-end/src/components/layout/layoutSave.ts)); the page shows the answer's layout at once and then re-reads the market through [the one store](../conventions/one-market-from-the-server.md).
 The image is fetched with the session as a blob ([`useFloorplanImage.ts`](../../../front-end/src/components/layout/useFloorplanImage.ts)), as the image read requires.
+
+## The drawing
+
+[`LayoutMap.vue`](../../../front-end/src/components/layout/LayoutMap.vue) is the one drawing of a layout, in SVG, for the page, and for the editor, the PNG export and any later map as T257's later tickets build them.
+Its props are the layout, its location's name, the plan's sections, the market's table types, the image as the page fetched it, `mode` (`read`, `edit` or `print`), `showImage` (unless told, the image is drawn in `read` and `edit` and left out of `print`), `view`, `selection`, `guides` and `pxPerMm`; it emits `activate` with a table's id.
+It holds no editing state: its only state is which table has the focus.
+
+- **Its units are millimetres** from the floorplan's top-left corner, so a table is its true size at any zoom: `view` is the part of the hall shown (the whole hall when not given, drawn whole inside the map's box), the image is drawn the hall wide, and a table is a rectangle about its centre, moved and turned by its group's `transform`.
+- **What is read in pixels holds its size at every zoom**: edges and outlines by `vector-effect: non-scaling-stroke`, and names, numbers, gaps and the zones' hatch by the scale the map measures its own box at (a `ResizeObserver`); `pxPerMm` gives the scale where nothing can be measured, as a print will.
+  100% is 1 px to 25 mm (`PX_PER_MM_AT_100`).
+- **It draws** the floor, the image (at half strength and grey in `read` and `edit`), each no-table zone hatched with its label, each table in its section's colour of [the section palette](../../design-system.md#the-section-palette) with its number, a table whose section is gone or is another location's, or that has no number, in grey with none, and each section's name in a pill.
+  A table's number is 14 px where the table has the room, smaller to fit, and left out of a table too small to carry it at 6 px (`numberSizePx`); it turns with its table and never reads upside down.
+- **A section's name** goes where its style's `labelAt` says, else where `sectionLabelAt` puts it: just outside the section's own tables on the longer side of their box, the side toward the hall's centre, at that side's middle; where that would cover a table or another name, or leave the hall, it slides along the side, then tries the other sides.
+  It stands against the section's tables there, not against the box, so the name of an L-shaped section is beside one of its arms.
+  On a layout too full for any free place it stays at its first choice, over tables.
+- **`read` and `edit` make the map a group** named "Upper Hall layout, 49 tables" and each table a button named "Gold row 5, Standard 6 ft" (in no section: "Table in no section, Standard 6 ft"), in the order of the sections and their numbers; a zone is an image named "No-table zone: Stage".
+  One table is the map's Tab stop, the one focused last, else the first selected, else the first, and the arrow keys move the focus to the nearest table within 45° of the arrow (`nearestInDirection`), unless the editor round the map took the key first, on the table or in the capture phase.
+  A table says when it takes the focus itself: a focus listener on the `<svg>` makes Chromium count the map as a Tab stop of its own.
+- **In `read` a table pressed**, by pointer, Enter or Space, emits `activate`; `edit` draws the selection's outline and the guides it is given and leaves a press to the editor; `print` is a picture named as the map is, with no button and no stop.
+- **A table's paint is written on its shapes** (`fill="var(--layout-section-1-fill)"`), not in a class, and its sizes are attributes, so the markup carries the drawing wherever it goes; the tokens still resolve from the page's stylesheet.
+- **A focused table draws the app's button border itself**, a shape over its own edge ([the design language](../../design-system.md#the-primitive-layer)), since a CSS outline on an SVG shape is measured in the drawing's units.
+- Each table is a component of its own ([`LayoutMapTable.vue`](../../../front-end/src/components/layout/LayoutMapTable.vue)) whose props are plain values, so a table whose values did not change is not drawn again when another does, and a pan, a change of `view` at the same zoom, changes the `viewBox` and no table.
+
+The geometry is pure, in [`layoutGeometry.ts`](../../../front-end/src/components/layout/layoutGeometry.ts) (a turned table's corners and box, the palette's order, a name's place, the arrow keys' focus, a number's size), and what the drawing says, in [`layoutDrawing.ts`](../../../front-end/src/components/layout/layoutDrawing.ts) (`layoutSections`, a location's sections with their colours and tables, which the map and the panel's list both read; a table's code and name; a width of words in the app's type).
 
 ## Interface
 

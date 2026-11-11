@@ -2,7 +2,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * A location's layout page (T257): `/markets/:marketId/layout/:locationId`, under the Market
- * Setup tab. Its head row, the upload's drop zone and the calibration over the floorplan.
+ * Setup tab. Its head row, the upload's drop zone, the calibration over the floorplan, and the
+ * layout's drawing with the panel's list of sections.
  */
 export class LayoutPage {
   readonly page: Page;
@@ -25,6 +26,12 @@ export class LayoutPage {
   readonly calibrationError: Locator;
   readonly recalibrate: Locator;
   readonly image: Locator;
+  readonly map: Locator;
+  readonly mapImage: Locator;
+  readonly tables: Locator;
+  readonly sectionLabels: Locator;
+  readonly zones: Locator;
+  readonly sections: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -47,6 +54,12 @@ export class LayoutPage {
     this.calibrationError = page.getByTestId('layout-calibration-error');
     this.recalibrate = page.getByTestId('layout-recalibrate');
     this.image = page.getByTestId('layout-image');
+    this.map = page.getByTestId('layout-map');
+    this.mapImage = this.map.getByTestId('layout-map-image');
+    this.tables = this.map.getByTestId('layout-table');
+    this.sectionLabels = this.map.getByTestId('layout-map-label');
+    this.zones = this.map.getByTestId('layout-map-zone');
+    this.sections = page.getByTestId('layout-panel-sections');
   }
 
   async goto(marketId: string, locationId?: string): Promise<void> {
@@ -81,6 +94,30 @@ export class LayoutPage {
     await this.page.mouse.move(...at([(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]), { steps: 4 });
     await this.page.mouse.move(...at(to), { steps: 4 });
     await this.page.mouse.up();
+  }
+
+  /** A table of the map, by the name it is a button under ("Gold row 5, Standard 6 ft"). */
+  table(name: string): Locator {
+    return this.map.getByRole('button', { name, exact: true });
+  }
+
+  /** A table's top, the shape drawn at its size and turn, and its number. */
+  tableTop(name: string): Locator {
+    return this.table(name).getByTestId('layout-table-top');
+  }
+
+  tableNumber(name: string): Locator {
+    return this.table(name).getByTestId('layout-table-number');
+  }
+
+  /** The border a focused table draws over its own edge. */
+  tableFocusBorder(name: string): Locator {
+    return this.table(name).locator('[data-focus-border]');
+  }
+
+  /** A no-table zone of the map, by its name ("No-table zone: Stage"). */
+  zone(name: string): Locator {
+    return this.map.getByRole('img', { name, exact: true });
   }
 
   /** Set the scale: the line drawn, then its length typed in `unit`. */

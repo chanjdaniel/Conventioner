@@ -11,7 +11,10 @@
  * A location's layout begins with its floorplan: before an image the map column is the upload's
  * drop zone, and its first save (`layoutSave.ts`) is the layout's start, which the server answers
  * with the layout as stored; before a scale it is the calibration over the image
- * (`LayoutCalibration.vue`), and Recalibrate draws the line again. Each save names the revision it
+ * (`LayoutCalibration.vue`), and Recalibrate draws the line again; with a scale it is the layout's
+ * drawing (`LayoutMap.vue`), the whole hall, read, drawn over the floor alone while the image is
+ * on its way or could not be had, and the panel lists the location's sections in the colours the
+ * map draws them in. Each save names the revision it
  * read, and a save over one another tab saved says so with Reload. The page shows the server's
  * answer at once and then re-reads the market through the one store.
  *
@@ -27,7 +30,10 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { layoutPath, marketPath } from '@/utils/market';
 import FloorplanUploader from './FloorplanUploader.vue';
 import LayoutCalibration from './LayoutCalibration.vue';
+import LayoutMap from './LayoutMap.vue';
+import LayoutPanelSections from './LayoutPanelSections.vue';
 import { metresAcross, pxPerMm, type Point } from './calibration';
+import { layoutSections } from './layoutDrawing';
 import { saveLayout, saveRefusal, type UploadedFloorplan } from './layoutSave';
 import { useFloorplanImage } from './useFloorplanImage';
 
@@ -99,6 +105,11 @@ const { url: imageUrl, failed: imageFailed } = useFloorplanImage(
 const scaleText = computed(() => metresAcross(floorplan.value) ?? 'Not calibrated');
 const calibrated = computed(() => Boolean(floorplan.value?.scalePxPerUnit));
 const recalibrating = ref(false);
+
+/** The location's sections as the map draws them, for the panel's list. */
+const sections = computed(() =>
+  floorplan.value ? layoutSections(floorplan.value, market.value?.setupObject?.sections ?? []) : [],
+);
 
 // ── Saving ───────────────────────────────────────────────────────────────────
 
@@ -272,11 +283,31 @@ const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(store
               No floorplan has been uploaded for {{ location.name }} yet.
             </p>
           </template>
+          <template v-else-if="calibrated && !(editable && recalibrating)">
+            <p v-if="imageFailed" class="layout-empty" data-testid="layout-image-failed">
+              The floorplan's image could not be shown. Reload the page to try again.
+            </p>
+            <div
+              class="layout-map-frame"
+              :style="{
+                aspectRatio: `${floorplan.imageWidth ?? 1} / ${floorplan.imageHeight ?? 1}`,
+              }"
+            >
+              <LayoutMap
+                :layout="floorplan"
+                :locationName="location.name"
+                :sections="market.setupObject?.sections ?? []"
+                :tableTypes="market.setupObject?.tableTypes ?? []"
+                :imageUrl="imageUrl"
+                mode="read"
+              />
+            </div>
+          </template>
           <p v-else-if="imageFailed" class="layout-empty" data-testid="layout-image-failed">
             The floorplan's image could not be shown. Reload the page to try again.
           </p>
           <LayoutCalibration
-            v-else-if="imageUrl && editable && (!calibrated || recalibrating)"
+            v-else-if="imageUrl && editable"
             :key="`${floorplan.id}-${floorplan.imageGridfsId}`"
             :imageUrl="imageUrl"
             :imageWidth="floorplan.imageWidth ?? 1"
@@ -315,19 +346,26 @@ const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(store
               drawn at its true size.
             </p>
           </section>
-          <section v-else-if="calibrated" class="layout-card" data-testid="layout-panel-floorplan">
-            <h2 class="layout-card-title">Floorplan</h2>
-            <p class="layout-card-text">{{ location.name }}'s floorplan reads {{ scaleText }}.</p>
-            <button
-              v-if="editable && !recalibrating"
-              type="button"
-              class="btn btn--secondary"
-              data-testid="layout-recalibrate"
-              @click="recalibrating = true"
-            >
-              Recalibrate
-            </button>
-          </section>
+          <template v-else-if="calibrated">
+            <LayoutPanelSections
+              class="layout-card"
+              :locationName="location.name"
+              :sections="sections"
+            />
+            <section class="layout-card" data-testid="layout-panel-floorplan">
+              <h2 class="layout-card-title">Floorplan</h2>
+              <p class="layout-card-text">{{ location.name }}'s floorplan reads {{ scaleText }}.</p>
+              <button
+                v-if="editable && !recalibrating"
+                type="button"
+                class="btn btn--secondary"
+                data-testid="layout-recalibrate"
+                @click="recalibrating = true"
+              >
+                Recalibrate
+              </button>
+            </section>
+          </template>
         </aside>
       </div>
     </div>
@@ -440,16 +478,29 @@ const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(store
 }
 
 .layout-map-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   min-width: 0;
 }
 
-/* The floorplan fills the column, whole, as the calibration draws it; LayoutMap takes its place. */
+/* A floorplan with no scale yet, shown to someone who cannot set one: the image alone, whole. */
 .layout-image {
   display: block;
   width: 100%;
   height: auto;
   max-height: 70vh;
   object-fit: contain;
+  background: var(--layout-floor);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-card);
+}
+
+/* The map fills the column at the floorplan's shape, the whole hall in it edge to edge. It caps no
+   height of its own: a tall hall grows the page, which scrolls, as every screen does. */
+.layout-map-frame {
+  width: 100%;
+  overflow: hidden;
   background: var(--layout-floor);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);

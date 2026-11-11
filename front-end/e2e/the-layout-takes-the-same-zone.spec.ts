@@ -218,7 +218,7 @@ test.describe("A location's floorplan", () => {
     expect((await saved).status()).toBe(200);
 
     await expect(layout.scale).toHaveText('30.0 m across');
-    await expect(layout.image).toBeVisible();
+    await expect(layout.map).toBeVisible();
     await expect(page.getByTestId('layout-panel-floorplan')).toContainText(
       "Upper Hall's floorplan reads 30.0 m across.",
     );
