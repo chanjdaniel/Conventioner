@@ -520,4 +520,39 @@ describe('the Assignment history button', () => {
       expect(asked.filter((url) => url.includes('/history'))).toEqual([]);
     });
   });
+
+  /*
+   * A hand placement's re-read can land while the history is open, flipping the result from nothing
+   * assigned to assigned (or back, when an assignment is cleared). The button is one element in
+   * both, so the focus comes back to it on the close; two copies left it on `<body>` (T284).
+   */
+  it.each([
+    ['nothing assigned to assigned', {}, ran],
+    ['assigned to nothing assigned', ran, {}],
+  ])('keeps the focus when the result flips from %s with it open', async (_flip, before, after) => {
+    serve({ entries: [placed('e1', 1)], next: null });
+    open = mount(ResultSummary, {
+      props: { market: market({ ...before } as Partial<Market>) },
+      attachTo: document.body,
+      global,
+    });
+    await flushPromises();
+    const button = document.querySelector<HTMLElement>('[data-testid="result-history-button"]')!;
+    button.focus();
+    button.click();
+    await flushPromises();
+    expect(
+      document.querySelector('[data-testid="assignment-history-dialog-window"]'),
+    ).not.toBeNull();
+
+    await open.setProps({ market: market({ ...after } as Partial<Market>) });
+    await flushPromises();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await flushPromises();
+
+    expect(document.querySelector('[data-testid="assignment-history-dialog-window"]')).toBeNull();
+    expect(document.querySelector('[data-testid="result-history-button"]')).toBe(button);
+    expect(button.isConnected).toBe(true);
+    expect(document.activeElement).toBe(button);
+  });
 });

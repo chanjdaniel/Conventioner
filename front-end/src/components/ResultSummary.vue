@@ -139,50 +139,51 @@ async function downloadCsv(): Promise<void> {
       to bring the result up to date.
     </p>
 
-    <template v-if="!assigned">
-      <NothingAssigned :market="market" testid="result-empty">
+    <!--
+      One head in both states, so the actions are the same elements before and after the first
+      vendor is assigned: a hand placement's re-read can flip the result while Assignment history
+      is open, and a second copy of its button left the focus on the page's body on the close
+      (T284).
+    -->
+    <div
+      class="result-head"
+      :class="{ 'result-strip': assigned }"
+      :data-testid="assigned ? 'result-strip' : undefined"
+    >
+      <template v-if="assigned">
+        <span class="result-figure" data-testid="result-approved-assigned">
+          <strong>{{ statistics?.totalAssignedVendors ?? '…' }}</strong> of
+          {{ statistics?.totalVendors ?? '…' }} approved applicants assigned
+        </span>
+        <span class="result-figure" data-testid="result-tables-used">
+          <strong>{{ statistics?.totalAssignedTables ?? '…' }}</strong> of
+          {{ statistics?.totalTables ?? '…' }} table-days used
+        </span>
+        <RouterLink
+          class="result-figure result-link"
+          :to="{ path: marketPath(market.id, 'vendors'), query: { show: 'unassigned' } }"
+          data-testid="result-unassigned-link"
+        >
+          <span>
+            <strong>{{ unassignedCount }}</strong>
+            unassigned
+          </span>
+        </RouterLink>
+        <span class="result-figure">
+          <strong data-testid="assignment-satisfaction-score">{{ satisfaction }}</strong>
+          satisfaction
+        </span>
+      </template>
+      <NothingAssigned v-else :market="market" testid="result-empty">
         <!-- Where a run can happen the tables are drawn below, for pinning before it (E11/F02/S01). -->
         <span v-if="canAssignIn(market.phase)" data-testid="result-pin-before-run">
           Anyone you assign below first keeps their table: allocating tables assigns everyone else
           around them.
         </span>
       </NothingAssigned>
-      <span v-if="mayReadHistory" class="result-actions">
+      <span v-if="assigned || mayReadHistory" class="result-actions">
         <button
-          type="button"
-          class="btn btn--secondary"
-          data-testid="result-history-button"
-          @click="historyOpen = true"
-        >
-          Assignment history
-        </button>
-      </span>
-    </template>
-    <div v-else class="result-strip" data-testid="result-strip">
-      <span class="result-figure" data-testid="result-approved-assigned">
-        <strong>{{ statistics?.totalAssignedVendors ?? '…' }}</strong> of
-        {{ statistics?.totalVendors ?? '…' }} approved applicants assigned
-      </span>
-      <span class="result-figure" data-testid="result-tables-used">
-        <strong>{{ statistics?.totalAssignedTables ?? '…' }}</strong> of
-        {{ statistics?.totalTables ?? '…' }} table-days used
-      </span>
-      <RouterLink
-        class="result-figure result-link"
-        :to="{ path: marketPath(market.id, 'vendors'), query: { show: 'unassigned' } }"
-        data-testid="result-unassigned-link"
-      >
-        <span>
-          <strong>{{ unassignedCount }}</strong>
-          unassigned
-        </span>
-      </RouterLink>
-      <span class="result-figure">
-        <strong data-testid="assignment-satisfaction-score">{{ satisfaction }}</strong>
-        satisfaction
-      </span>
-      <span class="result-actions">
-        <button
+          v-if="assigned"
           type="button"
           class="btn btn--secondary"
           :aria-expanded="statisticsOpen"
@@ -201,7 +202,7 @@ async function downloadCsv(): Promise<void> {
           Assignment history
         </button>
         <button
-          v-if="mayExport"
+          v-if="assigned && mayExport"
           type="button"
           class="btn btn--secondary"
           :disabled="isDownloading"
@@ -234,6 +235,13 @@ async function downloadCsv(): Promise<void> {
 
 <style scoped>
 .result-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Nothing assigned: the note and the actions under it, spaced as the summary spaces its rows. */
+.result-head:not(.result-strip) {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
