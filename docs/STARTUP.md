@@ -577,17 +577,6 @@ Each service publishes its port on `127.0.0.1` only.
 - `VITE_FLASK_HOST`: API base path (`/api`; no default, and a build refuses without it)
 - `VITE_BACKEND_URL`: Backend URL for Vite proxy (default: `https://127.0.0.1:5001`; the compose file sets `https://backend:5001`)
 
-### Vision AI Setup (Optional)
-
-The back end has a vision endpoint, `POST /floorplans/analyze`, that reads walls and tables from a floorplan image with Gemini or OpenAI.
-It is **optional**, and nothing in the product calls it: the floorplan wizard draws walls by hand and places tables with a geometry solver, with or without these keys.
-
-1. **Gemini API Key**: Visit [aistudio.google.com/apikey](https://aistudio.google.com/apikey), sign in with your Google account, and click **Create API Key**. Copy the key and set `GEMINI_API_KEY` in your `.env`.
-2. **OpenAI API Key**: Visit [platform.openai.com/api-keys](https://platform.openai.com/api-keys), sign in, and click **Create new secret key**. Copy the key and set `OPENAI_API_KEY` in your `.env`.
-
-Both keys are configured in `.env` and forwarded to the backend via `docker-compose.yml`.
-If neither key is set, the endpoint answers with an error and nothing else changes.
-
 ### Discord Setup (Optional)
 
 The Discord card, on a market's Tools tab, connects a market to a Discord server through Conventioner's bot ([the Discord connection](implementation/modules/discord.md)).

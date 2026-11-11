@@ -4,56 +4,177 @@ Bridge between floorplan visual placement and the assignment engine.
 
 POST /api/floorplans/save-to-market
   Accepts market_id + FloorplanObject JSON.
-  Extracts SectionObjects and LocationObjects from floorplan sections,
-  updates Market.setupObject.sections, .locations, and .floorplans.
+  Builds the market's plan with the floorplan's sections and locations, and the floorplan in
+  ``setupObject.floorplans``, and writes it through the plan's own writer.
 """
 
+import hashlib
+import json
 import logging
-import traceback
+from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
+from pydantic import ValidationError
 
+from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
+from client_errors import BadRequestError, field_named_copy, parse_failure_detail
+from datatypes import (
+    AssignmentOptionObject,
+    FloorplanObject,
+    LocationObject,
+    SectionObject,
+    SetupObject,
+    TierObject,
+)
+from market_documents import market_doc_filter
 from utils.identity import authenticated_email
 from utils.request_body import NOT_AN_OBJECT, string_field
 
-from db_config import get_database
 import api.markets as MarketsApi
 import api.market_actions as Actions
 import history as History
 
 logger = logging.getLogger(__name__)
 
-db = get_database()
-markets_collection = db["markets"]
-
 floorplans_save_bp = Blueprint("floorplans_save", __name__)
+
+def _empty_plan() -> SetupObject:
+    """The plan Market Setup starts from (``MarketSetupView.vue``), and so the one a floorplan
+    saved to a market whose plan was never saved starts from too."""
+    return SetupObject(
+        priority=[], market_dates=[], tiers=[], locations=[], sections=[],
+        assignment_options=AssignmentOptionObject(),
+    )
+
+
+def _parsed_floorplan(market_id: str, body: Dict[str, Any]) -> FloorplanObject:
+    """The floorplan the body carries, parsed as every model write parses, unknown keys dropped.
+
+    Its own id is required, never the model's default: a save replaces the floorplan of the same
+    id, so it must be the id the client holds.
+    """
+    try:
+        floorplan = FloorplanObject.model_validate(convert_keys_to_snake_case(body["floorplan"]))
+    except ValidationError as e:
+        logger.warning("Refused a floorplan for market %s: %s", market_id, parse_failure_detail(e))
+        raise BadRequestError(field_named_copy("Invalid floorplan", e)) from e
+    given_id = body["floorplan"].get("id")
+    if not isinstance(given_id, str) or not given_id.strip():
+        raise BadRequestError("A floorplan needs its id.")
+    return floorplan
+
+
+def _tier_number(suffix: str) -> int:
+    """The tier id a typed tier's suffix names: its number when it is ASCII digits that fit a
+    signed 64-bit integer, else 0."""
+    if suffix and all("0" <= char <= "9" for char in suffix) and int(suffix) <= 2**63 - 1:
+        return int(suffix)
+    return 0
+
+
+def _sections_and_locations(
+    floorplan: FloorplanObject,
+) -> Tuple[List[SectionObject], List[LocationObject]]:
+    """The plan's sections and locations, one section for each of the floorplan's, its count the
+    tables grouped into it, and one location for each location name, in the order first named."""
+    sections: List[SectionObject] = []
+    locations: Dict[str, LocationObject] = {}
+    for fp_section in floorplan.sections:
+        location_name = fp_section.location_name
+        locations.setdefault(location_name, LocationObject(name=location_name))
+        tier_id = fp_section.tier_id
+        tier_suffix = tier_id.split("_")[1] if tier_id and "_" in tier_id else ""
+        sections.append(SectionObject(
+            name=fp_section.name,
+            location=LocationObject(name=location_name) if location_name else None,
+            tier=TierObject(
+                id=_tier_number(tier_suffix), name=tier_id,
+            ) if tier_id else None,
+            count=len(fp_section.table_ids),
+        ))
+    return sections, list(locations.values())
+
+
+def _with_floorplan(
+    floorplans: Optional[List[FloorplanObject]], floorplan: FloorplanObject,
+) -> List[FloorplanObject]:
+    """The floorplans with this one in the place of the one of its id, or added after them."""
+    kept = list(floorplans or [])
+    for index, stored in enumerate(kept):
+        if stored.id == floorplan.id:
+            kept[index] = floorplan
+            return kept
+    return kept + [floorplan]
+
+
+#: A floorplan's parts that are its layout, which ``layout_digest`` stands for: all but its id and
+#: its sections, which the plan's own sections and locations record.
+_NOT_LAYOUT = {"id", "sections"}
+
+
+def _floorplan_summary(floorplan: Optional[FloorplanObject]) -> Dict[str, Any]:
+    """A floorplan as its history entry records it: what it holds, counted, and a digest of its
+    layout, which differs whenever a table, a wall, a zone, a type, the scale or the image does.
+    Never the floorplan itself, which an entry fetched with the market's history would carry whole
+    (up to 1,000 tables) on every save."""
+    if floorplan is None:
+        return {"tables": None, "walls": None, "no_go_zones": None, "table_types": None,
+                "layout_digest": None}
+    layout = json.dumps(floorplan.model_dump(exclude=_NOT_LAYOUT), sort_keys=True, default=str)
+    return {
+        "tables": len(floorplan.placed_tables),
+        "walls": len(floorplan.walls),
+        "no_go_zones": len(floorplan.obstacles),
+        "table_types": len(floorplan.table_types),
+        "layout_digest": hashlib.sha256(layout.encode()).hexdigest()[:16],
+    }
+
+
+def _floorplan_change(plan: Optional[SetupObject], floorplan_id: str) -> Dict[str, Any]:
+    """What a floorplan save changes of a plan, as its history entry records it: the plan's
+    sections, locations and floorplan ids, and the summary of the floorplan of the saved id, so a
+    save that replaced it with only its layout changed is recorded too."""
+    floorplans = (plan.floorplans if plan else None) or []
+    saved = next((floorplan for floorplan in floorplans if floorplan.id == floorplan_id), None)
+    if plan is None:
+        return {"sections": None, "locations": None, "floorplan_ids": [],
+                **_floorplan_summary(None)}
+    return {
+        "sections": [section.model_dump() for section in plan.sections],
+        "locations": [location.model_dump() for location in plan.locations],
+        "floorplan_ids": [floorplan.id for floorplan in floorplans],
+        **_floorplan_summary(saved),
+    }
 
 
 # ── POST /save-to-market ──────────────────────────────────────────────────────
 
 @floorplans_save_bp.route("/save-to-market", methods=["POST"])
 @login_required
-def save_floorplan_to_market():
-    """Save a floorplan's sections and locations to a Market's setupObject.
+def save_floorplan_to_market() -> Tuple[Any, int]:
+    """Save a floorplan, and its sections and locations, to a Market's plan.
 
     **Request body** (JSON)::
 
         {
             "market_id": "uuid-string",
-            "floorplan": { ... FloorplanObject fields ... }
+            "floorplan": { ... FloorplanObject fields, its own id among them ... }
         }
 
     Algorithm:
-      1. Look up the Market document by ``market_id`` (404 if not found).
-      2. Resolve the requesting user from the session and
-         ask the table's Market Setup row (``Actions.CHANGE_SETUP``; 403 if not).
-      3. Walk ``floorplan.sections``, extracting ``SectionObject`` entries
-         (name, location name, tier id, count = len(tableIds)) and
-         deduplicating ``LocationObject`` entries by name.
-      4. Build / preserve ``setupObject`` on the Market document, setting
-         ``sections``, ``locations``, and appending to ``floorplans``.
-      5. Return counts and success.
+      1. Look up the Market document by ``market_id`` (404 if not found, 400 if it does not parse).
+      2. Resolve the requesting user from the session and ask the table's Market Setup row
+         (``Actions.CHANGE_SETUP``; 403 if not), then the archived rule (403) and the settled
+         setup (409).
+      3. Parse the floorplan (400 naming the field, or when it carries no id of its own).
+      4. Build the plan: the stored one, or the empty plan Market Setup starts from, with its
+         ``sections`` and ``locations`` the floorplan's and the floorplan in ``floorplans`` in the
+         place of the one of its id, or added. Everything else is as stored.
+      5. Write it through ``MarketsApi.prepared_plan``, the plan write's own judge, so what is
+         stored is a plan that reads, held to every rule a plan write is: among them the
+         floorplan's bounds (``floorplan_limits``) and its image, which must be one uploaded for
+         this market (400 with the sentence for each).
 
     **Returns**::
 
@@ -64,121 +185,66 @@ def save_floorplan_to_market():
             "locations_count": 2
         }
     """
-    try:
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({"error": "Request body must be valid JSON"}), 400
-        if not isinstance(data, dict):
-            return jsonify({"error": NOT_AN_OBJECT}), 400
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be valid JSON"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": NOT_AN_OBJECT}), 400
 
-        market_id = string_field(data, "market_id")
-        floorplan = data.get("floorplan")
+    market_id = string_field(data, "market_id")
+    if not market_id:
+        return jsonify({"error": "market_id is required"}), 400
+    if not isinstance(data.get("floorplan"), dict):
+        return jsonify({"error": "floorplan is required"}), 400
 
-        if not market_id:
-            return jsonify({"error": "market_id is required"}), 400
-        if not floorplan:
-            return jsonify({"error": "floorplan is required"}), 400
+    # ── 1. Find the market ─────────────────────────────────────────────
+    context = MarketsApi.load_market_context(market_id)
+    if context is None:
+        return jsonify({"error": "Market not found"}), 404
+    if context.market is None:
+        return jsonify({"error": "Invalid market data"}), 400
+    market = context.market
 
-        # ── 1. Find the market ─────────────────────────────────────────────
-        context = MarketsApi.load_market_context(market_id)
-        if context is None:
-            return jsonify({"error": "Market not found"}), 404
+    # ── 2. Permission check ────────────────────────────────────────────
+    user_email = authenticated_email()
+    refused = Actions.refusal(Actions.CHANGE_SETUP, user_email, market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
+    # It writes the plan, and an archived market's plan is part of its record (bug 30).
+    refusal = MarketsApi.archived_refusal(market)
+    if refusal:
+        return jsonify({"error": refusal}), 403
+    # A floorplan writes the sections and locations, which settle on leaving draft (E31/F01/S02).
+    settled = MarketsApi.setup_lock_reason(market)
+    if settled:
+        return jsonify({"error": settled}), 409
 
-        market_doc = context.document
+    # ── 3. Parse the floorplan ─────────────────────────────────────────
+    floorplan = _parsed_floorplan(market_id, data)
 
-        # ── 2. Permission check ────────────────────────────────────────────
-        user_email = authenticated_email()
+    # ── 4. The plan it makes ───────────────────────────────────────────
+    stored = market.setup_object
+    sections, locations = _sections_and_locations(floorplan)
+    proposed = (stored or _empty_plan()).model_copy(update={
+        "sections": sections,
+        "locations": locations,
+        "floorplans": _with_floorplan(stored.floorplans if stored else None, floorplan),
+    })
 
-        if context.market is None:
-            return jsonify({"error": "Invalid market data"}), 400
+    # ── 5. Write it through the plan's own writer ──────────────────────
+    plan, update = MarketsApi.prepared_plan(
+        market, {"setupObject": convert_keys_to_camel_case(proposed.model_dump())})
+    MarketsApi.markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
+    History.record(
+        market_id, user_email, Actions.CHANGE_SETUP, kind=History.FLOORPLAN,
+        subject={"floorplan_id": floorplan.id},
+        detail=lambda: History.changes(
+            _floorplan_change(stored, floorplan.id), _floorplan_change(plan, floorplan.id)),
+    )
 
-        refused = Actions.refusal(
-            Actions.CHANGE_SETUP, user_email, context.market, context.organization)
-        if refused:
-            return jsonify({"error": refused}), 403
-        # It writes the plan, and an archived market's plan is part of its record (bug 30).
-        refusal = MarketsApi.archived_refusal(context.market)
-        if refusal:
-            return jsonify({"error": refusal}), 403
-        # A floorplan writes the sections and locations, which settle on leaving draft (E31/F01/S02).
-        settled = MarketsApi.setup_lock_reason(context.market)
-        if settled:
-            return jsonify({"error": settled}), 409
-
-        # ── 3. Extract sections and locations from floorplan ───────────────
-        sections_data = []
-        locations_data = {}
-
-        for fp_section in floorplan.get("sections", []):
-            section_name = fp_section.get("name", "Unnamed Section")
-            location_name = fp_section.get("locationName", "Default")
-            tier_id = fp_section.get("tierId")
-            table_count = len(fp_section.get("tableIds", []))
-
-            # Deduplicate locations by name
-            if location_name not in locations_data:
-                locations_data[location_name] = {"name": location_name}
-
-            # Build SectionObject dict (camelCase keys for MongoDB)
-            section = {
-                "name": section_name,
-                "location": {"name": location_name} if location_name else None,
-                "tier": {
-                    "id": int(tier_id.split("_")[1]) if tier_id and "_" in tier_id else 0,
-                    "name": tier_id,
-                } if tier_id else None,
-                "count": table_count,
-            }
-            sections_data.append(section)
-
-        # ── 4. Update Market.setupObject atomically ────────────────────────
-        existing_setup = market_doc.get("setupObject")
-
-        if isinstance(existing_setup, dict):
-            set_ops = {
-                "setupObject.sections": sections_data,
-                "setupObject.locations": list(locations_data.values()),
-            }
-            push_ops = {}
-            existing_floorplans = existing_setup.get("floorplans")
-            if existing_floorplans is not None:
-                push_ops = {"setupObject.floorplans": floorplan}
-            else:
-                set_ops["setupObject.floorplans"] = [floorplan]
-
-            update = {"$set": set_ops}
-            if push_ops:
-                update["$push"] = push_ops
-        else:
-            update = {"$set": {"setupObject": {
-                "sections": sections_data,
-                "locations": list(locations_data.values()),
-                "floorplans": [floorplan],
-            }}}
-
-        markets_collection.update_one({"id": market_id}, update)
-        stored = existing_setup if isinstance(existing_setup, dict) else {}
-        History.record(
-            market_id, user_email, Actions.CHANGE_SETUP, kind=History.FLOORPLAN,
-            subject=lambda: {"floorplan_id": floorplan.get("id")},
-            detail=lambda: History.changes(
-                {"sections": stored.get("sections"), "locations": stored.get("locations"),
-                 "floorplan_ids": [fp.get("id") for fp in stored.get("floorplans") or []]},
-                {"sections": sections_data, "locations": list(locations_data.values()),
-                 "floorplan_ids": [fp.get("id") for fp in stored.get("floorplans") or []]
-                 + [floorplan.get("id")]},
-            ),
-        )
-
-        # ── 5. Return success ──────────────────────────────────────────────
-        return jsonify({
-            "success": True,
-            "market_id": market_id,
-            "sections_count": len(sections_data),
-            "locations_count": len(locations_data),
-        }), 200
-
-    except Exception as exc:
-        logger.error("Error saving floorplan to market: %s", exc)
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    return jsonify({
+        "success": True,
+        "market_id": market_id,
+        "sections_count": len(plan.sections),
+        "locations_count": len(plan.locations),
+    }), 200

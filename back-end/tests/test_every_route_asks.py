@@ -34,7 +34,6 @@ from conftest import (
 skip_without_real_dependencies()
 
 import app as app_module
-import api.floorplans_save as FloorplansSaveApi
 import api.floorplans_templates as TemplatesApi
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
@@ -62,7 +61,6 @@ PUBLIC = {
     ("POST", "/request-otp"): "asks for a sign-in code",
     ("POST", "/request-password-reset"): "asks for a reset link",
     ("POST", "/resend-verification"): "asks for the verification link again",
-    ("GET", "/floorplans/<gridfs_id>"): "the floorplan image, read by its opaque id",
     ("GET", "/public/markets/<market_slug>/vendor-page"): APPLICANT_SURFACE,
     ("GET", "/public/markets/<market_slug>/application-form"): APPLICANT_SURFACE,
     ("POST", "/public/markets/<market_slug>/applicant-login/request-code"): APPLICANT_SURFACE,
@@ -97,7 +95,6 @@ BODY_NAMES_THE_MARKET = {
 }
 
 BODY_NAMES_THE_IMAGE = {
-    ("POST", "/floorplans/analyze"): "reads the image its body names",
     ("POST", "/floorplans/calibrate"): "measures the image its body names",
     ("POST", "/floorplans/export"): "draws on the image its body names",
 }
@@ -185,10 +182,10 @@ def _names(route_methods):
 
 def _classes(method, rule):
     """The classes a route-method is in: each list that names it, and scoped by its rule when the
-    rule names what it acts on (the public image read is exempt, since ``PUBLIC`` says why)."""
+    rule names what it acts on."""
     classes = [name for name, entries in LISTS.items() if (method, rule.rule) in entries]
     named = sorted(SCOPING_ARGUMENTS & set(rule.arguments))
-    if named and "PUBLIC" not in classes:
+    if named:
         classes.append(f"scoped by its rule's {', '.join(named)}")
     return classes
 
@@ -329,7 +326,6 @@ def walked(monkeypatch):
         MarketPhase.APPLICATIONS, roles={"user-owner": "owner", "user-viewer": "viewer"},
         organizationId=ORG_ID))
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
-    monkeypatch.setattr(FloorplansSaveApi, "markets_collection", markets)
 
     organizations = FakeOrganizations({
         "_id": "mongo-org-1", "id": ORG_ID, "name": "Org", "owner": "user-owner", "admins": [],
