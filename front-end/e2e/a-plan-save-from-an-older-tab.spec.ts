@@ -33,31 +33,29 @@ test('a plan save from a tab opened before another saved is refused, and shows w
     { draft: true, setupObject: planSetupObject([held]) },
   );
   const pageB = await pageA.context().newPage();
+  const setupA = new MarketSetupPage(pageA);
+  const setupB = new MarketSetupPage(pageB);
   await pageB.goto(marketSetupPath(marketId));
-  await expect(pageB.getByTestId('setup-section-name-input-1')).toHaveValue('Garden');
+  await expect(setupB.getSectionNameInput(1)).toHaveValue('Garden');
 
   await pageA.goto(marketSetupPath(marketId));
-  await new MarketSetupPage(pageA).addMarketDate(added);
-  await expect(pageA.getByTestId('market-setup-plan-saved')).toBeVisible();
+  await setupA.addMarketDate(added);
+  await expect(setupA.planSaved).toBeVisible();
 
   const refusal = pageB.waitForResponse(
     (res) => res.request().method() === 'PUT' && PLAN_WRITE.test(res.url()),
   );
-  await pageB.getByTestId('setup-section-name-input-1').fill('Courtyard');
+  await setupB.getSectionNameInput(1).fill('Courtyard');
   expect((await refusal).status()).toBe(409);
 
-  const line = pageB.getByTestId('market-setup-plan-refused');
-  await expect(line).toContainText(
+  await expect(setupB.planRefused).toContainText(
     'This market changed while you were working on it, so your change was not saved. ' +
       'Reload to see the latest, then make your change again.',
   );
-  await expect(pageB.getByTestId('market-setup-plan-saved')).toHaveCount(0);
+  await expect(setupB.planSaved).toHaveCount(0);
   // B shows the plan as A left it: A's date, and B's rename gone.
-  await expect(pageB.getByTestId(`setup-dates-day-${added}`)).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(pageB.getByTestId('setup-section-name-input-1')).toHaveValue('Garden');
+  await expect(setupB.dateDay(added)).toHaveAttribute('aria-pressed', 'true');
+  await expect(setupB.getSectionNameInput(1)).toHaveValue('Garden');
 
   const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
   const { market } = (await res.json()) as { market: { setupObject: StoredPlan } };
