@@ -1,3 +1,5 @@
 allow_repo_commands: true
 commands:
-  test: ./scripts/nm-test.sh --skip-e2e
+  # The real-data checks alone, which must pass before the gate pushes to this public repository;
+  # every suite runs in CI's required jobs (docs/implementation/testing/ci-and-the-gate.md).
+  test: ./scripts/nm-test.sh --real-data-only
