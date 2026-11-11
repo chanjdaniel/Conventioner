@@ -3,10 +3,10 @@
  * A card of the ledger of bars (E35/F03/S01): a title, and a row per answer with its count, its
  * share of the whole and a bar against the largest in the card (`utils/barLedger.ts`).
  *
- * The Assignments page's statistics drew these cards themselves; the Stats tab reads with them too
- * (E45/F01/S01), so the two say a count the same way. A row that leads somewhere is a link to it -
- * the tables filtered to its answer, the applications with its status - and one that leads nowhere
- * is only read.
+ * The Assignments page's statistics drew these cards themselves; the Stats tab reads its answers
+ * with them too (E45/F01/S01), so the two say a count the same way. A row that leads somewhere is a
+ * link to it - the Assignments page's tables filtered to its answer - and one that leads nowhere, a
+ * Stats answer, is only read.
  *
  * With `fold` (T200) it answers a question of up to 230 options: the rows by count, the first `fold`
  * of them, and "N more answers" unfolding the rest in place (`utils/useFold.ts`). Without it the rows

@@ -164,7 +164,8 @@ const resent = ref(0);
 const noCode = ref('');
 const typedCode = ref('602914');
 
-// BarLedger: the applications by status, each row leading to them, and the question's answers.
+// BarLedger: rows that lead somewhere, as the Assignments page's lead to its tables, here the
+// applications by status; and the question's answers, read only, as the Stats tab draws them.
 const statusCounts = new Map<string, number>();
 for (const application of applications) {
   statusCounts.set(application.status, (statusCounts.get(application.status) ?? 0) + 1);
@@ -446,12 +447,14 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
 
   <LibrarySection
     title="BarLedger"
-    about="Used on: the Stats tab, the Assignments page's statistics"
+    about="Used on: the Stats tab's answers, the Assignments page's statistics"
   >
-    <LibraryPanel label="Rows that lead somewhere: the applications by status">
+    <LibraryPanel
+      label="Rows that lead somewhere, as the Assignments page's lead to its tables: here the applications by status"
+    >
       <BarLedger
         class="library-full"
-        title="By status"
+        title="Applications by status"
         :rows="byStatus"
         testid="library-status"
         whole="applications"
@@ -461,7 +464,7 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
     <LibraryPanel label="Empty: nothing counted">
       <BarLedger
         class="library-full"
-        title="Applied per day"
+        :title="question.label"
         :rows="[]"
         testid="library-day"
         whole="those who applied"
