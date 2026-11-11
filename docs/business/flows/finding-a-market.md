@@ -94,7 +94,7 @@ Covered by:
 **Status:** Works (walked live).
 
 1. `/markets/<id>` lands on the page the market is worked on in its phase (see [the lifecycle](lifecycle.md#the-phases)).
-2. Every page has its own address: `/markets/<id>/setup`, `/form`, `/applications`, `/settings`, `/assignments`, `/vendors`, `/attendance`, `/stats`, plus the `/import`, `/start-from-csv` and `/floorplan` flows.
+2. Every page has its own address: `/markets/<id>/setup`, `/form`, `/applications`, `/settings`, `/assignments`, `/vendors`, `/attendance`, `/stats`, plus the `/import` and `/start-from-csv` flows and a location's `/layout/<location>`.
 3. Two old names forward, each with its query: `/markets/<id>/assignment` to `/settings` and `/markets/<id>/result` to `/assignments`.
    Nothing older forwards: its address answers "Page not found", and `setup?tab=<page>` opens the plan ([old addresses](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
 4. An id you cannot reach shows "This market does not exist, or you do not have access to it." with "Choose a market".
