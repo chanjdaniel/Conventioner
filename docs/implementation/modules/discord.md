@@ -97,7 +97,7 @@ The Tools tab fits a phone, and the card's choices stand one under another there
 **Who may change it is the table's "Connect Discord and give roles" row** (`connect-discord`, Admin by default; Q19: "admins only"), [the market's actions](market-actions.md).
 Anyone the row refuses reads the card: the server, the role's name, the question's label and the link, with no control, no call to Discord, and no word of when it may be changed.
 Every write loads through `_load_market_to_change`, so an archived market refuses it.
-Every write goes through [the market write](market-write.md), holding the phase it was loaded in, so a market archived or moved while a write was in flight is not written, and answers the one 409, "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again."; the run says it in its own words (below).
+Every write goes through [the market write](market-write.md), holding the phase it was loaded in, so a market archived or moved while a write was in flight is not written, and answers the one 409 with [its sentence](market-write.md#what-it-answers); the run says it in its own words (below).
 A save of the card, a connection and a disconnection hold each field they change as it was loaded, so a choice saved meanwhile in another tab to the same field is kept and this one refused, while one saved to another field stands beside it; on a market never connected, whose `discord` is null, the first connection writes the whole sub-document, holding `discord` as it read it.
 
 ## Connecting

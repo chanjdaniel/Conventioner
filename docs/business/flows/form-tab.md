@@ -84,7 +84,7 @@ Covered by:
 2. Drag to reorder; "Remove" deletes.
 3. "Save Form"; expect "Saved".
 
-When someone else saved the form since this tab read it, another person or the same organizer in another tab, "Save Form" stores nothing and says "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again." where "Saved" would show, and the tab shows the questions as they were saved, so neither save replaces the other's questions ([the form's revision](../../implementation/modules/market-write.md#the-forms-revision)).
+When someone else saved the form since this tab read it, another person or the same organizer in another tab, "Save Form" stores nothing and says [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers) where "Saved" would show, and the tab shows the questions as they were saved, so neither save replaces the other's questions ([the form's revision](../../implementation/modules/market-write.md#the-forms-revision)).
 "Ask this" is refused the same way.
 Covered by:
 

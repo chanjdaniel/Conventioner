@@ -41,6 +41,8 @@ describes:
   - front-end/src/__tests__/aMarketThatChangedUnderAWrite.test.ts
   - front-end/src/__tests__/manageMarketMeetsAChangedMarket.test.ts
   - front-end/src/views/ResultView.vue#runPlacementChange
+  - front-end/src/components/MarketPermissions.vue
+  - front-end/src/views/ManageMarketOverlay.vue#handleRename
   - front-end/src/__tests__/aPlacementThatMetAChangedMarket.test.ts
   - front-end/src/__tests__/aFormSaveThatMetAChangedMarket.test.ts
   - front-end/src/__tests__/aStartThatMetAChangedMarket.test.ts
@@ -118,7 +120,7 @@ In [`back-end/api/markets.py`](../../../back-end/api/markets.py):
   A rules save refused stores no rules and judges no application again.
 - The four writes to the market's permission table (`set_permission`, `reset_permission`, `reset_permissions`, `copy_organization_default`), each holding every row it changes, `permissions.<row id>`, as read, so a row the owner changed in another tab meanwhile is not overwritten and the history's "before" is the row that stood.
   Where the stored `permissions` is not a map (null, a string), a set or a copy replaces it whole, so it is held whole; the market as read answers which, with no read of its own.
-- The three role writes (`add_market_role`, `update_market_role`, `remove_market_role`), each setting or unsetting one person's key, `roles.<user id>`, never the whole map, and holding, beside the phase, that person's role and the requester's as read (absent when the requester's right comes through the organization), so an admin taking someone's access while another gives a third person access both land, and a role taken never comes back.
+- The three role writes (`add_market_role`, `update_market_role`, `remove_market_role`), each setting or unsetting one person's key, `roles.<user id>`, never the whole map, and holding, beside the phase, that person's role and the requester's as read (absent when the requester's right comes through the organization), so an admin taking someone's access while another gives a third person access both land, and a role taken never comes back ([what each role may do](../../business/rules/what-each-role-may-do.md)).
   A decision that counted the owners (giving or changing to Owner, taking an Owner) holds `roles` whole; no route reaches such a write today, since the market model refuses a market with no owner or two, and the Admin row and "Market already has an owner" refuse every give of Owner.
   A take refused because the person's role is already gone answers the 404 "They no longer have a role on this market.", which Manage market reads as done.
 - The form write (`write_application_form`), holding the form's revision, see [the form's revision](#the-forms-revision) below.
@@ -137,7 +139,7 @@ Elsewhere:
 - The start from a CSV (`confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py)), holding `applicationForm` as read, which the start judged had no questions of its own, and counting `formRevision`, since it writes the questions; it writes the plan too, built on the plan as read, so it holds `planRevision` at its value as read and counts it ([the CSV proposal and start](csv-proposal-and-start.md)).
 - The floorplan save (`save_floorplan_to_market` in [`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)), which writes the plan through the plan's own judge, holding the phase and `planRevision` as read and counting it ([floorplan placement](floorplan-placement.md)).
 - Every write of the assignment, a run, a placement, a free and a swap (`_store_vendor_assignments` in [`back-end/api/placements.py`](../../../back-end/api/placements.py)), counting `assignmentObject.revision` from the one read; a run also holds `resultsPublished`, so an allocation never lands after Publish results, and no placement lands on a market archived a moment before ([placements](placements.md#the-four-doors)).
-  The Tables page reads its grid again on the refusal and says the sentence in the seat's dialog.
+  The Tables page reads its grid again on the refusal and says the sentence in the seat's dialog ([placing by hand](../../business/flows/placing-by-hand.md)).
 
 ## The form's revision
 
@@ -202,10 +204,11 @@ Market Setup keeps the `planRevision` it took with the plan from the market, sen
 On that refusal the autosave drops the unsaved edits, the page takes the store's plan and its revision, and the server's sentence stands where the plan's status line shows a refusal (`MarketSetupView.vue`, [planning the market](../../business/flows/planning.md)).
 A seed or spec writes the plan through [`e2e/helpers/savePlan.ts`](../../../front-end/e2e/helpers/savePlan.ts), which reads the revision first.
 
-The import's form dialog sends the revision of the form it read the same way, and on that refusal stays open on the sentence while the import reads the form again ([the form amendment](form-amendment.md)).
+The import's form dialog sends the revision of the form it read the same way, and on that refusal stays open on the sentence while the import reads the form again ([the form amendment](form-amendment.md), [the import](../../business/flows/import.md)).
 A seed or spec writes the form through [`e2e/helpers/saveApplicationForm.ts`](../../../front-end/e2e/helpers/saveApplicationForm.ts), which reads the revision first.
 
-Manage market keeps a copy of the market of its own, so on that refusal from adding, changing or taking a role it re-reads that copy, and the sentence stands where that action's refusal always has: under the add form, in the removal's confirmation, under the person's row.
+Manage market keeps a copy of the market of its own, so on that refusal from adding, changing or taking a role, from a change to the permission table (a row, Reset or Copy), or from a rename, it re-reads that copy, and the sentence stands where that action's refusal always has: under the add form, in the removal's confirmation, under the person's row, in the table change's confirmation, under the name ([ending and managing a market](../../business/flows/ending-and-managing-a-market.md)).
+The permission dialog ([`MarketPermissions.vue`](../../../front-end/src/components/MarketPermissions.vue)) asks [`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue) for the re-read with its `marketChanged` event; after a refused rename (`handleRename`) the re-read market may be past draft, so the name field gives way to why the name is fixed.
 
 A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-end/src/utils/savedOnTheMarket.ts`](../../../front-end/src/utils/savedOnTheMarket.ts), the highlights and the automatic rejections) takes the store's list back on that refusal, not the list from before the click: the re-read may land before the refusal reaches the screen, while the write still counts as in flight and the list's watch skips it.
 
@@ -222,7 +225,7 @@ A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-e
 - [`tests/test_every_market_write_holds_what_it_read.py`](../../../back-end/tests/test_every_market_write_holds_what_it_read.py), without a server: the guard over the back end as it stands, and over writes it plants in a temporary tree, each named by its file, line and function, every way of naming the markets collection, a receiver it cannot name, and a reason naming a ticket refused.
 - [`tests/test_the_market_write.py`](../../../back-end/tests/test_the_market_write.py), without a server: the stored document a `Market` keeps and `model_copy` carries, the `RuntimeError`s, and the 409's body.
 - [`src/__tests__/aMarketThatChangedUnderAWrite.test.ts`](../../../front-end/src/__tests__/aMarketThatChangedUnderAWrite.test.ts): `isMarketChanged`, the interceptor, the store's re-read, and a refused rules save putting the server's rules on screen with the sentence, the re-read landing before the refusal and after it.
-- [`src/__tests__/manageMarketMeetsAChangedMarket.test.ts`](../../../front-end/src/__tests__/manageMarketMeetsAChangedMarket.test.ts): Manage market re-reading its own copy of the market after a refused add, take and change, each with the sentence where that action's refusal stands, and reading nothing again after an add refused for another reason.
+- [`src/__tests__/manageMarketMeetsAChangedMarket.test.ts`](../../../front-end/src/__tests__/manageMarketMeetsAChangedMarket.test.ts): Manage market re-reading its own copy of the market after a refused add, take and change of a role, a refused change of a table row, Reset and Copy, and a refused rename, each with the sentence where that action's refusal stands and the re-read on screen, and reading nothing again after an add or a row's change refused for another reason.
 - [`src/__tests__/aFormSaveThatMetAChangedMarket.test.ts`](../../../front-end/src/__tests__/aFormSaveThatMetAChangedMarket.test.ts): the form tab sending the revision its form was read at, then each one a save answered, with Save and the toggle, and after a refused Save reading the form again, showing the sentence and the questions stored; `amendFormDialog.test.ts` the dialog's revision and its refusal.
 - `e2e/application-form.spec.ts`: two tabs of one organizer on one draft's form, the later save from the older copy refused in the sentence, its tab showing the question the other saved, and nothing of its own stored.
 - `src/__tests__/planAutosave.test.ts`, "the plan's revision": Market Setup sending the revision it read, then each one a save answered, a wanted save taking the answer's without a re-read, Allocate tables' save sending it, and a refused save dropping the edit and showing the plan as it now stands with the sentence.

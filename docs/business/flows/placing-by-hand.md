@@ -117,7 +117,7 @@ From the empty seat:
 
 The vendor sits at the new table and their old seat is free, through the one write that places a vendor on a date ([placements](../../implementation/modules/placements.md)); the history records it as one entry, "Moved <vendor> from North Wing 1 to Landing 2 (Full Table)" ([J13](#j13-assignment-history)), and the day's line of what they owe follows the new table's price, unless an Admin set the amount by hand ([a price follows the table](../rules/a-price-follows-the-table.md)).
 A seat taken by someone else meanwhile is refused with the server's reason in the dialog, which stays open to choose again: the page reads the tables again, so the refused seat leaves "Move them to" and is no longer chosen.
-Any change to the tables, a placement, a move, a swap, a free or a run, that lands while someone else's change to them is being saved, or after the market moved on (archived, or, for a run, its results published), is refused, and none of it is saved: "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again." ([placements](../../implementation/modules/placements.md)).
+Any change to the tables, a placement, a move, a swap, a free or a run, that lands while someone else's change to them is being saved, or after the market moved on (archived, or, for a run, its results published), is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers), and none of it is saved ([placements](../../implementation/modules/placements.md)).
 After either refusal the page reads the tables and the market again, and the seat's dialog stays open with the sentence, showing who sits where now.
 Covered by:
 
