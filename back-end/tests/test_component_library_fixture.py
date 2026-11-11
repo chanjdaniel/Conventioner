@@ -174,6 +174,22 @@ def test_the_room_is_the_stats_tabs_for_the_plan_of_both_sections():
     assert all(day["asked"] <= asking for day in FIXTURE["room"]["dates"])
 
 
+def test_how_full_is_the_stats_tabs_for_the_seats_on_that_plan():
+    # Every table of both sections is held on each of the four dates.
+    dates = ["2024-04-22", "2024-04-23", "2024-04-24", "2024-04-25"]
+    assert FIXTURE["fill"] == {
+        "dates": dates,
+        "sections": [
+            {"section": "North Wing", "tier": "Gold",
+             "cells": [{"date": date, "used": 31, "tables": 31} for date in dates]},
+            {"section": "South Wing", "tier": "Silver",
+             "cells": [{"date": date, "used": 28, "tables": 28} for date in dates]},
+        ],
+    }
+    assert sum(cell["used"] for row in FIXTURE["fill"]["sections"] for cell in row["cells"]) == (
+        len(FIXTURE["seats"]))
+
+
 def test_each_vendor_answers_the_markets_questions_as_the_import_reads_them():
     questions = FIXTURE["export"]["questions"]
     answer_columns = [c["id"].removeprefix("answer:") for c in FIXTURE["export"]["columns"]
@@ -225,7 +241,7 @@ def test_a_seated_vendor_owes_for_each_seat_and_stands_in_the_exact_counts_dealt
 
 def test_it_holds_only_strings_numbers_and_the_shape_the_library_reads():
     assert sorted(FIXTURE) == [
-        "applications", "export", "people", "question", "reviewers", "room", "seats",
+        "applications", "export", "fill", "people", "question", "reviewers", "room", "seats",
         "valuesToFix"]
     assert sorted(FIXTURE["applications"][0]) == [
         "business", "email", "export", "id", "name", "reviewer", "sells", "status",

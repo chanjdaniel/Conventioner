@@ -208,6 +208,23 @@ describe('the palette carries a contrast contract', () => {
     expect(contrast(inkOn('--color-text', ground), ground)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 
+  /** The How full table's shades, emptiest first, after the card's white of an empty cell. */
+  const FILL_STEPS = [
+    '--mm-fill-third',
+    '--mm-fill-two-thirds',
+    '--mm-fill-nearly',
+    '--mm-fill-full',
+  ];
+
+  it('each How full step is visibly darker than the one before, from the white of an empty cell', () => {
+    const steps = [WHITE, ...FILL_STEPS.map(resolve)];
+    for (let i = 1; i < steps.length; i++) {
+      expect(alphaOf(tokens[FILL_STEPS[i - 1]!]!), FILL_STEPS[i - 1]).toBe(1);
+      expect(luminance(steps[i]!), FILL_STEPS[i - 1]).toBeLessThan(luminance(steps[i - 1]!));
+      expect(contrast(steps[i]!, steps[i - 1]!), FILL_STEPS[i - 1]).toBeGreaterThanOrEqual(1.15);
+    }
+  });
+
   // Fills carry text too, and the reciprocal check is what forces a darker green rather than a
   // per-button judgement call. Each fill declares which ink it is legible under.
   const FILLS: Array<[string, 'white' | '--mm-black']> = [
@@ -219,6 +236,8 @@ describe('the palette carries a contrast contract', () => {
     // unnoticed because a hardcoded colour has no name to hold to a contract.
     ['--mm-red', 'white'],
     ['--mm-blue', 'white'],
+    // How full a cell of the Stats tab's How full table is (T201), its figures in black.
+    ...FILL_STEPS.map((step): [string, '--mm-black'] => [step, '--mm-black']),
   ];
 
   for (const [fill, ink] of FILLS) {

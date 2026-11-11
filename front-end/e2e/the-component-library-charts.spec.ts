@@ -8,7 +8,8 @@ import { inTheWindow } from './helpers/phoneWindow';
  * the fixture's data. Its 359 applications over time, a column a day from the opening to the close
  * and a column a week over a long intake, each one image named by its sentence with its numbers in a
  * table; the review as one split bar read by its legend; the room, a meter bar a day and a tier
- * with its mark at the tables, read by its words; and the answers' bars, each answer one
+ * with its mark at the tables, read by its words; how full, a table of sections against days, each
+ * cell's step shaded and said in words, scrolling in its own box when it is wider; and the answers' bars, each answer one
  * line in a card wider than 32rem and stacked below it, folded past 8 with the most chosen first.
  */
 
@@ -152,6 +153,54 @@ eachWindow('the charts entry', (size) => {
       'Monday, April 22, 2024: 59 tables',
     );
     await expect(page.getByTestId('library-charts-room-empty-bar')).toHaveCount(0);
+  });
+
+  test('how full is a table of sections against days, each cell shaded by its step and said in words', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const full = page.getByTestId('library-charts-fill-scroller').getByRole('table');
+    await expect(full.getByRole('columnheader')).toHaveText([
+      'Section',
+      'Apr 22, 2024',
+      'Apr 23, 2024',
+      'Apr 24, 2024',
+      'Apr 25, 2024',
+    ]);
+    await expect(full.getByRole('rowheader')).toHaveText([
+      'North Wing, Gold',
+      'South Wing, Silver',
+      'All sections',
+    ]);
+    // Every table of the fixture's seats is held.
+    await expect(page.getByTestId('library-charts-fill-figures')).toHaveText([
+      ...Array(4).fill('31/31'),
+      ...Array(4).fill('28/28'),
+      ...Array(4).fill('59/59'),
+    ]);
+    await expect(full.getByRole('cell').first()).toHaveAccessibleName('31 of 31 used, full');
+
+    // Partway placed: a cell at each step, each a shade darker, an empty one the card's white.
+    const steps = page.getByTestId('library-charts-fill-steps-cell');
+    await expect(steps).toHaveCount(8);
+    const shades = await steps.evaluateAll((cells) =>
+      cells.map((cell) => [cell.getAttribute('data-step'), getComputedStyle(cell).backgroundColor]),
+    );
+    expect(Object.fromEntries(shades)).toEqual({
+      none: 'rgba(0, 0, 0, 0)',
+      third: 'rgb(227, 238, 235)',
+      'two-thirds': 'rgb(191, 215, 209)',
+      nearly: 'rgb(150, 190, 180)',
+      full: 'rgb(104, 161, 147)',
+    });
+
+    // Nine days: wider than a phone, scrolling in its box while the page stays in the window.
+    const nine = page.getByTestId('library-charts-fill-days-scroller');
+    await nine.scrollIntoViewIfNeeded();
+    const overflows = await nine.evaluate((box) => box.scrollWidth > box.clientWidth);
+    expect(overflows).toBe(size.phone);
+    await expectLaidOut(page, size, 'how full');
+    await expectAccessible('how full');
   });
 
   test('an answer is one line in a wide card at a desk, and stacks on a phone', async ({

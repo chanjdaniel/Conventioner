@@ -18,6 +18,9 @@ reader's. Beside them, when applications opened and closed, from the phase recor
 Room: per market date, and per tier over the dates, the tables asked against the plan's tables
 (``count_room``, T201), from Draft on, so a draft shows its tables with nothing asked.
 
+How full: per section and market date, the tables used of the section's tables, from the same
+counted rows as the placements (``count_fill``, T201), ``None`` until an assignment is stored.
+
 What they answered, as the organizer reads it, each organizer's update of an answer in its place
 (``effective_answers``): each select, multi-select and checkbox question of the form gets a row per
 option it offers, in the form's order, with how many applicants gave it; a multi-select counts
@@ -29,7 +32,7 @@ comes three times, for each group the page can narrow to: every application, the
 (the All view's "Approved", those added by hand among them) and the assigned ones (anyone with an
 assignment, a table on any date, verdict or not, as their outcome reads: ``result_outcome.py``).
 """
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import api.applications as ApplicationsApi
 import api.markets as MarketsApi
@@ -39,7 +42,7 @@ import result_outcome as ResultOutcome
 from assignment.vendor_input import SolverVendor, solver_vendors_from_applications
 from datatypes import (
     LEGACY_STAGE_PHASES, Application, ApplicationStatus, ApplicationType, FormField, Market,
-    MarketPhase, PhaseEntry,
+    MarketPhase, MarketTableRow, PhaseEntry, SetupObject,
 )
 from utils.email_address import normalized_email
 
@@ -63,16 +66,23 @@ def stats_for_market(market: Market) -> Dict[str, Any]:
         "room": count_room(market, applications),
     }
     # Last: counting the assignment describes it on the market in hand.
-    figures["headlines"] = {"placements": count_placements(market), "money": count_money(market)}
+    counted = _counted(market)
+    figures["fill"] = count_fill(counted)
+    figures["headlines"] = {"placements": count_placements(counted), "money": count_money(market)}
     return figures
 
 
-def count_placements(market: Market) -> Optional[Dict[str, int]]:
-    """The Assignments page's figures: its strip's table-days used of all and vendors unassigned,
-    and its grid's "Empty" count; ``None`` until an assignment is stored, as the strip is."""
+def _counted(market: Market) -> Optional[MarketsApi.CountedAssignment]:
+    """The stored assignment as the Assignments page counts it, read once for the placements and
+    How full; ``None`` until an assignment is stored, or where it could not be counted."""
     if not market.assignment_object.vendor_assignments:
         return None
-    counted = MarketsApi.counted_assignment(market)
+    return MarketsApi.counted_assignment(market)
+
+
+def count_placements(counted: Optional[MarketsApi.CountedAssignment]) -> Optional[Dict[str, int]]:
+    """The Assignments page's figures: its strip's table-days used of all and vendors unassigned,
+    and its grid's "Empty" count; ``None`` until an assignment is stored, as the strip is."""
     if counted is None:
         return None
     statistics = counted.statistics
@@ -82,6 +92,55 @@ def count_placements(market: Market) -> Optional[Dict[str, int]]:
         "tableDaysFree": MarketsApi.table_days_free(counted.rows),
         "unassigned": len(statistics.unassigned_vendors),
     }
+
+
+def count_fill(counted: Optional[MarketsApi.CountedAssignment]) -> Optional[Dict[str, Any]]:
+    """How full each section is on each market day: its tables used of its tables, from the stored
+    assignment's rows, one per table and date as the tables grid draws them, a table with anyone at
+    it used, half held included, as ``table_days_free`` counts it; so the cells add up to the
+    placements' table-days used, and their tables left to the table-days free. ``None`` until an
+    assignment is stored, as the placements are.
+
+    Sections and dates in the plan's order, as the Assignments page lists them, a section of no
+    tables left out, as it has nothing to fill; a section with no tier says ``None``.
+    """
+    if counted is None:
+        return None
+    return fill_of(counted.market.setup_object, counted.rows)
+
+
+def fill_of(setup: Optional[SetupObject], rows: Iterable[MarketTableRow]) -> Dict[str, Any]:
+    """``count_fill``'s grid from a plan and its rows (``derive_market_table_rows``)."""
+    tables: Dict[Tuple[str, str], int] = {}
+    used: Dict[Tuple[str, str], int] = {}
+    tiers: Dict[str, Optional[str]] = {}
+    for row in rows:
+        key = (row.section, row.date)
+        tables[key] = tables.get(key, 0) + 1
+        used[key] = used.get(key, 0) + (1 if any(row.assignment_slots) else 0)
+        tiers.setdefault(row.section, row.tier or None)
+    planned = setup.market_dates if setup else []
+    # A row outside the plan (a seat at a table since taken off) still counts, after the plan's.
+    dates = _in_order([entry.date for entry in planned], [date for _, date in tables])
+    sections = _in_order(
+        [section.name for section in setup.sections] if setup else [], list(tiers))
+    return {
+        "dates": dates,
+        "sections": [
+            {"section": section, "tier": tiers[section], "cells": [
+                {"date": date, "used": used.get((section, date), 0),
+                 "tables": tables.get((section, date), 0)}
+                for date in dates
+            ]}
+            for section in sections if section in tiers
+        ],
+    }
+
+
+def _in_order(planned: List[str], found: List[str]) -> List[str]:
+    """Each of ``found`` once, those the plan names in its order, then the rest as found."""
+    present = set(found)
+    return list(dict.fromkeys([name for name in planned if name in present] + found))
 
 
 def count_money(market: Market) -> Optional[Dict[str, Any]]:

@@ -16,16 +16,19 @@
  * `utils/applicantStats.ts`). Then the room, in every phase: whether the plan has room for those
  * asking, each market day's tables asked against its tables and, with two tiers or more, each
  * tier's table-days the same way (`MeterBar`, `utils/roomRows.ts`); before anyone applies, the
- * tables alone, so a draft shows its capacity. Then what they answered: a card per choice question of the form
+ * tables alone, so a draft shows its capacity. Then, once an assignment is stored, how full each
+ * section is on each market day, a table of its tables used shaded by how full, with a total row
+ * (`FillGrid`, `utils/fillGrid.ts`). Then what they answered: a card per choice question of the form
  * (`utils/answerCounts.ts`), its answers most chosen first and folded past `ANSWERS_SHOWN` (T201),
  * narrowed by a switch, kept in the address as `among`, to the approved or the assigned
  * (E45/F01/S02). Stats reads; it changes nothing, so a Viewer sees all of it and nothing here is
  * disabled.
  *
- * Its sections keep one order, the market's life's (T201): who applied, the room, then what they
- * answered.
+ * Its sections keep one order, the market's life's (T201): who applied, the room, how full, then
+ * what they answered.
  * Their cards stand two to a row while the page's content is 48rem wide or more, one below it; a
- * chart that reads as one line of a whole, over time or across the review, spans the row.
+ * chart that reads as one line of a whole, over time or across the review, and the How full table
+ * span the row.
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
@@ -34,11 +37,13 @@ import { applicantStats } from '@/utils/applicantStats';
 import { appliedOverTime } from '@/utils/appliedOverTime';
 import { ANSWER_GROUPS, answerGroup, questionLedgers } from '@/utils/answerCounts';
 import { fetchMarketStats, type MarketStats } from '@/utils/marketStats';
+import { fillGrid } from '@/utils/fillGrid';
 import { roomCards } from '@/utils/roomRows';
 import { statsHeadlines } from '@/utils/statsHeadlines';
 import { useOpenMarket } from '@/utils/openMarket';
 import BarLedger from '@/components/BarLedger.vue';
 import ColumnChart from '@/components/charts/ColumnChart.vue';
+import FillGrid from '@/components/charts/FillGrid.vue';
 import MeterBar from '@/components/charts/MeterBar.vue';
 import SplitBar from '@/components/charts/SplitBar.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
@@ -78,6 +83,8 @@ const overTimeColumns = computed(() =>
 const room = computed(() =>
   figures.value ? roomCards(figures.value.room, figures.value.applicants.total > 0) : [],
 );
+/** How full each section is each day; none until an assignment is stored. */
+const fill = computed(() => (figures.value ? fillGrid(figures.value.fill) : null));
 const answers = computed(() => figures.value?.answers ?? null);
 const headlines = computed(() =>
   figures.value ? statsHeadlines(figures.value.headlines, marketId.value) : [],
@@ -204,6 +211,19 @@ const NOBODY: Record<string, string> = {
             <p v-if="card.note" class="stats-card-note">{{ card.note }}</p>
           </div>
         </div>
+      </section>
+      <section
+        v-if="fill"
+        class="stats-section"
+        aria-labelledby="stats-fill-title"
+        data-testid="stats-fill"
+      >
+        <h2 id="stats-fill-title" class="stats-title">How full</h2>
+        <FillGrid
+          title="Tables used of each section's tables, each day"
+          :grid="fill"
+          testid="stats-fill"
+        />
       </section>
       <!-- Nobody applied: the section above says so, and a chart of noughts says nothing more. -->
       <section

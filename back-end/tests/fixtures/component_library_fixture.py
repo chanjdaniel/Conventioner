@@ -21,7 +21,9 @@ the product's own readers:
 - the room, the tables asked against the plan's on each date and in each tier, is
   ``market_stats.count_room`` of that market, its plan given the fixture's two sections, over the
   applications as ``csv_import`` reads each row through the mapping the start saved, each with the
-  status dealt it.
+  status dealt it;
+- How full, each section's tables used on each date, is ``market_stats.fill_of`` over the rows
+  ``api.markets.derive_market_table_rows`` draws for that plan with the fixture's seats stored.
 
 What no file holds (each application's status and reviewer, each person's role, who reviews, who
 sits where, each vendor's Discord state and what they have paid) is dealt here from a seeded
@@ -44,6 +46,7 @@ if BACK_END not in sys.path:
     sys.path.insert(0, BACK_END)
 
 import api.discord_connection as DiscordApi  # noqa: E402
+import api.markets as MarketsApi  # noqa: E402
 import api.vendor_export as VendorExport  # noqa: E402
 import csv_import as CsvImport  # noqa: E402
 import csv_proposal as CsvProposal  # noqa: E402
@@ -52,6 +55,7 @@ import market_stats as MarketStats  # noqa: E402
 import essential_fields as EssentialFields  # noqa: E402
 import payments as Payments  # noqa: E402
 import pricing as Pricing  # noqa: E402
+from datatypes import table_code_for  # noqa: E402
 from market_documents import market_from_document  # noqa: E402
 
 CORPUS = os.path.join(BACK_END, "tests", "test_data", "google_forms")
@@ -255,15 +259,21 @@ def _export(market_doc: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _room(market_doc: Dict[str, Any], headers, rows, applications) -> Dict[str, Any]:
-    """The Stats tab's room for this market, its plan given the fixture's sections, counted by the
-    product's own ``count_room`` over each application's answers as the import reads its row."""
+def _planned(market_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """The market, its plan given the fixture's sections."""
     planned = copy.deepcopy(market_doc)
     planned["setupObject"]["sections"] = [
         {"name": section, "count": tables, "location": None,
          "tier": next(t for t in planned["setupObject"]["tiers"] if t["name"] == tier)}
         for section, tables, tier in SECTIONS
     ]
+    return planned
+
+
+def _room(market_doc: Dict[str, Any], headers, rows, applications) -> Dict[str, Any]:
+    """The Stats tab's room for this market, its plan given the fixture's sections, counted by the
+    product's own ``count_room`` over each application's answers as the import reads its row."""
+    planned = _planned(market_doc)
     mapping, _unresolved, _new = CsvImport.restore_mapping(
         headers, CsvImport.stored_mapping(planned), CsvImport.import_targets(planned))
     answered = {row.email: row.form_data
@@ -272,6 +282,22 @@ def _room(market_doc: Dict[str, Any], headers, rows, applications) -> Dict[str, 
                   "form_data": answered[a["email"]], "status": a["status"],
                   "application_type": "main"} for a in applications]
     return MarketStats.count_room(market_from_document(planned), documents)
+
+
+def _fill(market_doc: Dict[str, Any], applications, seats) -> Dict[str, Any]:
+    """The Stats tab's How full for this market with the fixture's seats stored: the product's own
+    ``fill_of`` over the rows the tables grid draws for them."""
+    planned = _planned(market_doc)
+    email = {a["id"]: a["email"] for a in applications}
+    planned["assignmentObject"] = {"vendorAssignments": [
+        {"email": email[seat["application"]], "date": seat["date"],
+         "tableCode": table_code_for(seat["section"], seat["table"]),
+         "tableChoice": "Full Table", "section": seat["section"], "tier": seat["tier"],
+         "location": ""}
+        for seat in seats
+    ]}
+    market = market_from_document(planned)
+    return MarketStats.fill_of(market.setup_object, MarketsApi.derive_market_table_rows(market))
 
 
 def _answer_readers(proposal: Dict[str, Any], market_doc: Dict[str, Any]):
@@ -374,6 +400,7 @@ def fixture() -> Dict[str, Any]:
     export = _export(market_doc)
     seats = _seats(rng, applications, export["dates"])
     room = _room(market_doc, headers, rows, applications)
+    fill = _fill(market_doc, applications, seats)
     _with_export(rng, applications, named, proposal, market_doc, seats)
     return {
         "applications": applications,
@@ -384,6 +411,7 @@ def fixture() -> Dict[str, Any]:
         "valuesToFix": [o["value"] for o in their_answers if o["value"] not in offered],
         "seats": seats,
         "room": room,
+        "fill": fill,
         "export": export,
     }
 

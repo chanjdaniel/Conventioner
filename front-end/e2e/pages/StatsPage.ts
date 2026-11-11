@@ -5,8 +5,8 @@ import type { Locator, Page } from '@playwright/test';
  * Page object for a market's Stats tab (/markets/:marketId/stats): who applied, a column a day (or
  * week) and the review as one split bar (E45/F01/S01, T201), and a chart per choice question,
  * narrowed to the approved or the assigned (E45/F01/S02); between them the room, the tables asked
- * against the plan's per day and per tier (T201); above them the placement and money
- * headlines (E45/F01/S03).
+ * against the plan's per day and per tier (T201), and how full each section is each day (T201); above
+ * them the placement and money headlines (E45/F01/S03).
  */
 export class StatsPage {
   readonly page: Page;
@@ -24,6 +24,8 @@ export class StatsPage {
   readonly statusBarParts: Locator;
   /** The Room section: its cards, `days` and `tiers`. */
   readonly room: Locator;
+  /** The How full section: its table of sections against days. */
+  readonly fill: Locator;
   readonly answers: Locator;
   readonly questions: Locator;
   /** "N of M": how many of every application the charts count. */
@@ -42,6 +44,7 @@ export class StatsPage {
     this.statusBar = page.getByTestId('stats-status-bar');
     this.statusBarParts = page.getByTestId('stats-status-bar-part');
     this.room = page.getByTestId('stats-room');
+    this.fill = page.getByTestId('stats-fill');
     this.answers = page.getByTestId('stats-answers');
     this.questions = page.getByTestId('stats-question');
     this.amongCount = page.getByTestId('stats-among-count');
@@ -78,6 +81,22 @@ export class StatsPage {
   /** A Room card's rows, in order, each a label, its words and its bar. */
   roomRows(id: 'days' | 'tiers'): Locator {
     return this.roomCard(id).getByTestId('stats-room-row');
+  }
+
+  /** A How full row's cells, by section or `total`: each its figures ("28/30") and its step. */
+  async fillCells(section: string): Promise<[string, string][]> {
+    const row =
+      section === 'total'
+        ? this.fill.getByTestId('stats-fill-total')
+        : this.fill.locator(`[data-testid="stats-fill-row"][data-key="${section}"]`);
+    return row
+      .locator('td')
+      .evaluateAll((cells) =>
+        cells.map((cell) => [
+          cell.querySelector('[data-testid="stats-fill-figures"]')?.textContent?.trim() ?? '',
+          cell.getAttribute('data-step') ?? '',
+        ]),
+      ) as Promise<[string, string][]>;
   }
 
   /** The switch's button for a group: `all`, `approved` or `assigned`. */

@@ -79,6 +79,14 @@
      faint for a mark, so a chart's yellow is its own: darker, and never under text. ---- */
   --mm-chart-yellow: #bd8619; /* on white: 3.19 */
 
+  /* ---- How full a table's cell is (T201): --mm-green laid over white at 14%, 32%, 52% and 75%,
+     a step darker each step, every one a fill under --mm-black figures. An empty cell keeps the
+     card's white. The step is said in words too, so a shade carries nothing alone. ---- */
+  --mm-fill-third: #e3eeeb; /* --mm-black on it: 13.10 */
+  --mm-fill-two-thirds: #bfd7d1; /* 10.26 */
+  --mm-fill-nearly: #96beb4; /* 7.64 */
+  --mm-fill-full: #68a193; /* 5.26 */
+
   /* ---- A button under the pointer and pressed (T229): each fill a step darker, then another, so
      its ink only gains on it. Hover and pressed were `opacity` 0.9 and 0.8, which faded the ink
      with the fill: white on the green to 3.81 and 3.21, on the red pressed to 3.86, the pressed

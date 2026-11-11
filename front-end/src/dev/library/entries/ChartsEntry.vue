@@ -5,25 +5,29 @@
  * over time as a `ColumnChart`, a column a day over 17 days and a column a week over a long intake,
  * and the review's state as a `SplitBar`. Then the room: each day's and tier's tables asked against
  * the plan's as a `MeterBar` a row, the mark at the tables, and the tables alone before anyone
- * applies. Then what they answered: `BarLedger` as the tab passes it,
+ * applies. Then how full: the seats as a `FillGrid` of sections against days, every table taken,
+ * then the seats partway placed, a cell at each step, and over nine days, scrolling in its box.
+ * Then what they answered: `BarLedger` as the tab passes it,
  * its answers most chosen first and folded past 8, each answer one line in a card wider than 32rem
  * and stacked in a narrower one.
  */
 import { MarketPhase } from '@/assets/types/datatypes';
 import BarLedger from '@/components/BarLedger.vue';
 import ColumnChart from '@/components/charts/ColumnChart.vue';
+import FillGrid from '@/components/charts/FillGrid.vue';
 import MeterBar from '@/components/charts/MeterBar.vue';
 import SplitBar from '@/components/charts/SplitBar.vue';
 import { applicantStats } from '@/utils/applicantStats';
 import { appliedOverTime, type AppliedOverTime } from '@/utils/appliedOverTime';
 import { ledgerRows } from '@/utils/barLedger';
+import { fillGrid, type FillCounts } from '@/utils/fillGrid';
 import { roomCards } from '@/utils/roomRows';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import ReadOut from '../parts/ReadOut.vue';
 import LibrarySection from '../parts/LibrarySection.vue';
 import { fixture } from '../fixture';
 
-const { applications, question, room } = fixture;
+const { applications, question, room, fill, seats } = fixture;
 
 const submittedAt = applications.map((application) => application.submittedAt);
 const statuses: Record<string, number> = {};
@@ -70,6 +74,38 @@ const noFollowUp = review.map((part) =>
 // As the Stats tab draws the room once someone applied, and before anyone has.
 const [roomDays, roomTiers] = roomCards(room, true);
 const [emptyDays] = roomCards(room, false);
+
+// As the Stats tab draws How full: the fixture's seats, every table taken.
+const full = fillGrid(fill)!;
+
+/**
+ * The same seats partway placed, a cell at each step: on each date, a section keeps its seats up to
+ * the table numbered here and lets the rest go.
+ */
+const KEPT: Record<string, number[]> = {
+  'North Wing': [31, 27, 18, 9],
+  'South Wing': [25, 15, 5, 0],
+};
+function partway(dates: string[]): FillCounts {
+  return {
+    dates,
+    sections: fill.sections.map((section) => ({
+      ...section,
+      cells: dates.map((date, index) => {
+        const kept = KEPT[section.section]![index % fill.dates.length]!;
+        const on = fill.dates[index % fill.dates.length];
+        const held = seats.filter(
+          (seat) => seat.section === section.section && seat.date === on && seat.table <= kept,
+        );
+        return { date, used: held.length, tables: section.cells[0]!.tables };
+      }),
+    })),
+  };
+}
+const steps = fillGrid(partway(fill.dates))!;
+/** Nine days from the first, the four days' cells over again: more than a phone's width holds. */
+const NINE_DAYS = Array.from({ length: 9 }, (_, i) => `2024-04-${String(22 + i).padStart(2, '0')}`);
+const nineDays = fillGrid(partway(NINE_DAYS))!;
 
 /** As the Stats tab folds a question's answers. */
 const ANSWERS_SHOWN = 8;
@@ -170,6 +206,35 @@ const answers = ledgerRows(
           />
         </li>
       </ul>
+    </LibraryPanel>
+  </LibrarySection>
+  <LibrarySection
+    title="How full: FillGrid"
+    about="The tab's How full, once an assignment is stored: a table of sections down the side and market days across, each cell its tables used of its tables, shaded a step darker from empty to up to a third, two thirds, past that and full, with a total row per day. Each cell's step is said in words to a screen reader, so the shade carries nothing alone. A table wider than its card scrolls in its own box, the sections held at the left."
+  >
+    <LibraryPanel label="The fixture's seats: every table taken" class="library-wide">
+      <FillGrid
+        class="library-full"
+        title="Tables used of each section's tables, each day"
+        :grid="full"
+        testid="library-charts-fill"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="Partway placed: a cell at each step" class="library-wide">
+      <FillGrid
+        class="library-full"
+        title="Tables used of each section's tables, each day"
+        :grid="steps"
+        testid="library-charts-fill-steps"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="Nine days: wider than a phone, scrolling in its box" class="library-wide">
+      <FillGrid
+        class="library-full"
+        title="Tables used of each section's tables, each day"
+        :grid="nineDays"
+        testid="library-charts-fill-days"
+      />
     </LibraryPanel>
   </LibrarySection>
   <LibrarySection

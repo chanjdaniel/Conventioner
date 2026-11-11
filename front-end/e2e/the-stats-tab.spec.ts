@@ -5,7 +5,9 @@ import {
   approvedVendorApplication,
   insertApplications,
   seedApplication,
+  seedApprovedVendor,
 } from './helpers/seedApplication';
+import { savePlan } from './helpers/savePlan';
 import { ensureTestOrg, SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
@@ -19,8 +21,8 @@ import { StatsPage } from './pages/StatsPage';
  * The Stats tab (E45/F01/S01): the last tab on the market bar, open in every phase and to anyone who
  * reads the market, starting with who applied - a column a day from the opening to today (T201), and
  * the review as one bar split by status, counted as the Applications tab counts them - then the room,
- * each day's and tier's tables asked against the plan's (T201), then a chart per choice question of
- * the form, narrowed to the approved or the assigned (E45/F01/S02).
+ * each day's and tier's tables asked against the plan's (T201), then how full each section is each
+ * day once an assignment is stored (T201), then a chart per choice question of the form, narrowed to the approved or the assigned (E45/F01/S02).
  */
 const VIEWER = { email: 'e2e-stats-viewer@example.com', password: 'e2estatsviewer1' };
 
@@ -307,6 +309,119 @@ test('the room reads each day and tier as the tables asked against the plan, pas
   ]);
   expect(Math.abs(days!.y - tiers!.y)).toBeLessThan(1);
   expect(tiers!.x).toBeGreaterThan(days!.x + days!.width);
+});
+
+/** Eight market days, more than a phone's width holds, of two sections: five tables a day. */
+const EIGHT_DAYS = Array.from({ length: 8 }, (_, i) => `2099-05-${String(1 + i).padStart(2, '0')}`);
+const FILL_PLAN = {
+  priority: [],
+  marketDates: EIGHT_DAYS.map((date) => ({ date })),
+  tiers: [
+    { id: 1, name: 'Gold' },
+    { id: 2, name: 'Silver' },
+  ],
+  locations: [{ name: 'Main Hall' }],
+  sections: [
+    {
+      name: 'North Wing',
+      location: { name: 'Main Hall' },
+      tier: { id: 1, name: 'Gold' },
+      count: 3,
+    },
+    { name: 'Landing', location: { name: 'Main Hall' }, tier: { id: 2, name: 'Silver' }, count: 2 },
+  ],
+  assignmentOptions: { maxAssignmentsPerVendor: 2, maxHalfTableProportionPerSection: 50 },
+};
+
+test('how full reads each section on each day as its tables used, totalled, and scrolls in its own box on a phone', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const [first, second] = EIGHT_DAYS as [string, string];
+  const { marketId } = await seedMarketWithVendors(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { dates: EIGHT_DAYS },
+  );
+  for (const email of ['carol@example.com', 'dan@example.com']) {
+    seedApprovedVendor(marketId, email, { dates: EIGHT_DAYS, tiers: ['Gold'] });
+  }
+  await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, FILL_PLAN);
+  const stats = new StatsPage(page);
+  // Nothing stored yet: no How full.
+  await stats.goto(marketId);
+  await expect(stats.total).toBeVisible({ timeout: 15000 });
+  await expect(stats.fill).toHaveCount(0);
+
+  for (const toPhase of ['applications', 'assignment']) {
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, toPhase);
+  }
+  // The first day: North Wing full, Carol on half a table; Landing one of two. The second: one of
+  // North Wing's three.
+  for (const [email, date, table, choice] of [
+    ['alice@example.com', first, 'North Wing 1', 'Full Table'],
+    ['carol@example.com', first, 'North Wing 2', 'Half Table (Left)'],
+    ['dan@example.com', first, 'North Wing 3', 'Full Table'],
+    ['bob@example.com', first, 'Landing 1', 'Full Table'],
+    ['alice@example.com', second, 'North Wing 1', 'Full Table'],
+  ]) {
+    const res = await request.put(`${BACKEND_URL}/markets/${marketId}/placements`, {
+      data: { email, date, table_code: table, table_choice: choice },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+  }
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await stats.goto(marketId);
+  await expect(stats.fill).toBeVisible({ timeout: 15000 });
+  const grid = stats.fill.getByRole('table', {
+    name: "Tables used of each section's tables, each day",
+  });
+  await expect(grid.getByRole('columnheader')).toHaveText([
+    'Section',
+    ...EIGHT_DAYS.map((date) => `May ${Number(date.slice(-2))}, 2099`),
+  ]);
+  await expect(grid.getByRole('rowheader')).toHaveText([
+    'North Wing, Gold',
+    'Landing, Silver',
+    'All sections',
+  ]);
+  const idle = Array(6).fill(['0/3', 'none']);
+  expect(await stats.fillCells('North Wing')).toEqual([['3/3', 'full'], ['1/3', 'third'], ...idle]);
+  expect(await stats.fillCells('Landing')).toEqual([
+    ['1/2', 'two-thirds'],
+    ['0/2', 'none'],
+    ...Array(6).fill(['0/2', 'none']),
+  ]);
+  expect(await stats.fillCells('total')).toEqual([
+    ['4/5', 'nearly'],
+    ['1/5', 'third'],
+    ...Array(6).fill(['0/5', 'none']),
+  ]);
+  // Each cell's step is said in words, so the shade carries nothing alone.
+  await expect(grid.getByRole('cell').first()).toHaveAccessibleName(/3 of 3 used, full/);
+  // The cells add up to the headline's table-days used, half a table held counted.
+  await expect(stats.headline('used')).toHaveText('5 of 40 table-days used');
+
+  // On a phone the page stays inside the window, and the table scrolls in its box, the section
+  // names held at the left.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const scroller = page.getByTestId('stats-fill-scroller');
+  await expect
+    .poll(() => scroller.evaluate((box) => box.scrollWidth - box.clientWidth))
+    .toBeGreaterThan(0);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
+  ).toBeLessThanOrEqual(0);
+  const name = grid.getByRole('rowheader').first();
+  const before = (await name.boundingBox())!.x;
+  const firstDay = grid.getByRole('columnheader').nth(1);
+  const dayBefore = (await firstDay.boundingBox())!.x;
+  await scroller.evaluate((box) => box.scrollTo({ left: box.scrollWidth }));
+  await expect.poll(async () => (await firstDay.boundingBox())!.x).toBeLessThan(dayBefore);
+  expect(Math.abs((await name.boundingBox())!.x - before)).toBeLessThan(1);
 });
 
 test('the bar holds seven tabs beside a 60-character name at 1280, and scrolls them on a phone', async ({

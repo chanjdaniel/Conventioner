@@ -1,5 +1,6 @@
 import type { ApplicationStatus, MarketRole } from '@/assets/types/datatypes';
 import type { DiscordShown } from '@/utils/discordCheck';
+import type { FillCounts } from '@/utils/fillGrid';
 import type { RoomCounts } from '@/utils/roomRows';
 import type { ExportOffered, ExportPaymentState } from '@/utils/vendorExport';
 import data from './fixture.json';
@@ -57,6 +58,9 @@ export interface LibraryFixture {
    * by the 295 applications not rejected, on each of the four dates and in each of three tiers,
    * Bronze with no table. */
   room: RoomCounts;
+  /** The Stats tab's How full for that plan with the seats stored, as the server counts it: every
+   * table of both sections held on each of the four dates. */
+  fill: FillCounts;
   /** What the export dialog offers this market, as its preview says it, and the invite every row
    * exports. */
   export: ExportOffered & { discordInvite: string };

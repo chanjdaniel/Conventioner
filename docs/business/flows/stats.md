@@ -10,6 +10,7 @@ describes:
   - front-end/src/utils/statsHeadlines.ts
   - front-end/src/utils/appliedOverTime.ts
   - front-end/src/utils/roomRows.ts
+  - front-end/src/utils/fillGrid.ts
   - front-end/src/components/charts/
 verified: 2026-11-12
 sources:
@@ -26,11 +27,11 @@ sources:
 **Who:** anyone who can read the market, a Viewer included; the page changes nothing ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Stats tab, last on the market bar, at `/markets/<id>/stats`, open in every phase from draft to the archive.
 
-The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as charts drawn in the app's own HTML and CSS ([`components/charts/`](../../../front-end/src/components/charts/)), each with its figures as text, rather than a chart library: applications over time as columns, the review as one split bar, the room as a meter bar a day and a tier, and the answers as cards of bars, each row an answer with its count, its share of the whole and a bar against the largest in its card.
+The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as charts drawn in the app's own HTML and CSS ([`components/charts/`](../../../front-end/src/components/charts/)), each with its figures as text, rather than a chart library: applications over time as columns, the review as one split bar, the room as a meter bar a day and a tier, how full as a table of sections against days, and the answers as cards of bars, each row an answer with its count, its share of the whole and a bar against the largest in its card.
 Before anyone applies it says "Nobody has applied yet." and shows the room alone, so a draft already shows its capacity.
 Every figure is counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
-Its sections keep one order, the market's life's: who applied, the room, then what they answered (T201).
-Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width; the chart over time and the review's split bar, each one line of a whole, span the row.
+Its sections keep one order, the market's life's: who applied, the room, how full, then what they answered (T201).
+Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width; the chart over time and the review's split bar, each one line of a whole, and the How full table span the row.
 The page fits a phone, so how the day stands is read at the market (T180): its headlines stand one to a line, each link a thumb's target, and the switch and the cards stay inside the window ([the design language](../../design-system.md#layout)).
 
 ## N1. See the market's state at a glance
@@ -97,7 +98,25 @@ Covered by:
 - `the-component-library-charts.spec.ts` (the fixture's room, one scale a card, the mark and the attention fill, the tables alone)
 - `the-stats-tab.spec.ts` ("the room reads each day and tier as the tables asked against the plan, past them in the attention fill", "a market nobody has applied to says so, in draft")
 
-## N4. See what they answered
+## N4. See how full the market is
+
+**Status:** Works (read from the code as of T201 ticket 04: `the-stats-tab.spec.ts`, `test_the_stats_fill.py`).
+
+1. "How full" shows once an assignment is stored, in any phase, as the placements headlines do: a table with a row per section, its tier under its name, a column per market date and a row "All sections" totalling each day.
+2. Each cell reads "28/30", the section's tables used that day of its tables, a table with anyone at it used, half held included, so the cells add up to the "table-days used" headline and their tables left to the "table-days free" one.
+   The server counts it from the same stored rows as those headlines, the Assignments page's tables grid's ([placements](../../implementation/modules/placements.md#what-a-read-shows)), and sections and dates stand in the plan's order.
+3. A cell is shaded by how full it is, in five steps: empty, the card's white with its edge drawn; up to a third; up to two thirds; past that but short of full; and full, each a step darker green ([the design language](../../design-system.md#the-contrast-contract)).
+   The shade is never the only carrier: the figures are hidden from a screen reader, which hears each cell as "28 of 30 used, more than two thirds full".
+4. A table wider than its card, more days than a phone holds, scrolls sideways in its own box with the section names held at the left, the one sideways scroll on the page; the page itself stays inside the window.
+
+The server counts it (`count_fill` in [`back-end/market_stats.py`](../../../back-end/market_stats.py), the answer's `fill`, `null` until an assignment is stored), and [`fillGrid.ts`](../../../front-end/src/utils/fillGrid.ts) makes the rows, the total and each cell's step.
+Covered by:
+
+- `test_the_stats_fill.py`
+- `the-component-library-charts.spec.ts` (the fixture's seats every table taken, a cell at each step and its shade, nine days scrolling in their box on a phone)
+- `the-stats-tab.spec.ts` ("how full reads each section on each day as its tables used, totalled, and scrolls in its own box on a phone")
+
+## N5. See what they answered
 
 **Status:** Works (read from the code as of T201 ticket 01: `the-stats-tab.spec.ts`, `test_the_stats_tab.py`).
 

@@ -17535,6 +17535,68 @@
       }
     ]
   },
+  "fill": {
+    "dates": [
+      "2024-04-22",
+      "2024-04-23",
+      "2024-04-24",
+      "2024-04-25"
+    ],
+    "sections": [
+      {
+        "section": "North Wing",
+        "tier": "Gold",
+        "cells": [
+          {
+            "date": "2024-04-22",
+            "used": 31,
+            "tables": 31
+          },
+          {
+            "date": "2024-04-23",
+            "used": 31,
+            "tables": 31
+          },
+          {
+            "date": "2024-04-24",
+            "used": 31,
+            "tables": 31
+          },
+          {
+            "date": "2024-04-25",
+            "used": 31,
+            "tables": 31
+          }
+        ]
+      },
+      {
+        "section": "South Wing",
+        "tier": "Silver",
+        "cells": [
+          {
+            "date": "2024-04-22",
+            "used": 28,
+            "tables": 28
+          },
+          {
+            "date": "2024-04-23",
+            "used": 28,
+            "tables": 28
+          },
+          {
+            "date": "2024-04-24",
+            "used": 28,
+            "tables": 28
+          },
+          {
+            "date": "2024-04-25",
+            "used": 28,
+            "tables": 28
+          }
+        ]
+      }
+    ]
+  },
   "export": {
     "groups": [
       {
