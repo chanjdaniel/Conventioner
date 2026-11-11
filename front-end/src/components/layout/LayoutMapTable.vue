@@ -35,6 +35,8 @@ const props = defineProps<{
   /** The number's size, in millimetres at the map's scale; 0 leaves it out. */
   numberSizeMm: number;
   selected: boolean;
+  /** Whether it is pressed, where a press selects it (the editor); unsaid where it does not. */
+  pressed?: boolean;
   /** A button a keyboard reaches, in the read and edit modes; a shape alone in print. */
   interactive: boolean;
   /** The one table of the map the Tab key stops on. */
@@ -80,6 +82,7 @@ const focusBorder = computed(() => grown(-0.25));
     :role="interactive ? 'button' : undefined"
     :tabindex="interactive ? (tabStop ? 0 : -1) : undefined"
     :aria-label="interactive ? name : undefined"
+    :aria-pressed="interactive ? pressed : undefined"
     :data-table-id="id"
     :data-selected="selected ? '' : undefined"
     data-testid="layout-table"

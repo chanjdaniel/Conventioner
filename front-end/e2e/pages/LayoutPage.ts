@@ -32,6 +32,32 @@ export class LayoutPage {
   readonly sectionLabels: Locator;
   readonly zones: Locator;
   readonly sections: Locator;
+  readonly editor: Locator;
+  readonly stage: Locator;
+  readonly toolbar: Locator;
+  readonly toolSelect: Locator;
+  readonly toolAdd: Locator;
+  readonly undo: Locator;
+  readonly redo: Locator;
+  readonly zoomOut: Locator;
+  readonly zoomIn: Locator;
+  readonly fit: Locator;
+  readonly zoom: Locator;
+  readonly addSection: Locator;
+  readonly addType: Locator;
+  readonly guides: Locator;
+  readonly turnKnob: Locator;
+  readonly hint: Locator;
+  readonly selection: Locator;
+  readonly selectionTitle: Locator;
+  readonly selectionSection: Locator;
+  readonly selectionType: Locator;
+  readonly selectionPosition: Locator;
+  readonly selectionCodes: Locator;
+  readonly selectionTurn: Locator;
+  readonly selectionRemove: Locator;
+  readonly saveRetry: Locator;
+  readonly saveReload: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -60,6 +86,32 @@ export class LayoutPage {
     this.sectionLabels = this.map.getByTestId('layout-map-label');
     this.zones = this.map.getByTestId('layout-map-zone');
     this.sections = page.getByTestId('layout-panel-sections');
+    this.editor = page.getByTestId('layout-editor');
+    this.stage = page.getByTestId('layout-stage');
+    this.toolbar = page.getByRole('toolbar', { name: 'Layout tools' });
+    this.toolSelect = this.toolbar.getByRole('button', { name: 'Select', exact: true });
+    this.toolAdd = this.toolbar.getByRole('button', { name: 'Add table', exact: true });
+    this.undo = this.toolbar.getByRole('button', { name: 'Undo', exact: true });
+    this.redo = this.toolbar.getByRole('button', { name: 'Redo', exact: true });
+    this.zoomOut = this.toolbar.getByRole('button', { name: 'Zoom out', exact: true });
+    this.zoomIn = this.toolbar.getByRole('button', { name: 'Zoom in', exact: true });
+    this.fit = this.toolbar.getByRole('button', { name: 'Fit', exact: true });
+    this.zoom = page.getByTestId('layout-zoom');
+    this.addSection = page.getByTestId('layout-add-section');
+    this.addType = page.getByTestId('layout-add-type');
+    this.guides = this.map.getByTestId('layout-map-guide');
+    this.turnKnob = this.map.getByTestId('layout-turn-knob');
+    this.hint = page.getByTestId('layout-hint');
+    this.selection = page.getByTestId('layout-panel-selection');
+    this.selectionTitle = page.getByTestId('layout-selection-title');
+    this.selectionSection = page.getByTestId('layout-selection-section');
+    this.selectionType = page.getByTestId('layout-selection-type');
+    this.selectionPosition = page.getByTestId('layout-selection-position');
+    this.selectionCodes = page.getByTestId('layout-selection-codes');
+    this.selectionTurn = page.getByTestId('layout-selection-turn');
+    this.selectionRemove = page.getByTestId('layout-selection-remove');
+    this.saveRetry = page.getByTestId('layout-save-retry');
+    this.saveReload = page.getByTestId('layout-save-reload');
   }
 
   async goto(marketId: string, locationId?: string): Promise<void> {
@@ -118,6 +170,54 @@ export class LayoutPage {
   /** A no-table zone of the map, by its name ("No-table zone: Stage"). */
   zone(name: string): Locator {
     return this.map.getByRole('img', { name, exact: true });
+  }
+
+  /**
+   * Where a point of the hall, in millimetres, is on the screen, and the scale it is drawn at, in
+   * pixels per millimetre: read from the part of the hall the map shows, so it holds at any pan
+   * and zoom.
+   */
+  async onScreen(mm: [number, number]): Promise<{ x: number; y: number; scale: number }> {
+    const box = await this.map.boundingBox();
+    if (!box) throw new Error('The map is not drawn');
+    const view = await this.map.evaluate((svg) => {
+      const { x, y, width, height } = (svg as SVGSVGElement).viewBox.baseVal;
+      return { x, y, width, height };
+    });
+    // The view is drawn whole in the box, centred (`xMidYMid meet`).
+    const scale = Math.min(box.width / view.width, box.height / view.height);
+    return {
+      x: box.x + (box.width - view.width * scale) / 2 + (mm[0] - view.x) * scale,
+      y: box.y + (box.height - view.height * scale) / 2 + (mm[1] - view.y) * scale,
+      scale,
+    };
+  }
+
+  /** Click the floor at a point of the hall, in millimetres. */
+  async clickAt(mm: [number, number]): Promise<void> {
+    const at = await this.onScreen(mm);
+    await this.page.mouse.click(at.x, at.y);
+  }
+
+  /**
+   * Press at one point of the hall and drag to another, in millimetres, with the pointer, as a
+   * person does; `hold` runs while the button is still down, and `nudgePx` ends the drag that many
+   * screen pixels past the point.
+   */
+  async drag(
+    from: [number, number],
+    to: [number, number],
+    options: { hold?: () => Promise<void>; nudgePx?: [number, number] } = {},
+  ): Promise<void> {
+    const start = await this.onScreen(from);
+    const end = await this.onScreen(to);
+    const [nudgeX, nudgeY] = options.nudgePx ?? [0, 0];
+    await this.page.mouse.move(start.x, start.y);
+    await this.page.mouse.down();
+    await this.page.mouse.move((start.x + end.x) / 2, (start.y + end.y) / 2, { steps: 4 });
+    await this.page.mouse.move(end.x + nudgeX, end.y + nudgeY, { steps: 4 });
+    await options.hold?.();
+    await this.page.mouse.up();
   }
 
   /** Set the scale: the line drawn, then its length typed in `unit`. */

@@ -15,8 +15,9 @@
  * table a button named "Gold row 5, Standard 6 ft", one Tab stop among them (the table focused
  * last, else the first selected, else the first), the arrow keys moving the focus to the nearest
  * table that way. In `read` a table pressed, by pointer, Enter or Space, emits `activate` with
- * its id. `edit` draws the selection's outline and the guides it is given, and leaves what a press
- * does to the editor round it. `print` is a picture: no button, no stop. The map owns no editing
+ * its id. `edit` draws the selection's outline and the guides it is given, says each table pressed
+ * or not as it is selected or not, and leaves what a press does to the editor round it, which may
+ * draw over the map in its slot. `print` is a picture: no button, no stop. The map owns no editing
  * state: its only state is which table has the focus.
  */
 import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
@@ -488,6 +489,7 @@ function onKeydown(event: KeyboardEvent) {
       :number="table.number"
       :numberSizeMm="table.numberSizeMm"
       :selected="selected.has(table.id)"
+      :pressed="mode === 'edit' ? selected.has(table.id) : undefined"
       :interactive="interactive"
       :tabStop="table.id === tabStopId"
       :mmPerPx="mmPerPx"
@@ -526,6 +528,9 @@ function onKeydown(event: KeyboardEvent) {
         {{ label.text }}
       </text>
     </g>
+
+    <!-- What the editor draws over the map, in the map's millimetres: the turn handle. -->
+    <slot :mmPerPx="mmPerPx" />
   </svg>
 </template>
 

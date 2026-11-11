@@ -315,3 +315,273 @@ export function readsUpsideDown(rotation: number): boolean {
   const turn = ((rotation % 360) + 360) % 360;
   return turn > 90 && turn <= 270;
 }
+
+// ── Rounding ─────────────────────────────────────────────────────────────────
+
+/** A length as the editor keeps it: to a tenth of a millimetre. */
+export function roundMm(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+/** A turn as the editor keeps it: 0 up to 360, to a hundredth of a degree. */
+export function roundTurn(degrees: number): number {
+  const turn = Math.round((((degrees % 360) + 360) % 360) * 100) / 100;
+  return turn === 360 ? 0 : turn;
+}
+
+/** An angle held to the nearest whole `step`, as the turn handle does in 15° steps. */
+export function snapAngle(degrees: number, step: number): number {
+  return Math.round(degrees / step) * step;
+}
+
+// ── Hit tests ────────────────────────────────────────────────────────────────
+
+/** Whether a point lies on a turned table, its edge included. */
+export function tableHit(point: PointMm, table: PointMm & { rotation: number }, size: SizeMm) {
+  const turn = (-table.rotation * Math.PI) / 180;
+  const dx = point.xMm - table.xMm;
+  const dy = point.yMm - table.yMm;
+  const along = dx * Math.cos(turn) - dy * Math.sin(turn);
+  const across = dx * Math.sin(turn) + dy * Math.cos(turn);
+  return Math.abs(along) <= size.widthMm / 2 && Math.abs(across) <= size.depthMm / 2;
+}
+
+// ── Snapping ─────────────────────────────────────────────────────────────────
+
+/** A guide the map draws while a snap holds: a line in millimetres. */
+export interface Guide {
+  x1Mm: number;
+  y1Mm: number;
+  x2Mm: number;
+  y2Mm: number;
+}
+
+export interface Snap {
+  /** What the snap adds to the move on each axis; 0 where nothing was near. */
+  dxMm: number;
+  dyMm: number;
+  guides: Guide[];
+}
+
+/** The three lines of a box a snap reads on an axis: its near edge, its centre, its far edge. */
+function linesOf(box: Bounds, axis: 'x' | 'y'): [number, number, number] {
+  return axis === 'x'
+    ? [box.left, (box.left + box.right) / 2, box.right]
+    : [box.top, (box.top + box.bottom) / 2, box.bottom];
+}
+
+/**
+ * The snap of moving tables against the tables that stand still: each moving box's edges and
+ * centre against each still box's, on each axis apart, within `withinMm`; the nearest pair wins
+ * its axis, the earlier pair a tie. The guide runs along the line they now share, across both
+ * boxes. `moving` are the boxes where the move alone would put them.
+ */
+export function snapMove(
+  moving: readonly Bounds[],
+  still: readonly Bounds[],
+  withinMm: number,
+): Snap {
+  const nearest = (axis: 'x' | 'y') => {
+    let best: { by: number; line: number; mover: Bounds; other: Bounds } | null = null;
+    for (const mover of moving) {
+      for (const other of still) {
+        for (const from of linesOf(mover, axis)) {
+          for (const to of linesOf(other, axis)) {
+            const by = to - from;
+            if (Math.abs(by) > withinMm) continue;
+            if (!best || Math.abs(by) < Math.abs(best.by) - 1e-9) {
+              best = { by, line: to, mover, other };
+            }
+          }
+        }
+      }
+    }
+    return best;
+  };
+  const across = nearest('x');
+  const down = nearest('y');
+  const dxMm = across?.by ?? 0;
+  const dyMm = down?.by ?? 0;
+  const guides: Guide[] = [];
+  // Each guide spans the two boxes it lines up, the moving one where both snaps leave it.
+  if (across) {
+    guides.push({
+      x1Mm: across.line,
+      x2Mm: across.line,
+      y1Mm: Math.min(across.mover.top + dyMm, across.other.top),
+      y2Mm: Math.max(across.mover.bottom + dyMm, across.other.bottom),
+    });
+  }
+  if (down) {
+    guides.push({
+      y1Mm: down.line,
+      y2Mm: down.line,
+      x1Mm: Math.min(down.mover.left + dxMm, down.other.left),
+      x2Mm: Math.max(down.mover.right + dxMm, down.other.right),
+    });
+  }
+  return { dxMm, dyMm, guides };
+}
+
+// ── Inside the image ─────────────────────────────────────────────────────────
+
+/** A point held inside the hall: a table's centre never leaves the floorplan image's extent. */
+export function clampToHall(point: PointMm, hall: Hall | null): PointMm {
+  if (!hall) return point;
+  return {
+    xMm: Math.min(Math.max(point.xMm, 0), hall.widthMm),
+    yMm: Math.min(Math.max(point.yMm, 0), hall.heightMm),
+  };
+}
+
+/**
+ * A move of several tables held so that every centre stays inside the hall: the tables keep their
+ * places beside each other, and the move stops where the first of them meets an edge. Centres
+ * already outside are not pushed further out.
+ */
+export function clampMove(
+  centres: readonly PointMm[],
+  move: { dxMm: number; dyMm: number },
+  hall: Hall | null,
+): { dxMm: number; dyMm: number } {
+  if (!hall || !centres.length) return move;
+  const hold = (values: number[], by: number, length: number) => {
+    const least = Math.min(...values);
+    const most = Math.max(...values);
+    if (by < 0) return Math.max(by, Math.min(0, -least));
+    return Math.min(by, Math.max(0, length - most));
+  };
+  return {
+    dxMm: hold(
+      centres.map((c) => c.xMm),
+      move.dxMm,
+      hall.widthMm,
+    ),
+    dyMm: hold(
+      centres.map((c) => c.yMm),
+      move.dyMm,
+      hall.heightMm,
+    ),
+  };
+}
+
+// ── Turning ──────────────────────────────────────────────────────────────────
+
+/** A table turned by `degrees` clockwise about `about`: its centre carried round, its own turn
+ *  grown by as much. A table turned about its own centre stays where it is. */
+export function turnedAbout<T extends PointMm & { rotation: number }>(
+  table: T,
+  about: PointMm,
+  degrees: number,
+): T {
+  const turn = (degrees * Math.PI) / 180;
+  const dx = table.xMm - about.xMm;
+  const dy = table.yMm - about.yMm;
+  return {
+    ...table,
+    xMm: roundMm(about.xMm + dx * Math.cos(turn) - dy * Math.sin(turn)),
+    yMm: roundMm(about.yMm + dx * Math.sin(turn) + dy * Math.cos(turn)),
+    rotation: roundTurn(table.rotation + degrees),
+  };
+}
+
+/** The angle of a point seen from a centre, in degrees clockwise from the page's right. */
+export function angleFrom(centre: PointMm, point: PointMm): number {
+  return (Math.atan2(point.yMm - centre.yMm, point.xMm - centre.xMm) * 180) / Math.PI;
+}
+
+// ── Numbers ──────────────────────────────────────────────────────────────────
+
+type Numbered = { sectionId: string | null; number: number | null };
+
+/** The number a new table of a section takes: one past its highest. */
+export function nextNumber(tables: readonly Numbered[], sectionId: string): number {
+  return (
+    tables.reduce(
+      (highest, table) =>
+        table.sectionId === sectionId && table.number !== null
+          ? Math.max(highest, table.number)
+          : highest,
+      0,
+    ) + 1
+  );
+}
+
+/**
+ * The tables with each section numbered 1 to N again, in the order of the numbers they had, so a
+ * removal's later neighbours close its gap. A table in no section keeps no number.
+ */
+export function closeGaps<T extends Numbered>(tables: readonly T[]): T[] {
+  const bySection = new Map<string, T[]>();
+  for (const table of tables) {
+    if (table.sectionId === null || table.number === null) continue;
+    bySection.set(table.sectionId, [...(bySection.get(table.sectionId) ?? []), table]);
+  }
+  const numbers = new Map<T, number>();
+  for (const own of bySection.values()) {
+    [...own]
+      .sort((a, b) => (a.number ?? 0) - (b.number ?? 0))
+      .forEach((table, index) => numbers.set(table, index + 1));
+  }
+  return tables.map((table) => {
+    const number = numbers.get(table);
+    return number === undefined || number === table.number ? table : { ...table, number };
+  });
+}
+
+// ── The view: pan and zoom ───────────────────────────────────────────────────
+
+/** The least and the most a layout is zoomed: 10% to 800%. */
+export const MIN_ZOOM_PX_PER_MM = PX_PER_MM_AT_100 * 0.1;
+export const MAX_ZOOM_PX_PER_MM = PX_PER_MM_AT_100 * 8;
+
+/** What the editor's stage shows: the hall's point at its middle, and its scale. */
+export interface Camera {
+  xMm: number;
+  yMm: number;
+  pxPerMm: number;
+}
+
+export function clampZoom(pxPerMm: number): number {
+  return Math.min(Math.max(pxPerMm, MIN_ZOOM_PX_PER_MM), MAX_ZOOM_PX_PER_MM);
+}
+
+/** The camera that shows a box of the hall whole in a stage of `width` by `height` pixels, with
+ *  `marginPx` clear round it. */
+export function fitCamera(box: Bounds, width: number, height: number, marginPx = 0): Camera {
+  const across = Math.max(box.right - box.left, 1);
+  const down = Math.max(box.bottom - box.top, 1);
+  const room = (side: number) => Math.max(side - marginPx * 2, 1);
+  return {
+    xMm: (box.left + box.right) / 2,
+    yMm: (box.top + box.bottom) / 2,
+    pxPerMm: clampZoom(Math.min(room(width) / across, room(height) / down)),
+  };
+}
+
+/** The camera zoomed by `factor` about a point of the stage (in pixels from its middle), which
+ *  stays under the pointer. */
+export function zoomedAbout(
+  camera: Camera,
+  factor: number,
+  at: { xPx: number; yPx: number } = { xPx: 0, yPx: 0 },
+): Camera {
+  const pxPerMm = clampZoom(camera.pxPerMm * factor);
+  const under = {
+    xMm: camera.xMm + at.xPx / camera.pxPerMm,
+    yMm: camera.yMm + at.yPx / camera.pxPerMm,
+  };
+  return { xMm: under.xMm - at.xPx / pxPerMm, yMm: under.yMm - at.yPx / pxPerMm, pxPerMm };
+}
+
+/** The next zoom a button steps to: the next of the round percentages above or below. */
+export const ZOOM_STEPS = [10, 25, 50, 75, 100, 150, 200, 300, 400, 600, 800];
+
+export function steppedZoom(pxPerMm: number, direction: 1 | -1): number {
+  const percent = (pxPerMm / PX_PER_MM_AT_100) * 100;
+  const next =
+    direction === 1
+      ? ZOOM_STEPS.find((step) => step > percent + 0.5)
+      : [...ZOOM_STEPS].reverse().find((step) => step < percent - 0.5);
+  return next === undefined ? clampZoom(pxPerMm) : (next / 100) * PX_PER_MM_AT_100;
+}

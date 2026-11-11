@@ -12,17 +12,19 @@
  * drop zone, and its first save (`layoutSave.ts`) is the layout's start, which the server answers
  * with the layout as stored; before a scale it is the calibration over the image
  * (`LayoutCalibration.vue`), and Recalibrate draws the line again; with a scale it is the layout's
- * drawing (`LayoutMap.vue`), the whole hall, read, drawn over the floor alone while the image is
- * on its way or could not be had, and the panel lists the location's sections in the colours the
- * map draws them in. Each save names the revision it
- * read, and a save over one another tab saved says so with Reload. The page shows the server's
- * answer at once and then re-reads the market through the one store.
+ * drawing (`LayoutMap.vue`): the editor (`LayoutEditor.vue`) for someone who may change the
+ * layout, with the selection's card heading the panel, and the whole hall, read, for anyone else.
+ * It is drawn over the floor alone while the image is on its way or could not be had, and the
+ * panel lists the location's sections in the colours the map draws them in. The page holds the
+ * layout's working copy (`useLayoutEditor.ts`): each save names the revision it read, a save over
+ * one another tab saved says so with Reload, and the market is re-read through the one store
+ * after every answer. A change still waiting is saved before the page is left.
  *
  * With no location in the address it opens the market's first named one. A location with no id
  * (a market stored before ids, until its next write) or no name offers no layout.
  */
-import { computed, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
 import type { FloorplanObject, LocationObject } from '@/assets/types/datatypes';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
@@ -30,11 +32,15 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { layoutPath, marketPath } from '@/utils/market';
 import FloorplanUploader from './FloorplanUploader.vue';
 import LayoutCalibration from './LayoutCalibration.vue';
+import LayoutEditor from './LayoutEditor.vue';
 import LayoutMap from './LayoutMap.vue';
 import LayoutPanelSections from './LayoutPanelSections.vue';
+import LayoutPanelSelection from './LayoutPanelSelection.vue';
 import { metresAcross, pxPerMm, type Point } from './calibration';
 import { layoutSections } from './layoutDrawing';
-import { saveLayout, saveRefusal, type UploadedFloorplan } from './layoutSave';
+import { saveLayout, type UploadedFloorplan } from './layoutSave';
+import { turnSelection } from './layoutSelection';
+import { useLayoutEditor } from './useLayoutEditor';
 import { useFloorplanImage } from './useFloorplanImage';
 
 const route = useRoute();
@@ -77,26 +83,32 @@ const stored = computed<FloorplanObject | null>(
     ) ?? null,
 );
 
-/** The layout as the last save answered, shown until the store's re-read holds it too. */
-const adopted = ref<FloorplanObject | null>(null);
+// ── The working copy and its saves ───────────────────────────────────────────
+
+/** The layout as the page shows and changes it: the server's, and what is not saved yet. A change
+ * to the layout's own fields (its start, its image, its scale) is written at once; a change to
+ * its tables saves itself (`useLayoutEditor.ts`). Every answer is followed by the market's
+ * re-read through the one store. */
+const editor = useLayoutEditor({
+  save: (layout, revision) => saveLayout(marketId.value, layout, revision),
+  onSaved: () => void refresh(),
+  draft: () => !market.value?.setupLockReason,
+});
+const floorplan = editor.layout;
+const saveState = editor.saveState;
+const saveMessage = editor.saveMessage;
+
+watch(stored, (held) => editor.adopt(held), { immediate: true });
 watch(locationId, () => {
-  adopted.value = null;
-  saveState.value = 'idle';
+  editor.reload(stored.value);
   recalibrating.value = false;
 });
 
-const floorplan = computed<FloorplanObject | null>(() => {
-  const answer = adopted.value;
-  const held = stored.value;
-  if (
-    answer &&
-    answer.locationId === locationId.value &&
-    (!held || answer.revision >= held.revision)
-  ) {
-    return answer;
-  }
-  return held;
-});
+// A change still waiting is saved before the page is left, for another location's layout or
+// another page, and before a phase move, which reads the market as the server holds it.
+onBeforeRouteUpdate(() => editor.flush());
+onBeforeRouteLeave(() => editor.flush());
+onBeforeUnmount(() => editor.dispose());
 
 const { url: imageUrl, failed: imageFailed } = useFloorplanImage(
   computed(() => floorplan.value?.imageGridfsId),
@@ -111,43 +123,9 @@ const sections = computed(() =>
   floorplan.value ? layoutSections(floorplan.value, market.value?.setupObject?.sections ?? []) : [],
 );
 
-// ── Saving ───────────────────────────────────────────────────────────────────
-
-const saveState = ref<'idle' | 'saving' | 'saved' | 'failed' | 'stale'>('idle');
-const saveMessage = ref('');
-/** The save that failed, which Retry sends again. */
-let lastTry: FloorplanObject | null = null;
-
-async function save(next: FloorplanObject): Promise<boolean> {
-  if (!market.value) return false;
-  const revision = floorplan.value?.id === next.id ? floorplan.value.revision : 0;
-  saveState.value = 'saving';
-  saveMessage.value = '';
-  try {
-    const answer = await saveLayout(market.value.id, next, revision);
-    adopted.value = answer.floorplan;
-    saveState.value = 'saved';
-    lastTry = null;
-    void refresh();
-    return true;
-  } catch (err: unknown) {
-    const refusal = saveRefusal(err);
-    saveState.value = refusal.kind;
-    saveMessage.value = refusal.message;
-    lastTry = next;
-    return false;
-  }
-}
-
-function retry() {
-  if (lastTry) void save(lastTry);
-}
-
 async function reload() {
-  adopted.value = null;
-  saveState.value = 'idle';
-  lastTry = null;
   await refresh();
+  editor.reload(stored.value);
 }
 
 /** The floorplan chosen for the location: its layout's start, or its image on a layout begun. */
@@ -170,7 +148,7 @@ function onUploaded(image: UploadedFloorplan) {
         sectionStyles: [],
         startingCounts: [],
       };
-  void save(next);
+  void editor.write(next);
 }
 
 async function onCalibrated(line: { start: Point; end: Point; lengthMm: number }) {
@@ -178,7 +156,7 @@ async function onCalibrated(line: { start: Point; end: Point; lengthMm: number }
   const scale = pxPerMm(line.start, line.end, line.lengthMm);
   if (!current || scale === null) return;
   const round = (n: number) => Math.round(n * 10) / 10;
-  const saved = await save({
+  const saved = await editor.write({
     ...current,
     scalePxPerUnit: scale,
     referenceLineStart: [round(line.start[0]), round(line.start[1])],
@@ -189,10 +167,19 @@ async function onCalibrated(line: { start: Point; end: Point; lengthMm: number }
 }
 
 const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(stored.value));
+
+/** Whether the map is the editor: a calibrated layout, for someone who may change it. */
+const editing = computed(() => calibrated.value && editable.value && !recalibrating.value);
+
+const selectedTables = computed(() => {
+  const ids = new Set(editor.selection.value);
+  return (floorplan.value?.tables ?? []).filter((table) => ids.has(table.id));
+});
+const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
 </script>
 
 <template>
-  <MarketFrame :market="market">
+  <MarketFrame :market="market" :beforeTransition="editor.flush">
     <div v-if="market" class="layout-page" data-testid="layout-page">
       <header class="layout-head">
         <h1 class="layout-title">Layout</h1>
@@ -228,7 +215,7 @@ const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(store
                 type="button"
                 class="btn btn--secondary btn--compact"
                 data-testid="layout-save-retry"
-                @click="retry"
+                @click="editor.retry()"
               >
                 Retry
               </button>
@@ -287,7 +274,16 @@ const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(store
             <p v-if="imageFailed" class="layout-empty" data-testid="layout-image-failed">
               The floorplan's image could not be shown. Reload the page to try again.
             </p>
+            <LayoutEditor
+              v-if="editing"
+              :editor="editor"
+              :locationName="location.name"
+              :sections="market.setupObject?.sections ?? []"
+              :tableTypes="tableTypes"
+              :imageUrl="imageUrl"
+            />
             <div
+              v-else
               class="layout-map-frame"
               :style="{
                 aspectRatio: `${floorplan.imageWidth ?? 1} / ${floorplan.imageHeight ?? 1}`,
@@ -297,7 +293,7 @@ const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(store
                 :layout="floorplan"
                 :locationName="location.name"
                 :sections="market.setupObject?.sections ?? []"
-                :tableTypes="market.setupObject?.tableTypes ?? []"
+                :tableTypes="tableTypes"
                 :imageUrl="imageUrl"
                 mode="read"
               />
@@ -347,6 +343,15 @@ const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(store
             </p>
           </section>
           <template v-else-if="calibrated">
+            <LayoutPanelSelection
+              v-if="editing"
+              class="layout-card"
+              :tables="selectedTables"
+              :sections="sections"
+              :tableTypes="tableTypes"
+              @turn="turnSelection(editor, tableTypes, 90)"
+              @remove="editor.removeTables(editor.selection.value)"
+            />
             <LayoutPanelSections
               class="layout-card"
               :locationName="location.name"
