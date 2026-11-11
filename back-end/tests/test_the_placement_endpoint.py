@@ -4,12 +4,10 @@
 pinned here is not only that the write works but that it derives every field it can from the
 market's own plan rather than believing the request.
 """
-from types import SimpleNamespace
-
 import pytest
 
 from conftest import (
-    a_solver_vendor, FakeMarketsCollection, mongo_matches, reject_malformed_update, stored_market,
+    a_solver_vendor, FakeMarketsCollection, stored_market,
 )
 
 import api.markets as MarketsApi
@@ -17,6 +15,7 @@ import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 from client_errors import ConflictError, ForbiddenError
 from datatypes import MarketPhase, MarketRole
+import market_write as MarketWrite
 
 
 SETUP_OBJECT = {
@@ -62,6 +61,7 @@ def collection(monkeypatch):
         stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
     # Everyone these stories place has applied; whether they must is TestASeatGoesToAnApplicant's.
     monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
@@ -191,6 +191,7 @@ def test_every_seat_of_a_table_may_be_named(collection):
 def test_a_market_with_no_plan_has_no_seats(monkeypatch):
     fake = FakeMarketsCollection(stored_market())
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
 
     with pytest.raises(PlacementsApi.PlacementError):
@@ -203,6 +204,7 @@ def test_a_viewer_is_refused_and_an_editor_is_not(monkeypatch):
         stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
 
     asked_for = []
@@ -226,6 +228,7 @@ def test_a_viewer_is_refused_and_an_editor_is_not(monkeypatch):
 def test_an_absent_market_is_not_found(monkeypatch):
     fake = FakeMarketsCollection(None)
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
 
     with pytest.raises(MarketsApi.MarketNotFoundError):
         PlacementsApi.write_placement("market-123", placement(), "user-1")
@@ -349,6 +352,7 @@ def test_a_solver_run_needs_edit_permission(monkeypatch):
         stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
 
     with pytest.raises(ForbiddenError):
@@ -358,6 +362,7 @@ def test_a_solver_run_needs_edit_permission(monkeypatch):
 def test_a_solver_run_needs_a_plan(monkeypatch):
     fake = FakeMarketsCollection(stored_market(phase=MarketPhase.ASSIGNMENT))
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
 
     result, status = PlacementsApi.run_assignment("market-123", "user-1")
@@ -506,6 +511,7 @@ class TestFreeingASeat:
         stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
     )
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
 
         with pytest.raises(ForbiddenError):
@@ -598,6 +604,7 @@ class TestSwappingTwoVendors:
         stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
     )
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
 
         with pytest.raises(ForbiddenError):
@@ -613,6 +620,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
     def _market(self, monkeypatch, phase):
         fake = FakeMarketsCollection(stored_market(phase=phase, setupObject=SETUP_OBJECT))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
         monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _m: [a_solver_vendor()])
         monkeypatch.setattr(PlacementsApi, "assign_market", lambda m, _v=None: m)
@@ -735,7 +743,7 @@ class TestASeatGoesToAnApplicant:
 
 
 class AppliedMarketsCollection(FakeMarketsCollection):
-    """The market collection as Mongo is: a write lands only where its filter matches, and lands.
+    """The shared markets fake, which lands a write only where its filter matches, as Mongo does.
 
     ``between`` runs once, after the next write's request has read the market and before its write
     reaches the collection, so a test can put a second organizer's change in that window.
@@ -745,22 +753,11 @@ class AppliedMarketsCollection(FakeMarketsCollection):
         super().__init__(doc)
         self.between = None
 
-    def update_one(self, query, update):
-        reject_malformed_update(update)
+    def find_one_and_update(self, *args, **kwargs):
         between, self.between = self.between, None
         if between is not None:
             between()
-        self.last_update = update
-        if not mongo_matches(self.doc, query):
-            return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
-        for operator, fields in update.items():
-            for path, value in fields.items():
-                *parents, last = path.split(".")
-                target = self.doc
-                for part in parents:
-                    target = target.setdefault(part, {})
-                target[last] = (target.get(last) or 0) + value if operator == "$inc" else value
-        return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
+        return super().find_one_and_update(*args, **kwargs)
 
 
 class TestTwoChangesAtOnce:
@@ -774,6 +771,7 @@ class TestTwoChangesAtOnce:
             stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
         )
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
         monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
         already_placed(

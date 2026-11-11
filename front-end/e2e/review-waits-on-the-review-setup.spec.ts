@@ -15,6 +15,7 @@ import {
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * Review waits on what reviewers read first and the automatic rejections (T206).
@@ -164,13 +165,9 @@ test.describe('Review waits on the review setup', () => {
       await expect(page).toHaveURL(lands);
 
       // With a question of the organizer's own, Review setup is next.
-      const form = await page.request.put(
-        `${APP_API}/markets/${market.marketId}/application-form`,
-        {
-          data: { fields: APPLICATION_FIELDS },
-        },
-      );
-      expect(form.ok(), await form.text()).toBeTruthy();
+      await saveApplicationForm(page.request, APP_API, market.marketId, {
+        fields: APPLICATION_FIELDS,
+      });
       await page.goto(marketScreenPath(market.marketId, 'setup'));
       await expect(fix).toHaveText('Decide what reviewers read first', { timeout: 15000 });
     });

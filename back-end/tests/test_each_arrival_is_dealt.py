@@ -22,6 +22,7 @@ from test_essential_fields import VALID_ANSWERS, _applicant_market_doc
 import app as app_module
 import api.applicants as ApplicantsApi
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.users as UsersApi
 import db_config
 import history as History
@@ -44,7 +45,7 @@ def world(monkeypatch, applications, market_records):
     def use(doc):
         markets = Markets({**doc, "id": MARKET, "_id": "mongo-1", "organizationId": None,
                            "roles": dict(ROLES)})
-        for module in (MarketsApi, ReviewTeam):
+        for module in (MarketsApi, MarketWrite, ReviewTeam):
             monkeypatch.setattr(module, "markets_collection", markets)
         monkeypatch.setattr(db_config, "get_database", lambda *_a, **_k: {"markets": markets})
         state.markets = markets

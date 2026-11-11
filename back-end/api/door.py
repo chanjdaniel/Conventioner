@@ -27,6 +27,7 @@ import api.markets as MarketsApi
 import history as History
 from datatypes import MarketPhase
 from market_documents import market_doc_key
+from market_write import write_market
 from utils.email import frontend_url
 
 NOT_PUBLISHED = "Vendors are checked in once the market is published."
@@ -114,7 +115,11 @@ def door_code(market_id: str, requesting_user: str) -> Dict[str, Any]:
 
 
 def make_door_code(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any], int]:
-    """Make a new door code, the first or a replacement, which ends the old one at once."""
+    """Make a new door code, the first or a replacement, which ends the old one at once.
+
+    Raises:
+        MarketChanged: the market moved since it was loaded; no code was made.
+    """
     market = _market_on_its_days(market_id, requesting_user)
     if market is None:
         return {"error": NO_DOOR_CODE_YET}, 409
@@ -124,14 +129,8 @@ def make_door_code(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
         "madeAt": datetime.now(timezone.utc).isoformat(),
         "madeBy": requesting_user,
     }
-    # Filtered on the phase as well, so a market archived since it was loaded is not changed.
-    written = MarketsApi.markets_collection.update_one(
-        {market_doc_key("id"): market_id,
-         market_doc_key("phase"): MarketPhase.MARKET_DAYS.value},
-        {"$set": {DOOR_CODE_KEY: made}},
-    )
-    if not written.matched_count:
-        return {"error": NO_DOOR_CODE_YET}, 409
+    # Holding the phase it was loaded in, so a market archived since is not changed.
+    write_market(market, {"$set": {DOOR_CODE_KEY: made}})
     History.record(
         market_id, requesting_user, Actions.CHECK_IN, kind=History.DOOR_CODE_MADE,
         detail={"replaced": before is not None},

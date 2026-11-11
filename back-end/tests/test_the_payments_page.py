@@ -10,8 +10,8 @@ import copy
 
 import pytest
 
-from conftest import stored_market
-from test_a_vendors_payments import PLAN, LiveMarket
+from conftest import FakeMarketsCollection, stored_market
+from test_a_vendors_payments import PLAN
 
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
@@ -20,6 +20,7 @@ import api.placements as PlacementsApi
 import payments as Payments
 from client_errors import ForbiddenError
 from datatypes import MarketPhase, MarketRole
+import market_write as MarketWrite
 
 MARKET = "market-123"
 EDITOR = "editor@example.com"
@@ -44,8 +45,9 @@ def pay(email, cents, by=EDITOR):
 
 @pytest.fixture
 def market(monkeypatch, applications):
-    live = LiveMarket(stored_market(phase=MarketPhase.MARKET_DAYS, setupObject=copy.deepcopy(PLAN)))
+    live = FakeMarketsCollection(stored_market(phase=MarketPhase.MARKET_DAYS, setupObject=copy.deepcopy(PLAN)))
     monkeypatch.setattr(MarketsApi, "markets_collection", live)
+    monkeypatch.setattr(MarketWrite, "markets_collection", live)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     for email in (ANA, BEN, CY, DEE, "eve@example.com"):
         applications.insert_one({"id": f"app-{email}", "market_id": MARKET,

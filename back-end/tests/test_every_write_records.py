@@ -30,6 +30,7 @@ import api.floorplans as FloorplansApi  # noqa: E402
 import api.floorplans_access as FloorplansAccess  # noqa: E402
 import api.market_actions as Actions  # noqa: E402
 import api.markets as MarketsApi  # noqa: E402
+import market_write as MarketWrite  # noqa: E402
 import api.permissions as PermissionsApi  # noqa: E402
 import api.placements as PlacementsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
@@ -107,9 +108,11 @@ class LiveMarkets:
         self.doc: Optional[Dict[str, Any]] = None
 
     def find_one(self, query, projection=None):
+        """A copy of the market, nested documents and all, as the server hands a reader its own:
+        a write after the read never changes what was read."""
         if self.doc is None or not _matches(self.doc, query):
             return None
-        return mongo_project(dict(self.doc), projection)
+        return mongo_project(copy.deepcopy(self.doc), projection)
 
     def find(self, query, projection=None):
         found = self.find_one(query, projection)
@@ -148,7 +151,22 @@ class LiveMarkets:
             held = target.setdefault(last, [])
             if value not in held:
                 held.append(value)
+        # A count a write keeps (the form's revision), from 0 when it has none, as the server counts.
+        for key, value in (update.get("$inc") or {}).items():
+            *parents, last = key.split(".")
+            target = self.doc
+            for part in parents:
+                target = target.setdefault(part, {})
+            target[last] = (target.get(last) or 0) + value
         return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
+
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
+        """``update_one``, answering the market before it, or after it when ``return_document`` is
+        the driver's ``ReturnDocument.AFTER`` (``True``), as ``market_write`` asks."""
+        before = copy.deepcopy(self.doc)
+        if not self.update_one(query, update).matched_count:
+            return None
+        return mongo_project(copy.deepcopy(self.doc if return_document else before), projection)
 
 
 class Attendance(FakeApplicationsCollection):
@@ -172,7 +190,7 @@ def _account(email: str) -> SimpleNamespace:
 @pytest.fixture
 def world(monkeypatch, applications, market_records):
     markets = LiveMarkets()
-    for module in (MarketsApi, AttendanceApi, ReviewTeam):
+    for module in (MarketsApi, MarketWrite, AttendanceApi, ReviewTeam):
         monkeypatch.setattr(module, "markets_collection", markets)
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_k: {"markets": markets})
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
@@ -257,7 +275,7 @@ def _rename(client, world):
 def _plan(changes: Dict[str, Any], intake: Optional[str] = None):
     def send(client, world):
         world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN, intakeMode="csv")
-        body = {"setupObject": {**COMPLETE_PLAN, **changes}}
+        body = {"planRevision": 0, "setupObject": {**COMPLETE_PLAN, **changes}}
         if intake:
             body["intakeMode"] = intake
         return client.put(f"/markets/{MARKET}/plan", json=body)
@@ -285,7 +303,8 @@ def _delete_floorplan_image(client, world):
 
 def _save_form(client, world):
     world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN)
-    return client.put(f"/markets/{MARKET}/application-form", json={"fields": [QUESTION]})
+    return client.put(f"/markets/{MARKET}/application-form",
+                      json={"fields": [QUESTION], "formRevision": 0})
 
 
 def _review_highlights(client, world):
@@ -1016,7 +1035,7 @@ class TestWhatAnEntryHolds:
                      applicationForm=FORM_WITH_A_FIELD)
 
         client.put(f"/markets/{MARKET}/application-form",
-                   json={"fields": [*FORM_WITH_A_FIELD["fields"], QUESTION]})
+                   json={"fields": [*FORM_WITH_A_FIELD["fields"], QUESTION], "formRevision": 0})
 
         [entry] = world.history.documents
         assert entry["detail"]["before"]["questions"] == {"shop": None}

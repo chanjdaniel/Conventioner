@@ -22,6 +22,7 @@ import pricing as Pricing
 from assignment.utils import convert_keys_to_snake_case
 from client_errors import BadRequestError
 from datatypes import ApplicationForm, MarketPhase, MarketTableRow, SetupObject
+import market_write as MarketWrite
 
 STUDENT = "Current Example College student"
 ALUMNI = "Example College alumni/staff"
@@ -288,7 +289,7 @@ class TestLeavingDraft:
 def _with(pricing):
     plan = copy.deepcopy(GOLD_AND_SILVER)
     plan["pricing"] = pricing
-    return {"setupObject": plan}
+    return {"planRevision": 0, "setupObject": plan}
 
 
 @pytest.fixture
@@ -302,6 +303,7 @@ def market(monkeypatch):
         fake = FakeMarketsCollection(stored_market(
             phase=phase, setupObject=plan, applicationForm={"fields": FIELDS}))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
         return fake
 
     return at

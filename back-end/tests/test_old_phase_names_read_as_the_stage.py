@@ -15,6 +15,7 @@ from datatypes import (
     phase_from_market_document,
 )
 from market_documents import market_from_document
+import market_write as MarketWrite
 
 
 def _old(phase, intake_mode, **overrides):
@@ -83,21 +84,14 @@ def test_reading_writes_nothing(monkeypatch):
 
 
 def test_a_move_from_an_old_name_writes_the_new_one(monkeypatch):
-    """Conditional on the name stored, so the write still lands on the document read."""
+    """Held on the name stored, so the write still lands on the document read: the fake applies
+    its filter, so a move holding the new name would match nothing and be refused."""
     markets = FakeMarketsCollection(_old("review", "form"))
-    monkeypatch.setattr(MarketsApi, "markets_collection", markets)
-    filters = []
-    update_one = markets.update_one
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
 
-    def recording(query, update):
-        filters.append(query)
-        return update_one(query, update)
-    markets.update_one = recording
+    MarketsApi.apply_phase_transition(markets.doc, "draft", by="owner@example.com")
 
-    MarketsApi.apply_phase_transition("market-123", markets.doc, "draft", by="owner@example.com")
-
-    assert filters[-1]["phase"] == "review"
-    assert markets.last_update["$set"]["phase"] == "draft"
+    assert markets.doc["phase"] == "draft"
     assert markets.last_update["$push"]["phaseHistory"]["$each"][0]["phase"] == "applications"
 
 
@@ -106,23 +100,19 @@ def test_a_stop_is_taken_on_a_market_still_stored_under_an_old_name(monkeypatch)
     import db_config
 
     markets = FakeSlugMarketsCollection(_old("applications_open", "form"))
-    filters = []
-    update_one = markets.update_one
-
-    def recording(query, update):
-        filters.append(query)
-        return update_one(query, update)
-    markets.update_one = recording
 
     class _Db(dict):
         def __getitem__(self, _name):
             return markets
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_kw: _Db())
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
 
     body, status = ApplicantsApi.set_applications_stopped("market-123", True, "owner@example.com")
 
+    # The write holds the phase as it is stored, the old name, so it lands.
     assert status == 200, body
-    assert "applications_open" in filters[-1]["phase"]["$in"]
+    [stored] = markets.docs
+    assert (stored["phase"], stored["applicationsStopped"]) == ("applications_open", True)
 
 
 def test_a_history_naming_the_old_phases_reads_as_having_entered_the_stage():

@@ -14,6 +14,7 @@ from conftest import REVIEW_SETUP_DECIDED, FakeMarketsCollection, stored_market
 import api.markets as MarketsApi
 import csv_import as CsvImport
 import guards
+import market_write as MarketWrite
 import essential_fields as EssentialFields
 from datatypes import ApplicationStatus, MarketPhase
 
@@ -87,9 +88,17 @@ def _market_doc(setup=None, fields=None, phase=MarketPhase.APPLICATIONS, **overr
     )
 
 
+def bound_markets(monkeypatch, doc):
+    """A markets fake holding ``doc``, which ``market_write`` writes to: the saved mapping goes
+    through it, whatever collection the import is handed."""
+    markets = FakeMarketsCollection(doc)
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
+    return markets
+
+
 @pytest.fixture
-def markets():
-    return FakeMarketsCollection(_market_doc())
+def markets(monkeypatch):
+    return bound_markets(monkeypatch, _market_doc())
 
 
 class TestImportTargets:
@@ -797,24 +806,25 @@ class TestACheckboxQuestion:
         "options": [], "order": 1,
     }]
 
-    def _import(self, cell):
-        markets = FakeMarketsCollection(_market_doc(fields=self.FIELDS))
+    def _import(self, monkeypatch, cell):
+        markets = bound_markets(monkeypatch, _market_doc(fields=self.FIELDS))
         csv_text = "\n".join([",".join([*HEADERS, self.CERTIFY]), f"{GOOD_ROW},{cell}"])
         return CsvImport.import_applications(
             markets, markets.doc, csv_text, {**MAPPING, "certify": len(HEADERS)},
         )
 
     @pytest.mark.parametrize("cell", [f'"{CERTIFY}"', "Yes", "TRUE", "checked"])
-    def test_a_ticked_box_reads_as_ticked(self, applications, cell):
-        body, _ = self._import(cell)
+    def test_a_ticked_box_reads_as_ticked(self, monkeypatch, applications, cell):
+        body, _ = self._import(monkeypatch, cell)
 
         assert body["created"] == 1, body
         stored = applications.find_one({"applicant_email": "nadia@ember.test"})
         assert stored["form_data"]["certify"] is True
 
     @pytest.mark.parametrize("cell", ["", "No", "FALSE", "0"])
-    def test_an_unticked_box_still_fails_a_required_certification(self, applications, cell):
-        body, _ = self._import(cell)
+    def test_an_unticked_box_still_fails_a_required_certification(
+            self, monkeypatch, applications, cell):
+        body, _ = self._import(monkeypatch, cell)
 
         assert body["created"] == 0
         assert body["failures"][0]["error"] == f"'{self.CERTIFY}' is required."
@@ -1191,7 +1201,7 @@ class TestRememberingTheMapping:
     def test_a_successful_import_saves_how_the_file_was_read(self, markets, applications):
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
-        saved = markets.last_update["$set"]["importMapping"]
+        saved = markets.doc["importMapping"]
         assert saved["targets"]["essential_tier_preference"] == ["Which tiers will you accept?"]
         assert saved["headers"] == HEADERS
         assert saved["savedAt"]
@@ -1200,7 +1210,7 @@ class TestRememberingTheMapping:
         """A reordered form exports the same headers in a different order; a mapping keyed on
         position would then map every answer to the wrong question without a word."""
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
-        saved = CsvImport.stored_mapping({"importMapping": markets.last_update["$set"]["importMapping"]})
+        saved = CsvImport.stored_mapping({"importMapping": markets.doc["importMapping"]})
 
         # The same questions, business name moved to the end.
         moved = [h for h in HEADERS if h != "Business name"] + ["Business name"]
@@ -1213,7 +1223,7 @@ class TestRememberingTheMapping:
 
     def test_a_vanished_header_is_reported_not_guessed_at(self, markets, applications):
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
-        saved = CsvImport.stored_mapping({"importMapping": markets.last_update["$set"]["importMapping"]})
+        saved = CsvImport.stored_mapping({"importMapping": markets.doc["importMapping"]})
 
         without = [h for h in HEADERS if h != "Which tiers will you accept?"]
         targets = CsvImport.import_targets(markets.doc)
@@ -1228,7 +1238,7 @@ class TestRememberingTheMapping:
     def test_a_grid_is_never_half_restored(self, markets, applications):
         """A partly-mapped grid is worse than an unmapped one: it looks answered."""
         CsvImport.import_applications(markets, markets.doc, _grid_csv(GRID_ROW), GRID_MAPPING)
-        saved = CsvImport.stored_mapping({"importMapping": markets.last_update["$set"]["importMapping"]})
+        saved = CsvImport.stored_mapping({"importMapping": markets.doc["importMapping"]})
 
         without = [h for h in GRID_HEADERS if h != "Which days can you attend? [2026-08-08]"]
         targets = CsvImport.import_targets(markets.doc)
@@ -1239,7 +1249,7 @@ class TestRememberingTheMapping:
 
     def test_a_header_that_has_appeared_since_is_called_new(self, markets, applications):
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
-        saved = CsvImport.stored_mapping({"importMapping": markets.last_update["$set"]["importMapping"]})
+        saved = CsvImport.stored_mapping({"importMapping": markets.doc["importMapping"]})
 
         targets = CsvImport.import_targets(markets.doc)
         _restored, _unresolved, new = CsvImport.restore_mapping(
@@ -1254,7 +1264,7 @@ class TestRememberingTheMapping:
 
         CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING, resolutions)
 
-        saved = markets.last_update["$set"]["importMapping"]
+        saved = markets.doc["importMapping"]
         assert saved["resolutions"]["essential_tier_preference"]["Gold Tier"] == "Gold"
 
     def test_data_keys_survive_the_round_trip_unmangled(self, markets, applications):
@@ -1265,7 +1275,7 @@ class TestRememberingTheMapping:
         resolutions = {EssentialFields.TIER_PREFERENCE_KEY: {"Gold Tier": "Gold"}}
         CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING, resolutions)
 
-        stored = markets.last_update["$set"]["importMapping"]
+        stored = markets.doc["importMapping"]
         read_back = CsvImport.stored_mapping({"importMapping": stored})
 
         assert EssentialFields.TIER_PREFERENCE_KEY in read_back["targets"]
@@ -1722,7 +1732,7 @@ class TestTheFirstImportEntersReview:
     before the write, so leaving the import keeps it a draft (E38/F04/S01)."""
 
     def _draft(self, monkeypatch):
-        markets = FakeMarketsCollection(_market_doc(
+        markets = bound_markets(monkeypatch, _market_doc(
             setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT, **REVIEW_SETUP_DECIDED))
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
         return markets

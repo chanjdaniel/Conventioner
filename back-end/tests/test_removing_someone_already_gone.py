@@ -18,9 +18,9 @@ from types import SimpleNamespace
 import pytest
 
 from conftest import (
+    FakeMarketsCollection,
     FakeOrganizations,
     install_organizations,
-    mongo_matches,
     reject_malformed_update,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
@@ -33,6 +33,7 @@ import app as app_module
 import api.markets as MarketsApi
 import api.users as UsersApi
 import history as History
+import market_write as MarketWrite
 from datatypes import MarketPhase
 from test_reading_the_history import PagedHistory
 
@@ -51,34 +52,22 @@ NO_LONGER_IN_THE_ORGANIZATION = {"error": "They are no longer in this organizati
 NO_LONGER_ON_THE_MARKET = {"error": "They no longer have a role on this market."}
 
 
-class Markets:
-    """The ``markets`` collection: one market document, its writes applied as Mongo applies them.
-    ``gone_under`` names a person another organizer takes the role of between this removal's read
-    and its write."""
+class Markets(FakeMarketsCollection):
+    """The ``markets`` collection: one market document, its writes applied as Mongo applies them
+    (``FakeMarketsCollection``), each kept in ``writes``. ``gone_under`` names a person another
+    organizer takes the role of between this removal's read and its write."""
 
     def __init__(self, doc):
-        self.doc = doc
+        super().__init__(doc)
         self.writes = []
         self.gone_under = None
 
-    def find_one(self, query, projection=None):
-        if self.doc is None or not mongo_matches(self.doc, query):
-            return None
-        return {key: dict(value) if isinstance(value, dict) else value
-                for key, value in self.doc.items()}
-
-    def update_one(self, query, update):
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
         reject_malformed_update(update)
         self.writes.append(update)
         if self.gone_under:
             self.doc["roles"].pop(self.gone_under, None)
-        if not mongo_matches(self.doc, query):
-            return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
-        before = dict(self.doc["roles"])
-        for key, value in (update.get("$set") or {}).items():
-            self.doc[key] = value
-        modified = 1 if self.doc["roles"] != before else 0
-        return SimpleNamespace(matched_count=1, modified_count=modified, upserted_id=None)
+        return super().find_one_and_update(query, update, projection, return_document)
 
 
 @pytest.fixture
@@ -120,6 +109,7 @@ def market(monkeypatch, people, history):
         roles={OWNER.id: "owner", EDITOR.id: "editor", VIEWER.id: "viewer"},
     ))
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
     return markets
 
 

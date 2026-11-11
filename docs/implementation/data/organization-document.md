@@ -3,13 +3,6 @@ layer: implementation
 kind: data
 describes:
   - back-end/datatypes.py#Organization
-  - back-end/datatypes.py#people_from_lists
-  - back-end/datatypes.py#organization_people_of
-  - back-end/organization_people.py#of_person
-  - back-end/migrations/migrate_organization_people.py
-  - back-end/tests/test_migrate_organization_people.py
-  - back-end/tests/test_a_roll_forward_rebuilds_the_people_from_the_lists.py
-  - back-end/tests/test_a_persons_organizations_in_either_shape.py
   - back-end/datatypes.py#OrganizationRole
   - back-end/datatypes.py#MarketRole
   - back-end/api/organizations.py#create_organization
@@ -19,7 +12,6 @@ describes:
   - back-end/api/organizations.py#add_org_admin
   - back-end/api/organizations.py#add_org_member
   - back-end/api/organizations.py#remove_org_user
-  - back-end/api/organizations.py#change_org_place
   - back-end/api/organizations.py#transfer_org_ownership
   - back-end/api/organizations.py#get_history
   - back-end/api/organizations.py#read_organization
@@ -40,6 +32,14 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
+  - back-end/datatypes.py#people_from_lists
+  - back-end/datatypes.py#organization_people_of
+  - back-end/organization_people.py#of_person
+  - back-end/migrations/migrate_organization_people.py
+  - back-end/tests/test_migrate_organization_people.py
+  - back-end/tests/test_a_roll_forward_rebuilds_the_people_from_the_lists.py
+  - back-end/tests/test_a_persons_organizations_in_either_shape.py
+  - back-end/api/organizations.py#change_org_place
 verified: 2026-11-11
 sources:
   - E20/F04/S01
@@ -58,6 +58,7 @@ sources:
   - T224
   - T217
   - T263
+  - T274
   - T283
 ---
 
@@ -162,6 +163,9 @@ The owner's entry cannot be changed, removed or added beside, so a market's owne
 An owner manages every other role; an admin manages editors and viewers: the table's two rows for roles, Give and take Admin roles (Owner, fixed) and Give and take Editor and Viewer roles (Admin), which `roles_row` picks by the role given or taken ([the market's actions](../modules/market-actions.md)).
 Roles change on an archived market too: they are not a change to its record.
 Taking a role nobody holds, another organizer having taken it first, answers 404 "They no longer have a role on this market.", as does a removal whose write finds it gone under it, and records nothing; `remove_market_role` asks both roles rows before it looks at the person, so someone who may take no role there is refused in one sentence whoever the person is, the only owner, an Admin, anyone else or nobody, and Manage market reads the 404 as done ([`test_removing_someone_already_gone.py`](../../../back-end/tests/test_removing_someone_already_gone.py), with its organization twin [above](#the-organization)).
+
+**Each role write sets or takes one person's key, never the whole map** (T274): giving and changing `$set` `roles.<user id>`, taking `$unset`s it, through [the market write](../modules/market-write.md), holding the phase, as every market write does, and that person's role and the requester's as read, so two admins changing roles at the same moment never undo each other, and a role taken never comes back.
+A write that met roles changed since its read stores nothing and answers the market write's 409; a take whose person is already gone answers the 404 above instead.
 
 **"Markets this person has a role on" is a query on the map's key**, `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
 

@@ -130,7 +130,7 @@ describe('the plan saves itself', () => {
 
     const [url, body] = api.put.mock.calls[0];
     expect(url).toBe('/markets/market-1/plan');
-    expect(Object.keys(body).sort()).toEqual(['intakeMode', 'setupObject']);
+    expect(Object.keys(body).sort()).toEqual(['intakeMode', 'planRevision', 'setupObject']);
   });
 
   it('writes an edit to the server', async () => {
@@ -517,6 +517,178 @@ describe('a save that did not land', () => {
   });
 });
 
+describe("the plan's revision", () => {
+  const SENTENCE =
+    'This market changed while you were working on it, so your change was not saved. ' +
+    'Reload to see the latest, then make your change again.';
+  const ADDED = { ...PLAN, marketDates: [{ date: '2026-08-01' }, { date: '2026-08-08' }] };
+  const BOTH = {
+    ...PLAN,
+    marketDates: [{ date: '2026-08-01' }, { date: '2026-08-08' }, { date: '2026-08-15' }],
+  };
+
+  /**
+   * A server holding one market and its plan's revision, as the plan write keeps it (ADR 0024): a
+   * save from the stored revision lands and counts it, one from any other is refused as the market
+   * changed. The market read serves what is stored.
+   */
+  function aServer(planRevision: number, phase = 'draft') {
+    const server = {
+      market: { id: 'market-1', name: 'Riverside', phase, setupObject: PLAN, planRevision },
+      sent: [] as number[],
+    };
+    api.get.mockImplementation((url: string) =>
+      url === '/markets/market-1'
+        ? Promise.resolve({
+            data: { market: { actionRefusals: answersRefusing(), ...server.market } },
+          })
+        : Promise.resolve({ data: {} }),
+    );
+    api.put.mockImplementation((_url: string, body: Record<string, unknown>) => {
+      server.sent.push(body.planRevision as number);
+      if (body.planRevision !== server.market.planRevision) {
+        return Promise.reject({
+          isAxiosError: true,
+          response: { status: 409, data: { error: SENTENCE, code: 'market_changed' } },
+        });
+      }
+      const next = server.market.planRevision + 1;
+      server.market = {
+        ...server.market,
+        setupObject: body.setupObject as typeof PLAN,
+        planRevision: next,
+      };
+      return Promise.resolve({ data: { message: 'Plan saved', planRevision: next } });
+    });
+    return server;
+  }
+
+  it('sends the revision it read, and the one each save answered after it', async () => {
+    const server = aServer(4);
+    const wrapper = await mountPlan();
+
+    await edit(wrapper, ADDED);
+    await vi.advanceTimersByTimeAsync(1000);
+    await edit(wrapper, BOTH);
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(server.sent).toEqual([4, 5]);
+    expect(server.market.planRevision).toBe(6);
+    expect(server.market.setupObject.marketDates).toEqual(BOTH.marketDates);
+    expect(wrapper.find('[data-testid="market-setup-plan-saved"]').exists()).toBe(true);
+  });
+
+  it("takes a save's answer for the next save, not waiting on a re-read", async () => {
+    const server = aServer(4);
+    const wrapper = await mountPlan();
+    // Every re-read after mounting fails on the wire, so only the answers carry the revision.
+    api.get.mockRejectedValue(noAnswer);
+    let answer: () => void = () => {};
+    const write = api.put.getMockImplementation()!;
+    api.put.mockImplementationOnce(
+      (url: string, body: Record<string, unknown>) =>
+        new Promise((resolve, reject) => {
+          answer = () => write(url, body).then(resolve, reject);
+        }),
+    );
+
+    await edit(wrapper, ADDED);
+    await vi.advanceTimersByTimeAsync(1000);
+    // The second edit's pause ends while the first save is out, so it goes as that one answers.
+    await edit(wrapper, BOTH);
+    await vi.advanceTimersByTimeAsync(1000);
+    answer();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(server.sent).toEqual([4, 5]);
+    expect(server.market.setupObject.marketDates).toEqual(BOTH.marketDates);
+  });
+
+  it("sends it with Allocate tables' save of the plan before the run", async () => {
+    routing.page = 'settings';
+    const server = aServer(2, 'assignment');
+    const wrapper = await mountPlan();
+    const tab = wrapper.findComponent(MarketAssignmentTab);
+    tab.vm.$emit('update:setupObject', ADDED);
+    await wrapper.vm.$nextTick();
+
+    tab.vm.$emit('assign');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(server.sent).toEqual([2]);
+    expect(api.post).toHaveBeenCalledWith('/markets/market-1/assignment');
+  });
+
+  it('drops the edit refused as the market changed, shows the plan as it now stands, and says so', async () => {
+    const server = aServer(4);
+    const wrapper = await mountPlan();
+    // Another tab saves a date first: the stored plan moves on, and this page has not heard.
+    const theirs = { ...PLAN, marketDates: [{ date: '2026-08-01' }, { date: '2026-09-05' }] };
+    server.market = { ...server.market, setupObject: theirs, planRevision: 5 };
+
+    await edit(wrapper, ADDED);
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(server.sent).toEqual([4]);
+    const line = wrapper.find('[data-testid="market-setup-plan-refused"]');
+    expect(line.text()).toContain(SENTENCE);
+    expect(wrapper.find('[data-testid="market-setup-plan-saved"]').exists()).toBe(false);
+    expect(shownDates(wrapper)).toEqual(theirs.marketDates);
+    expect(server.market.setupObject).toEqual(theirs);
+    // Nothing of the refused edit is left to send.
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(server.sent).toEqual([4]);
+
+    // The next edit builds on the plan as it now stands, from its revision, and lands.
+    const next = { ...theirs, marketDates: [...theirs.marketDates, { date: '2026-09-12' }] };
+    await edit(wrapper, next);
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(server.sent).toEqual([4, 5]);
+    expect(server.market.setupObject.marketDates).toEqual(next.marketDates);
+  });
+
+  /**
+   * The keepalive carries the revision the copy came from, never the one the save out will
+   * answer: guessing that one would let the keepalive land over another person's plan whenever the
+   * save out was itself refused (ADR 0024). So an edit typed while a save is out is lost when the
+   * page goes, after the browser's question, and the server keeps the save that was out.
+   */
+  it('refuses the keepalive of an edit made while a save is out, keeping the save that was out', async () => {
+    const server = aServer(0);
+    const keepalive = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(new Response(null, { status: 200 })),
+    );
+    vi.stubGlobal('fetch', keepalive);
+    const wrapper = await mountPlan();
+    let answer: () => void = () => {};
+    const write = api.put.getMockImplementation()!;
+    api.put.mockImplementationOnce(
+      (url: string, body: Record<string, unknown>) =>
+        new Promise((resolve, reject) => {
+          answer = () => write(url, body).then(resolve, reject);
+        }),
+    );
+
+    await edit(wrapper, ADDED);
+    await vi.advanceTimersByTimeAsync(1000);
+    // A second edit while the first save is out, then the page goes before that save answers.
+    await edit(wrapper, BOTH);
+    expect(asksBeforeUnload()).toBe(true);
+    window.dispatchEvent(new Event('pagehide'));
+    answer();
+    await vi.advanceTimersByTimeAsync(0);
+    // The keepalive reaches the server after the save sent before it.
+    expect(keepalive).toHaveBeenCalledTimes(1);
+    const [url, init] = keepalive.mock.calls[0]!;
+    await write(url, JSON.parse(init.body as string)).catch(() => {});
+
+    expect(server.sent).toEqual([0, 0]);
+    expect(server.market.planRevision).toBe(1);
+    expect(server.market.setupObject.marketDates).toEqual(ADDED.marketDates);
+  });
+});
+
 describe('leaving the page', () => {
   const ADDED = { ...PLAN, marketDates: [{ date: '2026-08-01' }, { date: '2026-08-08' }] };
 
@@ -561,8 +733,10 @@ describe('leaving the page', () => {
       headers: { 'Content-Type': 'application/json' },
     });
     const body = JSON.parse(init.body as string);
-    // The plan's own write, as the axios one is; this market has no intake mode to carry.
-    expect(Object.keys(body)).toEqual(['setupObject']);
+    // The plan's own write, as the axios one is; this market has no intake mode to carry. It
+    // carries the revision the copy came from, as every save does: none served reads as 0.
+    expect(Object.keys(body)).toEqual(['setupObject', 'planRevision']);
+    expect(body.planRevision).toBe(0);
     expect(body.setupObject.marketDates).toEqual(ADDED.marketDates);
     // The axios write is the pause's, and the page is going before it ends.
     expect(api.put).not.toHaveBeenCalled();

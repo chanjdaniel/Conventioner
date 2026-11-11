@@ -1,5 +1,6 @@
 import { test, expect, BACKEND_URL, APP_API, TEST_USER, ApplicationFormPage } from './fixtures';
 import { marketSetupPath } from './helpers/marketScreens';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 import { seedApplication } from './helpers/seedApplication';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import type { Page } from '@playwright/test';
@@ -161,6 +162,49 @@ test.describe('Application form builder', () => {
   });
 
   /**
+   * Two tabs of one organizer on the form of one draft (ADR 0024): A saves a question, then B,
+   * opened before A saved, saves its own from the older copy. B's save is refused in the server's
+   * words, B shows the form as A left it, and nothing of B's is stored.
+   */
+  test('a save from a tab opened before another saved is refused, and shows what that one saved', async ({
+    authenticatedPage: pageA,
+  }) => {
+    const marketId = await createMarket(pageA);
+    const pageB = await pageA.context().newPage();
+    const formA = new ApplicationFormPage(pageA);
+    const formB = new ApplicationFormPage(pageB);
+    await pageB.goto(marketSetupPath(marketId, 'form'));
+    await formB.openStep('questions');
+    await expect(formB.builderEmpty).toBeVisible();
+
+    await formA.openFormTab();
+    await formA.openStep('questions');
+    await formA.addField();
+    await formA.fillLabel(0, 'Website');
+    await formA.save();
+    await expect(formA.saveSuccess).toBeVisible();
+
+    await formB.addField();
+    await formB.fillLabel(0, 'Instagram');
+    await formB.save();
+
+    await expect(formB.saveError).toHaveText(
+      'This market changed while you were working on it, so your change was not saved. ' +
+        'Reload to see the latest, then make your change again.',
+    );
+    await expect(formB.saveSuccess).toHaveCount(0);
+    await expect(formB.labelInput(0)).toHaveValue('Website');
+    await expect(formB.labelInput(1)).toHaveCount(0);
+    const stored = await (
+      await pageA.request.get(`${APP_API}/markets/${marketId}/application-form`)
+    ).json();
+    expect(
+      (stored.application_form.fields as Array<{ key: string }>).map((field) => field.key),
+    ).toEqual(['website']);
+    await pageB.close();
+  });
+
+  /**
    * D9: once an applicant has submitted, the form is frozen for good. The builder says so
    * before the organizer touches anything, and the invariant is enforced on every route -
    * the application-form endpoint refuses with 409, and a market PUT cannot smuggle a new
@@ -231,10 +275,10 @@ test.describe('Application form builder', () => {
       ],
     };
 
-    // The dedicated endpoint refuses with 409.
-    const formPut = await api.put(`/markets/${marketId}/application-form`, { data: tamperedForm });
-    expect(formPut.status()).toBe(409);
-    expect((await formPut.json()).error).toContain('Application form is locked');
+    // The dedicated endpoint refuses with 409, a save from the form as it stands included.
+    await expect(saveApplicationForm(api, '', marketId, tamperedForm)).rejects.toThrow(
+      /Form write failed: 409 .*Application form is locked/,
+    );
 
     // Nor is there another door: the market PUT that once carried a whole market, form and all,
     // is gone (E21/F03/S06), so a rewritten form has nowhere else to go.

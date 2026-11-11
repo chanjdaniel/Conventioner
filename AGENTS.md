@@ -122,6 +122,7 @@ The assignment:
 The data and the back end:
 
 - Before writing a raw Mongo read, filter or write on a market, read [the market document](docs/implementation/data/market-document.md).
+- Before writing to a market, read [the market write](docs/implementation/modules/market-write.md) and [ADR 0024](docs/adr/0024-a-market-write-holds-what-it-read.md).
 - Before recording a change on a market, or changing the market's history or how Manage market reads it, read [the market's history](docs/implementation/data/history.md), [ADR 0017](docs/adr/0017-one-history-for-every-change.md) and [reading the market's history](docs/business/flows/reading-the-markets-history.md).
 - Before changing how applications are stored, read [the application document](docs/implementation/data/application-document.md).
 - Before changing organizations, membership or market roles, read [the organization document, and roles](docs/implementation/data/organization-document.md).

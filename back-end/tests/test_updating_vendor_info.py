@@ -19,7 +19,7 @@ import csv_import as CsvImport
 import essential_fields as EF
 from client_errors import BadRequestError, ForbiddenError, NotFoundError
 from datatypes import ApplicationStatus, MarketPerson, MarketPhase, MarketRole, VerdictGiver
-from test_csv_import import GOOD_ROW, MAPPING, _csv, _market_doc
+from test_csv_import import GOOD_ROW, MAPPING, _csv, _market_doc, bound_markets
 
 MARKET = "market-123"
 EDITOR = MarketPerson(user_id="user-editor", email="editor@market.test")
@@ -415,7 +415,7 @@ class TestTheAutomaticRejectionsJudgeTheUpdate:
 class TestAReImportKeepsTheUpdate:
     @pytest.fixture
     def imported(self, monkeypatch, applications, market_records):
-        markets = FakeMarketsCollection(_market_doc(phase=MarketPhase.APPLICATIONS))
+        markets = bound_markets(monkeypatch, _market_doc(phase=MarketPhase.APPLICATIONS))
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)

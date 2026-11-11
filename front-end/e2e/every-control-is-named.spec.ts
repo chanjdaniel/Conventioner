@@ -25,6 +25,7 @@ import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
 import { mongoEval } from './helpers/mongo';
 import { seedFloorplanTemplate } from './helpers/seedFloorplanTemplate';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * Every control can be reached and named by assistive technology (bug 44; E26/F10/S03).
@@ -47,23 +48,20 @@ test('every field on the plan, the rules and the form preview has a name', async
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    data: {
-      fields: [
-        { key: 'business_name', label: 'Business name', type: 'text', required: true, order: 0 },
-        { key: 'insured', label: 'I have insurance', type: 'checkbox', required: false, order: 1 },
-        {
-          key: 'craft',
-          label: 'Craft',
-          type: 'select',
-          required: true,
-          order: 2,
-          options: ['Ceramics', 'Prints'],
-        },
-      ],
-    },
+  await saveApplicationForm(request, BACKEND_URL, marketId, {
+    fields: [
+      { key: 'business_name', label: 'Business name', type: 'text', required: true, order: 0 },
+      { key: 'insured', label: 'I have insurance', type: 'checkbox', required: false, order: 1 },
+      {
+        key: 'craft',
+        label: 'Craft',
+        type: 'select',
+        required: true,
+        order: 2,
+        options: ['Ceramics', 'Prints'],
+      },
+    ],
   });
-  expect(form.ok(), await form.text()).toBeTruthy();
   // One rule of each kind, so every control a rule draws is on screen: with none, the walk saw the
   // card's "Add a rule" and nothing else, and every control inside a rule went unnamed (E26 re-walk).
   await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {

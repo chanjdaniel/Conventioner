@@ -21,6 +21,7 @@ from conftest import (
 )
 from datatypes import MarketPhase
 from mongo_cases import UPDATE_CASES, as_stored
+import market_write as MarketWrite
 
 MARKET_UPDATES = [case for case in UPDATE_CASES if not case.upsert]
 ANSWERED = [case for case in MARKET_UPDATES if case.fake_refuses is None]
@@ -81,6 +82,62 @@ def test_an_update_case_it_does_not_model_is_refused_and_stores_nothing(case, ma
     assert as_stored(_held(fake)) == as_stored([case.document] if case.document else [])
 
 
+@pytest.mark.parametrize("make", [0, 1], ids=FAKE_IDS)
+@pytest.mark.parametrize("case", ANSWERED, ids=[case.name for case in ANSWERED])
+def test_an_update_case_through_find_one_and_update_answers_as_the_server(case, make):
+    """``market_write.write_market`` writes by ``find_one_and_update``; the table runs through it
+    as through ``update_one``: the document after it, or None when nothing matched."""
+    fake = _holding(make, case.document)
+
+    after = fake.find_one_and_update(case.the_filter, case.update, return_document=True)
+
+    assert as_stored(_held(fake)) == as_stored([case.after])
+    assert as_stored(after) == (as_stored(case.after) if case.matched else as_stored(None))
+
+
+@pytest.mark.parametrize("make", [0, 1], ids=FAKE_IDS)
+@pytest.mark.parametrize("case", REFUSED, ids=[case.name for case in REFUSED])
+def test_an_update_case_through_find_one_and_update_it_does_not_model_is_refused(case, make):
+    fake = _holding(make, case.document)
+
+    with pytest.raises(UnmodelledQuery) as refused:
+        fake.find_one_and_update(case.the_filter, case.update, return_document=True)
+
+    assert case.fake_refuses in str(refused.value)
+    assert as_stored(_held(fake)) == as_stored([case.document] if case.document else [])
+
+
+@pytest.mark.parametrize("make", [0, 1], ids=FAKE_IDS)
+class TestFindOneAndUpdate:
+    def test_it_answers_the_market_before_unless_asked_for_after(self, make):
+        fake = _holding(make, stored_market(MarketPhase.DRAFT))
+
+        before = fake.find_one_and_update({"id": "market-123"}, {"$set": {"name": "Renamed"}})
+
+        assert before["name"] == "Test Market"
+        assert _held(fake)[0]["name"] == "Renamed"
+
+    def test_it_answers_the_projection_of_the_market_after(self, make):
+        fake = _holding(make, stored_market(MarketPhase.DRAFT, planRevision=2))
+
+        after = fake.find_one_and_update(
+            {"id": "market-123", "phase": "draft"}, {"$inc": {"planRevision": 1}},
+            projection={"_id": 1, "planRevision": 1}, return_document=True)
+
+        assert after == {"planRevision": 3}
+
+    def test_a_held_fact_that_moved_matches_nothing_and_stores_nothing(self, make):
+        fake = _holding(make, stored_market(MarketPhase.APPLICATIONS))
+
+        found = fake.find_one_and_update(
+            {"id": "market-123", "phase": "draft"}, {"$set": {"name": "Renamed"}},
+            return_document=True)
+
+        assert found is None
+        assert _held(fake) == [stored_market(MarketPhase.APPLICATIONS)]
+        assert fake.last_update == {"$set": {"name": "Renamed"}}
+
+
 class TestThePhaseMove:
     """The reproduction: the phase move holds the stored phase it read, so a move judged on a
     draft that another request already opened is refused, as the server refuses it."""
@@ -89,9 +146,10 @@ class TestThePhaseMove:
         as_read = stored_market(MarketPhase.DRAFT)
         fake = FakeMarketsCollection(stored_market(MarketPhase.APPLICATIONS))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
 
         with pytest.raises(PhaseChangedUnderRequest):
-            apply_phase_transition("market-123", as_read, MarketPhase.APPLICATIONS.value)
+            apply_phase_transition(as_read, MarketPhase.APPLICATIONS.value)
 
         assert fake.doc == stored_market(MarketPhase.APPLICATIONS)
 
@@ -99,8 +157,9 @@ class TestThePhaseMove:
         as_read = stored_market(MarketPhase.DRAFT)
         fake = FakeMarketsCollection(stored_market(MarketPhase.DRAFT))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
 
-        apply_phase_transition("market-123", as_read, MarketPhase.APPLICATIONS.value, by="user-1")
+        apply_phase_transition(as_read, MarketPhase.APPLICATIONS.value, by="user-1")
 
         assert fake.doc["phase"] == MarketPhase.APPLICATIONS.value
         assert fake.doc["isDraft"] is False

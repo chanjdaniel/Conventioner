@@ -5,6 +5,7 @@ import { decideReviewSetup } from './decideReviewSetup';
 import { seedApplication } from './seedApplication';
 import { mongoEval } from './mongo';
 import { uniqueMarketName } from './uniqueName';
+import { saveApplicationForm } from './saveApplicationForm';
 
 /**
  * Seed result for a market that an applicant can log into.
@@ -142,13 +143,9 @@ export async function seedApplicantMarket(
 
   // Write the application form - this is what the guards check before
   // accepting a transition into `applications`.
-  const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
-    headers: { 'Content-Type': 'application/json' },
-    data: { fields: options.fields ?? APPLICATION_FIELDS },
+  await saveApplicationForm(request, baseURL, marketId, {
+    fields: options.fields ?? APPLICATION_FIELDS,
   });
-  if (!formRes.ok()) {
-    throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
-  }
   if (!options.reviewSetupUndecided) await decideReviewSetup(request, baseURL, marketId);
 
   // A Google Form market stays a draft, ready for its first import, which is its way into Review

@@ -11,8 +11,8 @@ import copy
 
 import pytest
 
-from conftest import stored_market
-from test_a_vendors_payments import PLAN, LiveMarket
+from conftest import FakeMarketsCollection, stored_market
+from test_a_vendors_payments import PLAN
 from test_the_payments_page import EDITOR, MARKET, PAID, SEATS, pay
 
 import api.markets as MarketsApi
@@ -21,13 +21,14 @@ import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import market_stats as MarketStats
 from datatypes import MarketPhase
+import market_write as MarketWrite
 
 #: Five approved vendors; four hold or paid something, and Eve holds nothing and paid nothing.
 VENDORS = sorted({email for email, *_ in SEATS} | set(PAID) | {"eve@example.com"})
 
 
 def _live(plan=PLAN):
-    return LiveMarket(stored_market(phase=MarketPhase.MARKET_DAYS, setupObject=copy.deepcopy(plan)))
+    return FakeMarketsCollection(stored_market(phase=MarketPhase.MARKET_DAYS, setupObject=copy.deepcopy(plan)))
 
 
 @pytest.fixture
@@ -41,6 +42,7 @@ def applied(monkeypatch, applications):
 
     def on(live):
         monkeypatch.setattr(MarketsApi, "markets_collection", live)
+        monkeypatch.setattr(MarketWrite, "markets_collection", live)
         return live
     return on
 
