@@ -6,10 +6,11 @@
  *
  * Here those counts become the section's card, a row per market day drawn as a `MeterBar` of
  * checked in, every row on one scale, the card's largest expected, so the days compare; a day
- * expected short of that is marked at its own expected, where its whole ends inside the track. Beside each row, how many are missing, linking to Attendance on that day
- * (`?date=`), in the door's words: "not yet" while the day may still come, "did not come" once it
- * is over, past or archived. A day with nobody missing says so and links nowhere, and a day nobody
- * is assigned to draws no bar.
+ * expected short of that is marked at its own expected, where its whole ends inside the track.
+ * Beside each row, how many are missing, linking to Attendance on that day (`?date=`), in the
+ * door's words: "not yet" while the day may still come, "did not come" once it is over, past or
+ * archived. A day with nobody missing says so and links nowhere, and a day nobody is assigned to
+ * draws no bar.
  */
 import type { RouteLocationRaw } from 'vue-router';
 import { MarketPhase } from '@/assets/types/datatypes';

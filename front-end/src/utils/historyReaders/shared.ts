@@ -29,8 +29,6 @@ import type {
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { getShortDate } from '@/utils/utils';
-
-export { plural } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 
 export type Detail = Record<string, unknown>;
