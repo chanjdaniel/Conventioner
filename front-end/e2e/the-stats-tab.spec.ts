@@ -212,7 +212,6 @@ test('a review status with nobody in it is told, and not linked', async ({
   for (const empty of ['needs_follow_up', 'reviewer_approved', 'reviewer_rejected']) {
     expect(await height(stats.status(empty))).toBeLessThan(32);
   }
-  await page.setViewportSize({ width: 1280, height: 720 });
   // Applied today, so the chart is that one day: its column, and the day under it, in the middle
   // of the card.
   await expect(stats.overTimeColumns).toHaveCount(1);
