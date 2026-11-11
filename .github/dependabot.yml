@@ -46,7 +46,8 @@ updates:
         versions: [">=25.0.0"]
 
   - package-ecosystem: "github-actions"
-    directory: "/"
+    # The workflows, and the composite actions they share, whose pins are bumped with theirs.
+    directories: ["/", "/.github/actions/*"]
     schedule:
       interval: "weekly"
     # The same week's wait as npm's, for the same reason.
