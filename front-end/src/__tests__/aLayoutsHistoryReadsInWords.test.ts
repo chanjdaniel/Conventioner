@@ -1,7 +1,8 @@
 /**
  * A layout's save, in the market's history (T257 ticket 02): the `floorplan` entry names its
  * location and says what the save did, from `layout.describe_change`'s detail; ticket 04 adds the
- * tables added, removed, moved and turned.
+ * tables added, removed, moved and turned, and ticket 05 a section renumbered, its colour, its
+ * label, and the `floorplan_removed` entry of a layout taken with its location.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -101,8 +102,47 @@ describe("a layout's save reads in words", () => {
     expect(said(saved({ started: true }, null))).toBe('dana@ember.test started a layout');
   });
 
-  it('says a save it has no words for yet changed the layout', () => {
+  it('says which sections were renumbered', () => {
+    expect(said(saved({ renumbered: ['Gold row'] }))).toBe(
+      'dana@ember.test renumbered Gold row in Upper Hall',
+    );
+    expect(said(saved({ renumbered: ['Gold row', 'Silver aisle'] }))).toBe(
+      'dana@ember.test renumbered Gold row and Silver aisle in Upper Hall',
+    );
+  });
+
+  it('says tables changed section, the numbers that followed left unsaid', () => {
+    expect(
+      said(
+        saved({
+          added: { 'Silver aisle': 3 },
+          removed: { 'Gold row': 3 },
+          renumbered: ['Gold row'],
+        }),
+      ),
+    ).toBe(
+      'dana@ember.test added 3 tables to Silver aisle in Upper Hall and ' +
+        'removed 3 tables from Gold row in Upper Hall',
+    );
+  });
+
+  it('says whose colour changed, and whose label moved', () => {
     expect(said(saved({ colours: ['Gold row'] }))).toBe(
+      "dana@ember.test changed Gold row's colour in Upper Hall",
+    );
+    expect(said(saved({ colours: ['Gold row', 'Silver aisle'] }))).toBe(
+      'dana@ember.test changed the colours of Gold row and Silver aisle in Upper Hall',
+    );
+    expect(said(saved({ labels: ['Gold row'] }))).toBe(
+      "dana@ember.test moved Gold row's label in Upper Hall",
+    );
+    expect(said(saved({ labels: ['Gold row', 'Silver aisle'] }))).toBe(
+      'dana@ember.test moved the labels of Gold row and Silver aisle in Upper Hall',
+    );
+  });
+
+  it('says a save it has no words for yet changed the layout', () => {
+    expect(said(saved({ zones: { added: 1, changed: 0, removed: 0 } }))).toBe(
       "dana@ember.test changed Upper Hall's layout",
     );
   });
@@ -121,5 +161,31 @@ describe("a layout's save reads in words", () => {
         subject: { floorplan_id: 'f' },
       }),
     ).toBe('dana@ember.test saved a floorplan to the market');
+  });
+});
+
+describe('a layout taken with its location reads in words', () => {
+  const removed = (tables: number, location: string | null = 'Upper Hall'): MarketHistoryEntry => ({
+    ...saved({ before: { tables }, after: { tables: null } }, location),
+    kind: 'floorplan_removed',
+  });
+
+  it('names the location and how many tables went with it', () => {
+    expect(said(removed(49))).toBe(
+      "dana@ember.test removed Upper Hall's layout of 49 tables with its location",
+    );
+    expect(said(removed(1))).toBe(
+      "dana@ember.test removed Upper Hall's layout of 1 table with its location",
+    );
+  });
+
+  it('says a layout with no table as a layout', () => {
+    expect(said(removed(0))).toBe("dana@ember.test removed Upper Hall's layout with its location");
+  });
+
+  it('says a layout whose location was not recorded as a layout', () => {
+    expect(said(removed(3, null))).toBe(
+      'dana@ember.test removed a layout of 3 tables with its location',
+    );
   });
 });

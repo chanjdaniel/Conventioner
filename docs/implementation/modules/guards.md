@@ -10,7 +10,7 @@ describes:
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
   - front-end/src/utils/blockerLink.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -30,6 +30,7 @@ sources:
   - T205
   - T206
   - T263
+  - T257
 ---
 
 # The guards and the phase move
@@ -61,16 +62,18 @@ The panel is headed "Cannot proceed:" unless its caller gives a heading: the imp
 **Every remedy names the action it takes.**
 A guard that sets a `resolution_link` sets the `resolution_action` its remedy takes, so [the phase rail](phase-rail.md) and its panel offer the remedy only to whoever the table's answer for that row lets take it ([what each role may do](../../business/rules/what-each-role-may-do.md)):
 
-| Remedy                                                                                                        | Page               | Action                |
-| ------------------------------------------------------------------------------------------------------------- | ------------------ | --------------------- |
-| Pick market dates, Change the dates, Add a location, Add tables, Give every tier tables, Fix the price groups | `setup`            | `change-setup`        |
-| Allocate tables (`AssignmentComputedGuard`, `AssignmentNotBeforeReviewGuard`, `NoApprovedApplicationsGuard`)  | `settings`         | `assign`              |
-| Publish results                                                                                               | `applications`     | `publish-results`     |
-| Finish deciding                                                                                               | `applications`     | `give-verdicts`       |
-| Import responses                                                                                              | `import`           | `import-applications` |
-| Decide what reviewers read first                                                                              | `form?step=review` | `change-form`         |
-| Decide the automatic rejections                                                                               | `form?step=review` | `change-form`         |
+| Remedy                                                                                                        | Page                   | Action                |
+| ------------------------------------------------------------------------------------------------------------- | ---------------------- | --------------------- |
+| Pick market dates, Change the dates, Add a location, Add tables, Give every tier tables, Fix the price groups | `setup`                | `change-setup`        |
+| Open the layout                                                                                               | `layout/<location id>` | `change-setup`        |
+| Allocate tables (`AssignmentComputedGuard`, `AssignmentNotBeforeReviewGuard`, `NoApprovedApplicationsGuard`)  | `settings`             | `assign`              |
+| Publish results                                                                                               | `applications`         | `publish-results`     |
+| Finish deciding                                                                                               | `applications`         | `give-verdicts`       |
+| Import responses                                                                                              | `import`               | `import-applications` |
+| Decide what reviewers read first                                                                              | `form?step=review`     | `change-form`         |
+| Decide the automatic rejections                                                                               | `form?step=review`     | `change-form`         |
 
+"Open the layout" is the one link that names which of a market's pages of a kind it leads to: the layout of the location whose tables are in no section, never the market's bare `layout`, which redirects to its first location's.
 A link without an action, or an action without a link, is refused at construction.
 That the action is a row of the table is held by `TestEveryRemedyNamesTheActionItTakes` in [`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py), not at construction, so a renamed row fails the build rather than answering the organizer with a 500.
 
@@ -82,7 +85,7 @@ An entry invariant is what makes a rule hold of every market in the phase rather
 `test_no_guard_reads_the_phase` ([`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py)) pins it, so a judgement made before a write, as the first import's below, means what it says.
 
 **One stage, two ways in** ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
-`draft -> applications` carries the setup's three, `PriceGroupsStandGuard`, `FormHasFieldsGuard`, `ReviewHighlightsDecidedGuard`, `RejectionRulesDecidedGuard` and `ResponsesImportedGuard`, in that order; `FormHasFieldsGuard` and `ResponsesImportedGuard` are its phase's entry invariants.
+`draft -> applications` carries the setup's three, `LayoutTablesHaveSectionsGuard`, `PriceGroupsStandGuard`, `FormHasFieldsGuard`, `ReviewHighlightsDecidedGuard`, `RejectionRulesDecidedGuard` and `ResponsesImportedGuard`, in that order; `FormHasFieldsGuard` and `ResponsesImportedGuard` are its phase's entry invariants.
 `ReviewHighlightsDecidedGuard` and `RejectionRulesDecidedGuard` are the edge's own and deliberately no entry invariants, so no other way into Review is ever refused them ([review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md)).
 `ResponsesImportedGuard` passes a form market and refuses a Google Form market with nothing imported, its fix "Import responses" leading to the import ([review needs an import](../../business/rules/review-needs-an-import.md)).
 That market's first import judges the edge less that guard (`first_import_blockers` in [the CSV import](csv-import.md)) before it reads a row, and takes the move through `take_move` once the rows are written, so nothing moves unjudged and a market left mid-import stays a draft.
@@ -130,6 +133,7 @@ Its entry invariant is the warning `AssignmentComputedGuard` heeds: a guard must
 The guards are where the product's rules about moving a market are kept:
 
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the three guards on `draft -> applications`.
+- [The layout](floorplan-placement.md#the-editor): `LayoutTablesHaveSectionsGuard` keeps a draft whose layout has tables in no section, which no section counts and no vendor can be given, in draft.
 - [A price follows the table](../../business/rules/a-price-follows-the-table.md#price-groups): `PriceGroupsStandGuard` keeps a price group with a broken condition in draft.
 - [Review waits on the review setup](../../business/rules/review-waits-on-the-review-setup.md): `ReviewHighlightsDecidedGuard` and `RejectionRulesDecidedGuard` keep a draft whose organizer has not decided what a reviewer reads first, or the automatic rejections, out of Review.
 - [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): `route_between` decides whether Assignment still lies ahead, which is when the review is open; `ResultsNotPublishedGuard` keeps the way back to it closed once results are published.

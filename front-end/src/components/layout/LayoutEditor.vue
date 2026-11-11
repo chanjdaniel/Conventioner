@@ -7,10 +7,13 @@
  *
  * Select: a press on a table selects it (Shift or Ctrl adds it or takes it out), a drag moves the
  * selection, snapping to the edges and centres of the tables that stand still within 8 px, with a
- * guide drawn, and freely with Alt; a press on the floor selects nothing. The handle over the
- * selection turns it about its middle in 15° steps (Alt: freely); R turns it a quarter. Add table:
- * a click places a table of the options strip's section and type at the point, and the tool stays
- * on. A drag or a turn is one change, and Escape puts it back.
+ * guide drawn, and freely with Alt; a press on the floor selects nothing, and a drag on it draws a
+ * box that selects every table whose centre is in it (with Shift or Ctrl, beside those selected
+ * already). Ctrl+A selects every table and Escape none. The handle over the selection turns it
+ * about its middle in 15° steps (Alt: freely); R turns it a quarter. A section's name is dragged
+ * to where it should stand. Add table: a click places a table of the options strip's section and
+ * type at the point, and the tool stays on. A drag or a turn is one change, and Escape puts it
+ * back.
  *
  * The view: the wheel or two fingers pan, Ctrl and the wheel or a pinch zoom about the pointer,
  * 10% to 800%; Space and a drag, or the middle button, pan; the buttons step the zoom and Fit shows
@@ -24,12 +27,14 @@ import { layoutSections } from './layoutDrawing';
 import {
   STANDARD_TABLE,
   angleFrom,
+  boxBetween,
   fitCamera,
   hallOf,
   snapAngle,
   snapMove,
   steppedZoom,
   tableBounds,
+  tablesInBox,
   unionOf,
   zoomPercent,
   zoomedAbout,
@@ -87,8 +92,8 @@ watch(
 const hint = computed(() =>
   tool.value === 'add'
     ? 'Click the floor to place a table. Ctrl and the wheel zoom, and Space and a drag move the view.'
-    : 'Drag a table to move it: it snaps to the tables near it, and Alt places it freely. ' +
-      'Drag the handle over a selected table to turn it, or press R for a quarter turn.',
+    : 'Drag a table to move it; Alt places it freely. Drag on the floor, or Shift and click, ' +
+      'to select several. Drag the handle over the selection, or press R, to turn it.',
 );
 
 // ── The stage and its camera ─────────────────────────────────────────────────
@@ -192,7 +197,23 @@ const TURN_STEP = 15;
 type Gesture =
   | { kind: 'pan'; from: { x: number; y: number }; camera: Camera }
   | { kind: 'add'; from: { x: number; y: number } }
-  | { kind: 'floor'; from: { x: number; y: number } }
+  | {
+      kind: 'floor';
+      from: { x: number; y: number };
+      fromMm: PointMm;
+      /** What was selected at the press, which Shift or Ctrl keeps beside the box's tables. */
+      base: string[];
+      keep: boolean;
+      begun: boolean;
+    }
+  | {
+      kind: 'label';
+      from: { x: number; y: number };
+      sectionId: string;
+      /** The middle of the name as the drag found it. */
+      at: PointMm;
+      begun: boolean;
+    }
   | {
       kind: 'move';
       from: { x: number; y: number };
@@ -211,6 +232,8 @@ let gesture: Gesture | null = null;
 /** The pointer whose press began the gesture; a pinch is two and names none. */
 let gesturePointer: number | null = null;
 const guides = shallowRef<Guide[]>([]);
+/** The box a drag on the floor is drawing. */
+const selectBox = shallowRef<Bounds | null>(null);
 const dragging = ref(false);
 const spaceHeld = ref(false);
 const hovering = ref(false);
@@ -220,6 +243,20 @@ const touches = new Map<number, { x: number; y: number }>();
 function tableAt(event: Event): string | null {
   const target = event.target instanceof Element ? event.target : null;
   return target?.closest('[data-table-id]')?.getAttribute('data-table-id') ?? null;
+}
+
+/** The section's name pressed, and its middle in the hall, read from the pill the map drew. */
+function labelAt(event: Event): { sectionId: string; at: PointMm } | null {
+  const target = event.target instanceof Element ? event.target : null;
+  const label = target?.closest('[data-section-label]');
+  const pill = label?.querySelector('rect');
+  const sectionId = label?.getAttribute('data-section-label');
+  if (!pill || !sectionId) return null;
+  const read = (name: string) => Number(pill.getAttribute(name));
+  return {
+    sectionId,
+    at: { xMm: read('x') + read('width') / 2, yMm: read('y') + read('height') / 2 },
+  };
 }
 
 function select(id: string, toggle: boolean) {
@@ -251,7 +288,9 @@ function onPointerDown(event: PointerEvent) {
     if (pinch) {
       // A second finger makes whatever the first began a pinch.
       if (gesture && 'begun' in gesture && gesture.begun) props.editor.cancel();
+      if (gesture?.kind === 'floor' && gesture.begun) props.editor.select(gesture.base);
       guides.value = [];
+      selectBox.value = null;
       gesture = { kind: 'pinch', ...pinch, camera: cam };
       gesturePointer = null;
       stage.value.setPointerCapture(event.pointerId);
@@ -282,10 +321,20 @@ function onPointerDown(event: PointerEvent) {
     gesture = { kind: 'add', from };
   } else {
     const id = tableAt(event);
-    if (!id) {
-      gesture = { kind: 'floor', from };
+    const label = id ? null : labelAt(event);
+    const toggle = event.shiftKey || event.ctrlKey || event.metaKey;
+    if (label) {
+      gesture = { kind: 'label', from, ...label, begun: false };
+    } else if (!id) {
+      gesture = {
+        kind: 'floor',
+        from,
+        fromMm: toMm(event),
+        base: [...selection.value],
+        keep: toggle,
+        begun: false,
+      };
     } else {
-      const toggle = event.shiftKey || event.ctrlKey || event.metaKey;
       const wasAmongSeveral = selection.value.includes(id) && selection.value.length > 1;
       select(id, toggle);
       if (!selection.value.includes(id)) return;
@@ -365,6 +414,28 @@ function onPointerMove(event: PointerEvent) {
       guides.value = snap.guides;
     }
     props.editor.moveTables(gesture.ids, dxMm, dyMm);
+  } else if (gesture.kind === 'floor') {
+    if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
+    gesture.begun = true;
+    const drawn = boxBetween(gesture.fromMm, toMm(event));
+    selectBox.value = drawn;
+    // Selected as the box is drawn, so what it will take is seen before it is let go.
+    const inside = tablesInBox(layout.value.tables, drawn);
+    const kept = gesture.keep ? gesture.base.filter((id) => !inside.includes(id)) : [];
+    props.editor.select([...kept, ...inside]);
+  } else if (gesture.kind === 'label') {
+    if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
+    if (!gesture.begun) {
+      gesture.begun = true;
+      dragging.value = true;
+      props.editor.begin();
+    }
+    props.editor.setSectionStyle(gesture.sectionId, {
+      labelAt: {
+        xMm: gesture.at.xMm + dx / cam.pxPerMm,
+        yMm: gesture.at.yMm + dy / cam.pxPerMm,
+      },
+    });
   } else if (gesture.kind === 'turn') {
     let by = angleFrom(gesture.centre, toMm(event)) - gesture.fromAngle;
     by = ((((by + 180) % 360) + 360) % 360) - 180;
@@ -388,11 +459,12 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
   gesture = null;
   gesturePointer = null;
   guides.value = [];
+  selectBox.value = null;
   dragging.value = false;
   if (stage.value?.hasPointerCapture(event.pointerId)) {
     stage.value.releasePointerCapture(event.pointerId);
   }
-  if (done.kind === 'move' || done.kind === 'turn') {
+  if (done.kind === 'move' || done.kind === 'turn' || done.kind === 'label') {
     if (!done.begun) {
       if (done.kind === 'move' && done.narrowTo && !cancelled) {
         props.editor.select([done.narrowTo]);
@@ -403,10 +475,15 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
     else props.editor.end();
     return;
   }
-  if (cancelled) return;
   if (done.kind === 'floor') {
-    props.editor.select([]);
-  } else if (
+    // A box cut short selects what was selected before it; a press that drew none selects
+    // nothing, unless Shift or Ctrl was held to keep the selection.
+    if (done.begun && cancelled) props.editor.select(done.base);
+    else if (!done.begun && !cancelled && !done.keep) props.editor.select([]);
+    return;
+  }
+  if (cancelled) return;
+  if (
     done.kind === 'add' &&
     Math.hypot(event.clientX - done.from.x, event.clientY - done.from.y) < DRAG_PX
   ) {
@@ -422,13 +499,16 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
   }
 }
 
-/** Put back a drag or a turn that Escape, or the browser, ended early. */
+/** Put back a drag, a turn or a box that Escape, or the browser, ended early. */
 function abandon() {
   const done = gesture;
   gesture = null;
   guides.value = [];
+  selectBox.value = null;
   dragging.value = false;
-  if (done && 'begun' in done && done.begun) props.editor.cancel();
+  if (!done || !('begun' in done) || !done.begun) return;
+  if (done.kind === 'floor') props.editor.select(done.base);
+  else props.editor.cancel();
 }
 
 // ── The keys ─────────────────────────────────────────────────────────────────
@@ -436,6 +516,17 @@ function abandon() {
 function inAField(event: KeyboardEvent): boolean {
   const target = event.target instanceof HTMLElement ? event.target : null;
   return Boolean(target?.closest('input, textarea, select, [contenteditable="true"]'));
+}
+
+/**
+ * Whether the map has the keys that would mean something else elsewhere on the page (Ctrl+A,
+ * Escape): the focus is on it, or on nothing while the pointer is over it, as after a press on
+ * the floor.
+ */
+function mapHasTheKeys(): boolean {
+  const focused = document.activeElement;
+  if (focused && stage.value?.contains(focused)) return true;
+  return hovering.value && (!focused || focused === document.body);
 }
 
 function onWindowKeydown(event: KeyboardEvent) {
@@ -447,6 +538,13 @@ function onWindowKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && gesture) {
     event.preventDefault();
     abandon();
+  } else if (event.key === 'Escape' && selection.value.length && mapHasTheKeys()) {
+    event.preventDefault();
+    props.editor.select([]);
+  } else if (command && !event.altKey && !event.shiftKey && key === 'a' && mapHasTheKeys()) {
+    // Every table, in place of the page's words.
+    event.preventDefault();
+    props.editor.select(layout.value.tables.map((table) => table.id));
   } else if (command && !event.altKey && key === 'z') {
     event.preventDefault();
     if (event.shiftKey) props.editor.redo();
@@ -751,6 +849,22 @@ watch(
         mode="edit"
       >
         <template #default="{ mmPerPx }">
+          <rect
+            v-if="selectBox"
+            class="layout-select-box"
+            :x="selectBox.left"
+            :y="selectBox.top"
+            :width="selectBox.right - selectBox.left"
+            :height="selectBox.bottom - selectBox.top"
+            fill="var(--mm-blue)"
+            fill-opacity="0.08"
+            stroke="var(--mm-blue)"
+            stroke-width="1"
+            stroke-dasharray="4 4"
+            vector-effect="non-scaling-stroke"
+            aria-hidden="true"
+            data-testid="layout-select-box"
+          />
           <g
             v-if="handle"
             class="layout-turn-handle"
@@ -877,18 +991,31 @@ watch(
   cursor: move;
 }
 
+/* A section's name is dragged to where it should stand; elsewhere a press on it is the floor's. */
+.layout-stage :deep(.layout-map__label) {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.layout-select-box {
+  pointer-events: none;
+}
+
 .layout-stage--add,
-.layout-stage--add :deep(.layout-table--button) {
+.layout-stage--add :deep(.layout-table--button),
+.layout-stage--add :deep(.layout-map__label) {
   cursor: crosshair;
 }
 
 .layout-stage--hand,
-.layout-stage--hand :deep(.layout-table--button) {
+.layout-stage--hand :deep(.layout-table--button),
+.layout-stage--hand :deep(.layout-map__label) {
   cursor: grab;
 }
 
 .layout-stage--dragging,
-.layout-stage--dragging :deep(.layout-table--button) {
+.layout-stage--dragging :deep(.layout-table--button),
+.layout-stage--dragging :deep(.layout-map__label) {
   cursor: grabbing;
 }
 

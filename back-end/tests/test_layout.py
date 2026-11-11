@@ -112,6 +112,29 @@ class TestDeriveCounts:
         assert Layout.derive_counts(plan) == plan
 
 
+class TestTablesInNoSection:
+    def test_none_when_every_table_is_in_a_section_of_its_location(self):
+        floorplan = _floorplan([_table("a"), _table("b", SILVER)])
+        assert Layout.tables_in_no_section(floorplan, _plan([floorplan])) == []
+
+    def test_a_table_of_none_of_a_section_gone_or_of_another_locations(self):
+        floorplan = _floorplan([
+            _table("in", GOLD),
+            _table("none", None, None),
+            _table("gone", "sec-removed"),
+            _table("elsewhere", BLUE),
+        ])
+        loose = Layout.tables_in_no_section(floorplan, _plan([floorplan]))
+        assert [table.id for table in loose] == ["none", "gone", "elsewhere"]
+
+    def test_they_are_the_tables_no_section_counts(self):
+        floorplan = _floorplan([_table("in", GOLD), _table("gone", "sec-removed")])
+        plan = Layout.derive_counts(_plan([floorplan]))
+        counted = sum(section.count for section in plan.sections if section.location.id == UPPER)
+        loose = Layout.tables_in_no_section(floorplan, plan)
+        assert counted + len(loose) == len(floorplan.tables)
+
+
 class TestLayoutRefusal:
 
     def test_a_layout_keeping_every_rule_is_not_refused(self):
@@ -260,6 +283,24 @@ class TestDescribeChange:
 
         assert change["started"] is True
         assert change["added"] == {"Gold row": 2}
+
+    def test_tables_of_a_section_that_is_gone_were_in_no_section_already(self):
+        """A section removed on Section Setup leaves its tables naming it; the editor's next save
+        stores them in no section, which moved them nowhere."""
+        before = _floorplan([*_gold(2), _table("x-1", "sec-removed", 1),
+                             _table("x-2", "sec-removed", 2)])
+        after = _floorplan([*_gold(2), _table("x-1", None, None), _table("x-2", None, None)])
+
+        assert self._change(before, after) == {}
+
+    def test_a_table_of_a_gone_section_put_in_a_section_joined_it_from_none(self):
+        before = _floorplan([*_gold(2), _table("x-1", "sec-removed", 1)])
+        after = _floorplan([*_gold(2), _table("x-1", GOLD, 3)])
+
+        change = self._change(before, after)
+
+        assert change["added"] == {"Gold row": 1}
+        assert change["removed"] == {"in no section": 1}
 
     def test_a_save_that_changes_nothing_describes_nothing(self):
         assert self._change(_floorplan(_gold(3)), _floorplan(_gold(3))) == {}

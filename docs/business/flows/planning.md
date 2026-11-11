@@ -90,6 +90,7 @@ Covered by:
 **Status:** Works (walked live).
 "+" adds a row; type a name.
 A market needs at least one before it leaves Draft.
+Removing a location that has a layout ([E6](#e6-a-locations-layout)) asks first, "Remove Upper Hall?", "Its layout of 49 tables goes with it.", with "Remove location and layout" and Cancel, since the layout goes with its location; one with no layout is removed at once.
 
 ## E4. Sections
 
@@ -122,7 +123,7 @@ Covered by:
 
 ## E6. A location's layout
 
-**Status:** Begun (T257): a location's floorplan, its scale and tables placed, moved, turned and removed one at a time; rows, areas, zones, types and the layout after Draft come with T257's later tickets.
+**Status:** Begun (T257): a location's floorplan, its scale and tables placed, moved, turned, duplicated, lined up, renumbered and removed, one or several at a time; rows, areas, zones, types and the layout after Draft come with T257's later tickets.
 Under Section Setup's rows, each named location offers "Lay out Upper Hall", or "Open Upper Hall's layout · 49 tables" once it has one; a location with no name offers nothing until it has one, and a plan that cannot change offers only the layouts it has, to read.
 Opening one saves the plan's pending edits first, then goes to `/markets/<id>/layout/<location>`, under the Market Setup tab; `/markets/<id>/layout` opens the first location's, and the floorplan beta's old address, `/markets/<id>/floorplan`, lands there too.
 
@@ -134,12 +135,20 @@ Opening one saves the plan's pending edits first, then goes to `/markets/<id>/la
 
 3. **Place the tables:** at a desk the map is an editor, with a toolbar over it: Select, Add table, Undo, Redo, Zoom out, Zoom in, Fit.
    - "Add table" then a click on the floor places a table of the Section and Table type chosen under the toolbar, "Gold row 1", then "Gold row 2", at its true size; the tool stays on.
-   - A press selects a table (Shift or Ctrl for more), and the panel's card reads it: its code, section, type and position in metres.
+   - A press selects a table (Shift or Ctrl for more), a box dragged on the floor every table whose centre is in it, Ctrl+A all of them and Escape none; the panel's card reads the selection: one table's code, section, type and position in metres, or "3 tables selected" and their codes.
+   - The card's Section and Table type fields change the selection's. Tables put in another section are numbered after its own, so 3 of Gold row's 9 put in Silver aisle (of 18) become Silver aisle 19 to 21, and Gold row closes to 1 to 6.
+   - "Duplicate" puts a copy of each selected table beside it, numbered on, and the Align menu lines several up by an edge or a centre, or spaces them evenly across or down.
    - A drag moves the selection; near another table's edge or centre it snaps, with a guide line, and Alt places it freely; a table's centre never leaves the floorplan.
    - The handle over a selected table turns it in 15° steps (Alt: freely), and R or "Turn 90°" by a quarter; its number turns with it.
    - "Remove" takes the selection away with no question, since Undo brings it back; in Draft the section's later tables close the gap, so removing "Gold row 2" of 4 leaves 1 to 3.
    - Undo and Redo, by their buttons or Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y, take back and bring back each change, across saves.
    - The wheel or two fingers move the view, Ctrl and the wheel or a pinch zoom it, and Space and a drag pan.
+4. **Sections on the layout:** the panel lists "Sections in Upper Hall", each with its colour, tier and count.
+   - A section's swatch opens eight colours to choose from, and its name on the map is dragged to where it should stand.
+   - Its row's menu has "Renumber by position (rows across the page)", which numbers its tables in rows from the top, each from the left.
+   - A section removed on Section Setup leaves its tables on the layout, grey and numberless: "3 tables are in no section", with "Select them", to put them in a section from the card or remove them.
+     Until then the market stays a draft: "Upper Hall's layout has 3 tables in no section. Put them in a section or remove them.", with "Open the layout" on the rail.
+   - While a section has fewer tables than Section Setup had typed for it when the layout began, the panel says so: "Section Setup had Gold row at 13: 9 placed."
 
 The layout is edited at a desk: at a phone's width it is read.
 It saves itself a moment after each change, the head row saying "Saving…" then "Saved"; a save that did not land says why with Retry and keeps what is on screen, a move to another page then asks "Leave without saving?" first, and a reload or a closed tab with a change still waiting is asked by the browser first.
@@ -151,6 +160,7 @@ Covered by:
 
 - `a-layout-saves-once.spec.ts`
 - `a-table-moves-by-pointer.spec.ts`
+- `numbers-follow-the-rules.spec.ts`
 - `the-layout-draws-as-a-map.spec.ts`
 - `the-layout-takes-the-same-zone.spec.ts`
 

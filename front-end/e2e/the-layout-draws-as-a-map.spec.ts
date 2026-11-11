@@ -206,9 +206,10 @@ test.describe('A calibrated layout draws as a map', () => {
     // The focused table draws its ring.
     await expect(layout.tableFocusBorder('Gold row 1, Standard 6 ft')).toBeVisible();
 
-    // One stop: the next Tab leaves the map for the panel.
+    // One stop: the next Tab leaves the map for the panel, whose first control is Gold row's
+    // colour, with nothing selected.
     await page.keyboard.press('Tab');
-    await expect(layout.recalibrate).toBeFocused();
+    await expect(layout.sectionColour('Gold row')).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(layout.table('Gold row 1, Standard 6 ft')).toBeFocused();
 
@@ -223,7 +224,7 @@ test.describe('A calibrated layout draws as a map', () => {
 
     // The stop follows the focus: leaving and coming back lands where it was left.
     await page.keyboard.press('Tab');
-    await expect(layout.recalibrate).toBeFocused();
+    await expect(layout.sectionColour('Gold row')).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(layout.table('Gold row 11, Standard 6 ft')).toBeFocused();
   });

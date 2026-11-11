@@ -1,8 +1,10 @@
 /**
- * The layout page's "Sections in <location>" card (T257 ticket 03) lists what the map draws: each
- * section of the location with its colour, its tier and its count of tables.
+ * The layout page's "Sections in <location>" card (T257 tickets 03 and 05) lists what the map
+ * draws: each section of the location with its colour, its tier and its count of tables; and for
+ * someone editing, each section's colour choice and Renumber, the tables in no section, and what
+ * Section Setup had when the layout began.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import type { FloorplanTable, SectionObject } from '@/assets/types/datatypes';
 import LayoutPanelSections from '@/components/layout/LayoutPanelSections.vue';
@@ -100,5 +102,135 @@ describe('the Sections card', () => {
       "Upper Hall has no sections yet. Name them on Market Setup's Section Setup.",
     );
     expect(wrapper.find('ul').exists()).toBe(false);
+  });
+
+  describe('for someone editing the layout', () => {
+    const editing = (props: Record<string, unknown> = {}) =>
+      mount(LayoutPanelSections, {
+        props: {
+          locationName: 'Upper Hall',
+          sections: layoutSections(LAYOUT, SECTIONS),
+          editable: true,
+          ...props,
+        },
+        attachTo: document.body,
+      });
+
+    it("opens a section's colours from its swatch, the one it wears pressed, and keeps the choice", async () => {
+      const wrapper = editing();
+      const swatches = wrapper.findAll('[data-testid="layout-panel-section-colour"]');
+      expect(swatches.map((swatch) => swatch.attributes('aria-label'))).toEqual([
+        "Gold row's colour",
+        "Silver aisle's colour",
+      ]);
+      expect(wrapper.find('[data-testid="layout-panel-palette"]').exists()).toBe(false);
+
+      await swatches[1].trigger('click');
+      expect(swatches[1].attributes('aria-expanded')).toBe('true');
+      const choices = wrapper.findAll('[data-testid="layout-panel-palette"] button');
+      expect(choices.map((choice) => choice.attributes('aria-label'))).toEqual([
+        'Gold',
+        'Blue',
+        'Terracotta',
+        'Green',
+        'Violet',
+        'Teal',
+        'Rose',
+        'Olive',
+      ]);
+      // Silver aisle wears the fifth.
+      expect(choices.map((choice) => choice.attributes('aria-pressed'))).toEqual([
+        'false',
+        'false',
+        'false',
+        'false',
+        'true',
+        'false',
+        'false',
+        'false',
+      ]);
+      await vi.waitFor(() => expect(document.activeElement).toBe(choices[4].element));
+
+      await choices[2].trigger('click');
+      expect(wrapper.emitted('color')).toEqual([['sec-silver', 3]]);
+      // The palette closes and the swatch has the focus again.
+      expect(wrapper.find('[data-testid="layout-panel-palette"]').exists()).toBe(false);
+      await vi.waitFor(() => expect(document.activeElement).toBe(swatches[1].element));
+      wrapper.unmount();
+    });
+
+    it('closes the colours on Escape, the focus back on the swatch', async () => {
+      const wrapper = editing();
+      const swatch = wrapper.get('[data-testid="layout-panel-section-colour"]');
+      await swatch.trigger('click');
+      await wrapper.get('[data-testid="layout-panel-palette"]').trigger('keydown', { key: 'Esc' });
+      expect(wrapper.find('[data-testid="layout-panel-palette"]').exists()).toBe(false);
+      expect(wrapper.emitted('color')).toBeUndefined();
+      await vi.waitFor(() => expect(document.activeElement).toBe(swatch.element));
+      wrapper.unmount();
+    });
+
+    it("renumbers a section by position from its row's menu", async () => {
+      const wrapper = editing();
+      await wrapper
+        .get('[data-testid="layout-panel-section-menu-sec-silver-button"]')
+        .trigger('click');
+      const item = wrapper.get('[role="menuitem"]');
+      expect(item.text()).toBe('Renumber by position (rows across the page)');
+      await item.trigger('click');
+      expect(wrapper.emitted('renumber')).toEqual([['sec-silver']]);
+      wrapper.unmount();
+    });
+
+    it('counts the tables in no section, with "Select them"', async () => {
+      const wrapper = editing({ unsectioned: 3 });
+      const line = wrapper.get('[data-testid="layout-panel-no-section"]');
+      expect(line.text().replace(/\s+/g, ' ')).toBe('3 tables are in no section Select them');
+      await wrapper.get('[data-testid="layout-panel-select-no-section"]').trigger('click');
+      expect(wrapper.emitted('selectUnsectioned')).toHaveLength(1);
+      wrapper.unmount();
+
+      const one = editing({ unsectioned: 1 });
+      expect(one.get('[data-testid="layout-panel-no-section"]').text()).toContain(
+        '1 table is in no section',
+      );
+      one.unmount();
+      const none = editing();
+      expect(none.find('[data-testid="layout-panel-no-section"]').exists()).toBe(false);
+      none.unmount();
+    });
+
+    it('says what Section Setup had for each section still short of it', () => {
+      const wrapper = editing({
+        startingCounts: [
+          { sectionId: 'sec-gold', count: 13 },
+          // Silver aisle has its one table: nothing to say.
+          { sectionId: 'sec-silver', count: 1 },
+        ],
+      });
+      expect(wrapper.get('[data-testid="layout-panel-starting"]').text()).toBe(
+        'Section Setup had Gold row at 13: 2 placed.',
+      );
+      wrapper.unmount();
+      const met = editing({ startingCounts: [{ sectionId: 'sec-gold', count: 2 }] });
+      expect(met.find('[data-testid="layout-panel-starting"]').exists()).toBe(false);
+      met.unmount();
+    });
+  });
+
+  it('offers a reader no change: no colour choice, no menu, and the count of no section alone', () => {
+    const wrapper = mount(LayoutPanelSections, {
+      props: {
+        locationName: 'Upper Hall',
+        sections: layoutSections(LAYOUT, SECTIONS),
+        unsectioned: 2,
+        startingCounts: [{ sectionId: 'sec-gold', count: 13 }],
+      },
+    });
+    expect(wrapper.findAll('button')).toHaveLength(0);
+    expect(wrapper.get('[data-testid="layout-panel-no-section"]').text()).toBe(
+      '2 tables are in no section',
+    );
+    expect(wrapper.find('[data-testid="layout-panel-starting"]').exists()).toBe(false);
   });
 });

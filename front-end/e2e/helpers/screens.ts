@@ -237,10 +237,13 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * begun, on its upload's drop zone; and the layout seed's Upper Hall, its floorplan uploaded and its
  * scale not yet set, calibrating; and the laid-out seed's Upper Hall, drawn as its map, 20 tables
  * over the faded floorplan with the panel's list of sections: the editor at a desk and the map read
- * on a phone, then, at a desk, with a table selected and with Add table's options open. Nothing is
- * saved, so each walk finds them as seeded.
+ * on a phone, then, at a desk, with a table selected, with every table selected, with a section's
+ * colours open and with Add table's options open. Nothing is saved, so each walk finds them as
+ * seeded.
  */
-function layoutAt(stage: 'upload' | 'calibrating' | 'map' | 'selected' | 'adding') {
+function layoutAt(
+  stage: 'upload' | 'calibrating' | 'map' | 'selected' | 'several' | 'colours' | 'adding',
+) {
   return async (page: Page, seed: TheScreensSeed) => {
     const layout = new LayoutPage(page);
     if (stage === 'upload') {
@@ -248,7 +251,7 @@ function layoutAt(stage: 'upload' | 'calibrating' | 'map' | 'selected' | 'adding
       await expect(layout.uploadDropzone).toBeVisible();
       return;
     }
-    if (stage === 'map' || stage === 'selected' || stage === 'adding') {
+    if (stage !== 'calibrating') {
       await layout.goto(seed.laidOut.marketId, seed.laidOut.upper.id);
       await expect(layout.mapImage).toHaveAttribute('href', /^blob:/);
       await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
@@ -257,6 +260,21 @@ function layoutAt(stage: 'upload' | 'calibrating' | 'map' | 'selected' | 'adding
         await layout.clickAt([10_000, 11_000]);
         await expect(layout.selectionTitle).toHaveText('Silver aisle 1');
         await expect(layout.turnKnob).toBeVisible();
+      }
+      if (stage === 'several') {
+        // Every table selected: the card's count, its first ten codes, its fields reading
+        // "Mixed", and the Align menu beside its buttons.
+        await layout.clickAt([10_000, 11_000]);
+        await page.keyboard.press('Control+a');
+        await expect(layout.selectionTitle).toHaveText(
+          `${UPPER_HALL_TABLES.length} tables selected`,
+        );
+        await expect(layout.selectionAlign).toBeVisible();
+      }
+      if (stage === 'colours') {
+        // Gold row's colours, open under its row of the Sections card.
+        await layout.sectionColour('Gold row').click();
+        await expect(layout.paletteColour('Gold')).toBeFocused();
       }
       if (stage === 'adding') {
         await layout.toolAdd.click();
@@ -1241,6 +1259,22 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     deskOnly: true,
     open: layoutAt('selected'),
+  },
+  // Several at once (T257): every table selected, and a section's colours open in the panel, with
+  // the one table in no section counted under the sections.
+  {
+    name: 'the layout, several tables selected',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('several'),
+  },
+  {
+    name: "the layout, a section's colours",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('colours'),
   },
   {
     name: 'the layout, adding a table',

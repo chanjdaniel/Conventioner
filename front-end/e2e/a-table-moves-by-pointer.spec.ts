@@ -4,10 +4,11 @@ import { LayoutPage } from './pages/LayoutPage';
 import { seedLayout, storedLayoutTables, type SeedTable, type SeededLayout } from './helpers/seeds';
 
 /**
- * A table is placed, moved, turned and removed with the pointer (T257 ticket 04), on Upper Hall,
- * 30 m by 22.5 m. Every gesture is the pointer's own (`page.mouse`), and what it did is read from
- * the table's name on the map, the selection's card and the layout the server stored, never from
- * the page's state.
+ * A table is placed, moved, turned and removed with the pointer (T257 ticket 04), and several at
+ * once selected by a box, moved, turned, duplicated, lined up and removed together (ticket 05),
+ * on Upper Hall, 30 m by 22.5 m. Every gesture is the pointer's own (`page.mouse`), and what it
+ * did is read from the table's name on the map, the selection's card and the layout the server
+ * stored, never from the page's state.
  */
 const SIX_FOOT = { width: 1830, depth: 760 };
 
@@ -23,6 +24,8 @@ async function gold(request: APIRequestContext, marketId: string, number: number
   if (!table) throw new Error(`No Gold row ${number} is stored`);
   return table;
 }
+
+const gold_1 = (request: APIRequestContext, marketId: string) => gold(request, marketId, 1);
 
 async function open(
   page: Page,
@@ -61,8 +64,8 @@ test.describe('A table moves by pointer', () => {
       await expect(layout.table(GOLD_2)).toBeVisible();
     });
     await expect(layout.selectionTitle).toHaveText('Gold row 2');
-    await expect(layout.selectionSection).toHaveText('Gold row');
-    await expect(layout.selectionType).toHaveText('Standard 6 ft');
+    await expect(layout.selectionSection.locator('option:checked')).toHaveText('Gold row');
+    await expect(layout.selectionType.locator('option:checked')).toHaveText('Standard 6 ft');
     await expect(layout.selectionPosition).toHaveText('12.0 m, 9.0 m');
 
     // At its true size: a six foot table, 1,830 by 760 mm at the map's scale.
@@ -308,5 +311,286 @@ test.describe('A table moves by pointer', () => {
     expect((await gold(request, seeded.marketId, 1)).rotation).toBe(90);
     await expect(layout.redo).toBeDisabled();
     expect(await storedTables(request, seeded.marketId)).toHaveLength(2);
+  });
+
+  test('a box dragged on the floor selects the tables whose centre is in it, and Shift, Ctrl+A and Escape change the selection', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout } = await open(page, request, [
+      { section: 'sec-gold', at: [6000, 6000] },
+      { section: 'sec-gold', at: [10_000, 6000] },
+      { section: 'sec-gold', at: [14_000, 6000] },
+      { section: 'sec-silver', at: [10_000, 12_000] },
+    ]);
+
+    // The box ends over Gold row 2, past its centre and short of its right edge: its centre is
+    // in, so it is selected, and Gold row 3 and the table below are not.
+    await layout.drag([4000, 4500], [10_500, 8000], {
+      hold: async () => {
+        await expect(layout.selectBox).toBeVisible();
+        // What the box will take is selected as it is drawn.
+        await expect(layout.selectionTitle).toHaveText('2 tables selected');
+      },
+    });
+    await expect(layout.selectBox).toHaveCount(0);
+    await expect(layout.selectionCodes).toHaveText('Gold row 1, Gold row 2');
+    await expect(layout.table(GOLD_1)).toHaveAttribute('aria-pressed', 'true');
+    await expect(layout.table(GOLD_2)).toHaveAttribute('aria-pressed', 'true');
+    await expect(layout.table('Gold row 3, Standard 6 ft')).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+
+    // Shift and a click adds a table, and takes one out.
+    await layout.shiftClickAt([14_000, 6000]);
+    await expect(layout.selectionTitle).toHaveText('3 tables selected');
+    await layout.shiftClickAt([6000, 6000]);
+    await expect(layout.selectionCodes).toHaveText('Gold row 2, Gold row 3');
+
+    // A box drawn with Shift held adds its tables to those selected. It starts on the floor under
+    // the table: a press on a section's name, which stands over it, would move the name.
+    await page.keyboard.down('Shift');
+    await layout.drag([7000, 13_500], [13_000, 11_500]);
+    await page.keyboard.up('Shift');
+    await expect(layout.selectionCodes).toHaveText('Gold row 2, Gold row 3, Silver aisle 1');
+
+    // Escape selects nothing, Ctrl+A every table, and a press on the floor nothing again.
+    await page.keyboard.press('Escape');
+    await expect(layout.selection).toContainText('Select tables to change them.');
+    await page.keyboard.press('Control+a');
+    await expect(layout.selectionTitle).toHaveText('4 tables selected');
+    await layout.clickAt([22_000, 18_000]);
+    await expect(layout.selection).toContainText('Select tables to change them.');
+
+    // A box put back with Escape leaves the selection as it was.
+    await layout.clickAt([10_000, 12_000]);
+    await expect(layout.selectionTitle).toHaveText('Silver aisle 1');
+    await layout.drag([4000, 4500], [15_000, 8000], {
+      hold: async () => {
+        await expect(layout.selectionTitle).toHaveText('3 tables selected');
+        await page.keyboard.press('Escape');
+        await expect(layout.selectBox).toHaveCount(0);
+      },
+    });
+    await expect(layout.selectionTitle).toHaveText('Silver aisle 1');
+  });
+
+  test('several tables are dragged, turned, duplicated and removed together, each one step of undo', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request, [
+      { section: 'sec-gold', at: [6000, 6000] },
+      { section: 'sec-gold', at: [10_000, 6000] },
+      { section: 'sec-silver', at: [20_000, 15_000] },
+    ]);
+    const { scale } = await layout.onScreen([0, 0]);
+    const pixel = 1 / scale;
+    const golds = async () =>
+      (await storedTables(request, seeded.marketId))
+        .filter((table) => table.sectionId === 'sec-gold')
+        .sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
+
+    await layout.drag([4000, 4500], [12_000, 7500]);
+    await expect(layout.selectionCodes).toHaveText('Gold row 1, Gold row 2');
+
+    // Dragged by one of them, 4 m down the hall, both go, keeping their places beside each other.
+    // Alt: placed freely, so the distance is the pointer's own.
+    await page.keyboard.down('Alt');
+    await layout.saved(() => layout.drag([6000, 6000], [6000, 10_000]));
+    await page.keyboard.up('Alt');
+    let [first, second] = await golds();
+    expect(Math.abs(first.yMm - 10_000)).toBeLessThan(pixel);
+    expect(first.xMm).toBe(6000);
+    expect(second.xMm - first.xMm).toBe(4000);
+    expect(second.yMm).toBe(first.yMm);
+    const moved = first.yMm;
+    // The table left out of the selection stands where it stood.
+    const silver = (await storedTables(request, seeded.marketId)).find(
+      (table) => table.sectionId === 'sec-silver',
+    )!;
+    expect([silver.xMm, silver.yMm]).toEqual([20_000, 15_000]);
+
+    // R turns the two a quarter about the middle of the selection, as one.
+    await layout.saved(() => page.keyboard.press('r'));
+    [first, second] = await golds();
+    expect([first.rotation, second.rotation]).toEqual([90, 90]);
+    expect(first.xMm).toBe(8000);
+    expect(second.xMm).toBe(8000);
+    expect(first.yMm).toBeCloseTo(moved - 2000, 1);
+    expect(second.yMm).toBeCloseTo(moved + 2000, 1);
+
+    // One undo takes the whole turn back, and one more the whole drag.
+    await layout.saved(() => page.keyboard.press('Control+z'));
+    [first, second] = await golds();
+    expect([first.rotation, first.xMm, first.yMm]).toEqual([0, 6000, moved]);
+    expect([second.rotation, second.xMm, second.yMm]).toEqual([0, 10_000, moved]);
+    await layout.saved(() => page.keyboard.press('Control+z'));
+    [first, second] = await golds();
+    expect([first.yMm, second.yMm]).toEqual([6000, 6000]);
+    await expect(layout.undo).toBeDisabled();
+
+    // Duplicate puts a copy of each a table depth and 300 mm down, numbered on, and selects them.
+    await layout.saved(async () => {
+      await layout.selectionDuplicate.click();
+      await expect(layout.tables).toHaveCount(5);
+    });
+    await expect(layout.selectionCodes).toHaveText('Gold row 3, Gold row 4');
+    const four = await golds();
+    expect(four.map((table) => [table.number, table.xMm, table.yMm])).toEqual([
+      [1, 6000, 6000],
+      [2, 10_000, 6000],
+      [3, 6000, 7060],
+      [4, 10_000, 7060],
+    ]);
+
+    // Undone from the card's button, the copies go and the card empties: the focus goes to the
+    // map, not lost with the button. Redone, they are selected again by Shift and a click.
+    await layout.selectionDuplicate.focus();
+    await layout.saved(async () => {
+      await page.keyboard.press('Control+z');
+      await expect(layout.tables).toHaveCount(3);
+    });
+    await expect(layout.selection).toContainText('Select tables to change them.');
+    await expect(layout.map.locator('[data-table-id][tabindex="0"]')).toBeFocused();
+    await layout.saved(async () => {
+      await page.keyboard.press('Control+y');
+      await expect(layout.tables).toHaveCount(5);
+    });
+    await layout.clickAt([6000, 7060]);
+    await layout.shiftClickAt([10_000, 7060]);
+    await expect(layout.selectionCodes).toHaveText('Gold row 3, Gold row 4');
+
+    // Remove takes both copies, and one undo brings both back.
+    await layout.saved(async () => {
+      await layout.selectionRemove.click();
+      await expect(layout.tables).toHaveCount(3);
+    });
+    expect(await golds()).toHaveLength(2);
+    await layout.saved(async () => {
+      await layout.undo.click();
+      await expect(layout.tables).toHaveCount(5);
+    });
+    expect(await golds()).toHaveLength(4);
+    // And one more takes the duplicates away again: the whole Duplicate was one step.
+    await layout.saved(async () => {
+      await layout.undo.click();
+      await expect(layout.tables).toHaveCount(3);
+    });
+    await expect(layout.undo).toBeDisabled();
+  });
+
+  test('Align and Space evenly line up a ragged selection', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request, [
+      { section: 'sec-gold', at: [5000, 6000] },
+      { section: 'sec-gold', at: [9000, 6400] },
+      { section: 'sec-gold', at: [16_000, 5700] },
+      { section: 'sec-silver', at: [20_000, 15_000] },
+    ]);
+    const golds = async () =>
+      (await storedTables(request, seeded.marketId))
+        .filter((table) => table.sectionId === 'sec-gold')
+        .map((table) => [table.number, table.xMm, table.yMm]);
+
+    // One table has nothing to line up with: the menu comes with a second.
+    await layout.clickAt([5000, 6000]);
+    await expect(layout.selectionAlign).toHaveCount(0);
+    await layout.drag([2000, 3000], [19_000, 9000]);
+    await expect(layout.selectionTitle).toHaveText('3 tables selected');
+
+    await layout.saved(() => layout.align('Align top'));
+    expect(await golds()).toEqual([
+      [1, 5000, 5700],
+      [2, 9000, 5700],
+      [3, 16_000, 5700],
+    ]);
+    // The menu gave the focus back to its button.
+    await expect(layout.selectionAlign).toBeFocused();
+
+    await layout.saved(() => layout.align('Space evenly across'));
+    expect(await golds()).toEqual([
+      [1, 5000, 5700],
+      [2, 10_500, 5700],
+      [3, 16_000, 5700],
+    ]);
+
+    await layout.saved(() => layout.align('Align left'));
+    expect((await golds()).map(([, x]) => x)).toEqual([5000, 5000, 5000]);
+    // Each was one step: an undo spaces them again.
+    await layout.saved(() => layout.undo.click());
+    expect((await golds()).map(([, x]) => x)).toEqual([5000, 10_500, 16_000]);
+    // The table left out never moved.
+    const silver = (await storedTables(request, seeded.marketId)).find(
+      (table) => table.sectionId === 'sec-silver',
+    )!;
+    expect([silver.xMm, silver.yMm]).toEqual([20_000, 15_000]);
+  });
+
+  test("a section's colour and the place its name is dragged to survive a reload", async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request, [
+      { section: 'sec-gold', at: [6000, 6000] },
+      { section: 'sec-gold', at: [7830, 6000] },
+      { section: 'sec-silver', at: [20_000, 15_000] },
+    ]);
+    const styles = async () => {
+      const read = await request.get(`${BACKEND_URL}/markets/${seeded.marketId}`);
+      const { market } = (await read.json()) as {
+        market: {
+          setupObject: {
+            floorplans: {
+              sectionStyles: {
+                sectionId: string;
+                color: number;
+                labelAt: { xMm: number; yMm: number } | null;
+              }[];
+            }[];
+          };
+        };
+      };
+      return market.setupObject.floorplans[0].sectionStyles;
+    };
+
+    // Gold row is drawn in the first colour until another is chosen from its swatch.
+    await expect(layout.tableTop(GOLD_1)).toHaveAttribute('fill', 'var(--layout-section-1-fill)');
+    await layout.sectionColour('Gold row').click();
+    await expect(layout.paletteColour('Gold')).toHaveAttribute('aria-pressed', 'true');
+    await layout.saved(() => layout.paletteColour('Violet').click());
+    await expect(layout.tableTop(GOLD_1)).toHaveAttribute('fill', 'var(--layout-section-5-fill)');
+    await expect(layout.sectionColour('Gold row')).toBeFocused();
+    expect(await styles()).toEqual([{ sectionId: 'sec-gold', color: 5, labelAt: null }]);
+
+    // Its name is dragged from beside its tables out onto the floor.
+    const label = (await layout.sectionLabel('Gold row').boundingBox())!;
+    const to = await layout.onScreen([15_000, 3000]);
+    await layout.saved(async () => {
+      await page.mouse.move(label.x + label.width / 2, label.y + label.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(to.x, (label.y + to.y) / 2, { steps: 4 });
+      await page.mouse.move(to.x, to.y, { steps: 4 });
+      await page.mouse.up();
+    });
+    const pixel = 1 / to.scale;
+    const [gold] = await styles();
+    expect(gold.color).toBe(5);
+    expect(Math.abs(gold.labelAt!.xMm - 15_000)).toBeLessThan(pixel);
+    expect(Math.abs(gold.labelAt!.yMm - 3000)).toBeLessThan(pixel);
+    // No table moved, and none was selected by the drag.
+    expect((await gold_1(request, seeded.marketId)).xMm).toBe(6000);
+    await expect(layout.selection).toContainText('Select tables to change them.');
+
+    await page.reload();
+    await expect(layout.tables).toHaveCount(3);
+    await expect(layout.tableTop(GOLD_1)).toHaveAttribute('fill', 'var(--layout-section-5-fill)');
+    const after = (await layout.sectionLabel('Gold row').boundingBox())!;
+    const there = await layout.onScreen([gold.labelAt!.xMm, gold.labelAt!.yMm]);
+    expect(after.x + after.width / 2).toBeCloseTo(there.x, 0);
+    expect(after.y + after.height / 2).toBeCloseTo(there.y, 0);
   });
 });

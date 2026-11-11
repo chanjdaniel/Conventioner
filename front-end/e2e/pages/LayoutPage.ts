@@ -56,6 +56,12 @@ export class LayoutPage {
   readonly selectionCodes: Locator;
   readonly selectionTurn: Locator;
   readonly selectionRemove: Locator;
+  readonly selectionDuplicate: Locator;
+  readonly selectionAlign: Locator;
+  readonly selectBox: Locator;
+  readonly noSection: Locator;
+  readonly selectNoSection: Locator;
+  readonly startingCounts: Locator;
   readonly saveRetry: Locator;
   readonly saveReload: Locator;
 
@@ -110,6 +116,12 @@ export class LayoutPage {
     this.selectionCodes = page.getByTestId('layout-selection-codes');
     this.selectionTurn = page.getByTestId('layout-selection-turn');
     this.selectionRemove = page.getByTestId('layout-selection-remove');
+    this.selectionDuplicate = page.getByTestId('layout-selection-duplicate');
+    this.selectionAlign = page.getByTestId('layout-selection-align-button');
+    this.selectBox = this.map.getByTestId('layout-select-box');
+    this.noSection = page.getByTestId('layout-panel-no-section');
+    this.selectNoSection = page.getByTestId('layout-panel-select-no-section');
+    this.startingCounts = page.getByTestId('layout-panel-starting');
     this.saveRetry = page.getByTestId('layout-save-retry');
     this.saveReload = page.getByTestId('layout-save-reload');
   }
@@ -165,6 +177,51 @@ export class LayoutPage {
   /** The border a focused table draws over its own edge. */
   tableFocusBorder(name: string): Locator {
     return this.table(name).locator('[data-focus-border]');
+  }
+
+  /** A section's name on the map, the pill beside its tables. */
+  sectionLabel(name: string): Locator {
+    return this.sectionLabels.filter({ hasText: name });
+  }
+
+  /** A section's row of the "Sections" card, by its name. */
+  sectionRow(name: string): Locator {
+    return this.sections.getByTestId('layout-panel-section').filter({ hasText: name });
+  }
+
+  /** The button that opens a section's colours: its swatch, named "Gold row's colour". */
+  sectionColour(name: string): Locator {
+    return this.sections.getByRole('button', { name: `${name}'s colour`, exact: true });
+  }
+
+  /** A colour of the open palette, by its name ("Violet"). */
+  paletteColour(name: string): Locator {
+    return this.sections.getByTestId('layout-panel-palette').getByRole('button', {
+      name,
+      exact: true,
+    });
+  }
+
+  /** Choose an item of a section's row menu, as "Renumber by position (rows across the page)". */
+  async chooseForSection(name: string, item: string): Promise<void> {
+    await this.sectionRow(name)
+      .getByRole('button', { name: `${name}'s tables` })
+      .click();
+    await this.page.getByRole('menuitem', { name: item, exact: true }).click();
+  }
+
+  /** Choose an item of the selection card's Align menu, as "Align top". */
+  async align(item: string): Promise<void> {
+    await this.selectionAlign.click();
+    await this.page.getByRole('menuitem', { name: item, exact: true }).click();
+  }
+
+  /** Click a table at its centre with Shift held, which adds it to the selection or takes it out. */
+  async shiftClickAt(mm: [number, number]): Promise<void> {
+    const at = await this.onScreen(mm);
+    await this.page.keyboard.down('Shift');
+    await this.page.mouse.click(at.x, at.y);
+    await this.page.keyboard.up('Shift');
   }
 
   /** A no-table zone of the map, by its name ("No-table zone: Stage"). */

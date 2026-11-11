@@ -38,7 +38,7 @@ import LayoutCalibration from './LayoutCalibration.vue';
 import LayoutEditor from './LayoutEditor.vue';
 import LayoutMap from './LayoutMap.vue';
 import LayoutPanelSections from './LayoutPanelSections.vue';
-import LayoutPanelSelection from './LayoutPanelSelection.vue';
+import LayoutPanelSelection, { type Arrangement } from './LayoutPanelSelection.vue';
 import { metresAcross, pxPerMm, type Point } from './calibration';
 import { layoutSections } from './layoutDrawing';
 import { saveLayout, saveLayoutOnUnload, type UploadedFloorplan } from './layoutSave';
@@ -98,6 +98,12 @@ const editor = useLayoutEditor({
   onSaved: () => void refresh(),
   draft: () => !market.value?.setupLockReason,
   may: () => editable.value,
+  tableTypes: () => market.value?.setupObject?.tableTypes ?? [],
+  // The location's sections, by which a table whose section is gone is put in no section.
+  sectionIds: () =>
+    (market.value?.setupObject?.sections ?? [])
+      .filter((section) => section.id && section.location?.id === locationId.value)
+      .map((section) => section.id as string),
 });
 const floorplan = editor.layout;
 const saveState = editor.saveState;
@@ -137,17 +143,47 @@ const sections = computed(() =>
   floorplan.value ? layoutSections(floorplan.value, market.value?.setupObject?.sections ?? []) : [],
 );
 
-/** Remove the selection; the focus, which the card's button held, goes to the map's stop, or to
- * the toolbar when no table is left, rather than being lost with the button. */
-async function removeSelection() {
-  editor.removeTables(editor.selection.value);
-  await nextTick();
-  const next =
-    document.querySelector<SVGElement>(
-      '[data-testid="layout-map"] [data-table-id][tabindex="0"]',
-    ) ?? document.querySelector<HTMLElement>('[data-testid="layout-toolbar"] [tabindex="0"]');
-  next?.focus();
+/** The layout's tables in no section: of none, or of one that is gone or another location's. */
+const unsectioned = computed(() => {
+  const placed = new Set(sections.value.flatMap(({ tables }) => tables.map((table) => table.id)));
+  return (floorplan.value?.tables ?? []).filter((table) => !placed.has(table.id));
+});
+
+/** Duplicate the selection, and select the copies, which the next change is most likely for. */
+function duplicateSelection() {
+  const copies = editor.duplicate(editor.selection.value);
+  if (copies.length) editor.select(copies);
 }
+
+function arrangeSelection(how: Arrangement) {
+  if (how === 'across' || how === 'down') editor.distribute(editor.selection.value, how);
+  else editor.align(editor.selection.value, how);
+}
+
+function removeSelection() {
+  editor.removeTables(editor.selection.value);
+}
+
+/**
+ * When the selection empties its card's fields and buttons go, by "Remove" or by an undo that
+ * takes the selected tables away (Ctrl+Z after "Duplicate"); the focus one of them held goes to
+ * the map's stop, or to the toolbar when no table is left, rather than being lost with it.
+ */
+watch(
+  () => editor.selection.value.length,
+  async (now, before) => {
+    if (now > 0 || before === 0) return;
+    if (!document.activeElement?.closest('[data-testid="layout-panel-selection"]')) return;
+    await nextTick();
+    if (document.activeElement && document.activeElement !== document.body) return;
+    const next =
+      document.querySelector<SVGElement>(
+        '[data-testid="layout-map"] [data-table-id][tabindex="0"]',
+      ) ?? document.querySelector<HTMLElement>('[data-testid="layout-toolbar"] [tabindex="0"]');
+    next?.focus();
+  },
+  { flush: 'pre' },
+);
 
 /** The layout's pending change lands before a phase move reads the market. */
 async function flushLayout(): Promise<void> {
@@ -397,11 +433,21 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
               :tableTypes="tableTypes"
               @turn="turnSelection(editor, tableTypes, 90)"
               @remove="removeSelection"
+              @duplicate="duplicateSelection"
+              @arrange="arrangeSelection"
+              @section="editor.setSection(editor.selection.value, $event)"
+              @type="editor.setType(editor.selection.value, $event)"
             />
             <LayoutPanelSections
               class="layout-card"
               :locationName="location.name"
               :sections="sections"
+              :unsectioned="unsectioned.length"
+              :startingCounts="floorplan?.startingCounts ?? []"
+              :editable="editing"
+              @color="(sectionId, color) => editor.setSectionStyle(sectionId, { color })"
+              @renumber="editor.renumber($event)"
+              @selectUnsectioned="editor.select(unsectioned.map((table) => table.id))"
             />
             <section class="layout-card" data-testid="layout-panel-floorplan">
               <h2 class="layout-card-title">Floorplan</h2>

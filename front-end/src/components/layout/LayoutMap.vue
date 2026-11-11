@@ -17,7 +17,8 @@
  * table that way. In `read` a table pressed, by pointer, Enter or Space, emits `activate` with
  * its id. `edit` draws the selection's outline and the guides it is given, says each table pressed
  * or not as it is selected or not, and leaves what a press does to the editor round it, which may
- * draw over the map in its slot. `print` is a picture: no button, no stop. The map owns no editing
+ * draw over the map in its slot, and move a section's name, which carries its section's id for it.
+ * `print` is a picture: no button, no stop. The map owns no editing
  * state: its only state is which table has the focus.
  */
 import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
@@ -500,6 +501,7 @@ function onKeydown(event: KeyboardEvent) {
       v-for="label in labels"
       :key="label.id"
       class="layout-map__label"
+      :data-section-label="label.id"
       aria-hidden="true"
       data-testid="layout-map-label"
     >

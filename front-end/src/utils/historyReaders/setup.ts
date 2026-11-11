@@ -6,6 +6,7 @@
  * - `change-setup/plan`
  * - `change-setup/pricing`, its sentence and its rows
  * - `change-setup/floorplan`, a layout's save (T257) and the beta's (T272)
+ * - `change-setup/floorplan_removed`, a layout taken with its location (T257)
  * - `change-setup/floorplan_image_deleted`
  * - `change-form/form`
  * - `change-form/review_highlights`
@@ -118,7 +119,38 @@ function layoutClauses(detail: Detail, location: string): string[] {
   if (typeof detail.turned === 'number' && detail.turned > 0) {
     clauses.push(`turned ${plural(detail.turned, 'table', 'tables')}${where}`);
   }
+  // A section left or joined is renumbered to close the gap or to follow on, which the tables
+  // added and removed already say; a renumbering said on its own is Renumber by position's.
+  const renumbered = names(detail.renumbered);
+  if (renumbered.length && !('added' in detail) && !('removed' in detail)) {
+    clauses.push(`renumbered ${listed(renumbered)}${where}`);
+  }
+  clauses.push(...ofSections(detail.colours, 'changed', 'colour', 'colours', where));
+  clauses.push(...ofSections(detail.labels, 'moved', 'label', 'labels', where));
   return clauses.length ? clauses : [`changed ${whose} layout`];
+}
+
+/** The section names a layout's save recorded under a field. */
+function names(recorded: unknown): string[] {
+  return Array.isArray(recorded)
+    ? recorded.filter((name): name is string => typeof name === 'string')
+    : [];
+}
+
+/** What a save did to a thing each section has: "changed Gold row's colour in Upper Hall", or
+ * for several "changed the colours of Gold row and Silver aisle in Upper Hall". */
+function ofSections(
+  recorded: unknown,
+  verb: string,
+  one: string,
+  many: string,
+  where: string,
+): string[] {
+  const sections = names(recorded);
+  if (!sections.length) return [];
+  return sections.length === 1
+    ? [`${verb} ${sections[0]}'s ${one}${where}`]
+    : [`${verb} the ${many} of ${listed(sections)}${where}`];
 }
 
 /** The key `layout.describe_change` counts tables of no section under (`IN_NO_SECTION`). */
@@ -356,6 +388,19 @@ export const readers: HistoryReaders = {
         changed: floorplanChanges(asDetail(detail.before), asDetail(detail.after), path),
         recorded: [],
       };
+    },
+  },
+  'change-setup/floorplan_removed': {
+    parts(entry, context) {
+      const { actor, text, detail } = sentence(entry, context);
+      const location = str(entry.subject.location);
+      const tables = asDetail(detail.before).tables;
+      const of =
+        typeof tables === 'number' && tables > 0 ? ` of ${plural(tables, 'table', 'tables')}` : '';
+      return [
+        actor,
+        text(`removed ${location ? `${location}'s` : 'a'} layout${of} with its location`),
+      ];
     },
   },
   'change-setup/floorplan_image_deleted': {

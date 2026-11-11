@@ -42,6 +42,7 @@ describes:
   - front-end/src/components/layout/LayoutPanelSelection.vue
   - front-end/src/components/layout/useLayoutEditor.ts
   - front-end/src/components/layout/layoutSelection.ts
+  - front-end/src/components/elements/ElementLocationSetup.vue
 verified: 2026-11-11
 sources:
   - bug/38
@@ -111,14 +112,22 @@ The geometry is pure, in [`layoutGeometry.ts`](../../../front-end/src/components
 [`LayoutEditor.vue`](../../../front-end/src/components/layout/LayoutEditor.vue) is the map column of a calibrated layout for a person who may change it: a toolbar, the map on a stage that pans and zooms, and a hint line.
 It draws the working copy through [the drawing](#the-drawing) in `edit` mode and turns the pointer and the keys into the model's commands; it holds no table of its own.
 
-- **The model is [`useLayoutEditor.ts`](../../../front-end/src/components/layout/useLayoutEditor.ts)**, held by the page: the layout's working copy, never changed in place, the selection, and the commands `addTables`, `moveTables`, `turnTables` and `removeTables`.
+- **The model is [`useLayoutEditor.ts`](../../../front-end/src/components/layout/useLayoutEditor.ts)**, held by the page: the layout's working copy, never changed in place, the selection, and the commands `addTables`, `moveTables`, `turnTables`, `removeTables`, and for many at once `setSection`, `setType`, `duplicate`, `align`, `distribute`, `renumber` and `setSectionStyle`.
   A new table takes its section's next number, a move stops where a centre meets the floorplan's edge, a turn of several goes about the middle of the box they stand in ([`layoutSelection.ts`](../../../front-end/src/components/layout/layoutSelection.ts)), those carried past a wall coming back inside together (`shiftInside`), and of one about its own centre, and a removal in a draft closes the gap in its section's numbers, so a section is always numbered 1 to N, as the save requires.
   Positions are kept to 0.1 mm and turns to 0.01°.
-- **Undo and redo** hold the tables as they stood, whole, for the last 200 changes; they cross saves, not page loads, and each is a change that saves in turn.
-  A drag or a turn by the handle is one change: between `begin` and `end` each frame replaces the last, and `cancel` (Escape) puts the tables back.
+- **Many tables at once**: tables put in another section are numbered after its own, in the order of the numbers they had, and the sections they left close their gaps; put in no section they lose their numbers.
+  A duplicate stands one table depth and 300 mm down from its original, or, where that would cover a table or a no-table zone or leave the floorplan, at the next free place to the right of the selection, then to its left, then up the page (`duplicateOffset`, which judges turned tables as they stand, `shapesOverlap`), and is numbered on in its section.
+  `align` brings the boxes the tables stand in to one edge or one centre and `distribute` makes the gaps between them equal, the outer two staying (`alignMoves`, `spreadMoves`).
+  `renumber` numbers a section in reading order: rows from the top, each from the left, a row being the tables whose centres stand within half a table's depth of the row's first (`readingOrder`).
+  `setSectionStyle` keeps a section's colour of the palette or the place of its name in the layout's `sectionStyles`; a section with no style yet keeps the colour it was drawn in.
+- **A table whose section is gone** (removed on Section Setup, or moved to another location) is drawn and listed as in no section, and the editor's next change stores it so, without its section and its number (`inNoSection`): the page tells the model the location's sections.
+  Until then the stored table still names the section that is gone.
+- **Undo and redo** hold the tables and the sections' styles as they stood, whole, for the last 200 changes; they cross saves, not page loads, and each is a change that saves in turn.
+  A drag of tables or of a section's name, or a turn by the handle, is one change: between `begin` and `end` each frame replaces the last, and `cancel` (Escape) puts the layout back.
+  A save whose wait runs out under a gesture sends the layout as the gesture found it, so one put back leaves the server holding what the page shows.
   The layout's own fields (its start, its image, its scale) are written at once by `write`, outside undo, since an undone image would name one the save deleted.
 - **It saves through the app's one queue**, `useAutosave` ([the plan's autosave](plan-autosave.md#the-queue)), told to keep the working copy on a refusal (`keepOnRefusal`): 600 ms after the last change, one write at a time, a change made while a write is out sent when its answer is in, with the revision that answer gave.
-  The answer's revision and the fields the server owns are taken; the tables stay the working copy's.
+  The answer's revision and the fields the server owns are taken; the tables and the sections' styles stay the working copy's.
   A save that fails or is refused keeps the working copy and says the sentence with Retry, and the next change sends it again; one refused as stale ("This layout changed elsewhere. Reload to see the latest.") sends nothing more until Reload takes the server's layout, dropping the working copy and its undo.
   A write of the layout's own fields refused as stale puts the layout back as it was read.
   A re-read of the market that brings a newer layout is taken only while nothing is unsaved and no drag is in hand.
@@ -128,14 +137,26 @@ It draws the working copy through [the drawing](#the-drawing) in `edit` mode and
 - **The toolbar** is a `role="toolbar"` with one Tab stop and the arrow keys, Home and End between its buttons: Select and Add table (toggles, `aria-pressed`), Undo, Redo, Zoom out, Zoom in, Fit and the zoom's percentage; when a press empties Undo or Redo the focus goes to the other.
   With Add table on, an options strip under it holds Section (the location's sections, and "No section") and Table type.
 - **Select**: a press on a table selects it, Shift or Ctrl adding it or taking it out, and a press on the floor selects nothing; Enter or Space on a focused table selects it too; with the pointer over the map, Space is the panning hand instead.
+  A drag on the floor draws a box that selects every table whose centre is in it (`tablesInBox`), as it is drawn, beside those already selected when Shift or Ctrl is held; Escape puts the selection back as the box found it.
+  Ctrl+A selects every table and Escape none, while the map has the focus, or nothing has and the pointer is over the map.
+  A section's name is dragged to where it should stand, which the layout keeps as its style's `labelAt`; a press on a name is therefore no press on the floor under it.
   A drag moves the selection, snapping each moving table's edges and centre to those of the tables that stand still within 8 screen px, the nearest pair winning each axis (`snapMove`), with a guide drawn along the line they share; only a still table within 5 m along that line is read, so a table lines up with its neighbours and across an aisle, not with one across the hall; Alt places freely.
   The handle over the selection's box, a 14 px knob the editor draws in the map's slot, turns it in 15° steps (Alt: freely); R, and "Turn 90°" on the selection's card, turn it a quarter.
 - **Add table**: a click places a table of the strip's section and type at the point, and the tool stays on.
 - **The view** is a camera, a point of the hall at the stage's middle and a scale, 10% to 800% (`fitCamera`, `zoomedAbout`, `steppedZoom`): the wheel or two fingers pan, Ctrl and the wheel or a pinch zoom about the pointer (a mouse's notch a quarter at most), Space and a drag or the middle button pan, the wheel does nothing under a drag in hand, the buttons step through round percentages, and Fit shows the whole floorplan.
   The stage is the floorplan's shape, never taller than leaves the toolbar and the hint on the screen, and round the hall it is a pasteboard a step darker than the floor.
 - **Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y** undo and redo, and R turns, from anywhere on the page but a field or under an open dialog (`[role="dialog"][aria-modal="true"]`, the app's).
-- **The focus is never left on a control that went**: when Undo or Redo empties under the focus it goes to the other of the two, else to Select, and after "Remove" to the map's stop, else to the toolbar.
-- **The selection's card** ([`LayoutPanelSelection.vue`](../../../front-end/src/components/layout/LayoutPanelSelection.vue)) heads the panel: "Select tables to change them.", or one table's code, section, type and its centre in metres from the floorplan's top-left corner, or "3 tables selected" and their codes, with "Turn 90°" and "Remove", which asks nothing, since Undo takes it back.
+- **The focus is never left on a control that went**: when Undo or Redo empties under the focus it goes to the other of the two, else to Select, and when the selection empties under a control of its card, by "Remove" or by an undo that takes the selected tables away, to the map's stop, else to the toolbar.
+- **The selection's card** ([`LayoutPanelSelection.vue`](../../../front-end/src/components/layout/LayoutPanelSelection.vue)) heads the panel: "Select tables to change them.", or one table's code, section, type and its centre in metres from the floorplan's top-left corner, or "3 tables selected" and their codes, the first ten of many.
+  Its Section and Table type fields change the selection's, each reading "Mixed" while the selected tables differ; "Turn 90°", "Duplicate", which selects the copies, and "Remove", which asks nothing, since Undo takes it back; and for several an Align menu ([`RowMenu.vue`](../../../front-end/src/components/RowMenu.vue)): left, centre, right, top, middle, bottom, and space evenly across and down.
+- **The Sections card** ([`LayoutPanelSections.vue`](../../../front-end/src/components/layout/LayoutPanelSections.vue)), for someone editing: a section's swatch is a button that opens the palette's eight colours under its row, the one it wears pressed, and its row's menu has "Renumber by position (rows across the page)".
+  Under the list it counts the tables in no section ("3 tables are in no section") with "Select them", and says what Section Setup had for each section that has fewer tables than when the layout began ("Section Setup had Gold row at 13: 9 placed.").
+  A reader sees the count of tables in no section and none of the controls.
+
+**Leaving Draft waits on tables in no section**: `LayoutTablesHaveSectionsGuard` ([the guards](guards.md)) refuses `draft -> applications` while a layout has any (`layout.tables_in_no_section`: of no section, of one that is gone, or of another location's), naming the location and how many, with "Open the layout" leading to that location's layout.
+
+**Removing a location that has a layout asks first** ([`ElementLocationSetup.vue`](../../../front-end/src/components/elements/ElementLocationSetup.vue), on [`AppDialog`](../conventions/dialogs.md)): "Remove Upper Hall?", "Its layout of 49 tables goes with it.", "Remove location and layout" and Cancel, on which it opens; the plan's next save then drops the layout with its location.
+A location with no layout is removed at once.
 
 Section Setup reads a laid-out location's counts from its layout: the Count cell of such a section is the number of the layout's tables in it with "from the layout" under it, and no field, since `derive_counts` sets it on every write ([`ElementSectionSetup.vue`](../../../front-end/src/components/elements/ElementSectionSetup.vue)).
 

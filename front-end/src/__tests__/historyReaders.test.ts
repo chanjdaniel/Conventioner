@@ -70,6 +70,7 @@ const SENTENCES = [
   'change-owed/owed_set',
   'change-setup/floorplan',
   'change-setup/floorplan_image_deleted',
+  'change-setup/floorplan_removed',
   'change-setup/plan',
   'change-setup/pricing',
   'change-setup/renamed',

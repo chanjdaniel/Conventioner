@@ -622,3 +622,230 @@ export function steppedZoom(pxPerMm: number, direction: 1 | -1): number {
       : [...ZOOM_STEPS].reverse().find((step) => step < percent - 0.5);
   return next === undefined ? clampZoom(pxPerMm) : (next / 100) * PX_PER_MM_AT_100;
 }
+
+// ── Many tables at once ──────────────────────────────────────────────────────
+
+/** The box between two points, whichever corner it was drawn from. */
+export function boxBetween(a: PointMm, b: PointMm): Bounds {
+  return {
+    left: Math.min(a.xMm, b.xMm),
+    top: Math.min(a.yMm, b.yMm),
+    right: Math.max(a.xMm, b.xMm),
+    bottom: Math.max(a.yMm, b.yMm),
+  };
+}
+
+/** The tables a box drawn on the floor selects: those whose centre is in it, its edge included. */
+export function tablesInBox<T extends PointMm & { id: string }>(
+  tables: readonly T[],
+  box: Bounds,
+): string[] {
+  return tables
+    .filter(
+      (table) =>
+        table.xMm >= box.left &&
+        table.xMm <= box.right &&
+        table.yMm >= box.top &&
+        table.yMm <= box.bottom,
+    )
+    .map((table) => table.id);
+}
+
+/** A move of one table, in millimetres. */
+export interface MoveMm {
+  dxMm: number;
+  dyMm: number;
+}
+
+export type Alignment = 'left' | 'centre' | 'right' | 'top' | 'middle' | 'bottom';
+
+/**
+ * The move that lines each box up with the others: every left edge to the leftmost, right to the
+ * rightmost, top to the topmost, bottom to the lowest, or every centre to the middle of the box
+ * that holds them all, across (`centre`) or down (`middle`). A turned table is read by the box it
+ * stands in.
+ */
+export function alignMoves(boxes: readonly Bounds[], how: Alignment): MoveMm[] {
+  const all = unionOf(boxes);
+  if (!all) return [];
+  return boxes.map((box) => {
+    switch (how) {
+      case 'left':
+        return { dxMm: all.left - box.left, dyMm: 0 };
+      case 'right':
+        return { dxMm: all.right - box.right, dyMm: 0 };
+      case 'centre':
+        return { dxMm: (all.left + all.right) / 2 - (box.left + box.right) / 2, dyMm: 0 };
+      case 'top':
+        return { dxMm: 0, dyMm: all.top - box.top };
+      case 'bottom':
+        return { dxMm: 0, dyMm: all.bottom - box.bottom };
+      case 'middle':
+        return { dxMm: 0, dyMm: (all.top + all.bottom) / 2 - (box.top + box.bottom) / 2 };
+    }
+  });
+}
+
+/**
+ * The move that spaces boxes evenly across or down the page: read in the order they stand, the
+ * first and the last stay where they are and the others move so the gaps between neighbours are
+ * equal. Fewer than three have nothing to space.
+ */
+export function spreadMoves(boxes: readonly Bounds[], axis: 'across' | 'down'): MoveMm[] {
+  const still = boxes.map(() => ({ dxMm: 0, dyMm: 0 }));
+  if (boxes.length < 3) return still;
+  const near = (box: Bounds) => (axis === 'across' ? box.left : box.top);
+  const far = (box: Bounds) => (axis === 'across' ? box.right : box.bottom);
+  const order = boxes
+    .map((box, index) => ({ box, index }))
+    .sort((a, b) => near(a.box) + far(a.box) - (near(b.box) + far(b.box)) || a.index - b.index);
+  const taken = order.reduce((sum, { box }) => sum + far(box) - near(box), 0);
+  const gap = (far(order[order.length - 1].box) - near(order[0].box) - taken) / (order.length - 1);
+  let edge = near(order[0].box);
+  for (const { box, index } of order) {
+    const by = edge - near(box);
+    still[index] = axis === 'across' ? { dxMm: by, dyMm: 0 } : { dxMm: 0, dyMm: by };
+    edge += far(box) - near(box) + gap;
+  }
+  // The last is where it was but for a float's width: it stays exactly.
+  still[order[order.length - 1].index] = { dxMm: 0, dyMm: 0 };
+  return still;
+}
+
+/** Whether two convex shapes, each its corners in order, share any floor; shapes that only touch
+ *  do not. Turned tables are judged as they stand, not by the boxes round them. */
+export function shapesOverlap(a: readonly PointMm[], b: readonly PointMm[]): boolean {
+  for (const shape of [a, b]) {
+    for (let i = 0; i < shape.length; i += 1) {
+      const from = shape[i];
+      const to = shape[(i + 1) % shape.length];
+      // The line across this edge: the shapes are apart when their shadows on it are.
+      const axis = { x: to.yMm - from.yMm, y: from.xMm - to.xMm };
+      const length = Math.hypot(axis.x, axis.y);
+      if (length === 0) continue;
+      const shadow = (shape: readonly PointMm[]) => {
+        const along = shape.map((corner) => (corner.xMm * axis.x + corner.yMm * axis.y) / length);
+        return [Math.min(...along), Math.max(...along)];
+      };
+      const [aNear, aFar] = shadow(a);
+      const [bNear, bFar] = shadow(b);
+      // A thousandth of a millimetre of float error is touching, not sharing.
+      if (aFar <= bNear + 1e-3 || bFar <= aNear + 1e-3) return false;
+    }
+  }
+  return true;
+}
+
+/** A box's four corners, clockwise from its top-left. */
+export function cornersOf(box: Bounds): PointMm[] {
+  return [
+    { xMm: box.left, yMm: box.top },
+    { xMm: box.right, yMm: box.top },
+    { xMm: box.right, yMm: box.bottom },
+    { xMm: box.left, yMm: box.bottom },
+  ];
+}
+
+/** How far a duplicate stands clear of its original, beyond a table's depth or the selection. */
+export const DUPLICATE_GAP_MM = 300;
+
+/**
+ * Where the duplicates of a selection go, as one move from their originals: one table depth and
+ * 300 mm down the page; or, where that would put one over a table or a no-table zone (`taken`,
+ * the originals among them) or carry a centre out of the hall, the next free place to the right,
+ * a selection's width and 300 mm at a time, then to the left, then up the page. With no free place
+ * anywhere they go the first of those ways that stays in the hall, over what stands there, for the
+ * organizer to move. `shapes` are the selected tables' corners
+ * as they stand turned, and a table's centre the middle of its corners.
+ */
+export function duplicateOffset(
+  shapes: readonly (readonly PointMm[])[],
+  taken: readonly (readonly PointMm[])[],
+  depthMm: number,
+  hall: Hall | null,
+): MoveMm {
+  const down = { dxMm: 0, dyMm: depthMm + DUPLICATE_GAP_MM };
+  const xs = shapes.flatMap((shape) => shape.map((corner) => corner.xMm));
+  if (!xs.length) return down;
+  const middle = (shape: readonly PointMm[]) => ({
+    xMm: shape.reduce((sum, corner) => sum + corner.xMm, 0) / shape.length,
+    yMm: shape.reduce((sum, corner) => sum + corner.yMm, 0) / shape.length,
+  });
+  const inside = (by: MoveMm) =>
+    !hall ||
+    shapes.every((shape) => {
+      const centre = middle(shape);
+      const x = centre.xMm + by.dxMm;
+      const y = centre.yMm + by.dyMm;
+      return x >= 0 && x <= hall.widthMm && y >= 0 && y <= hall.heightMm;
+    });
+  const free = (by: MoveMm) =>
+    inside(by) &&
+    !shapes.some((shape) => {
+      const copy = shape.map((corner) => ({
+        xMm: corner.xMm + by.dxMm,
+        yMm: corner.yMm + by.dyMm,
+      }));
+      return taken.some((other) => shapesOverlap(copy, other));
+    });
+  if (free(down)) return down;
+  const step = Math.max(...xs) - Math.min(...xs) + DUPLICATE_GAP_MM;
+  // To the right first, then, against the east wall, to the left and up the page. Without a hall
+  // to end a search, a hundred places is far enough.
+  const ways: MoveMm[] = [
+    { dxMm: step, dyMm: 0 },
+    { dxMm: -step, dyMm: 0 },
+    { dxMm: 0, dyMm: -down.dyMm },
+  ];
+  for (const way of ways) {
+    for (let place = 1; place <= 100; place += 1) {
+      const there = { dxMm: way.dxMm * place, dyMm: way.dyMm * place };
+      if (!inside(there)) break;
+      if (free(there)) return there;
+    }
+  }
+  // Nowhere is free: the first way that stays in the hall, over what stands there, for the
+  // organizer to move, and down only where none does.
+  return [down, ...ways].find(inside) ?? down;
+}
+
+/**
+ * Tables in reading order, as Renumber by position numbers a section: in rows from the top of the
+ * page, each row from the left. A row is the tables whose centres stand within half a table's
+ * depth of the row's first, the highest not yet in a row, so a ragged row is still one row; a
+ * turned table's depth is that of the box it stands in. Two on one spot keep the order given.
+ */
+export function readingOrder<T extends PointMm>(
+  tables: readonly T[],
+  boundsOf: (table: T) => Bounds,
+): T[] {
+  const left = tables
+    .map((table, index) => ({ table, index }))
+    .sort((a, b) => a.table.yMm - b.table.yMm || a.index - b.index);
+  const ordered: T[] = [];
+  while (left.length) {
+    const first = left[0];
+    const box = boundsOf(first.table);
+    const reach = (box.bottom - box.top) / 2;
+    const row = left.filter(({ table }) => table.yMm - first.table.yMm <= reach);
+    left.splice(0, row.length);
+    row.sort((a, b) => a.table.xMm - b.table.xMm || a.index - b.index);
+    ordered.push(...row.map(({ table }) => table));
+  }
+  return ordered;
+}
+
+/**
+ * The tables with each one whose section is not among `sectionIds` put in no section, numberless:
+ * a section removed on Section Setup, or moved to another location, leaves its tables on the
+ * layout. The same array when every table's section stands.
+ */
+export function inNoSection<T extends Numbered>(
+  tables: readonly T[],
+  sectionIds: readonly string[],
+): readonly T[] {
+  const own = new Set(sectionIds);
+  const lost = (table: T) => table.sectionId !== null && !own.has(table.sectionId);
+  if (!tables.some(lost)) return tables;
+  return tables.map((table) => (lost(table) ? { ...table, sectionId: null, number: null } : table));
+}

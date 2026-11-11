@@ -6,6 +6,8 @@ its number. The word "layout" is what an organizer reads; the code and the route
 
 - ``derive_counts``: a laid-out location's sections count its tables, so the solver and every
   reader read true counts; ``prepared_plan`` runs it on every write of the plan.
+- ``tables_in_no_section``: the tables of a layout no section counts, which keep a market in draft
+  (``guards.LayoutTablesHaveSectionsGuard``).
 - ``layout_refusal``: the rules a saved layout keeps (its location, its numbering, its types, its
   tables inside the floorplan).
 - ``layout_seats`` and ``settled_layout_refusal``: what of a layout settles on leaving draft, the
@@ -79,6 +81,14 @@ def derive_counts(plan: SetupObject) -> SetupObject:
         for section in plan.sections
     ]
     return plan.model_copy(update={"sections": sections})
+
+
+def tables_in_no_section(floorplan: FloorplanObject, plan: SetupObject) -> List[FloorplanTable]:
+    """A layout's tables that are in no section: of none, of one that is gone, or of another
+    location's. They count for no section (``derive_counts``), so no vendor can be placed at them.
+    """
+    own = {section.id for section in _sections_of(plan, floorplan.location_id)}
+    return [table for table in floorplan.tables if table.section_id not in own]
 
 
 def _extent_mm(floorplan: FloorplanObject) -> Optional[Tuple[float, float]]:
@@ -195,7 +205,8 @@ def describe_change(
     named as ``plan`` names them; empty when it changed nothing.
 
     ``started`` on a layout's first save; ``added`` and ``removed``, tables counted per section
-    name (a table that changed section left one and joined the other); ``moved`` and ``turned``,
+    name (a table that changed section left one and joined the other, a section the plan no longer
+    has reading as none); ``moved`` and ``turned``,
     how many tables; ``renumbered``, the sections whose tables kept their section and changed
     number; ``zones``, how many were added, changed and removed; ``image``, ``"replaced"``;
     ``scale``, the floorplan's metres across before and after; ``colours`` and ``labels``, the
@@ -207,11 +218,18 @@ def describe_change(
         change["started"] = True
     was = {table.id: table for table in (before.tables if before else [])}
     now = {table.id: table for table in after.tables}
+    known = {section.id for section in plan.sections}
+
+    def section_of(table: FloorplanTable) -> Optional[str]:
+        """A table's section, None when it names none or one the plan no longer has: a table of
+        a section removed on Section Setup was in no section already, so the save that stores it
+        so moved it nowhere."""
+        return table.section_id if table.section_id in known else None
 
     left = [table for table_id, table in was.items()
-            if table_id not in now or now[table_id].section_id != table.section_id]
+            if table_id not in now or section_of(now[table_id]) != section_of(table)]
     joined = [table for table_id, table in now.items()
-              if table_id not in was or was[table_id].section_id != table.section_id]
+              if table_id not in was or section_of(was[table_id]) != section_of(table)]
     if joined:
         change["added"] = _per_section(plan, joined)
     if left:

@@ -1,6 +1,15 @@
 <script setup lang="ts">
-import { ref, toRef, watch } from 'vue';
+/**
+ * Market Setup's Location Setup: the market's locations, each a name.
+ *
+ * A location that has a layout takes it with it when it is removed (the plan write drops a layout
+ * whose location is gone, T257), so its Remove asks first, naming the tables that would go, and
+ * Cancel keeps both. A location with no layout is removed at once.
+ */
+import { computed, nextTick, ref, toRef, watch } from 'vue';
 import { type SetupObject } from '@/assets/types/datatypes';
+import AppDialog from '@/components/AppDialog.vue';
+import { plural } from '@/utils/historyReaders/shared';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { type LocationObject } from '@/assets/types/datatypes';
@@ -34,11 +43,46 @@ const addRow = () => {
   locationObjects.value.push(newLocation);
 };
 
+/** The location whose removal is asked about, one with a layout, and whether the question is up:
+ * the location stays named while the dialog closes, so its title never loses the name. */
+const asking = ref<{ id: string; name: string; tables: number } | null>(null);
+const askingOpen = ref(false);
+const addButton = ref<HTMLButtonElement | null>(null);
+
+const askingSentence = computed(() =>
+  asking.value?.tables
+    ? `Its layout of ${plural(asking.value.tables, 'table', 'tables')} goes with it.`
+    : 'Its layout goes with it.',
+);
+
 const removeRow = (index: number | null) => {
-  if (index != null) {
-    locationObjects.value.splice(index, 1);
+  if (index == null) return;
+  const location = locationObjects.value[index];
+  const layout = location?.id
+    ? (setupObject.value.floorplans ?? []).find((one) => one.locationId === location.id)
+    : undefined;
+  if (location?.id && layout) {
+    asking.value = {
+      id: location.id,
+      name: location.name.trim() || 'this location',
+      tables: layout.tables.length,
+    };
+    askingOpen.value = true;
+    return;
   }
+  locationObjects.value.splice(index, 1);
 };
+
+/** Remove the location asked about; its Remove button goes with its row, so the focus goes to
+ * "Add a location" rather than being lost. */
+async function removeAsked() {
+  const index = locationObjects.value.findIndex((location) => location.id === asking.value?.id);
+  askingOpen.value = false;
+  if (index < 0) return;
+  locationObjects.value.splice(index, 1);
+  await nextTick();
+  addButton.value?.focus();
+}
 </script>
 
 <template>
@@ -79,6 +123,7 @@ const removeRow = (index: number | null) => {
         </button>
       </div>
       <button
+        ref="addButton"
         type="button"
         class="add-row"
         aria-label="Add a location"
@@ -88,6 +133,19 @@ const removeRow = (index: number | null) => {
         <IconAddRound class="add-row__icon" />
       </button>
     </div>
+    <AppDialog
+      :open="askingOpen"
+      :title="`Remove ${asking?.name ?? ''}?`"
+      testid="remove-location"
+      confirm-label="Remove location and layout"
+      destructive
+      @close="askingOpen = false"
+      @submit="removeAsked"
+    >
+      <p class="remove-location-text" data-testid="remove-location-sentence">
+        {{ askingSentence }}
+      </p>
+    </AppDialog>
   </div>
 </template>
 
@@ -173,6 +231,12 @@ input[type='number'] {
   background: none;
   border: none;
   cursor: pointer;
+}
+
+.remove-location-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .icon-close-round {

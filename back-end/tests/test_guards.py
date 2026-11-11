@@ -390,7 +390,7 @@ class TestRejectionRulesDecidedGuard:
         ids = [guard.id for guard in TRANSITION_GUARDS[("draft", "applications")]]
         assert ids == [
             "setup_has_dates", "setup_has_a_location", "every_tier_has_tables",
-            "price_groups_stand", "form_has_fields", "review_highlights_decided",
+            "layout_tables_have_sections", "price_groups_stand", "form_has_fields", "review_highlights_decided",
             "rejection_rules_decided", "responses_imported",
         ]
 
@@ -646,11 +646,11 @@ class TestGuardDesignProperties:
         assert len(guard.description) > 0
 
     def test_adding_guard_is_only_a_dict_entry(self):
-        # The four parts of a complete setup (E31/F01/S01, E43/F01/S02), the form, what a reviewer
-        # reads first and the automatic rejections (T206), and a Google Form market's import
-        # (E38/F04/S01): eight list entries.
+        # The five parts of a complete setup (E31/F01/S01, E43/F01/S02, T257), the form, what a
+        # reviewer reads first and the automatic rejections (T206), and a Google Form market's
+        # import (E38/F04/S01): nine list entries.
         guards = TRANSITION_GUARDS[("draft", "applications")]
-        assert len(guards) == 8
+        assert len(guards) == 9
 
 
 class TestAllApplicationsReviewedGuard:
@@ -1154,6 +1154,10 @@ class TestEveryResolutionLinkPointsAtItsFix:
         # The import flow, which has its own address (E32/F02/S01: the fix for an empty review).
         "import",
     }
+    #: A location's layout, `layout/<location id>` (T257): the one link that names which of a
+    #: market's pages of a kind it leads to, so it is written with the id and read here by what it
+    #: begins with. The market's bare `layout` redirects to its first location's and is refused.
+    ALLOWED_WITH_AN_ID = {"layout/"}
     #: A redirect (the panel cannot follow a hop - the ``?tab=`` pages and ``tables`` are the old
     #: addresses), or an absolute path (a link is relative to the market's own screens; the id-less
     #: paths redirect).
@@ -1168,6 +1172,7 @@ class TestEveryResolutionLinkPointsAtItsFix:
         "/market-setup?tab=applications",
         "/market-setup?tab=assignment",
         "/assignment-results",
+        "layout",
     }
 
     def _link_nodes(self):
@@ -1190,13 +1195,26 @@ class TestEveryResolutionLinkPointsAtItsFix:
     def _links(self):
         return [n.value for n in self._link_nodes() if isinstance(n, ast.Constant)]
 
+    def _a_page_with_an_id(self, node) -> bool:
+        """Whether a link is one of ``ALLOWED_WITH_AN_ID``'s pages followed by one value and nothing
+        else, as ``f"layout/{...}"`` is."""
+        if not (isinstance(node, ast.JoinedStr) and len(node.values) == 2):
+            return False
+        page, value = node.values
+        return (isinstance(page, ast.Constant) and page.value in self.ALLOWED_WITH_AN_ID
+                and isinstance(value, ast.FormattedValue))
+
     def test_the_guards_declare_some_links(self):
         """Guards against the scan silently finding nothing and passing everything below."""
         assert len([link for link in self._links() if link is not None]) >= 2
 
     def test_every_link_is_a_literal_this_test_can_read(self):
-        """A computed link would slip past the scan, so it is refused rather than skipped."""
-        unreadable = [ast.dump(n) for n in self._link_nodes() if not isinstance(n, ast.Constant)]
+        """A computed link would slip past the scan, so it is refused rather than skipped: all but
+        a page that takes an id, whose page is still a literal."""
+        unreadable = [
+            ast.dump(n) for n in self._link_nodes()
+            if not isinstance(n, ast.Constant) and not self._a_page_with_an_id(n)
+        ]
         assert unreadable == [], (
             "resolution_link must be a literal so this rule can check it; "
             f"found {unreadable}"
@@ -1238,6 +1256,7 @@ class TestEveryRemedyNamesTheActionItTakes:
         "Add tables": "change-setup",
         "Give every tier tables": "change-setup",
         "Fix the price groups": "change-setup",
+        "Open the layout": "change-setup",
         "Allocate tables": "assign",
         "Publish results": "publish-results",
         "Finish deciding": "give-verdicts",
