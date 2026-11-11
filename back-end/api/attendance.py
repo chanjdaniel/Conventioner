@@ -17,6 +17,7 @@ import phase_record as PhaseRecord
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from datatypes import MarketPhase, phase_from_market_document, table_code_sort_key
 from db_config import get_database
+from market_documents import market_dates_of
 from unique_indexes import ensure_vendor_day_index
 from utils.email_address import normalized_email
 
@@ -235,17 +236,7 @@ def attendance_roster(market_doc: Dict[str, Any]) -> Dict[str, Any]:
         r["date"], table_code_sort_key(r["table_code"] or ""), str(r["table_choice"] or ""),
     ))
 
-    return convert_keys_to_camel_case({"dates": _roster_dates(market_doc), "roster": roster})
-
-
-def _roster_dates(market_doc: Dict[str, Any]) -> List[str]:
-    """The market's dates, in order, as the door offers them."""
-    setup = market_doc.get("setupObject") or {}
-    return sorted(
-        str(entry.get("date"))
-        for entry in (setup.get("marketDates") or [])
-        if isinstance(entry, dict) and entry.get("date")
-    )
+    return convert_keys_to_camel_case({"dates": market_dates_of(market_doc), "roster": roster})
 
 
 def check_in_counts(market_doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -275,7 +266,7 @@ def check_in_counts(market_doc: Dict[str, Any]) -> Dict[str, Any]:
         "dates": [
             {"date": date, "expected": expected.get(date, 0),
              "checkedIn": checked_in.get(date, 0)}
-            for date in _roster_dates(market_doc)
+            for date in market_dates_of(market_doc)
         ],
         "came": len(came),
     }
