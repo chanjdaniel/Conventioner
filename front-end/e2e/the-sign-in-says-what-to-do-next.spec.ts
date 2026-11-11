@@ -9,6 +9,7 @@ import {
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
 import { mongoEval } from './helpers/mongo';
+import { ROOM_IN_WINDOW_WAIT_MS, waitForRoomInWindow } from './helpers/signInWindow';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 /**
@@ -143,6 +144,9 @@ for (const { name, viewport } of WIDTHS) {
       request,
       expectAccessible,
     }) => {
+      // The tries and the one past them must land in one window of the limit.
+      test.setTimeout(test.info().timeout + ROOM_IN_WINDOW_WAIT_MS);
+      await waitForRoomInWindow();
       const email = uniqueEmail();
       ensureVerifiedUser(email, PASSWORD);
       try {
@@ -174,6 +178,9 @@ for (const { name, viewport } of WIDTHS) {
       request,
       expectAccessible,
     }) => {
+      // The requests and the one past them must land in one window of the limit.
+      test.setTimeout(test.info().timeout + ROOM_IN_WINDOW_WAIT_MS);
+      await waitForRoomInWindow();
       const email = uniqueEmail();
       ensureVerifiedUser(email, PASSWORD);
       try {
