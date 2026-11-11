@@ -230,8 +230,10 @@ test.describe("A location's floorplan", () => {
     // The stored line, from edge to edge (a level line has no height, so it is read, not seen).
     await expect(layout.calibrationLine).toHaveAttribute('x2', '800');
     await expect(layout.length).toHaveValue('30');
-    await layout.drawLine([0, 300], [400, 300]);
-    await layout.length.fill('30');
+    // A new line, edge to edge where the image's edge holds its ends (a line ending mid-image reads
+    // a pixel or two either way), drawn clear of the stored line, whose ends a press would drag.
+    await layout.drawLine([0, 150], [800, 150]);
+    await layout.length.fill('60');
     await layout.setScale.click();
     await expect(layout.scale).toHaveText('60.0 m across');
   });
