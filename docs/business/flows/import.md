@@ -41,6 +41,7 @@ sources:
   - T205
   - T204
   - T223
+  - T271
   - T263
 ---
 
@@ -100,7 +101,7 @@ On a first import only Timestamp and Email Address are mapped for you, even wher
    Then "Where each answer comes from".
    Last, on a first import and for someone who may choose reviewers (an Admin or the owner, by default), "Reviewers": a field that finds each person they may choose by typing, the chosen as chips above it, none at first (or the reviewers chosen in draft before, each who can no longer review here saying so on their chip), and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)).
    Its confirm waits first for a write of the reviewers a previous page left unanswered, so a refusal shows here and nothing imports; that page's own confirm stops at its write, so a file it held is never imported, here or into the market then on screen, and the person who leaves during the write and never comes back has a draft still waiting on its first import, its reviewers saved if the write was accepted.
-   A jump through history to another market's import starts that market at Upload, without the file, and so does a jump there and back.
+   A jump through history to another market's import asks first from Map columns or Preview, as any move off the import does there (below), and, once left, starts that market at Upload, without the file, and so does a jump there and back.
    The answer to a read of the file, a preview or an import sent before the jump changes nothing on screen: what an import wrote is on the first market, and a refusal is shown to no one.
    "Fix the form" closes at such a jump, and its form read, answered after one, opens nothing, so the first market's form is never saved over the other's; a save already sent lands on the first market.
    A Redo import offers no reviewers: by then they are the Reviewers panel's ([dividing the review](review.md#dividing-the-review)).
@@ -109,6 +110,12 @@ On a first import only Timestamp and Email Address are mapped for you, even wher
 5. Expect N applications, each Open and awaiting review, except those an automatic rejection rejects: "N were rejected by your automatic rejections, each with its reason; an Admin or the owner can overturn any of them.", naming whoever the market's change row lets overturn them ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
 
 For a market started from a Google Form, step 2 opens "Mapped when your form was started from this file." and needs no decisions; a later import opens "Restored from your last import."
+
+**Leaving before the import is written asks first** (T271).
+On Map columns and Preview, "Cancel import", a tab, a link, Back or a jump to another market's import opens "Leave without saving?": "Nothing from this file is imported yet. Leaving drops the column mapping and every value you settled.", with Stay, which keeps the step, the mapping and every value settled, and Leave, which goes where the organizer asked.
+A reload or closing the tab is asked by the browser, in its own words ([unsaved work asks before it is dropped](../../implementation/conventions/unsaved-work-asks-before-it-is-dropped.md)).
+Upload and the done step leave without asking, "Back to applications" and "Go to the review" included, and so does a page whose import is being written, since leaving does not stop it.
+The import's own Back stays inside the page and never asks; from Map columns it returns to Upload, without the file (`the-import-asks-before-it-drops-a-mapping.spec.ts`).
 
 ### H2b. Answers that match no option
 

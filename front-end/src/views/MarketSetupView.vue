@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
-import { computed, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
+import { computed, reactive, nextTick, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 import DraftedFrom from '@/components/market/DraftedFrom.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
+import PlanSaveStatus from '@/components/market/PlanSaveStatus.vue';
 import {
   type SetupObject,
   type FormField,
   type IncompleteApplication,
+  type Market,
 } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { assignRefusal } from '@/utils/assignPhase';
@@ -28,6 +30,8 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import { fitsAPhone } from '@/utils/fitsAPhone';
 import { takeDraftedFrom } from '@/utils/draftedFrom';
+import { useAutosave } from '@/utils/useAutosave';
+import { useUnsavedWork } from '@/utils/useUnsavedWork';
 
 const router = useRouter();
 
@@ -154,14 +158,19 @@ const assignmentOptionsComplete = computed(() => {
  * The plan's working copy (E21/F02/S02).
  *
  * The organizer edits `setupObject` and `planIntakeMode`, never the market in the store. They are
- * taken from the market when it arrives, and again whenever a re-read lands while there is nothing
- * unsaved in them - so a re-read never overwrites what the organizer is typing. `planEdits` counts
- * edits and `planSavedEdits` the edits the last successful save carried; they differ exactly while
- * there is unsaved work.
+ * taken from the market when it arrives, and again whenever a re-read lands while nothing in them
+ * is unsaved - so a re-read never overwrites what the organizer is typing.
  */
 const planIntakeMode = ref<IntakeMode | undefined>(undefined);
-let planEdits = 0;
-let planSavedEdits = 0;
+
+/**
+ * The market the working copy was taken from, as last read.
+ *
+ * What the plan's saves write to and ask about, rather than the store's market: a save sent on
+ * leaving, or after a save out answers, runs once the store may already hold the next page's
+ * market, or none while it reads it.
+ */
+let planMarket: Market | null = null;
 
 /**
  * The plan exactly as the server last sent it, serialized, so an edit can be told from an echo.
@@ -179,22 +188,115 @@ function workingPlan(): string {
   return JSON.stringify({ setupObject, intakeMode: planIntakeMode.value });
 }
 
+/**
+ * The plan saves itself as it is edited, one save at a time (`utils/useAutosave.ts`, T271).
+ *
+ * It used to be saved by the wizard's Back and Next, which were the only routine writes of the
+ * plan to the server - everything else only touched localStorage. With the paging gone
+ * (E10/F02/S01) those buttons are gone too, so an organizer who planned a market and then opened
+ * applications without assigning would have had a plan that existed on their machine and nowhere
+ * else. Autosave rather than a Save button: there is no step to press it on any more, and the
+ * status below is what makes the writing visible (E09/F03/S05). It waits a pause after each edit,
+ * because every keystroke in a section name emits an update.
+ *
+ * The write is the plan's own (E21/F03/S02), carrying the plan and the intake mode and nothing
+ * else; it used to PUT the whole market, which is a client claiming its copy is the truth. A plan
+ * that cannot change is never sent (bug 30): its controls are disabled, and this is the one door
+ * every edit reaches the server through, so nothing slips past them.
+ *
+ * A save the server refuses (the market left draft under the organizer, the rules settled, a role
+ * lost) puts the plan back as the server holds it and says why; one that failed on the way keeps
+ * the edit and offers Retry (T271). Either stops a move, an allocation or a start from a CSV that
+ * would read the plan.
+ *
+ * A reload or a closed tab never unmounts the page, so an edit still waiting then was lost (T271).
+ * The browser asks first, and if the organizer goes, the plan is sent one last time with a
+ * keepalive write, which may outlive the page. That write is a best effort, unproven where the back
+ * end is another origin (production's), so the browser's question is the guard. A move inside the
+ * app asks nothing: the page's unmount sends the edit, and an in-app move does not cancel it.
+ */
+const {
+  status: planSaveStatus,
+  message: planSaveMessage,
+  unsaved: planUnsaved,
+  edited: planEdited,
+  hold: holdPlan,
+  flush: flushPlan,
+  retry: retryPlan,
+  forgetUnsendable: forgetUnsendablePlan,
+} = useAutosave({
+  send: async () => {
+    await api.put(`/markets/${encodeURIComponent(planMarket!.id)}/plan`, {
+      setupObject: { ...setupObject },
+      intakeMode: planIntakeMode.value,
+    });
+  },
+  sendOnUnload: () => {
+    // `fetch`, not the app's axios: axios's browser adapter is XHR, which has no `keepalive`.
+    try {
+      void fetch(
+        `${import.meta.env.VITE_FLASK_HOST}/markets/${encodeURIComponent(planMarket!.id)}/plan`,
+        {
+          method: 'PUT',
+          keepalive: true,
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ setupObject, intakeMode: planIntakeMode.value }),
+        },
+      ).catch(() => {});
+      return true;
+    } catch {
+      // A body over the browser's 64 KiB keepalive limit throws at the call.
+      return false;
+    }
+  },
+  afterSave: () => refreshMarket(),
+  afterRefusal: async () => {
+    await refreshMarket();
+    // Taken back here as well as by the watch: a re-read that failed, or handed back the market
+    // the page already had, leaves the watch silent and the refused plan on screen.
+    if (market.value && market.value.id === planMarket?.id) adoptPlan(market.value);
+  },
+  may: () => Boolean(planMarket?.id) && mayTake(planMarket, MarketAction.ChangeSetup),
+  failure: 'The plan was not saved.',
+});
+
+useUnsavedWork({ unsaved: () => planUnsaved.value, inApp: false });
+
+/** The status line's failed and refused sentences also show on Settings, whose rules ride in the plan. */
+const planSaveDidNotLand = computed(
+  () => planSaveStatus.value === 'failed' || planSaveStatus.value === 'refused',
+);
+
+/** Take the market's plan as the working copy. */
+function adoptPlan(fresh: Market) {
+  if (fresh.setupObject) {
+    // Replace, not merge: a key the server no longer holds must not live on in the working copy
+    // and be written back by the next save.
+    for (const key of Object.keys(setupObject)) {
+      if (!(key in fresh.setupObject)) delete (setupObject as Record<string, unknown>)[key];
+    }
+    Object.assign(setupObject, fresh.setupObject);
+  }
+  planIntakeMode.value = fresh.intakeMode;
+  serverPlan = workingPlan();
+}
+
 watch(
   market,
-  (fresh, previous) => {
+  (fresh) => {
     if (!fresh) return;
-    const arrived = fresh.id !== previous?.id;
-    if (!arrived && planEdits !== planSavedEdits) return;
-    if (fresh.setupObject) {
-      // Replace, not merge: a key the server no longer holds must not live on in the working copy
-      // and be written back by the next save.
-      for (const key of Object.keys(setupObject)) {
-        if (!(key in fresh.setupObject)) delete (setupObject as Record<string, unknown>)[key];
-      }
-      Object.assign(setupObject, fresh.setupObject);
+    const arrived = fresh.id !== planMarket?.id;
+    planMarket = fresh;
+    // An unsaved edit keeps the working copy, unless the organizer may no longer save it (another
+    // person archived the market or took their role): the autosave drops it then, even one no send
+    // is coming for (a failed save's, or one held), and the screen shows the plan as the server
+    // holds it.
+    if (!arrived && planUnsaved.value) {
+      if (mayTake(fresh, MarketAction.ChangeSetup)) return;
+      forgetUnsendablePlan();
     }
-    planIntakeMode.value = fresh.intakeMode;
-    serverPlan = workingPlan();
+    adoptPlan(fresh);
   },
   { immediate: true },
 );
@@ -237,127 +339,52 @@ const intakeEditable = computed(() => market.value?.phase === MarketPhase.Draft)
 function handleUpdateIntakeMode(mode: IntakeMode) {
   if (!market.value) return;
   planIntakeMode.value = mode;
-  planEdits += 1;
-  void savePlan();
+  // Saved at once, through the queue, so it never races a plan save out.
+  planEdited();
+  void flushPlan();
+}
+
+/** Whether the form tab holds questions not yet saved, as it reports (T271). */
+const formUnsaved = ref(false);
+
+/**
+ * Unsaved questions refuse a move as it is pressed, before any dialog of the move's opens:
+ * "Open applications" over them opened the form as last saved, so applicants got a form without its
+ * last questions (T271).
+ */
+function refuseMove(): string | null {
+  return formUnsaved.value
+    ? 'The market did not move: the form has changes that are not saved. Save Form first.'
+    : null;
 }
 
 /**
- * Send the plan's working copy, then take the market back from the server.
- *
- * Through the plan's own write (E21/F03/S02), carrying the plan and the intake mode and nothing
- * else. It used to PUT the whole market, which is a client claiming its copy is the truth.
- */
-const updateMarket = async () => {
-  if (!market.value) return;
-  const sending = planEdits;
-  await api.put(`/markets/${encodeURIComponent(market.value.id)}/plan`, {
-    setupObject: { ...setupObject },
-    intakeMode: planIntakeMode.value,
-  });
-  planSavedEdits = Math.max(planSavedEdits, sending);
-  await refreshMarket();
-};
-
-/**
- * The plan saves itself as it is edited.
- *
- * It used to be saved by the wizard's Back and Next, which were the only routine writes of the
- * plan to the server - everything else only touched localStorage. With the paging gone
- * (E10/F02/S01) those buttons are gone too, so an organizer who planned a market and then opened
- * applications without assigning would have had a plan that existed on their machine and nowhere
- * else. Autosave rather than a Save button: there is no step to press it on any more, and the
- * status below is what makes the writing visible (E09/F03/S05).
- *
- * Debounced, because every keystroke in a section name emits an update.
- */
-const planSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
-const planSaveError = ref('');
-const planSaveTimer = ref<ReturnType<typeof setTimeout> | null>(null);
-const planSavedTimer = ref<ReturnType<typeof setTimeout> | null>(null);
-
-async function savePlan() {
-  // A plan that cannot change is never sent (bug 30): its controls are disabled, and this is the
-  // one door every edit reaches the server through, so nothing slips past them.
-  if (!market.value?.id || !mayTake(market.value, MarketAction.ChangeSetup)) return;
-  planSaveStatus.value = 'saving';
-  planSaveError.value = '';
-  try {
-    await updateMarket();
-    planSaveStatus.value = 'saved';
-    if (planSavedTimer.value !== null) clearTimeout(planSavedTimer.value);
-    planSavedTimer.value = setTimeout(() => {
-      planSavedTimer.value = null;
-      if (planSaveStatus.value === 'saved') planSaveStatus.value = 'idle';
-    }, 2000);
-  } catch (err: unknown) {
-    planSaveStatus.value = 'error';
-    planSaveError.value = getApiErrorMessage(err, 'Could not save the plan. Retry in a moment.');
-  }
-}
-
-/**
- * A card holds the autosave while one of its fields shows text that is not a value (the Pricing
- * card's price or share, E43/F01/S01), so "Plan saved" never stands beside text that was not kept.
- * The working copy already holds the value from before that text, so leaving or moving the phase
- * still writes the plan as it is kept.
- */
-const planHeld = ref(false);
-/** An edit arrived while the plan was held, and waits to be sent. */
-let planHeldEdit = false;
-watch(planHeld, (held) => {
-  if (held && planSaveTimer.value !== null) schedulePlanSave();
-  else if (!held && planHeldEdit) schedulePlanSave();
-});
-
-function schedulePlanSave() {
-  if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
-  planSaveTimer.value = null;
-  planHeldEdit = planHeld.value;
-  if (planHeld.value) return;
-  planSaveTimer.value = setTimeout(() => {
-    planSaveTimer.value = null;
-    void savePlan();
-  }, 600);
-}
-
-/**
- * Write any pending plan edit NOW, and wait for it.
- *
  * Every phase guard reads the market as the server holds it, so a transition fired while an edit
- * is still sitting in the debounce would be judged against a plan the organizer has already
- * changed - refused by their own unsaved work.
+ * is still sitting in the pause would be judged against a plan the organizer has already changed -
+ * refused by their own unsaved work. So the plan's edits land first, and a plan that did not land
+ * stops the move, which would otherwise go ahead over a plan the organizer did not mean (T271).
  */
-async function flushPlanSave(): Promise<void> {
-  if (planSaveTimer.value === null && !planHeldEdit) return;
-  if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
-  planSaveTimer.value = null;
-  planHeldEdit = false;
-  await savePlan();
+async function beforeTransition(): Promise<string | null> {
+  const why = await flushPlan();
+  return why === null ? null : `The market did not move, because the plan did not save. ${why}`;
 }
 
-/** The plan's pending edits land first: the proposal reads the plan's dates and tiers. */
+/**
+ * The plan's pending edits land first: the proposal reads the plan's dates and tiers. One that did
+ * not land keeps the organizer here, where the status line says why.
+ */
 async function startFromCsv(): Promise<void> {
-  await flushPlanSave();
+  if ((await flushPlan()) !== null) return;
   void router.push(marketPath(marketId.value, 'start-from-csv'));
 }
-
-/** A pending edit must not be lost to leaving the page, so it is sent without waiting. */
-onUnmounted(() => {
-  if (planSaveTimer.value === null && !planHeldEdit) return;
-  if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
-  planSaveTimer.value = null;
-  planHeldEdit = false;
-  void savePlan();
-});
 
 const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
   nextTick(() => {
     if (market.value) {
       Object.assign(setupObject, newSetupObject);
       // A card reporting the re-read the page just adopted, not the organizer (see `serverPlan`).
-      if (planEdits === planSavedEdits && workingPlan() === serverPlan) return;
-      planEdits += 1;
-      schedulePlanSave();
+      if (!planUnsaved.value && workingPlan() === serverPlan) return;
+      planEdited();
     }
   });
 };
@@ -393,8 +420,16 @@ const handleAssign = async () => {
     // someone who may change the plan. Allocating asks the Assignment row alone, and a market's
     // owner may set it apart from Change Market Setup (E39/F01/S03): to anyone that row refuses,
     // the rules are read only, there is nothing of theirs to save, and the plan's write would
-    // refuse the allocation they may make.
-    if (mayTake(market.value, MarketAction.ChangeSetup)) await updateMarket();
+    // refuse the allocation they may make. A plan that did not land stops the run, which would
+    // otherwise read an older plan.
+    if (mayTake(market.value, MarketAction.ChangeSetup)) {
+      const why = await flushPlan();
+      if (why !== null) {
+        // The plan's line says the same sentence: this one says what it stopped.
+        assignError.value = `The tables were not allocated, because the plan did not save. ${why}`;
+        return;
+      }
+    }
 
     // POST, not GET-then-PUT. `assignmentObject` is server-owned (E11/F01/S01), so a market PUT
     // no longer stores an assignment the browser was handed - and never should have: a stale
@@ -441,7 +476,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
     <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
          app bar while the page scrolls. Nothing about a market is kept in the browser, so until the
          server answers the frame paints the state of asking (E21/F02/S02). -->
-    <MarketFrame :market="market" :beforeTransition="flushPlanSave">
+    <MarketFrame :market="market" :beforeTransition="beforeTransition" :refuseMove="refuseMove">
       <template v-if="market">
         <!-- What the start from a Google Form just did, said once above the Questions tab it lands
              on; here rather than in the tab's body, which owns the form. -->
@@ -453,7 +488,12 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
         />
 
         <!-- Application Form Tab -->
-        <MarketFormTab v-if="activeTab === 'form'" :market="market" :setupObject="setupObject" />
+        <MarketFormTab
+          v-if="activeTab === 'form'"
+          :market="market"
+          :setupObject="setupObject"
+          @unsaved="(now: boolean) => (formUnsaved = now)"
+        />
 
         <MarketPlanTab
           v-if="activeTab === 'setup'"
@@ -472,7 +512,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :choiceQuestions="market.rejectionQuestions ?? []"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
-          @held="(held: boolean) => (planHeld = held)"
+          @held="holdPlan"
           @choosePath="showPathChoice = true"
           @startFromCsv="startFromCsv"
           @openForm="showTab('form')"
@@ -504,33 +544,21 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
-        />
+        >
+          <template v-if="planSaveDidNotLand" #planStatus>
+            <PlanSaveStatus
+              :status="planSaveStatus"
+              :message="planSaveMessage"
+              @retry="retryPlan"
+            />
+          </template>
+        </MarketAssignmentTab>
 
         <!-- Whether what the organizer just typed is on the server. Nothing else on this page
              says so now that Next is gone. At the foot of the card, which it belongs to: it sat
              below it, on the page. -->
         <div v-if="activeTab === 'setup'" class="plan-actions">
-          <span
-            v-if="planSaveStatus === 'saving'"
-            class="plan-save-status"
-            data-testid="market-setup-plan-saving"
-          >
-            Saving…
-          </span>
-          <span
-            v-else-if="planSaveStatus === 'saved'"
-            class="plan-save-status plan-save-status--saved"
-            data-testid="market-setup-plan-saved"
-          >
-            Plan saved
-          </span>
-          <span
-            v-else-if="planSaveStatus === 'error'"
-            class="plan-save-status plan-save-status--error"
-            data-testid="market-setup-plan-save-error"
-          >
-            {{ planSaveError }}
-          </span>
+          <PlanSaveStatus :status="planSaveStatus" :message="planSaveMessage" @retry="retryPlan" />
         </div>
       </template>
     </MarketFrame>
@@ -552,20 +580,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 /* In the tab's own gutter, as the read-only note is, so it lines up with the steps under it. */
 .market-setup-drafted-from {
   margin: var(--space-6) var(--space-6) 0;
-}
-
-.plan-save-status {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.plan-save-status--saved {
-  color: var(--mm-green);
-}
-
-/* A refusal reads in red, whatever the card (the design language's Colour). */
-.plan-save-status--error {
-  color: var(--mm-red);
 }
 
 .settings-body-stacked {

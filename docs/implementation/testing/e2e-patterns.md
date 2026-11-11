@@ -15,11 +15,11 @@ describes:
   - front-end/e2e/date-display-timezone.spec.ts
   - front-end/e2e/global-setup.ts
   - front-end/e2e/helpers/networkSettles.ts
-  - front-end/e2e/helpers/stackReady.ts
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
-verified: 2026-11-10
+  - front-end/e2e/helpers/stackReady.ts
+verified: 2026-11-11
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -147,6 +147,10 @@ Markets' search is drawn only past 12 markets or while the address holds words, 
 The back end holds a session to the client that signed in, its address and browser (Flask-Login's "strong" session protection, [the cookies](../conventions/security-invariants.md#the-cookies)), and on a stack the page reaches it through the dev server's proxy while the back end's own port is another address, so a `page.request` there is refused as signed out (the page's session stays, [a refused request ends no sign-in](../conventions/security-invariants.md#the-cookies)).
 A page of another browser context (`withUser()`'s) is a page too; a request context of its own (the `request` fixture, `playwright.request.newContext()`) is a client of its own, and may call either.
 A request with no cookie at all answers 401; [`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds that, from a page of the app's origin that runs none of its code.
+
+**A request a page sends from `pagehide` goes with the browser's own User-Agent**, not the Desktop Chrome device's, which Playwright sets through DevTools for the page alone, so the same session protection refuses it with a 401 (T271).
+Playwright's `page.on('request')` does not report it either; read what it did from the server.
+A spec of a write on the way out of the page uses the browser's User-Agent for its context, as [`the-plan-saves-one-at-a-time.spec.ts`](../../../front-end/e2e/the-plan-saves-one-at-a-time.spec.ts)'s "The plan on the way out of the page" does, with `userAgent` read from `Browser.getVersion` over a browser CDP session.
 
 **Focus an amount field before you `fill` it once it holds an amount** ([an amount field](../../business/rules/an-amount-reads-to-the-cent.md#an-amount-field)).
 Such a field rewrites its text on focus, "$50.00" to "50.00", and `fill` selects the text before it focuses the field, so the rewrite drops the selection and what is filled lands after the number ("50.003x").

@@ -20,6 +20,7 @@ from datatypes import MarketPhase, MarketRole
 
 ORG_ID = "org-1"
 BROKEN_ORG_ID = "org-broken"
+OWNER_ALSO_ADMIN_ORG_ID = "org-owner-also-admin"
 OWNER = "owner"
 MEMBER = "member"
 ORG_ADMIN = "org-admin"
@@ -41,6 +42,7 @@ READABLE_BY_ROLE = "readable-by-role"
 AN_UNKNOWN_ROLE_ON_SOMEONE_ELSE = "an-unknown-role-on-someone-else"
 AN_UNKNOWN_ROLE_ON_THE_READER = "an-unknown-role-on-the-reader"
 AN_ORGANIZATION_THAT_DOES_NOT_PARSE = "an-organization-that-does-not-parse"
+AN_ORGANIZATION_WHOSE_OWNER_IS_ALSO_AN_ADMIN = "an-organization-whose-owner-is-also-an-admin"
 
 
 def market_documents():
@@ -56,10 +58,14 @@ def market_documents():
                roles={OWNER: "owner", "someone": "superuser"}),
         # The same, held by the reader, on a market of no organization of theirs.
         market(AN_UNKNOWN_ROLE_ON_THE_READER, roles={"someone": "owner", MEMBER: "superuser"}),
-        # The organization's document fails its model (its owner is also a member), so the read
+        # The organization's document fails its model (its people name no owner), so the read
         # grants nothing through it and its member reads nothing there.
         market(AN_ORGANIZATION_THAT_DOES_NOT_PARSE, organizationId=BROKEN_ORG_ID,
                roles={"someone": "owner"}),
+        # Stored before the people map with its owner also in ``admins``, which the model refused
+        # until the lists were folded into one map, the owner winning (T283).
+        market(AN_ORGANIZATION_WHOSE_OWNER_IS_ALSO_AN_ADMIN,
+               organizationId=OWNER_ALSO_ADMIN_ORG_ID, roles={"someone": "owner"}),
     ]
 
 
@@ -102,7 +108,10 @@ class FakeOrganizations:
 def world(monkeypatch):
     organizations = {
         ORG_ID: organization_document(),
-        BROKEN_ORG_ID: organization_document(BROKEN_ORG_ID, owner=MEMBER, members=[MEMBER]),
+        BROKEN_ORG_ID: organization_document(
+            BROKEN_ORG_ID, people={MEMBER: "member"}, owner=None, admins=[], members=[MEMBER]),
+        OWNER_ALSO_ADMIN_ORG_ID: organization_document(
+            OWNER_ALSO_ADMIN_ORG_ID, admins=[ORG_ADMIN, OWNER]),
     }
     organization_reads = []
     people_reads = []
@@ -196,6 +205,21 @@ def test_a_readable_market_is_listed_with_the_role_the_read_serves(world, market
         MarketRole(role), MarketPhase(served["phase"]), {})
 
 
+@pytest.mark.parametrize("who,role", [(ORG_ADMIN, "admin"), (MEMBER, "viewer"), (OWNER, "admin")])
+def test_an_organization_whose_owner_is_also_an_admin_grants_its_people_again(world, who, role):
+    """Its owner also in ``admins`` failed the model, so every admin and member of it lost their
+    role on its markets with nothing said; read as one map, the owner winning, it grants again."""
+    client = signed_in(who)
+
+    response = client.get(f"/markets/{AN_ORGANIZATION_WHOSE_OWNER_IS_ALSO_AN_ADMIN}")
+    assert response.status_code == 200
+    served = response.get_json()["market"]
+    entry = listed(client)[AN_ORGANIZATION_WHOSE_OWNER_IS_ALSO_AN_ADMIN]
+
+    assert entry["actionRefusals"] == served["actionRefusals"] == MarketsApi.role_action_refusals(
+        MarketRole(role), MarketPhase(served["phase"]), {})
+
+
 def test_neither_the_list_nor_the_read_names_the_role(world):
     """Every screen asks the table's rows, so neither serves the role beside them: 1.1.0 served it
     one more release for a tab still on an old bundle, and the release after left it out."""
@@ -219,7 +243,8 @@ def test_an_unreadable_document_is_logged_once_and_the_others_still_listed(world
     assert len(stored) == len(unreadable), stored
     for market_id in unreadable:
         assert [m for m in stored if m.startswith(f"Stored market {market_id} failed validation")]
-    assert set(entries) == {READABLE_BY_ORGANIZATION, READABLE_BY_ROLE}
+    assert set(entries) == {
+        READABLE_BY_ORGANIZATION, READABLE_BY_ROLE, AN_ORGANIZATION_WHOSE_OWNER_IS_ALSO_AN_ADMIN}
 
 
 def test_the_list_reads_no_organization_its_reader_is_already_in(world):

@@ -277,16 +277,22 @@ async function twoImports(
   await followTheRail(page, importPage);
   const hereAt = await position();
 
-  const go = async (steps: number, marketId: string) => {
+  /** From Map columns, or Preview with no import running, the jump asks first, answered Leave (T271). */
+  const go = async (steps: number, marketId: string, fromAMapping: boolean) => {
     await page.evaluate((delta) => history.go(delta), steps);
+    if (fromAMapping) {
+      await expect(page.getByTestId('unsaved-work-window')).toBeVisible();
+      await page.getByTestId('unsaved-work-submit-button').click();
+    }
     await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/import$`));
   };
   return {
     jumpedTo,
     here,
     importPage,
-    jump: () => go(jumpedToAt - hereAt, jumpedTo.marketId),
-    jumpBack: () => go(hereAt - jumpedToAt, here.marketId),
+    jump: ({ fromAMapping = false } = {}) =>
+      go(jumpedToAt - hereAt, jumpedTo.marketId, fromAMapping),
+    jumpBack: () => go(hereAt - jumpedToAt, here.marketId, false),
   };
 }
 
@@ -428,7 +434,7 @@ test("a preview's answer after a jump leaves the market jumped to at Upload", as
   await importPage.clickPreview();
   await expect.poll(() => held.length).toBe(1);
 
-  await jump();
+  await jump({ fromAMapping: true });
   await held[0]!.continue();
   await page.unroute(address);
 
@@ -508,7 +514,7 @@ test('the Fix the form dialog closes at a jump, and writes nothing on the market
   const dialog = page.getByTestId('amend-form-window');
   await expect(dialog).toBeVisible();
 
-  await jump();
+  await jump({ fromAMapping: true });
 
   await expectNoDialogOverAFreshUpload(page, importPage);
   expect(await formKeys(request, jumpedTo.marketId)).toEqual(FORM_OF_THE_ONE_JUMPED_TO);
@@ -529,7 +535,7 @@ for (const [answer, fulfil] of [
     await offer.click();
     await expect.poll(() => held.length).toBe(1);
 
-    await jump();
+    await jump({ fromAMapping: true });
     const answered = page.waitForResponse(address);
     await Promise.all(held.map(fulfil));
     await answered;
@@ -556,7 +562,7 @@ test('a save of that dialog answered after a jump is on the market pressed on, a
   await page.getByTestId('amend-form-submit-button').click();
   await expect.poll(() => held.length).toBe(1);
 
-  await jump();
+  await jump({ fromAMapping: true });
   const answered = page.waitForResponse(address);
   await held[0]!.continue();
   await answered;

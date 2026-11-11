@@ -12,6 +12,7 @@ describes:
   - front-end/src/components/ValueFixes.vue
   - front-end/src/components/csvImport/ImportRefusedRows.vue
   - front-end/src/views/CsvImportView.vue#mapsTo
+  - front-end/src/views/CsvImportView.vue#holdsAMapping
 verified: 2026-11-10
 sources:
   - wayfinding/readable-journey/05
@@ -36,6 +37,7 @@ sources:
   - T205
   - T223
   - T263
+  - T271
   - T270
 ---
 
@@ -114,6 +116,13 @@ Each value is settled in [`ValueFixes.vue`](../../../front-end/src/components/Va
 The rows offered one set of answers share one list of choices, keyed by the target and the answers, since a tier grid's target offers two sets: the dates to its day headings and the tiers to its cells.
 Every value still waiting is drawn; those already decided stop at 6 and "Show all".
 
+**Nothing is written until the final confirm, so leaving before it asks** (T271).
+The mapping and every value settled live in the view alone, and a link, Back or a reload dropped them with no word.
+`holdsAMapping` is true on Map columns, and on Preview while no import is running, and the view hands it to [`useUnsavedWork`](../conventions/unsaved-work-asks-before-it-is-dropped.md) with its sentence, so a move off the page opens the one leave question and a reload the browser's.
+"Cancel import" leaves by `router.push`, so it asks through the same guard; a jump to another market's import is a new path of the same route, so it asks too, before the view's `watch(marketId)` starts that market at Upload.
+Upload holds no file and the done step has written it, so neither asks; nor does an import running (`busy` on Preview), which leaving does not stop.
+The import's own Back stays in the page and never asks, though from Map columns it drops the file (`startOver`).
+
 **A list of a file's rows stops at 20, and is read whole by asking.**
 The preview's refused rows and the done step's are [`ImportRefusedRows.vue`](../../../front-end/src/components/csvImport/ImportRefusedRows.vue), the preview's replaced and rejected rows the view's own, each a [`ListFrame`](../../design-system.md#the-primitive-layer) with `showAll` and `IMPORT_LIST_FIRST`, so a bad file does not push the confirm 361 rows down.
 Each finds by what `utils/importPreview.ts` says it holds: a refused row by address, row number and reason, a replaced row by address and either row it names, a rejected row by name and address.
@@ -151,7 +160,7 @@ A first import's reviewers are chosen on its preview step, whose confirm, when t
 - [Priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md): a row must carry its own `submitted_at` for first come, first served to decide anything.
 - [A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md).
 
-`back-end/tests/test_csv_import.py`, `back-end/tests/test_a_re_imports_back_to_review_lands_with_the_answers.py`, `front-end/src/__tests__/aFileThatIsNotCsv.test.ts`, `front-end/e2e/csv-import.spec.ts` and `front-end/e2e/the-import-lines-up.spec.ts` pin it; the synthetic exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
+`back-end/tests/test_csv_import.py`, `back-end/tests/test_a_re_imports_back_to_review_lands_with_the_answers.py`, `front-end/src/__tests__/aFileThatIsNotCsv.test.ts`, `front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts`, `front-end/e2e/csv-import.spec.ts`, `front-end/e2e/the-import-lines-up.spec.ts` and `front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts` pin it; the synthetic exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
 
 What the organizer does on the import, step by step, is [importing a Google Form's responses](../../business/flows/import.md).
 

@@ -9,7 +9,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import mongo_matches, skip_without_real_dependencies, sessions_load_through_get_user
+from conftest import (
+    FakeOrganizations,
+    install_organizations,
+    sessions_load_through_get_user,
+    skip_without_real_dependencies,
+)
 from test_reading_the_history import PagedHistory, _matches
 
 import api.market_actions as Actions
@@ -26,39 +31,6 @@ MEMBER = SimpleNamespace(id="user-member", email="member@example.com")
 NEWCOMER = SimpleNamespace(id="user-new", email="new@example.com")
 OUTSIDER = SimpleNamespace(id="user-out", email="outsider@example.com")
 PEOPLE = (OWNER, ADMIN, MEMBER, NEWCOMER, OUTSIDER)
-
-
-class Organizations:
-    """The ``organizations`` collection: one document, written by Mongo's set operators."""
-
-    def __init__(self, doc):
-        self.doc = doc
-
-    def find_one(self, query, projection=None):
-        if self.doc is None or not mongo_matches(self.doc, query):
-            return None
-        return {key: list(value) if isinstance(value, list) else value
-                for key, value in self.doc.items()}
-
-    def update_one(self, _query, update):
-        modified = 0
-        for key, value in (update.get("$set") or {}).items():
-            modified += self.doc.get(key) != value
-            self.doc[key] = value
-        for key, value in (update.get("$addToSet") or {}).items():
-            if value not in self.doc.setdefault(key, []):
-                self.doc[key].append(value)
-                modified = 1
-        for key, value in (update.get("$pull") or {}).items():
-            if value in self.doc.get(key, []):
-                self.doc[key].remove(value)
-                modified = 1
-        return SimpleNamespace(matched_count=1, modified_count=1 if modified else 0)
-
-    def delete_one(self, _query):
-        gone = self.doc is not None
-        self.doc = None
-        return SimpleNamespace(deleted_count=1 if gone else 0)
 
 
 class History_(PagedHistory):
@@ -79,14 +51,10 @@ def history(monkeypatch):
 
 @pytest.fixture
 def org(monkeypatch, history):
-    organizations = Organizations({
+    organizations = install_organizations(monkeypatch, FakeOrganizations({
         "id": ORG, "name": "Ember Markets", "owner": OWNER.id, "admins": [ADMIN.id],
         "members": [MEMBER.id], "markets": [], "theme": None,
-    })
-    monkeypatch.setattr(OrgsApi, "organizations_collection", organizations)
-    monkeypatch.setattr(
-        OrgsApi, "users_collection",
-        SimpleNamespace(update_one=lambda *_a, **_k: None, update_many=lambda *_a, **_k: None))
+    }))
     by_email = {person.email: person for person in PEOPLE}
     by_id = {person.id: person for person in PEOPLE}
     monkeypatch.setattr(OrgsApi.UsersApi, "get_user", lambda email: by_email.get(email))
@@ -147,9 +115,13 @@ class TestWhatIsRecorded:
         assert entry["kind"] == History.ROLE_CHANGED
         assert entry["detail"] == {"before": {"role": "member"}, "after": {"role": "admin"}}
 
-    def test_an_admin_added_again_records_nothing(self, org, history):
-        OrgsApi.add_org_admin(ORG, ADMIN.email, OWNER.email)
+    def test_an_admin_added_again_is_refused_and_records_nothing(self, org, history):
+        from client_errors import BadRequestError
 
+        with pytest.raises(BadRequestError) as refused:
+            OrgsApi.add_org_admin(ORG, ADMIN.email, OWNER.email)
+
+        assert refused.value.message == "They are already an admin of this organization."
         assert entries(history) == []
 
     def test_a_member_added_is_a_role_given(self, org, history):
@@ -174,16 +146,53 @@ class TestWhatIsRecorded:
         assert entry["subject"] == {"user_id": person.id, "email": person.email}
         assert entry["detail"] == {"before": {"role": role}, "after": {"role": None}}
 
-    def test_ownership_handed_on_names_the_owner_before_and_after(self, org, history):
-        OrgsApi.transfer_org_ownership(ORG, OWNER.email, ADMIN.email)
+    @pytest.mark.parametrize("person,before,after", [
+        (ADMIN, "admin", "member"),
+        (MEMBER, "member", "admin"),
+    ], ids=["an admin made a member", "a member made an admin"])
+    def test_a_place_changed_by_the_owner_is_a_role_changed(
+            self, org, history, person, before, after):
+        OrgsApi.change_org_place(ORG, person.id, after, OWNER.email)
 
         entry = only(history)
+        assert entry["actor"] == OWNER.email
+        assert entry["action"] == History.MANAGE_ORGANIZATION_ADMINS
+        assert entry["kind"] == History.ROLE_CHANGED
+        assert entry["subject"] == {"user_id": person.id, "email": person.email}
+        assert entry["detail"] == {"before": {"role": before}, "after": {"role": after}}
+
+    def test_a_place_set_to_the_place_held_records_nothing(self, org, history):
+        OrgsApi.change_org_place(ORG, ADMIN.id, "admin", OWNER.email)
+
+        assert entries(history) == []
+
+    @pytest.mark.parametrize("new_owner", [ADMIN, MEMBER], ids=["to an admin", "to a member"])
+    def test_ownership_handed_on_names_the_owner_before_and_after(
+        self, org, history, new_owner,
+    ):
+        OrgsApi.transfer_org_ownership(ORG, OWNER.email, new_owner.email)
+
+        entry = only(history)
+        assert entry["actor"] == OWNER.email
         assert entry["action"] == History.TRANSFER_ORGANIZATION
         assert entry["kind"] is None
-        assert entry["subject"] == {"user_id": ADMIN.id, "email": ADMIN.email}
+        assert entry["subject"] == {"user_id": new_owner.id, "email": new_owner.email}
         assert entry["detail"] == {
-            "before": {"owner": OWNER.email}, "after": {"owner": ADMIN.email},
+            "before": {"owner": OWNER.email}, "after": {"owner": new_owner.email},
         }
+
+    def test_ownership_handed_to_someone_outside_it_is_refused_and_records_nothing(
+        self, org, history,
+    ):
+        from client_errors import BadRequestError
+
+        with pytest.raises(BadRequestError) as refused:
+            OrgsApi.transfer_org_ownership(ORG, OWNER.email, OUTSIDER.email)
+
+        assert refused.value.message == (
+            "Hand the organization only to one of its admins or members.")
+        assert org.doc["owner"] == OWNER.id and org.writes == []
+        assert entries(history) == []
 
     def test_ownership_handed_to_its_own_owner_is_refused_before_anything_changes(
         self, org, history,
@@ -370,6 +379,7 @@ RECORDED = {
     ("POST", "/organizations/<org_id>/admins"): "an admin added",
     ("POST", "/organizations/<org_id>/members"): "a member added",
     ("DELETE", "/organizations/<org_id>/users/<user_id>"): "a person removed",
+    ("PUT", "/organizations/<org_id>/users/<user_id>"): "a person's place changed",
     ("POST", "/organizations/<org_id>/transfer"): "ownership handed on",
     # Sent in ``test_the_organizations_default.py`` (E39/F02/S01).
     ("PUT", "/organizations/<org_id>/default-permissions/<action_id>"): "a default row set",

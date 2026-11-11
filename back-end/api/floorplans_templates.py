@@ -18,6 +18,7 @@ from utils.request_body import json_object, string_field
 import api.users as UsersApi
 from bson import ObjectId
 
+from datatypes import OrganizationRole, organization_people_of
 from db_config import get_database
 import history as History
 
@@ -55,9 +56,7 @@ def _organization_refusal(org_id: str, user: dict):
     org = organizations_collection.find_one({"id": org_id})
     if not org:
         return {"error": "Organization not found"}, 404
-    user_id = user.get("id")
-    if user_id != org.get("owner") and user_id not in org.get("members", []) \
-            and user_id not in org.get("admins", []):
+    if user.get("id") not in organization_people_of(org):
         return {"error": "User does not belong to this organization"}, 403
     return None
 
@@ -154,7 +153,8 @@ def _check_ownership(template_doc: dict, requesting_user) -> bool:
     org_id = template_doc.get("organizationId")
     if isinstance(org_id, str) and org_id:
         org = organizations_collection.find_one({"id": org_id})
-        if org and org.get("owner") == requesting_user.get("id"):
+        place = organization_people_of(org).get(requesting_user.get("id")) if org else None
+        if place == OrganizationRole.OWNER:
             return True
 
     return False

@@ -8,10 +8,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
-import { createMemoryHistory, createRouter, type Router } from 'vue-router';
+import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router';
 import { defineComponent, h } from 'vue';
 
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
+import UnsavedWorkDialog from '@/components/UnsavedWorkDialog.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
@@ -414,5 +415,206 @@ describe('the step is in the address', () => {
 
       expect(currentStep(wrapper)).toContain('Your questions');
     }
+  });
+});
+
+/**
+ * Unsaved questions ask before they are dropped (T271): unsaved is the working copy's questions
+ * differing from the server's last copy, and "Ask this" saves only its own choice.
+ */
+describe('questions not yet saved', () => {
+  const ADDED = { ...FORM.fields[0], key: 'booth_theme', label: 'Booth theme', order: 1 };
+  const withAdded: ApplicationForm = { fields: [FORM.fields[0], ADDED] };
+  const lastUnsaved = (wrapper: VueWrapper) => wrapper.emitted<[boolean]>('unsaved')?.at(-1)?.[0];
+
+  async function addAQuestion(wrapper: VueWrapper) {
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    wrapper.getComponent(FormBuilder).vm.$emit('update:applicationForm', withAdded);
+    await flushPromises();
+  }
+
+  beforeEach(() => {
+    api.put.mockReset();
+  });
+
+  it('are none on opening, nor on the questions step before an edit', async () => {
+    const wrapper = await mountTab();
+    expect(lastUnsaved(wrapper)).toBe(false);
+
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    await flushPromises();
+    expect(lastUnsaved(wrapper)).toBe(false);
+  });
+
+  it('are some after an edit, and none once it is put back as it was', async () => {
+    const wrapper = await mountTab();
+    await addAQuestion(wrapper);
+    expect(lastUnsaved(wrapper)).toBe(true);
+
+    wrapper.getComponent(FormBuilder).vm.$emit('update:applicationForm', FORM);
+    await flushPromises();
+    expect(lastUnsaved(wrapper)).toBe(false);
+  });
+
+  it('are none once Save Form has stored them', async () => {
+    api.put.mockResolvedValue({ data: { application_form: withAdded } });
+    const wrapper = await mountTab();
+    await addAQuestion(wrapper);
+
+    await wrapper.get('[data-testid="form-builder-save-button"]').trigger('click');
+    await flushPromises();
+
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/application-form', withAdded);
+    expect(lastUnsaved(wrapper)).toBe(false);
+  });
+
+  it('never ride on "Ask this", which sends the stored questions with its choice', async () => {
+    const stored = { ...FORM, unaskedEssentials: ['essential_section_ranking'] };
+    api.put.mockResolvedValue({ data: { application_form: stored } });
+    const wrapper = await mountTab();
+    await addAQuestion(wrapper);
+
+    await wrapper.get('[data-testid="form-step-essentials"]').trigger('click');
+    wrapper
+      .getComponent(EssentialFieldsPanel)
+      .vm.$emit('toggleUnasked', 'essential_section_ranking', true);
+    await flushPromises();
+
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/application-form', stored);
+    // The question is still the organizer's, unsaved and unsent.
+    expect(lastUnsaved(wrapper)).toBe(true);
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    expect(wrapper.get('[data-testid="stub-builder"]').text()).toBe('Business,Booth theme');
+
+    // Save Form then sends the questions with the choice already made.
+    api.put.mockResolvedValue({ data: { application_form: { ...withAdded, ...stored } } });
+    await wrapper.get('[data-testid="form-builder-save-button"]').trigger('click');
+    await flushPromises();
+    expect(api.put).toHaveBeenLastCalledWith('/markets/market-1/application-form', {
+      ...withAdded,
+      unaskedEssentials: ['essential_section_ranking'],
+    });
+    expect(lastUnsaved(wrapper)).toBe(false);
+  });
+});
+
+describe('leaving the tab with questions not yet saved', () => {
+  /** What the tab reported to the screen holding it, in order. */
+  let reported: boolean[] = [];
+  /** The tab as the routed view renders it, so the router's guards reach it. */
+  async function mountRouted(): Promise<VueWrapper> {
+    router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        {
+          path: '/markets/:marketId/:page',
+          component: defineComponent({
+            setup: () => () =>
+              router.currentRoute.value.params.page === 'form'
+                ? h(MarketFormTab, {
+                    market: {
+                      id: 'market-1',
+                      name: 'Riverside',
+                      intakeMode: 'form',
+                      applicationForm: FORM,
+                      applicationFormLockReason: null,
+                      readOnlyReason: null,
+                      actionRefusals: answersRefusing(),
+                    } as unknown as Market,
+                    setupObject: SETUP,
+                    onUnsaved: (now: boolean) => reported.push(now),
+                  })
+                : h('div', { 'data-testid': 'plan' }),
+          }),
+        },
+      ],
+    });
+    await router.push('/markets/market-1/form');
+    await router.isReady();
+    const wrapper = mount(
+      defineComponent({ render: () => [h(RouterView), h(UnsavedWorkDialog)] }),
+      {
+        global: {
+          plugins: [router],
+          stubs: {
+            FormBuilder: stub('stub-builder'),
+            FormPreview: stub('stub-preview'),
+            EssentialFieldsPanel: { template: '<div data-testid="stub-essentials" />' },
+            ReviewHighlights: { template: '<div data-testid="stub-highlights" />' },
+          },
+        },
+        attachTo: document.body,
+      },
+    );
+    await flushPromises();
+    return wrapper;
+  }
+
+  const asking = () => document.querySelector('[data-testid="unsaved-work-window"]') !== null;
+
+  beforeEach(() => {
+    reported = [];
+  });
+
+  it("asks before another tab drops them, in the form's words, and never between its steps", async () => {
+    const wrapper = await mountRouted();
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    wrapper.getComponent(FormBuilder).vm.$emit('update:applicationForm', {
+      fields: [{ ...FORM.fields[0], label: 'Stall name' }],
+    });
+    await flushPromises();
+
+    for (const id of ['preview', 'review', 'essentials', 'questions']) {
+      await wrapper.get(`[data-testid="form-step-${id}"]`).trigger('click');
+      await flushPromises();
+    }
+    expect(asking()).toBe(false);
+    expect(router.currentRoute.value.fullPath).toBe('/markets/market-1/form?step=questions');
+
+    const moved = router.push('/markets/market-1/setup');
+    await flushPromises();
+    expect(asking()).toBe(true);
+    expect(
+      document.querySelector('[data-testid="unsaved-work-sentence"]')!.textContent?.trim(),
+    ).toBe("Your changes to the form's questions are not saved. Leaving drops them.");
+
+    document.querySelector<HTMLElement>('[data-testid="unsaved-work-cancel-button"]')!.click();
+    await moved;
+    await flushPromises();
+    expect(router.currentRoute.value.path).toBe('/markets/market-1/form');
+    expect(wrapper.get('[data-testid="stub-builder"]').text()).toBe('Stall name');
+    wrapper.unmount();
+  });
+
+  it('goes on Leave, and reports nothing unsaved as it goes', async () => {
+    const wrapper = await mountRouted();
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    wrapper.getComponent(FormBuilder).vm.$emit('update:applicationForm', {
+      fields: [{ ...FORM.fields[0], label: 'Stall name' }],
+    });
+    await flushPromises();
+    expect(reported.at(-1)).toBe(true);
+
+    const moved = router.push('/markets/market-1/setup');
+    await flushPromises();
+    document.querySelector<HTMLElement>('[data-testid="unsaved-work-submit-button"]')!.click();
+    await moved;
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="plan"]').exists()).toBe(true);
+    expect(reported.at(-1)).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('leaves without asking when nothing is unsaved', async () => {
+    const wrapper = await mountRouted();
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    await router.push('/markets/market-1/setup');
+    await flushPromises();
+
+    expect(asking()).toBe(false);
+    expect(wrapper.find('[data-testid="plan"]').exists()).toBe(true);
+    wrapper.unmount();
   });
 });

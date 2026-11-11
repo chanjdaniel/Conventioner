@@ -42,8 +42,12 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
     ],
     ORGANIZATIONS_COLLECTION: [
         ("id",),
-        # "The organizations this person is in" is an $or over these three; each is indexed so
-        # the query can use all of them.
+        # "The organizations this person is in" (`organization_people.of_person`): a place is a
+        # key of the people map, named by the person's id, so only a wildcard index covers it, as
+        # `roles.$**` covers a market's.
+        ("people.$**",),
+        # An organization stored before the map is found by its three lists, each indexed so the
+        # query's other branches can use all of them; they go with the lists (T283's follow-up).
         ("owner",),
         ("admins",),
         ("members",),
