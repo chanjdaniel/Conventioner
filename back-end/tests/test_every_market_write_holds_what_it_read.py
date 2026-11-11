@@ -9,8 +9,9 @@ subscript of ``"markets"`` or ``MARKETS_COLLECTION``. Each must be in ``market_w
 call's result, a subscript of a variable) may be the markets collection too, so it must be listed
 the same way, and fails naming its file and line until it is.
 
-A site not yet moved onto the helper is listed as "moves in ticket NN"; each later ticket removes
-its own, and ticket 14 removes the kind, leaving only the permanent exceptions.
+Every exception is permanent: a write that keeps no rule of the market as read, or a lease or
+script of its own. A write waiting to move onto the helper is no reason to stay outside it, so a
+reason naming a ticket fails the list.
 """
 import ast
 import re
@@ -29,41 +30,39 @@ WRITE_METHODS = frozenset({
 #: The one module whose writes to the markets collection need no reason.
 HELPER = "market_write"
 
-_PERMANENT = "permanent: "
+_A_MIGRATION = "a one-time migration an operator runs outside any request, so nothing was read to hold"
 
 #: Each write to the markets collection outside the helper, by (module, function), and why.
 EXCEPTIONS: Dict[Tuple[str, str], str] = {
-    ("api.markets", "create_market"): _PERMANENT + (
+    ("api.markets", "create_market"): (
         "the market's creation, an insert: there is no market as read to hold, and the unique "
         "slug index settles two creations at one address"),
-    ("market_deletion", "delete_market_and_records"): _PERMANENT + (
+    ("market_deletion", "delete_market_and_records"): (
         "the market's deletion keeps no rule beyond the right to delete, and deletes the market "
         "and its records in its own order"),
-    ("review_team", "_write_holding"): _PERMANENT + (
+    ("review_team", "_write_holding"): (
         "the dealing lease (ADR 0020): a protocol of its own, each write held on the lease"),
-    ("review_team", "_deal_arriving"): _PERMANENT + (
+    ("review_team", "_deal_arriving"): (
         "the dealing lease (ADR 0020): a protocol of its own, each write held on the lease"),
-    ("review_team", "_hold"): _PERMANENT + (
+    ("review_team", "_hold"): (
         "the dealing lease (ADR 0020): a protocol of its own, each write held on the lease"),
-    ("review_team", "_let_go"): _PERMANENT + (
+    ("review_team", "_let_go"): (
         "the dealing lease (ADR 0020): a protocol of its own, each write held on the lease"),
-    ("essential_fields", "freeze_essential_options"): _PERMANENT + (
+    ("essential_fields", "freeze_essential_options"): (
         "the essential offering's freeze: the first writer wins, held by no snapshot stored yet"),
-    ("market_documents", "apply_market_key_migration"): _PERMANENT + (
-        "a migration, run by an operator before the app serves, rewriting every market whole"),
-    ("migrations.migrate_publishing_to_market_days", "migrate"): _PERMANENT + "a migration",
-    ("migrations.migrate_roles", "migrate_market_roles"): _PERMANENT + "a migration",
-    ("migrations.migrate_to_one_stage", "migrate"): _PERMANENT + "a migration",
-    ("migrations.migrate_to_uuid", "migrate_to_uuid"): _PERMANENT + "a migration",
-    ("reset_database", "reset_database"): _PERMANENT + (
+    ("market_documents", "apply_market_key_migration"): (
+        "a one-time migration an operator runs outside any request, rewriting every market whole"),
+    ("migrations.migrate_publishing_to_market_days", "migrate"): _A_MIGRATION,
+    ("migrations.migrate_roles", "migrate_market_roles"): _A_MIGRATION,
+    ("migrations.migrate_to_one_stage", "migrate"): _A_MIGRATION,
+    ("migrations.migrate_to_uuid", "migrate_to_uuid"): _A_MIGRATION,
+    ("reset_database", "reset_database"): (
         "an operator script emptying every collection of a local database, which it names by a "
         "variable the walk cannot read"),
-    ("discord_fake", "_give"): _PERMANENT + (
-        "the fake Discord's own servers, not the markets collection; the walk cannot name a "
-        "receiver made by a call"),
 }
 
-_MOVES_IN = re.compile(r"moves in ticket (\d\d)")
+#: A reason that names a ticket is a write waiting to move onto the helper, not a reason.
+_A_TICKET = re.compile(r"\bticket\b", re.IGNORECASE)
 
 
 class Site(NamedTuple):
@@ -181,13 +180,14 @@ def test_every_exception_names_a_site_that_still_writes():
     assert set(EXCEPTIONS) - _excused_sites(BACK_END_DIR) == set()
 
 
-def test_every_exception_says_why_or_which_ticket_moves_it():
-    for site, reason in EXCEPTIONS.items():
-        if reason.startswith(_PERMANENT):
-            assert len(reason) > len(_PERMANENT) + 10, site
-            continue
-        moves = _MOVES_IN.fullmatch(reason)
-        assert moves and "08" <= moves.group(1) <= "12", (site, reason)
+def unexplained(exceptions: Dict[Tuple[str, str], str]) -> List[Tuple[str, str]]:
+    """Each exception with no reason of its own: none, a word or two, or one naming a ticket."""
+    return [site for site, reason in exceptions.items()
+            if len(reason.split()) < 4 or _A_TICKET.search(reason)]
+
+
+def test_every_exception_is_permanent_and_says_why():
+    assert unexplained(EXCEPTIONS) == []
 
 
 def test_the_helper_writes_the_markets_collection():
@@ -220,7 +220,17 @@ class TestThePlantedWrite:
             "def rename(market_id, name):\n"
             "    markets_collection.update_one({'id': market_id}, {'$set': {'name': name}})\n"))
 
-        assert unexcused(root, {("api.planted", "rename"): _PERMANENT + "a reason"}) == []
+        assert unexcused(root, {("api.planted", "rename"): "a reason"}) == []
+
+    def test_a_write_waiting_to_move_is_no_reason(self):
+        assert unexplained({
+            ("api.planted", "rename"): "moves in ticket 12",
+            ("api.planted", "retitle"): "waits for TICKET 15 to move it onto the helper",
+            ("api.planted", "reorder"): "",
+            ("api.planted", "rewrite"): "a migration",
+            ("api.planted", "restore"): "an operator script outside any request",
+        }) == [("api.planted", "rename"), ("api.planted", "retitle"), ("api.planted", "reorder"),
+               ("api.planted", "rewrite")]
 
     def test_every_way_of_naming_the_markets_collection_is_found(self, tmp_path):
         root = self._tree(tmp_path, (
