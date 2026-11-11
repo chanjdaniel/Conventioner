@@ -16,6 +16,8 @@ import { useUnsavedWork } from '@/utils/useUnsavedWork';
 // ── Props ────────────────────────────────────────────────────────────
 const props = defineProps<{
   marketId: string;
+  /** The id of the floorplan the market stores, the last saved when it holds several, or null. */
+  storedFloorplanId: string | null;
 }>();
 
 // ── Emits ────────────────────────────────────────────────────────────
@@ -25,6 +27,9 @@ const emit = defineEmits<{
 
 // ── Store ────────────────────────────────────────────────────────────
 const store = useFloorplanStore();
+// Saved under the stored floorplan's id, so running the wizard again on a later visit replaces
+// that floorplan rather than adding another to the market (T272).
+store.openOnMarket(props.storedFloorplanId);
 
 // ── Local state ──────────────────────────────────────────────────────
 const step = ref(0);
