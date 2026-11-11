@@ -239,7 +239,8 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * over the faded floorplan with the panel's list of sections: the editor at a desk and the map read
  * on a phone, then, at a desk, with a table selected, with every table selected, with a section's
  * colours open, with Add table's options open, with a table picked up by keyboard, with the
- * panel's list of keys open, with a row being drawn by the crosshair, with an L-shaped area's
+ * panel's list of keys open, with a row being drawn by the crosshair, with a curve drawn by hand
+ * waiting with its points, with an L-shaped area's
  * corners clicked for Fill an area, with that area closed and its dialog open, with a table type's
  * dialog open, and with the image being replaced. Nothing is
  * saved, so each walk finds them as seeded.
