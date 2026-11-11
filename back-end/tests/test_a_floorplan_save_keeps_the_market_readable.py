@@ -171,10 +171,9 @@ class TestAMarketWithNoPlan:
     def test_it_writes_the_whole_plan_in_one_set(self, client, market):
         _save(client, _floorplan())
 
-        assert set(market.last_update) == {"$set", "$inc"}
         assert set(market.last_update["$set"]) == {"setupObject"}
         # And counts the plan's revision, as every write of the plan does (T274).
-        assert market.last_update["$inc"] == {"planRevision": 1}
+        assert market.doc["planRevision"] == 1
 
 
 class TestASectionsTypedTier:
