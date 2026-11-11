@@ -94,13 +94,13 @@ describes:
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
   - back-end/api/applicant_auth.py#_send_code_email
-  - back-end/utils/email.py#send_mail
   - back-end/tests/test_account_emails_log_no_address.py
+  - back-end/utils/email.py#send_mail
   - back-end/api/applicant_auth.py#request_login_code
   - back-end/api/markets.py#take_move
   - back-end/utils/captcha.py#verify_recaptcha
   - back-end/tests/test_captcha.py
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T74
   - E41/F01/S01

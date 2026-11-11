@@ -311,6 +311,7 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
 
     # Read before the run, which replaces the market's assignment with the one it produced.
     read_revision = market.assignment_object.revision
+    held_before = [(seat.email, seat.date) for seat in market.assignment_object.vendor_assignments]
     market.assignment_object.assignment_statistics = None
     # Raises ``BrokenAllocationError`` on an allocation that breaks the solver's own rules (T253),
     # so nothing below it runs then: no store, no history entry, no payment change.
@@ -330,9 +331,12 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
         placements_written=len(assignment.vendor_assignments),
         pins_preserved=sum(1 for row in assignment.vendor_assignments if row.hand_placed),
     )
+    # Every day held before the run or after it: a day it seats forgets its freed line, and a day
+    # it drops forgets any freed record a stopped free left on it while it was held.
     PaymentsApi.seated_again(
-        market_id, [(seat.email, seat.date) for seat in assignment.vendor_assignments],
-        requesting_user)
+        market_id,
+        [*held_before, *((seat.email, seat.date) for seat in assignment.vendor_assignments)],
+        held_before, requesting_user)
 
     # The same shape ``GET /markets/<id>/assignment`` returns, so a caller swapping to this one
     # reads the result the same way - the organization's display name included, because the
@@ -402,7 +406,8 @@ def write_placement(
     _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date,
                               market.assignment_object.revision)
     History.record_placed(market_id, requesting_user, placement, left)
-    PaymentsApi.seated_again(market_id, [(placement.email, placement.date)], requesting_user)
+    PaymentsApi.seated_again(market_id, [(placement.email, placement.date)],
+                             [(left.email, left.date)] if left else [], requesting_user)
 
     return {"placement": convert_keys_to_camel_case(placement.model_dump())}, 200
 
@@ -448,27 +453,53 @@ def remove_placement(
     ]
     if freed:
         # Before the seat goes, while the market still says what it cost: freeing a table changes
-        # neither what the vendor owes nor what they paid (E44/F01/S01). Kept first, so a seat
-        # whose line could not be kept is not freed.
-        undo_kept_line = PaymentsApi.keep_freed_line(market, email, date, requesting_user)
+        # neither what the vendor owes nor what they paid (E44/F01/S01), and the deduction asked is
+        # in the same write, so no stop after the seat leaves it free and its full amount owed.
+        # Kept first, so a seat whose line could not be kept is not freed.
+        kept_line = PaymentsApi.keep_freed_line(market, email, date, requesting_user,
+                                                deduct=deduct_owed)
         try:
             _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date,
                                       market.assignment_object.revision)
         except AssignmentChangedUnderRequest:
-            # Refused, so the line goes back as it was: while the seat is still held, a freed record
-            # left behind would come back as the line once that seat went some other way than a
-            # free. Unless a free of the same seat landed meanwhile and kept its own record over
-            # this one: that record, and any $0 it set, are the line's now.
-            undo_kept_line()
+            # Not freed: the record goes back as it was, since while the seat is still held a
+            # freed record left behind would come back as the line once that seat went some
+            # other way than a free. Unless a free of the same seat landed meanwhile and kept its
+            # own record over this one: that record, and any $0 it set, are the line's.
+            kept_line.undo()
+            raise
+        except BaseException:
+            # Anything else may come after the store reached the database (a network error on
+            # the way back), and then the seat is free and the line kept for it is the day's. So
+            # the record goes back only while the stored assignment still seats them; when it
+            # cannot be read, it stays, since a held seat reads its own price over a freed record
+            # and the next write of the day forgets it.
+            if _still_holds(market_id, email, date):
+                kept_line.undo()
             raise
         for placement in freed:
             History.record_freed(
                 market_id, requesting_user, email, date, placement.table_code
             )
-        if deduct_owed:
-            PaymentsApi.deduct_freed_line(market, email, date, requesting_user)
+        kept_line.record_deduction()
+    elif deduct_owed:
+        # Nothing to free: a free from before T270 that stopped after its seat left the day owing
+        # its full amount, and pressing Free again is the retry that finishes the deduction.
+        PaymentsApi.deduct_freed_day(market, email, date, requesting_user)
 
     return {"removed": len(freed)}, 200
+
+
+def _still_holds(market_id: str, email: str, date: str) -> bool:
+    """Whether the stored assignment still seats ``email`` on ``date``; False when it cannot be
+    read, which leaves a free's kept line in place rather than risk taking a freed day's line."""
+    try:
+        stored = MarketsApi.markets_collection.find_one(
+            {"id": market_id}, {"assignmentObject.vendorAssignments": 1})
+    except Exception:  # noqa: BLE001 - the free's own error is the one that goes on
+        return False
+    rows = ((stored or {}).get("assignmentObject") or {}).get("vendorAssignments") or []
+    return any(row.get("email") == email and row.get("date") == date for row in rows)
 
 
 def swap_placements(
@@ -527,6 +558,10 @@ def swap_placements(
         placements[held[first_email]],
         placements[held[second_email]],
     )
+
+    # Both days were held, so a freed record on either is one a stopped free left, and goes.
+    traded = [(first.email, date), (second.email, date)]
+    PaymentsApi.seated_again(market_id, traded, traded, requesting_user)
 
     return {
         "placements": [

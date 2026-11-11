@@ -10,7 +10,10 @@ describes:
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_placement_history.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
-verified: 2026-11-09
+  - back-end/api/attendance.py#ensure_attendance_indexes
+  - back-end/payments.py#ensure_payment_indexes
+  - back-end/migrations/check_vendor_day_duplicates.py
+verified: 2026-11-11
 sources:
   - E32/F03/S03
   - T15
@@ -20,6 +23,7 @@ sources:
   - E40/F01/S01
   - T254
   - T263
+  - T270
 ---
 
 # Operations
@@ -184,7 +188,15 @@ Until it runs, that release reads the old `placement_history` collection beside 
 
 ### When the back end refuses to boot
 
-The back end checks the database as it starts and refuses to serve one it cannot trust: the migration markers ([`market_documents.py`](../back-end/market_documents.py)) and three unique indexes ([`api/users.py`](../back-end/api/users.py), [`api/applications.py`](../back-end/api/applications.py), [`api/applicant_auth.py`](../back-end/api/applicant_auth.py)).
+The back end checks the database as it starts and refuses to serve one it cannot trust: the migration markers ([`market_documents.py`](../back-end/market_documents.py)) and these unique indexes, in the order the boot builds them:
+
+- one application per applicant, `market_applicant_type_unique` ([`api/applications.py`](../back-end/api/applications.py));
+- one sign-in code per applicant, `market_email_unique` ([`api/applicant_auth.py`](../back-end/api/applicant_auth.py));
+- one account per address, `user_email` ([`api/users.py`](../back-end/api/users.py));
+- one attendance record per vendor's day, `attendance_vendor_day_unique` ([`api/attendance.py`](../back-end/api/attendance.py), through [`unique_indexes.py`](../back-end/unique_indexes.py));
+- one owed record per vendor's day, `amounts_owed_vendor_day_unique` ([`payments.py`](../back-end/payments.py), through [`unique_indexes.py`](../back-end/unique_indexes.py));
+- one payment per press of Record, `payments_request_key_unique` ([`payments.py`](../back-end/payments.py), through [`unique_indexes.py`](../back-end/unique_indexes.py)).
+
 Every request then answers 500 `FUNCTION_INVOCATION_FAILED`, and the log says which check refused and what to run (Vercel, the back-end project, Logs).
 Each refusal below names its fix; take a `mongodump` first (above) when the fix writes.
 On a local stack the same refusals appear in `docker compose logs backend`, and the commands run as `docker compose run --rm backend python <script>` - `run`, not `exec`, because the back-end container is crash-looping and there is nothing to attach to ([STARTUP.md](STARTUP.md#troubleshooting)).
@@ -223,6 +235,28 @@ Some applicant holds two applications of one type at one market, which the index
 The refusal names each such group by application id, and names Mongo's error by its type and code only, since Mongo's own words quote the address.
 `MONGODB_URI='<URI>' .venv/bin/python migrations/create_applications_collection.py --dry-run` ([`create_applications_collection.py`](../back-end/migrations/create_applications_collection.py)) lists each such applicant with their application ids; it prints their addresses, so keep its output off anything shared.
 Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
+
+**"The unique index attendance_vendor_day_unique on attendance ... could not be built ... Records sharing one vendor's day, by market_id, date and record id: ..."**.
+Two check-ins of one vendor's day stored two records, which two at the same moment could before the index existed ([attendance and the door](implementation/modules/attendance-and-door.md#one-vendors-day-is-one-record-by-the-database)).
+The refusal names each group by market id, date and record id, never the vendor's address, and Mongo's error by its type and code only.
+`MONGODB_URI='<URI>' .venv/bin/python migrations/check_vendor_day_duplicates.py` ([`check_vendor_day_duplicates.py`](../back-end/migrations/check_vendor_day_duplicates.py)) lists the same groups and writes nothing; from an ops session without the checkout, `db.attendance.aggregate([{$group: {_id: {m: "$market_id", v: "$vendor_email", d: "$date"}, n: {$sum: 1}, ids: {$push: "$_id"}}}, {$match: {n: {$gt: 1}}}, {$project: {"_id.v": 0}}])` in `mongosh` does.
+Take a `mongodump` first, then in each group keep the record with the earliest `checked_in_at` and delete the others by `_id` (`db.attendance.deleteOne({_id: ObjectId('<id>')})`).
+The history already holds each arrival, with who made it and how; the kept record then names the first check-in's organizer or door code, not a later one's.
+Then redeploy, or restart the local back end.
+When it says "none found", the build failed on something other than duplicates: code 85 or 86 is an index of that name with other options or keys, to drop (`db.attendance.dropIndex('attendance_vendor_day_unique')`) before redeploying.
+
+**"The unique index amounts_owed_vendor_day_unique on amounts_owed ... could not be built ... Records sharing one vendor's day, by market_id, date and record id: ..."**.
+Two writes of what a vendor owes for one day stored two records, which an amount set at the same moment as a free could before the index existed ([payments](implementation/data/payments.md#one-vendors-day-is-one-owed-record-by-the-database)).
+The refusal names each group as the attendance one does, and `check_vendor_day_duplicates.py` lists the same groups; the `mongosh` line above, run on `db.amounts_owed`, does too.
+Each record may hold a freed line (`freed`) and an amount set by hand (`set_by_hand`), and the day's one record should hold the latest of each.
+Take a `mongodump` first, then in each group keep one record, holding the `freed` with the latest `freed.at` and the `set_by_hand` with the latest `set_by_hand.at` among the group's (`db.amounts_owed.updateOne({_id: ObjectId('<kept id>')}, {$set: {freed: <latest freed>, set_by_hand: <latest set_by_hand>}})`), and delete the others by `_id` (`db.amounts_owed.deleteOne({_id: ObjectId('<id>')})`).
+Then redeploy, or restart the local back end, and read the vendor's Payment tab for that day.
+"None found" reads as for attendance, the index to drop being `db.amounts_owed.dropIndex('amounts_owed_vendor_day_unique')`.
+
+**"The unique index payments_request_key_unique on payments ... could not be built ... Records sharing one request key, by market_id and record id: ..."**.
+This is not duplicates: the request key is the press of Record payment an entry was recorded by ([payments](implementation/data/payments.md#a-payment-is-recorded-once-per-press)), and the refusal groups only the entries the index covers, those with a key, which no entry recorded before the index has, so it reads "none found".
+Read the database's answer in the refusal, its type and code: code 85 or 86 is an index of that name with other options or keys, to drop (`db.payments.dropIndex('payments_request_key_unique')`) before redeploying; anything else is the database's own trouble (reachability, the user's rights, Atlas's status).
+The index only stops an entry recorded twice by one press, so dropping it loses nothing, and the next boot builds it again.
 
 **"The indexes on applicant_login_challenges, sign_in_attempts and vendor_remembered_sign_ins could not be built"**.
 The log names Mongo's error by its type and code only, never its words, since a duplicate key error quotes a vendor's address: code 11000 is duplicate challenges, and 85 or 86 an index of the same name with other options or keys.
