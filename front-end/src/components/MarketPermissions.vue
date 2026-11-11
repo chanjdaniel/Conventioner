@@ -16,7 +16,7 @@ import {
   MarketRole,
   type PermissionTableRow,
 } from '@/assets/types/datatypes';
-import { api, getApiErrorMessage } from '@/utils/api';
+import { api, getApiErrorMessage, isMarketChanged } from '@/utils/api';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
 import PermissionChanges from '@/components/PermissionChanges.vue';
@@ -37,6 +37,11 @@ const props = defineProps<{ market: Market }>();
 const emit = defineEmits<{
   /** The table a write answered, for the dialog's copy of the market. */
   changed: [table: PermissionTableRow[]];
+  /**
+   * A write was refused because the market changed since this copy was read (ADR 0024): the
+   * dialog's copy of the market is read again, its sentence kept in the confirmation.
+   */
+  marketChanged: [];
 }>();
 
 /** Closed until asked for: every row of the table, and its changes. */
@@ -146,6 +151,7 @@ async function confirmChange() {
     await afterWrite(response.data.permissionTable);
   } catch (err) {
     writeError.value = getApiErrorMessage(err, 'Who may do this was not changed.');
+    if (isMarketChanged(err)) emit('marketChanged');
   }
 }
 
@@ -165,6 +171,7 @@ async function confirmReset() {
     if (document.activeElement === document.body) await dialog.value?.focusInside();
   } catch (err) {
     writeError.value = getApiErrorMessage(err, 'The table was not reset.');
+    if (isMarketChanged(err)) emit('marketChanged');
   }
 }
 
@@ -181,6 +188,7 @@ async function confirmCopy() {
     await afterWrite(response.data.permissionTable);
   } catch (err) {
     writeError.value = getApiErrorMessage(err, "The organization's defaults were not copied.");
+    if (isMarketChanged(err)) emit('marketChanged');
   }
 }
 

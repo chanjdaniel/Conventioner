@@ -1,5 +1,6 @@
 /**
- * Manage market, meeting "market changed" from a role write, re-reads who has access (ADR 0024).
+ * Manage market, meeting "market changed" from a role write, re-reads who has access (ADR 0024);
+ * from a change to the permission table or a rename, it re-reads the market the same way.
  *
  * Giving, changing and taking a role each hold the roles they read; when another organizer changed
  * them first, the server stores nothing and answers its one 409, `{"error": <the sentence>, "code":
@@ -17,6 +18,7 @@ import {
   MarketPhase,
   MarketRole,
   type Market,
+  type PermissionTableRow,
   type PersonWithAccess,
 } from '@/assets/types/datatypes';
 import { MARKET_CHANGED_CODE } from '@/utils/api';
@@ -206,5 +208,157 @@ describe('Manage market meets a market that changed under a role write', () => {
     expect((byTestId('manage-market-role-select') as HTMLSelectElement).value).toBe(
       MarketRole.Viewer,
     );
+  });
+});
+
+function tableRow(role: MarketRole): PermissionTableRow {
+  return {
+    id: 'check-in',
+    group: 'The door',
+    label: 'Check vendors in',
+    role,
+    default: MarketRole.Editor,
+    source: role === MarketRole.Editor ? 'built-in' : 'market',
+    fixed: false,
+    mayWhat: 'check vendors in at this market',
+  };
+}
+
+/** A market whose one table row is held at `role`, in `phase`. */
+function withTable(role: MarketRole, phase = MarketPhase.Applications): Market {
+  return { ...market([person()]), phase, permissionTable: [tableRow(role)] } as Market;
+}
+
+/** The 409 any write answers when another organizer left the market as `then` first. */
+function refusedOver(then: Market) {
+  return async () => {
+    served = then;
+    throw Object.assign(new AxiosError('refused'), {
+      response: { status: 409, data: { error: SENTENCE, code: MARKET_CHANGED_CODE } },
+    });
+  };
+}
+
+async function openPermissions() {
+  byTestId('manage-market-permissions-open')!.click();
+  await flushPromises();
+}
+
+const shownRole = () =>
+  (byTestId('manage-market-permission-select') as HTMLSelectElement | null)?.value;
+
+describe('Manage market meets a market that changed under a change to the table', () => {
+  beforeEach(() => {
+    served = withTable(MarketRole.Admin);
+  });
+
+  it("re-reads the market after a refused row's change, and says the sentence in its confirmation", async () => {
+    api.put.mockImplementation(refusedOver(withTable(MarketRole.Viewer)));
+    await open();
+    await openPermissions();
+    const select = byTestId('manage-market-permission-select') as HTMLSelectElement;
+    select.focus();
+    select.value = MarketRole.Owner;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+    const readsBefore = marketReads();
+
+    byTestId('manage-market-permission-confirm-submit-button')!.dispatchEvent(
+      new Event('submit', { bubbles: true }),
+    );
+    await flushPromises();
+
+    expect(byTestId('manage-market-permission-confirm-error')!.textContent?.trim()).toBe(SENTENCE);
+    expect(marketReads()).toBe(readsBefore + 1);
+    expect(shownRole()).toBe(MarketRole.Viewer);
+  });
+
+  it('re-reads the market after a refused reset, and says the sentence in its confirmation', async () => {
+    api.delete.mockImplementation(refusedOver(withTable(MarketRole.Viewer)));
+    await open();
+    await openPermissions();
+    byTestId('manage-market-permissions-reset')!.click();
+    await flushPromises();
+    const readsBefore = marketReads();
+
+    byTestId('manage-market-permissions-reset-confirm-submit-button')!.dispatchEvent(
+      new Event('submit', { bubbles: true }),
+    );
+    await flushPromises();
+
+    expect(byTestId('manage-market-permissions-reset-confirm-error')!.textContent?.trim()).toBe(
+      SENTENCE,
+    );
+    expect(marketReads()).toBe(readsBefore + 1);
+    expect(shownRole()).toBe(MarketRole.Viewer);
+  });
+
+  it("re-reads the market after a refused copy of the organization's defaults", async () => {
+    api.post.mockImplementation(refusedOver(withTable(MarketRole.Viewer)));
+    await open();
+    await openPermissions();
+    byTestId('manage-market-permissions-copy')!.click();
+    await flushPromises();
+    const readsBefore = marketReads();
+
+    byTestId('manage-market-permissions-copy-confirm-submit-button')!.dispatchEvent(
+      new Event('submit', { bubbles: true }),
+    );
+    await flushPromises();
+
+    expect(byTestId('manage-market-permissions-copy-confirm-error')!.textContent?.trim()).toBe(
+      SENTENCE,
+    );
+    expect(marketReads()).toBe(readsBefore + 1);
+    expect(shownRole()).toBe(MarketRole.Viewer);
+  });
+
+  it('reads nothing again after a change refused for any other reason', async () => {
+    api.put.mockRejectedValue(
+      Object.assign(new AxiosError('refused'), {
+        response: { status: 403, data: { error: 'Only the owner changes these.' } },
+      }),
+    );
+    await open();
+    await openPermissions();
+    const select = byTestId('manage-market-permission-select') as HTMLSelectElement;
+    select.focus();
+    select.value = MarketRole.Owner;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+    const readsBefore = marketReads();
+
+    byTestId('manage-market-permission-confirm-submit-button')!.dispatchEvent(
+      new Event('submit', { bubbles: true }),
+    );
+    await flushPromises();
+
+    expect(byTestId('manage-market-permission-confirm-error')!.textContent?.trim()).toBe(
+      'Only the owner changes these.',
+    );
+    expect(marketReads()).toBe(readsBefore);
+  });
+});
+
+describe('Manage market meets a market that changed under a rename', () => {
+  it('re-reads the market after a refused rename, and no longer offers the name it cannot change', async () => {
+    served = withTable(MarketRole.Editor, MarketPhase.Draft);
+    api.put.mockImplementation(refusedOver(withTable(MarketRole.Editor)));
+    await open();
+    const input = byTestId('manage-market-rename-input') as HTMLInputElement;
+    input.value = 'Autumn Market';
+    input.dispatchEvent(new Event('input'));
+    await flushPromises();
+    const readsBefore = marketReads();
+
+    byTestId('manage-market-rename-save-button')!
+      .closest('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(byTestId('manage-market-rename-error')!.textContent?.trim()).toBe(SENTENCE);
+    expect(marketReads()).toBe(readsBefore + 1);
+    expect(byTestId('manage-market-rename-input')).toBeNull();
+    expect(byTestId('manage-market-rename-fixed')).not.toBeNull();
   });
 });

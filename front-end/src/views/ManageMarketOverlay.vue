@@ -371,6 +371,9 @@ async function handleRename() {
   } catch (err) {
     // The server's own words: a clash is about the public web address, not only the exact name.
     renameError.value = getApiErrorMessage(err, 'The name was not changed.');
+    // The market changed under the rename (ADR 0024), most likely leaving draft: it is read again,
+    // so the field gives way to why the name is fixed, the sentence kept.
+    if (isMarketChanged(err)) await fetchMarket(false);
   }
 }
 
@@ -623,6 +626,7 @@ async function closeAddUser() {
         v-if="marketData.permissionTable?.length"
         :market="marketData"
         @changed="handleTableChanged"
+        @market-changed="fetchMarket(false)"
       />
       <!-- Every change on the market, newest first, a page at a time (E40/F01/S03): after the
            people and who may do what (E39/F01/S04). -->
