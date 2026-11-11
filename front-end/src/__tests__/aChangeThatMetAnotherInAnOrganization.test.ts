@@ -176,6 +176,29 @@ describe('Manage organization, when a change met another', () => {
     wrapper.unmount();
   });
 
+  it('a re-read that fails after the refusal never says the change was saved', async () => {
+    api.put.mockRejectedValue(changed());
+    const wrapper = mountDialog();
+    await flushPromises();
+
+    api.get.mockImplementation(async (url: string) => {
+      if (url === '/organizations') throw failure(404, undefined);
+      return { data: { entries: [], next: null } };
+    });
+    byTestId('manage-org-make-member-button')!.click();
+    await flushPromises();
+    byTestId('manage-org-place-change-submit-button')!.click();
+    await flushPromises();
+
+    expect(api.get).toHaveBeenCalledWith('/organizations');
+    expect(byTestId('manage-org-place-change-error')?.textContent?.trim()).toBe(CHANGED);
+    expect(byTestId('manage-org-error')?.textContent?.trim()).toBe(
+      'Could not re-read the organization',
+    );
+    expect(document.body.textContent).not.toContain('Saved');
+    wrapper.unmount();
+  });
+
   it('any other refusal is shown as before, with no re-read', async () => {
     api.post.mockRejectedValue(
       failure(400, { error: 'They are already an admin of this organization.' }),

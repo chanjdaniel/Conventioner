@@ -155,7 +155,7 @@ function isOwner(): boolean {
  * guessing the new membership locally would be a second copy of the server's rules about who may
  * hold which role.
  */
-async function refreshOrg(): Promise<void> {
+async function refreshOrg(failed: string): Promise<void> {
   const id = orgData.value?.id;
   if (!id) return;
   try {
@@ -163,14 +163,14 @@ async function refreshOrg(): Promise<void> {
     const found = mine.find((candidate) => candidate.id === id);
     if (found) orgData.value = found;
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Saved, but could not re-read the organization');
+    errorMessage.value = getApiErrorMessage(err, failed);
   }
 }
 
 /** Saved: show it here, and tell the list behind. Neither of those is closing. */
 async function saved(): Promise<void> {
   changesMade.value++;
-  await refreshOrg();
+  await refreshOrg('Saved, but could not re-read the organization');
   emit('changed');
 }
 
@@ -181,7 +181,10 @@ async function saved(): Promise<void> {
  * list behind and the History read the change that did land.
  */
 async function readAgainIfChanged(err: unknown): Promise<void> {
-  if (isOrganizationChanged(err)) await saved();
+  if (!isOrganizationChanged(err)) return;
+  changesMade.value++;
+  await refreshOrg('Could not re-read the organization');
+  emit('changed');
 }
 
 /**
