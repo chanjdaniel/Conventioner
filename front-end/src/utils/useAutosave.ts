@@ -121,10 +121,12 @@ export function useAutosave(options: AutosaveOptions) {
         // An edit made after this save went, which the person may no longer write, is dropped here
         // whether or not a pause or a wanted save is behind it: a held one has neither.
         if (!options.may()) dropUnsendable();
+        // "Saving…" stands only while a save is out: an edit this one did not carry, waiting in its
+        // pause or held, shows nothing until a save carries it.
         const next = sendWanted();
         if (!next) {
           if (edits.value === stored.value) showSaved();
-          else if (held) status.value = 'idle';
+          else status.value = 'idle';
         }
         await options.afterSave();
         return null;
@@ -216,7 +218,11 @@ export function useAutosave(options: AutosaveOptions) {
   function edited() {
     if (!options.may()) return;
     edits.value += 1;
-    if (status.value === 'saved') status.value = 'idle';
+    // "Plan saved", and a refusal's "back as it was last saved", are not true of the new edit.
+    if (status.value === 'saved' || status.value === 'refused') {
+      status.value = 'idle';
+      message.value = '';
+    }
     if (held) {
       stopPause();
       heldEdit = true;

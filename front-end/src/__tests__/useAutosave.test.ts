@@ -327,6 +327,44 @@ describe('the autosave queue', () => {
     expect(writes.send).not.toHaveBeenCalled();
   });
 
+  // An answer that found a later edit's pause still running left "Saving…" with nothing out, and
+  // once the screen dropped that edit nothing ever cleared it (T271 round 2).
+  it('says nothing between an answer and the pause of a later edit, and nothing once the screen drops that edit', async () => {
+    let may = true;
+    const { writes, edit, autosave } = setUp({ may: () => may });
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    edit('2026-08-02');
+    await vi.advanceTimersByTimeAsync(100);
+    await writes.answer();
+    expect(autosave.status.value).toBe('idle');
+
+    may = false;
+    autosave.forgetUnsendable();
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(writes.send).toHaveBeenCalledTimes(1);
+    expect(autosave.unsaved.value).toBe(false);
+    expect(autosave.status.value).toBe('idle');
+  });
+
+  it('says saving again when the pause of an edit made while a save was out sends it', async () => {
+    const { writes, edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    edit('2026-08-02');
+    await vi.advanceTimersByTimeAsync(100);
+    await writes.answer();
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(writes.send).toHaveBeenCalledTimes(2);
+    expect(autosave.status.value).toBe('saving');
+    await writes.answer();
+    expect(autosave.status.value).toBe('saved');
+  });
+
   it('keeps what the person may still write when the screen asks', async () => {
     const { edit, autosave } = setUp();
 
@@ -457,6 +495,22 @@ describe('a refusal and a failure', () => {
     expect(afterRefusal).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(writes.send).toHaveBeenCalledTimes(1);
+  });
+
+  // The refused line said the plan was back as last saved beside an edit not yet sent (T271 round 2).
+  it('stops saying refused at the next edit', async () => {
+    const { writes, edit, autosave } = setUp();
+
+    edit('2026-08-01');
+    await vi.advanceTimersByTimeAsync(600);
+    await writes.fail(answered(409, 'Market is not a draft'));
+    expect(autosave.status.value).toBe('refused');
+
+    edit('2026-08-02');
+
+    expect(autosave.status.value).toBe('idle');
+    expect(autosave.message.value).toBe('');
+    expect(autosave.unsaved.value).toBe(true);
   });
 
   it('lets the next edit after a refusal start from the copy the server holds', async () => {

@@ -31,7 +31,8 @@ The plan used to send a save at every pause whether or not one was out, and answ
 
 **Edits are counted, and an answered save marks stored only the edits it carried.**
 `unsaved` is true while an edit is not yet stored or a save is out.
-The status is `saving` while a save is out, and `saved` ("Plan saved") only when an answer leaves no edit unsaved, for 2 s; the next edit hides it.
+The status is `saving` only while a save is out, and `saved` ("Plan saved") only when an answer leaves no edit unsaved, for 2 s; the next edit hides it.
+An answer that leaves an edit unsaved with no save sent after it (the edit's pause still running, or the plan held) sets the status back to `idle`, as an edit waiting before any save is; it used to leave "Saving…" with nothing out, for good once the screen dropped that edit (T271 round 2).
 A wanted save is sent before the re-read of the answer that freed it, so that re-read lands while an edit is unsaved, and the view ignores it.
 
 **A refusal and a failure are told apart** by the answer's status, in one function, `isRefusal`: an answer from 400 to 499 other than 401, 408 and 429 is the server saying no, and anything else (no answer, a 401, 408, 429 or 5xx) is the save not getting through.
@@ -39,6 +40,7 @@ The plan's write refuses with a 400 (an invalid plan, a price, the intake mode a
 
 **A refusal drops every edit made so far** and takes the server's plan back: the plan is written whole, so every later edit builds on the refused one, and none of them is kept.
 The status is `refused`, and the line (`market-setup-plan-refused`, in the error's red, with no Retry) says the server's sentence and then "The plan is back as it was last saved."
+The next edit hides it, since the plan on screen is then no longer the one last saved.
 A sentence the server left without a full stop ("Market not found", from a market deleted in another tab) is given one, so the two read as two sentences.
 The view's `afterRefusal` re-reads the market and then adopts it itself, so the server's plan comes back even when the re-read failed or handed back the market the page already had, which leaves the market watch silent.
 Nothing is unsaved after it, so later re-reads reach the screen again; until T271 a refused save left the page skipping every re-read, the refused plan on screen until a reload.
