@@ -317,13 +317,22 @@ def _write(org: Dict[str, Any], people: Dict[str, str], after: Dict[str, str],
             lists_held, update = {}, _moved(target_id, people.get(target_id), after.get(target_id))
         query = {"id": org["id"], **held, **lists_held}
     else:
-        for user_id in after:
-            _checked(user_id)
-        query = {"id": org["id"], "people": {"$exists": False},
-                 "owner": org.get("owner"), "admins": org.get("admins"),
-                 "members": org.get("members")}
-        update = {"$set": {"people": after, **_mirror(after)}}
+        query, update = folding_write(org, after)
     return organizations_collection.update_one(query, update).matched_count > 0
+
+
+def folding_write(org: Dict[str, Any],
+                  people: Dict[str, str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """The filter and update that write ``people`` into an organization stored before the map, read
+    as ``org``: held on ``people`` absent and the three lists equal to what was read, setting the
+    map whole beside the lists as its mirror. A change's write and the migration share it, so the
+    first change to such an organization and the migration fold it alike."""
+    for user_id in people:
+        _checked(user_id)
+    query = {"id": org["id"], "people": {"$exists": False},
+             "owner": org.get("owner"), "admins": org.get("admins"),
+             "members": org.get("members")}
+    return query, {"$set": {"people": people, **_mirror(people)}}
 
 
 def _met_a_change(org_id: str, event: Event, target_id: str) -> ClientError:

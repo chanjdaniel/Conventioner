@@ -169,3 +169,73 @@ def test_a_transfer_to_an_admin_beside_an_add_admin_keeps_the_mirror(
         assert stored["people"][people[NEW]] == "admin" and people[NEW] in stored["admins"]
         assert stored["people"][people[OWNER]] == "owner"
     assert_one_map(stored)
+
+
+# ── The migration ────────────────────────────────────────────────────────────────────────────
+
+
+def _stored_organizations(real_db):
+    return {doc["id"]: doc for doc in real_db["organizations"].find({}, {"_id": 0})}
+
+
+def test_the_migration_folds_every_shape_on_the_server_and_a_second_run_changes_nothing(real_db):
+    from migrate_organization_people import migrate
+    from test_migrate_organization_people import SHAPES
+
+    real_db["organizations"].insert_many([
+        {"id": f"org-{i}", "name": f"Fixture {i}", "markets": [], **lists}
+        for i, (lists, _people) in enumerate(SHAPES.values())
+    ] + [{"id": "org-none", "name": "Fixture none", "owner": "", "admins": ["u-a"],
+          "markets": []}])
+    before = _stored_organizations(real_db)
+
+    dry = migrate(real_db, dry_run=True)
+
+    assert _stored_organizations(real_db) == before
+    assert migrate(real_db) == dry
+    stored = _stored_organizations(real_db)
+    for i, (_lists, people) in enumerate(SHAPES.values()):
+        assert list(stored[f"org-{i}"]["people"].items()) == list(people.items())
+        assert_one_map(stored[f"org-{i}"])
+    assert stored["org-none"] == before["org-none"]
+
+    again = migrate(real_db)
+
+    assert _stored_organizations(real_db) == stored
+    assert again["folded"] == 0 and again["already_folded"] == len(SHAPES)
+
+
+def test_the_migrations_write_leaves_alone_a_change_landing_during_it(
+        real_db, people, monkeypatch):
+    # The migration reads the organization stored before the map, then, before its write, the
+    # owner adds NEW as an admin, which folds it with NEW in. The migration's write, held on what
+    # it read, matches nothing and leaves the owner's change whole; it lists it, and a second run
+    # finds it folded.
+    import migrate_organization_people as Migration
+
+    real_db["organizations"].insert_one(
+        {"id": ORG, "name": "Race Markets", "owner": people[OWNER], "admins": [people[ADMIN]],
+         "members": [people[MEMBER], people[OWNER]], "markets": [], "theme": None})
+    planned = Migration.folding_write
+
+    def owner_adds_an_admin_meanwhile(org, folded):
+        write = planned(org, folded)
+        OrganizationPeople.add_admin(ORG, NEW, OWNER)
+        return write
+
+    monkeypatch.setattr(Migration, "folding_write", owner_adds_an_admin_meanwhile)
+
+    counts = Migration.migrate(real_db)
+
+    assert counts["changed"] == 1 and counts["folded"] == 0
+    stored = real_db["organizations"].find_one({"id": ORG}, {"_id": 0})
+    assert list(stored["people"].items()) == [
+        (people[OWNER], "owner"), (people[ADMIN], "admin"), (people[MEMBER], "member"),
+        (people[NEW], "admin")]
+    assert_one_map(stored)
+
+    monkeypatch.setattr(Migration, "folding_write", planned)
+    again = Migration.migrate(real_db)
+
+    assert again["already_folded"] == 1 and again["changed"] == 0
+    assert real_db["organizations"].find_one({"id": ORG}, {"_id": 0}) == stored
