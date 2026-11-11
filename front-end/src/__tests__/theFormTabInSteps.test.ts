@@ -58,7 +58,10 @@ function stub(testid: string) {
 
 beforeEach(() => {
   api.get.mockReset();
-  api.get.mockResolvedValue({ data: { application_form: FORM, essential_options: null } });
+  // The form read answers the form's revision, which each save sends back (ADR 0024).
+  api.get.mockResolvedValue({
+    data: { application_form: FORM, essential_options: null, formRevision: 3 },
+  });
 });
 
 const Blank = defineComponent({ render: () => h('div') });
@@ -457,20 +460,23 @@ describe('questions not yet saved', () => {
   });
 
   it('are none once Save Form has stored them', async () => {
-    api.put.mockResolvedValue({ data: { application_form: withAdded } });
+    api.put.mockResolvedValue({ data: { application_form: withAdded, formRevision: 4 } });
     const wrapper = await mountTab();
     await addAQuestion(wrapper);
 
     await wrapper.get('[data-testid="form-builder-save-button"]').trigger('click');
     await flushPromises();
 
-    expect(api.put).toHaveBeenCalledWith('/markets/market-1/application-form', withAdded);
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/application-form', {
+      ...withAdded,
+      formRevision: 3,
+    });
     expect(lastUnsaved(wrapper)).toBe(false);
   });
 
   it('never ride on "Ask this", which sends the stored questions with its choice', async () => {
     const stored = { ...FORM, unaskedEssentials: ['essential_section_ranking'] };
-    api.put.mockResolvedValue({ data: { application_form: stored } });
+    api.put.mockResolvedValue({ data: { application_form: stored, formRevision: 4 } });
     const wrapper = await mountTab();
     await addAQuestion(wrapper);
 
@@ -481,19 +487,25 @@ describe('questions not yet saved', () => {
     await flushPromises();
 
     expect(api.put).toHaveBeenCalledTimes(1);
-    expect(api.put).toHaveBeenCalledWith('/markets/market-1/application-form', stored);
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/application-form', {
+      ...stored,
+      formRevision: 3,
+    });
     // The question is still the organizer's, unsaved and unsent.
     expect(lastUnsaved(wrapper)).toBe(true);
     await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
     expect(wrapper.get('[data-testid="stub-builder"]').text()).toBe('Business,Booth theme');
 
     // Save Form then sends the questions with the choice already made.
-    api.put.mockResolvedValue({ data: { application_form: { ...withAdded, ...stored } } });
+    api.put.mockResolvedValue({
+      data: { application_form: { ...withAdded, ...stored }, formRevision: 5 },
+    });
     await wrapper.get('[data-testid="form-builder-save-button"]').trigger('click');
     await flushPromises();
     expect(api.put).toHaveBeenLastCalledWith('/markets/market-1/application-form', {
       ...withAdded,
       unaskedEssentials: ['essential_section_ranking'],
+      formRevision: 4,
     });
     expect(lastUnsaved(wrapper)).toBe(false);
   });

@@ -802,8 +802,7 @@ def add_market_role(market_id: str) -> Response:
     if role is None:
         return jsonify({"error": f"Invalid role: {role_str}"}), 400
 
-    if not MarketsApi.add_market_role(market_id, user_email, role, authenticated_email()):
-        return jsonify({"error": "Failed to add role"}), 400
+    MarketsApi.add_market_role(market_id, user_email, role, authenticated_email())
     return jsonify({"message": "Role added successfully"}), 200
 
 @app.route('/markets/<market_id>/roles/<user_id>', methods=['DELETE'])
@@ -901,12 +900,15 @@ def rename_market(market_id: str) -> Response:
 def save_plan(market_id: str) -> Response:
     """Write the market plan, and while it is a draft how vendors reach it (E21/F03/S02).
 
-    Body: { "setupObject": {...}, "intakeMode": "csv" | "form" }. Anything else is refused by
-    name: the plan's autosave sends what the plan owns, not the whole market.
+    Body: { "setupObject": {...}, "intakeMode": "csv" | "form", "planRevision": <int> }. Anything
+    else is refused by name: the plan's autosave sends what the plan owns, not the whole market.
+    ``planRevision`` is the revision the page's copy of the plan was read at (the market read
+    serves it); a copy older than the stored plan, or a body naming none, is refused with the 409
+    ``MarketChanged``. The answer carries the revision now stored, for the next save.
     """
     data = json_object(required=True)
-    MarketsApi.save_plan(market_id, data, authenticated_email())
-    return jsonify({"message": "Plan saved"}), 200
+    revision = MarketsApi.save_plan(market_id, data, authenticated_email())
+    return jsonify({"message": "Plan saved", "planRevision": revision}), 200
 
 
 @app.route('/markets/<market_id>/discord/authorization', methods=['POST'])
@@ -1217,6 +1219,10 @@ def save_application_form(market_id: str) -> Response:
     The only writer of the application form on an existing market.
     Only allowed in ``draft`` phase.  Once any application exists for the market
     the form is locked (D9) and further edits are refused.
+
+    Body: the form, and ``formRevision``, the revision the page's copy was read at (the form read
+    answers it). A copy older than the stored form, or a body naming none, is refused with the
+    409 ``MarketChanged``; the answer carries the revision now stored, for the next save.
     """
     data = json_object(required=True)
 
@@ -1229,10 +1235,7 @@ def save_application_form(market_id: str) -> Response:
     data = convert_keys_to_snake_case(data)
     result = MarketsApi.save_application_form(market_id, data, requesting_user)
 
-    return jsonify({
-        "message": "Application form saved successfully",
-        "application_form": result,
-    }), 200
+    return jsonify({"message": "Application form saved successfully", **result}), 200
 
 
 @app.route('/markets/<market_id>/application-form', methods=['GET'])

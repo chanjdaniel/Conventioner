@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import sessions_load_through_get_user, skip_without_real_dependencies
+from conftest import mongo_matches, sessions_load_through_get_user, skip_without_real_dependencies
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -18,6 +18,7 @@ skip_without_real_dependencies()
 import app as app_module
 import api.markets as MarketsApi
 import api.users as UsersApi
+import market_write as MarketWrite
 from datatypes import MarketRole
 
 OWNER_EMAIL = "owner@example.com"
@@ -28,54 +29,26 @@ CSV = "Timestamp,Email Address,Full Name\n" + "".join(
     f"1/{day}/2026 9:00:00,p{day}@mail.test,Wren Okafor{day}\n" for day in range(1, 6))
 
 
-def _field(doc, dotted):
-    for part in dotted.split("."):
-        if not isinstance(doc, dict) or part not in doc:
-            return _MISSING
-        doc = doc[part]
-    return doc
-
-
-_MISSING = object()
-
-
-def _matches(doc, query):
-    """The Mongo filter operators the proposal's routes use: equality, $or, $exists, $size."""
-    for key, expected in query.items():
-        if key == "$or":
-            if not any(_matches(doc, branch) for branch in expected):
-                return False
-            continue
-        if key == "$and":
-            if not all(_matches(doc, branch) for branch in expected):
-                return False
-            continue
-        value = _field(doc, key)
-        if isinstance(expected, dict) and "$exists" in expected:
-            if (value is not _MISSING) != expected["$exists"]:
-                return False
-        elif isinstance(expected, dict) and "$size" in expected:
-            if not isinstance(value, list) or len(value) != expected["$size"]:
-                return False
-        elif (None if value is _MISSING else value) != expected:
-            return False
-    return True
-
-
 class FakeMarketsCollection:
     def __init__(self, doc):
         self.doc = doc
         self.writes = []
 
     def find_one(self, query):
-        return dict(self.doc) if _matches(self.doc, query) else None
+        return dict(self.doc) if mongo_matches(self.doc, query) else None
 
     def update_one(self, query, update, **kwargs):
         self.writes.append((query, update))
-        if not _matches(self.doc, query):
+        if not mongo_matches(self.doc, query):
             return SimpleNamespace(matched_count=0, modified_count=0)
         self.doc.update(update.get("$set", {}))
         return SimpleNamespace(matched_count=1, modified_count=1)
+
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
+        """``update_one``, answering the market after it as ``market_write`` asks."""
+        if not self.update_one(query, update).matched_count:
+            return None
+        return dict(self.doc)
 
     def replace_one(self, *args, **kwargs):
         self.writes.append(args)
@@ -114,6 +87,7 @@ def markets(monkeypatch):
     def _install(doc):
         collection = FakeMarketsCollection(doc)
         monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+        monkeypatch.setattr(MarketWrite, "markets_collection", collection)
         return collection
     return _install
 
@@ -176,16 +150,22 @@ def test_confirm_that_loses_a_race_writes_nothing(client, markets, monkeypatch):
     nothing, and the organizer is told."""
     collection = markets(_market())
     real_find = collection.find_one
+    reads = []
 
     def find_then_publish(query):
         found = real_find(query)
-        collection.doc["phase"] = "applications"
+        reads.append(query)
+        # The route reads the market twice, to ask the row and then for the document it judges:
+        # the move lands after the second.
+        if len(reads) == 2:
+            collection.doc["phase"] = "applications"
         return found
 
     monkeypatch.setattr(collection, "find_one", find_then_publish)
     response = client.post("/markets/market-1/csv-proposal/confirm",
                            json={"csvContent": CSV, "year": 2026})
     assert response.status_code == 409
+    assert response.get_json() == {"error": MarketWrite.MARKET_CHANGED, "code": "market_changed"}
     assert "importMapping" not in collection.doc
 
 

@@ -29,9 +29,10 @@ from api.applicants import (
     list_market_applications,
     review_application,
 )
-from conftest import FakeApplicationsCollection
+from conftest import FakeApplicationsCollection, FakeMarketsCollection
 
 import api.applications as ApplicationsApi
+import market_write as MarketWrite
 
 
 # ── applicant_visible_status (pure function) ───────────────────────────────
@@ -131,49 +132,34 @@ def a_current_run(monkeypatch):
     monkeypatch.setattr(ApplicantsApi, "changed_since_run", lambda _market: [])
 
 
-class FakeMarketsDb:
-    """Simulates the markets collection for the publish-results endpoint."""
-
-    def __init__(self, doc=None):
-        self._doc = dict(doc) if doc else publishable()
-        self.updates = []
-
-    def find_one(self, query, projection=None):
-        mid = query.get("id")
-        if mid == self._doc.get("id"):
-            return dict(self._doc)
-        return None
-
-    def update_one(self, query, update):
-        self.updates.append((query, update))
-        if query.get("id") == self._doc.get("id"):
-            self._doc.update(update.get("$set", {}))
-        return MagicMock(matched_count=1, modified_count=1)
-
-
-def test_publish_results_flips_the_flag(monkeypatch):
-    fake = FakeMarketsDb()
+def _markets(monkeypatch, doc):
+    """The markets collection holding ``doc``, read through the database and written through
+    ``market_write``, as ``publish_results`` reads and writes it."""
+    fake = FakeMarketsCollection(doc)
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
         "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
     }))
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
+    return fake
+
+
+def test_publish_results_flips_the_flag(monkeypatch):
+    fake = _markets(monkeypatch, publishable())
     result, status = publish_results("market-1", "owner@example.com")
 
     assert status == 200
     assert result["results_published"] is True
-    assert fake._doc.get("resultsPublished") is True
+    assert fake.doc.get("resultsPublished") is True
 
 
 def test_a_google_form_market_publishes_its_results(monkeypatch):
     """Its vendors read them on its vendor page (ADR 0022), which opens with them."""
-    fake = FakeMarketsDb(publishable(intakeMode="csv"))
-    monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
-        "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
-    }))
+    fake = _markets(monkeypatch, publishable(intakeMode="csv"))
     result, status = publish_results("market-1", "owner@example.com")
 
     assert status == 200
     assert result["results_published"] is True
-    assert fake._doc.get("resultsPublished") is True
+    assert fake.doc.get("resultsPublished") is True
 
 
 @pytest.mark.parametrize("intake_mode", ["form", "csv"])
@@ -186,10 +172,7 @@ def test_publishing_results_sends_no_email(monkeypatch, intake_mode):
     monkeypatch.setattr(Email, "ready_mailer", lambda: True)
     sent = []
     monkeypatch.setattr(resend.Emails, "send", lambda *a, **k: sent.append((a, k)))
-    fake = FakeMarketsDb(publishable(intakeMode=intake_mode))
-    monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
-        "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
-    }))
+    fake = _markets(monkeypatch, publishable(intakeMode=intake_mode))
 
     _, status = publish_results("market-1", "owner@example.com")
 
@@ -198,10 +181,7 @@ def test_publishing_results_sends_no_email(monkeypatch, intake_mode):
 
 
 def test_publish_results_refuses_when_already_published(monkeypatch):
-    fake = FakeMarketsDb(publishable(resultsPublished=True))
-    monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
-        "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
-    }))
+    fake = _markets(monkeypatch, publishable(resultsPublished=True))
     result, status = publish_results("market-1", "owner@example.com")
 
     assert status == 409
@@ -209,20 +189,14 @@ def test_publish_results_refuses_when_already_published(monkeypatch):
 
 
 def test_publish_results_404_on_missing_market(monkeypatch):
-    fake = FakeMarketsDb(None)
-    monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
-        "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
-    }))
+    fake = _markets(monkeypatch, None)
     result, status = publish_results("nonexistent", "owner@example.com")
 
     assert status == 404
 
 
 def test_publish_results_refuses_on_draft_market(monkeypatch):
-    fake = FakeMarketsDb(publishable(MarketPhase.DRAFT))
-    monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
-        "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
-    }))
+    fake = _markets(monkeypatch, publishable(MarketPhase.DRAFT))
     result, status = publish_results("market-1", "owner@example.com")
 
     assert status == 409

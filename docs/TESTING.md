@@ -15,6 +15,7 @@ sources:
   - T200
   - T205
   - T263
+  - T284
 ---
 
 # Testing Conventioner
@@ -146,7 +147,7 @@ Requirements: `pytest` (listed in `requirements-dev.txt`), and no database conne
 Most shared fakes in `back-end/tests/conftest.py` read a filter with `mongo_matches` (the applications, markets and organizations fakes, the sign-in attempts fake's conditional `$inc` and the GridFS fake's `find`), and so do many fakes of a single test file; it answers as MongoDB does for every case in `back-end/tests/mongo_cases.py` and raises `UnmodelledQuery` on an operator it does not model, so a test of a filter it cannot read fails instead of passing.
 `test_the_shared_matcher.py` checks it against that table on every run, and the real-MongoDB suite checks the table against the server.
 `FakeApplicationsCollection`, which stands in for applications and every record beside a market, writes with `mongo_update`, sorts and limits, and projects with `mongo_project` as the server does, and answers the server's matched and modified counts; it refuses an update operator, sort or projection it does not model the same way, and `test_the_shared_applications_fake.py` checks it against the same module's update, read and projection tables.
-`FakeMarketsCollection` and `FakeSlugMarketsCollection`, the markets fakes, apply an `update_one`'s filter with `mongo_matches` and its update with `mongo_update` and answer the same counts, so a market write that holds what it read matches nothing over a market that no longer holds it; `test_the_shared_markets_fakes.py` checks them against the update table.
+`FakeMarketsCollection` and `FakeSlugMarketsCollection`, the markets fakes, apply an `update_one`'s or a `find_one_and_update`'s filter with `mongo_matches` and its update with `mongo_update`, `update_one` answering the server's matched and modified counts and `find_one_and_update` the market before or after the write as the driver does, or none when nothing matched, so a market write that holds what it read matches nothing over a market that no longer holds it; `test_the_shared_markets_fakes.py` checks them against the update table.
 So a read that fetches too little, or a write the server would apply otherwise, fails here rather than in production.
 Shared module stubs live in `back-end/tests/conftest.py`, which also points the `.env` loader at a path that does not exist.
 The suite reads no `.env`, so a stale one on your machine cannot change its result.
@@ -302,6 +303,15 @@ frontend port via `stack().frontendPort`).
 Email: `e2e@example.com` (default, change via `TEST_EMAIL` env var when seeding),
 plus the organization-less user `e2e-noorg@example.com` (change via `NO_ORG_EMAIL`).
 
+### When a test fails
+
+Every attempt that fails keeps its Playwright trace, and so does every retry, passing or not (`trace: 'retain-on-failure-and-retries'`), so a local run with no retries keeps one too.
+A failed attempt's trace is `front-end/test-results/<test>/trace.zip`, and a retry's is in the same name's directory with `-retry1` or `-retry2` after it; a page of a second user's context (`withUser()`) is in the same trace as the test's own page.
+Open one with `npx playwright show-trace <path>` from `front-end/`, or from the HTML report (`npx playwright show-report`), which lists every attempt with its own trace.
+On CI a failed shard uploads `front-end/playwright-report/` and `front-end/test-results/` as the artifact `playwright-artifacts-shard-<n>`, kept 7 days; a flaky test fails its shard, so its failing attempt's trace is there too ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
+A rerun empties `test-results/` before it starts, so read or copy a failure's output first, or give the rerun an output directory of its own with `--output=<a new directory>`.
+Reproducing a flake under load is [chasing a flake](implementation/testing/e2e-patterns.md#chasing-a-flake).
+
 ### E2E Foundation
 
 The suite is built on a Page Object Model plus a fixture layer under `front-end/e2e/`:
@@ -450,8 +460,10 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   every waiting run; [CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)
   has the lock's rules. A dev stack or a hand-run Playwright takes no turn and can still meet it.
   A stack's own start no longer reaches its first spec: Playwright's global setup waits until the
-  host's newest container interface is 20 seconds old, and says how long it waits
-  ([E2E patterns](implementation/testing/e2e-patterns.md)).
+  host's newest container interface is 20 seconds old, then until the back end answers through
+  the front end and the sign-in page draws, and says how long it waits; a test whose browser saw
+  the network change is annotated "network changed"
+  ([E2E patterns](implementation/testing/e2e-patterns.md#sharp-edges)).
 - **An agent or `nm-test.sh` stack never restarts by itself**: every stack started through
   `scripts/th-compose.sh` has `restart: "no"`, so after a reboot, a Docker restart or a crash it
   stays down until you bring it up again; the primary stack (plain `docker compose`) still restarts.

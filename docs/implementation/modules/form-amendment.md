@@ -4,7 +4,8 @@ kind: module
 describes:
   - front-end/src/components/application/AmendFormDialog.vue
   - front-end/src/views/CsvImportView.vue#amendAvailability
-verified: 2026-11-10
+  - front-end/src/views/CsvImportView.vue#readAmendForm
+verified: 2026-11-11
 sources:
   - wayfinding/the-order-of-the-work/07
   - wayfinding/the-order-of-the-work/map
@@ -16,6 +17,7 @@ sources:
   - E38/F04/S01
   - E38/F02/S01
   - T211
+  - T274
 ---
 
 # The form amendment
@@ -28,6 +30,10 @@ When the column mapping shows the form asked the wrong thing, the organizer used
 **It writes through the one form writer**, `PUT /markets/:id/application-form` (`save_application_form`), the ordinary writer meeting the ordinary lock, so the D9 lock stays unbypassable ([the form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md)).
 A Google Form market's first import runs while it is a draft ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)), the one phase the form is writable in, so no phase moves.
 Once anything is imported the market is in Review and its questions are fixed; the import reads the lock the market read serves (`applicationFormLockReason`, `amendAvailability` in [`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue)) and says it where the offer would have been, rather than offering and failing.
+
+**It sends the revision of the form it read** (`formRevision`, which the view's `readAmendForm` reads with the form), as the form tab does, so a save from a copy older than the stored form is refused rather than replacing it ([the form's revision](market-write.md#the-forms-revision)).
+On that refusal the dialog stays open on the server's sentence and emits `changed`, and the import reads the form again, so the dialog shows the questions as they now stand and its next save carries their revision.
+The questions turned off follow the form read again too, with the one the import suggested turning off, so the next save never sends the refused copy's list over a colleague's change; the question being added is kept.
 
 **It mirrors the one refusal an organizer can cause**: turning every question off while adding none leaves a form that asks nothing, which could not enter Review (`FormHasFieldsGuard`), so the dialog says so before Save.
 

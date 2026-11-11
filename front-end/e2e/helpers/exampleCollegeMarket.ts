@@ -2,6 +2,7 @@ import { expect, type APIRequestContext } from '@playwright/test';
 import { decideReviewSetup } from './decideReviewSetup';
 import { SEED_MARKET_DATE, ensureTestOrgAuthenticated, loginViaApi } from './seeds';
 import { uniqueMarketName } from './uniqueName';
+import { saveApplicationForm } from './saveApplicationForm';
 
 /**
  * The Example College market: Gold and Silver on two dates, and the form's two questions its price
@@ -120,10 +121,7 @@ export async function seedExampleMarket(
   });
   expect(created.ok(), `create the market: ${await created.text()}`).toBeTruthy();
   const { market_id: marketId } = (await created.json()) as { market_id: string };
-  const form = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
-    data: FORM,
-  });
-  expect(form.ok(), `write the form: ${await form.text()}`).toBeTruthy();
+  await saveApplicationForm(request, baseURL, marketId, FORM);
   // And its review setup decided (T206): Review waits on it.
   await decideReviewSetup(request, baseURL, marketId);
   return { marketId, name };

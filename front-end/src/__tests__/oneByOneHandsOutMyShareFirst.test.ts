@@ -200,6 +200,36 @@ describe('a chosen reviewer', () => {
     expect(walked).toEqual(['ben@vendor.test', 'fox@vendor.test', 'gus@vendor.test']);
   });
 
+  it('counts the rest by what it holds after "Help with the others", follow-ups named as such (T263)', async () => {
+    stored = [
+      application('amy', 1, ME),
+      application('ben', 2, SAM),
+      {
+        ...application('fox', 3, SAM),
+        status: FOLLOW_UP,
+        followUpOwner: { userId: SAM, email: SAM },
+      },
+      application('gus', 4, null),
+    ];
+    stored[0].status = ApplicationStatus.ReviewerApproved;
+    const wrapper = await monitor();
+    await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(true);
+    await flushPromises();
+    await wrapper.get('[data-testid="app-monitor-help-others"]').trigger('click');
+    await flushPromises();
+
+    const counts: string[] = [];
+    while (wrapper.find('[data-testid="app-monitor-card"]').exists()) {
+      counts.push(text(wrapper, 'app-monitor-progress'));
+      await approve(wrapper);
+    }
+    expect(counts).toEqual([
+      '1 of 3 open or needing a follow-up',
+      '2 of 2 open or needing a follow-up',
+      '1 of 1 open',
+    ]);
+  });
+
   it('goes on through the rest after "Help with the others", each card warning whose it is', async () => {
     stored.forEach((app) => {
       if (app.reviewer?.email === ME) app.status = ApplicationStatus.ReviewerApproved;
@@ -212,12 +242,12 @@ describe('a chosen reviewer', () => {
 
     expect(lastAsk()).not.toHaveProperty('mineOnly');
     expect(shown(wrapper)).toBe('ben@vendor.test');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 3 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 3 open');
     expect(text(wrapper, 'app-monitor-dealt-warning')).toContain(`dealt to ${SAM}`);
 
     await approve(wrapper);
     expect(shown(wrapper)).toBe('dot@vendor.test');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 2 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 2 open');
   });
 
   it('is still handed a new arrival dealt to them first while helping', async () => {
@@ -313,11 +343,62 @@ describe('anyone else', () => {
     const wrapper = await monitor();
 
     expect(shown(wrapper)).toBe('amy@vendor.test');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 5 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 5 open');
     await wrapper.get('[data-testid="app-monitor-next-button"]').trigger('click');
     await flushPromises();
     expect(shown(wrapper)).toBe('ben@vendor.test');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('2 of 5 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('2 of 5 open');
+  });
+
+  it('counts what is left open when every one is open with another reviewer (T263)', async () => {
+    team = [];
+    stored.forEach((app) => (app.heldBy = { userId: SAM, email: SAM }));
+    const wrapper = await monitor();
+
+    expect(wrapper.find('[data-testid="app-monitor-card"]').exists()).toBe(false);
+    expect(text(wrapper, 'app-monitor-all-held')).toContain(
+      `Every application left is open with another reviewer: ${SAM}.`,
+    );
+    expect(text(wrapper, 'app-monitor-progress')).toBe('5 open');
+  });
+
+  it('never calls a follow-up open when the follow-ups are taken into the walk (T263)', async () => {
+    team = [];
+    stored[4].status = FOLLOW_UP;
+    const wrapper = await monitor();
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 4 open');
+
+    await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(true);
+    await flushPromises();
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 5 open or needing a follow-up');
+
+    for (let i = 0; i < 4; i += 1) await approve(wrapper);
+    expect(shown(wrapper)).toBe('eve@vendor.test');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 1 needing a follow-up');
+  });
+
+  it('counts a walk of follow-ups alone as needing a follow-up (T263)', async () => {
+    team = [];
+    stored.slice(0, 3).forEach((app) => (app.status = ApplicationStatus.ReviewerApproved));
+    stored.slice(3).forEach((app) => (app.status = FOLLOW_UP));
+    const wrapper = await monitor();
+    await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(true);
+    await flushPromises();
+
+    expect(shown(wrapper)).toBe('dot@vendor.test');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 2 needing a follow-up');
+  });
+
+  it('counts what is left with no card up by what it holds, follow-ups named as such (T263)', async () => {
+    team = [];
+    stored[4].status = FOLLOW_UP;
+    stored.forEach((app) => (app.heldBy = { userId: SAM, email: SAM }));
+    const wrapper = await monitor();
+    await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(true);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="app-monitor-card"]').exists()).toBe(false);
+    expect(text(wrapper, 'app-monitor-progress')).toBe('5 open or needing a follow-up');
   });
 
   it('walks the whole queue with nobody chosen', async () => {
@@ -325,7 +406,7 @@ describe('anyone else', () => {
     const wrapper = await monitor();
 
     expect(lastAsk()).not.toHaveProperty('mineOnly');
-    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 5 to review');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 5 open');
     await approve(wrapper);
     await approve(wrapper);
     expect(shown(wrapper)).toBe('cal@vendor.test');

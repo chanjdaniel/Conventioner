@@ -14,6 +14,7 @@ import pytest
 from conftest import FakeMarketsCollection, client_market, stored_market
 
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.permissions as PermissionsApi
 from datatypes import Market, MarketPhase, market_name_slug
 from market_documents import market_by_slug, market_from_document
@@ -23,6 +24,7 @@ from market_documents import market_by_slug, market_from_document
 def collection(monkeypatch):
     fake = FakeMarketsCollection(stored_market(phase=MarketPhase.MARKET_DAYS))
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
     return fake
 

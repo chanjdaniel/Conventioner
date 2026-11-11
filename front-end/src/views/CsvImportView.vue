@@ -677,6 +677,8 @@ const amendFieldLabel = ref('');
 const amendUnasked = ref('');
 const amendForm = ref<ApplicationForm | null>(null);
 const amendOptions = ref<EssentialFormOptions>(EMPTY_ESSENTIAL_OPTIONS);
+/** The revision of the form the dialog edits, which its save sends (ADR 0024). */
+const amendRevision = ref<number | null>(null);
 /**
  * Whether the form may change from here, by the lock the market read serves: a control that fails
  * when pressed is a broken one, so the wizard says "the questions are fixed, and here is why".
@@ -706,23 +708,29 @@ function leftSinceNow(): () => boolean {
   return () => visit !== at;
 }
 
-async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
-  amendFieldLabel.value = options.fieldLabel ?? '';
-  amendUnasked.value = options.unasked ?? '';
+/** Read the form the dialog edits, with its revision; false when it could not be read here. */
+async function readAmendForm(): Promise<boolean> {
   const left = leftSinceNow();
   try {
     const { data } = await api.get(`/markets/${marketId.value}/application-form`);
-    if (left()) return;
+    if (left()) return false;
     amendForm.value = (data?.application_form ?? null) as ApplicationForm | null;
     amendOptions.value = (data?.essential_options ??
       EMPTY_ESSENTIAL_OPTIONS) as EssentialFormOptions;
+    amendRevision.value = data?.formRevision ?? null;
+    return true;
   } catch (err) {
     if (!left()) {
       error.value = getApiErrorMessage(err, "Could not read this market's application form.");
     }
-    return;
+    return false;
   }
-  amendOpen.value = true;
+}
+
+async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
+  amendFieldLabel.value = options.fieldLabel ?? '';
+  amendUnasked.value = options.unasked ?? '';
+  if (await readAmendForm()) amendOpen.value = true;
 }
 
 /**
@@ -1644,11 +1652,13 @@ watch(marketId, () => {
         :open="amendOpen"
         :market-id="marketId"
         :application-form="amendForm"
+        :form-revision="amendRevision"
         :essential-options="amendOptions"
         :suggested-field-label="amendFieldLabel"
         :suggested-unasked="amendUnasked"
         @close="amendOpen = false"
         @amended="onAmended()"
+        @changed="readAmendForm()"
       />
     </div>
   </MarketFrame>

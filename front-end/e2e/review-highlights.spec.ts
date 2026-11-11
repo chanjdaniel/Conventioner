@@ -7,6 +7,7 @@ import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { settle } from './helpers/settle';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import type { APIRequestContext, Page } from '@playwright/test';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * Which answers a reviewer reads first (E19/F03/S01).
@@ -66,11 +67,7 @@ async function seedMarketWithAForm(
   expect(created.ok(), await created.text()).toBeTruthy();
   const { market_id: marketId } = (await created.json()) as { market_id: string };
 
-  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    headers,
-    data: FORM,
-  });
-  expect(form.ok(), await form.text()).toBeTruthy();
+  await saveApplicationForm(request, BACKEND_URL, marketId, FORM, headers);
   await decideReviewSetup(request, BACKEND_URL, marketId);
   const opened = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
     headers,

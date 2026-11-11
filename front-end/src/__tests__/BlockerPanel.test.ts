@@ -41,7 +41,7 @@ async function mountPanelAt(
 const reviewBlocker: PreconditionResult = {
   id: 'all_applications_reviewed',
   passed: false,
-  message: '2 applications are still awaiting review.',
+  message: '2 applications are still open.',
   // Relative to the market's own pages: the server names the page, the panel names the market it
   // is showing (E21/F02/S02). Every page has its own address since E22/F04/S02.
   resolutionLink: 'applications',
@@ -79,7 +79,7 @@ describe('BlockerPanel', () => {
 
   it('names each blocker', async () => {
     const wrapper = await mountPanelAt('/markets/m1/setup', [reviewBlocker]);
-    expect(wrapper.text()).toContain('2 applications are still awaiting review.');
+    expect(wrapper.text()).toContain('2 applications are still open.');
   });
 
   it('routes the resolution link in-SPA rather than reloading the page', async () => {
@@ -125,7 +125,7 @@ describe('BlockerPanel', () => {
     it('is not offered', async () => {
       const wrapper = await mountPanelAt('/markets/m1/applications', [reviewBlocker]);
 
-      expect(wrapper.text()).toContain('still awaiting review');
+      expect(wrapper.text()).toContain('still open');
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
     });
 
@@ -136,7 +136,7 @@ describe('BlockerPanel', () => {
     it('is not offered from a view of that page', async () => {
       const wrapper = await mountPanelAt('/markets/m1/applications?view=one', [reviewBlocker]);
 
-      expect(wrapper.text()).toContain('still awaiting review');
+      expect(wrapper.text()).toContain('still open');
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
     });
 
@@ -175,7 +175,7 @@ describe('BlockerPanel', () => {
         { ...reviewBlocker, resolutionLink: null },
       ]);
 
-      expect(wrapper.text()).toContain('still awaiting review');
+      expect(wrapper.text()).toContain('still open');
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
     });
   });
@@ -188,7 +188,7 @@ describe('BlockerPanel', () => {
     it('is not offered, and the blocker is still said', async () => {
       const wrapper = await mountPanelAt('/markets/m1/setup', [reviewBlocker], VIEWER_ANSWERS);
 
-      expect(wrapper.text()).toContain('still awaiting review');
+      expect(wrapper.text()).toContain('still open');
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
     });
 

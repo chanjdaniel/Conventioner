@@ -320,14 +320,14 @@ def reject_malformed_update(update):
             )
 
 
-def _update_first(docs: list, query, update) -> SimpleNamespace:
-    """``update_one`` over ``docs`` as MongoDB runs it, for the two markets fakes.
+def _write_first(docs: list, query, update):
+    """One update over ``docs`` as MongoDB runs it, for the two markets fakes: the document before
+    and after, or ``(None, None)`` when nothing matched.
 
     The first document ``query`` matches (by ``mongo_matches``) is replaced in ``docs`` by the
-    update applied to it (by ``mongo_update``), and the answer carries the server's counts:
-    matched and modified ``0`` when nothing matches, modified ``0`` when the update changed no
-    value. The filter and the update are read over ``{}`` first, so one the shared fakes do not
-    model is refused even when nothing is stored.
+    update applied to it (by ``mongo_update``). The filter and the update are read over ``{}``
+    first, so one the shared fakes do not model is refused even when nothing is stored, and an
+    update that matches nothing is still run over ``{}``, so a refused one is refused either way.
     """
     reject_malformed_update(update)
     mongo_matches({}, query)
@@ -335,10 +335,28 @@ def _update_first(docs: list, query, update) -> SimpleNamespace:
         if doc is not None and mongo_matches(doc, query):
             after = mongo_update(doc, update)
             docs[index] = after
-            return SimpleNamespace(matched_count=1, modified_count=int(not _identical(doc, after)),
-                                   upserted_id=None)
+            return doc, after
     mongo_update({}, update)
-    return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
+    return None, None
+
+
+def _update_first(docs: list, query, update) -> SimpleNamespace:
+    """``update_one`` over ``docs`` (``_write_first``), answering the server's counts: matched and
+    modified ``0`` when nothing matches, modified ``0`` when the update changed no value."""
+    before, after = _write_first(docs, query, update)
+    if before is None:
+        return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
+    return SimpleNamespace(matched_count=1, modified_count=int(not _identical(before, after)),
+                           upserted_id=None)
+
+
+def _find_one_and_update_first(docs: list, query, update, projection, return_document):
+    """``find_one_and_update`` over ``docs`` (``_write_first``): the document before, or after when
+    ``return_document`` is the driver's ``ReturnDocument.AFTER`` (``True``), projected, as a copy;
+    None when nothing matched."""
+    before, after = _write_first(docs, query, update)
+    returned = after if return_document else before
+    return None if returned is None else mongo_project(copy.deepcopy(returned), projection)
 
 
 class FakeMarketsCollection:
@@ -350,7 +368,9 @@ class FakeMarketsCollection:
     test of that write fails when the server would refuse it. A write that lands replaces ``doc``
     with the market after it, a new dict, so the document a test built the fake from is not the
     store; ``last_update`` keeps the update document sent, matched or not, for a test asserting
-    what was written. ``find_one`` applies its filter and projection and hands back a copy.
+    what was written. ``find_one_and_update`` writes as ``update_one`` does and answers the market
+    as the driver does (``_find_one_and_update_first``), which ``market_write.write_market`` reads.
+    ``find_one`` applies its filter and projection and hands back a copy.
     """
 
     def __init__(self, doc):
@@ -372,6 +392,13 @@ class FakeMarketsCollection:
         [self.doc] = docs
         return result
 
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
+        self.last_update = update
+        docs = [self.doc]
+        found = _find_one_and_update_first(docs, query, update, projection, return_document)
+        [self.doc] = docs
+        return found
+
     def insert_one(self, document):
         self.inserted = document
         return SimpleNamespace(inserted_id="mongo-id")
@@ -390,8 +417,9 @@ class FakeSlugMarketsCollection:
     one is a market Mongo would never return. It applies the projection for the same reason, one
     step on: the applicant endpoints fetch the fields they read and no others, and a fake that
     served the whole document would let a read of the rest pass here and find nothing in production.
-    ``update_one`` applies its filter and its update to the first market matched, as
-    ``FakeMarketsCollection``'s does and for the same reason, and keeps ``last_update``.
+    ``update_one`` and ``find_one_and_update`` apply their filter and their update to the first
+    market matched, as ``FakeMarketsCollection``'s do and for the same reason, and keep
+    ``last_update``.
 
     It lives here, and not in the two suites that need it, because it did live in both of them: the
     same fake written twice is the same fix applied once.
@@ -413,6 +441,10 @@ class FakeSlugMarketsCollection:
     def update_one(self, query, update):
         self.last_update = update
         return _update_first(self.docs, query, update)
+
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
+        self.last_update = update
+        return _find_one_and_update_first(self.docs, query, update, projection, return_document)
 
     def insert_one(self, _document):
         return SimpleNamespace(inserted_id="fake-id")

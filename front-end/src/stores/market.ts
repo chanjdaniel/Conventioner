@@ -26,7 +26,7 @@ import axios from 'axios';
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type { Market } from '@/assets/types/datatypes';
-import { api } from '@/utils/api';
+import { api, onMarketChanged } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { forgetLastMarket, lastMarketId, rememberLastMarket } from '@/utils/lastMarket';
 
@@ -102,3 +102,13 @@ export const useMarketStore = defineStore('market', () => {
 
   return { marketId, market, status, stale, open, refresh, clear };
 });
+
+/**
+ * Re-read the open market whenever a write meets "market changed" (`onMarketChanged`): the write
+ * stored nothing, and what the screens hold is older than the server's, so every surface reading
+ * this store follows the market as it now stands. Installed once, beside the session's
+ * interceptor (`main.ts`). Answers the function that removes it.
+ */
+export function installMarketChanged(): () => void {
+  return onMarketChanged(() => void useMarketStore().refresh());
+}

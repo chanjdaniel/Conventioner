@@ -10,7 +10,8 @@
  * sorted by any column, all in the address, so a link or a reload shows the same list. A row opens
  * the vendor's drawer on its Payment tab, and a change made there is read here again. The table
  * draws 50 rows at a time (`ListFrame`), and every figure and count above it still counts every
- * vendor.
+ * vendor. It sorts and finds by the vendors' names, a read of their own, so it is drawn only once
+ * that read has settled for the market on screen, never re-sorting under the reader (T284).
  *
  * The server counts all of it (`utils/paymentsPage.ts`). It reads and changes nothing itself, so
  * anyone who reads the market reads it; a market that sets no prices says so, and where to set them.
@@ -71,9 +72,23 @@ async function load(): Promise<void> {
   }
 }
 
+/**
+ * The market whose payments and vendors' names have both been read, or failed to be: the list
+ * waits for it, so a jump to another market's Payments waits for that market's names. A failed
+ * read of the names still draws the list, by address.
+ */
+const listReadFor = ref('');
+const listRead = computed(() => listReadFor.value === marketId.value);
+
 async function loadAll(): Promise<void> {
-  if (!signedInEmail() || !marketId.value) return;
-  await Promise.all([load(), details.load()]);
+  const id = marketId.value;
+  if (!signedInEmail() || !id) return;
+  try {
+    await Promise.all([load(), details.load()]);
+  } finally {
+    // An earlier market's reads settling late leave the one on screen waiting for its own.
+    if (marketId.value === id) listReadFor.value = id;
+  }
 }
 watch(marketId, () => void loadAll(), { immediate: true });
 
@@ -364,7 +379,10 @@ const nobodyShown = computed(() => {
             >
               Vendors
             </h2>
-            <p v-if="!listed.length" class="payments-note" data-testid="payments-none-shown">
+            <p v-if="!listRead" class="payments-note" data-testid="payments-vendors-loading">
+              Loading vendors…
+            </p>
+            <p v-else-if="!listed.length" class="payments-note" data-testid="payments-none-shown">
               {{ nobodyShown }}
             </p>
             <ListFrame

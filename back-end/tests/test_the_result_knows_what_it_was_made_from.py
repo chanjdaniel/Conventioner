@@ -22,6 +22,7 @@ from assignment.vendor_input import SolverVendor
 from datatypes import (
     AssignmentObject, MarketPhase, PhaseEntry, SetupObject, VendorAssignmentResult,
 )
+import market_write as MarketWrite
 
 
 PLAN = {
@@ -261,6 +262,7 @@ def test_an_assignment_from_before_fingerprints_is_not_known_to_be_out_of_date(m
 def test_a_run_records_what_it_was_made_from(monkeypatch):
     fake = FakeMarketsCollection(stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=PLAN))
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     vendors = [vendor()]
     monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: vendors)
@@ -295,6 +297,7 @@ def test_a_run_records_what_it_was_made_from(monkeypatch):
 def test_a_hand_placement_leaves_what_the_run_was_made_from_alone(monkeypatch):
     fake = FakeMarketsCollection(stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=PLAN))
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
 

@@ -8,6 +8,7 @@ which are not form fields at all.
 import pytest
 
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.permissions as PermissionsApi
 from conftest import FakeMarketsCollection, stored_market
 from client_errors import ForbiddenError
@@ -18,6 +19,7 @@ from datatypes import MarketPhase, MarketRole
 def markets(monkeypatch):
     fake = FakeMarketsCollection(stored_market(MarketPhase.APPLICATIONS))
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
     return fake
 
@@ -73,6 +75,7 @@ class TestSavingThem:
 
     def test_an_unknown_market_is_not_found(self, monkeypatch):
         monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(None))
+        monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
 
         with pytest.raises(MarketsApi.MarketNotFoundError):
             MarketsApi.save_review_highlights("market-123", ["a"], "user-1")

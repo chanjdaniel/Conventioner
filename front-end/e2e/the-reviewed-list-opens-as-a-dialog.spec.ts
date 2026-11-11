@@ -524,6 +524,80 @@ test.describe('The reviewed applications on a phone', () => {
     await expectTheLineFits(page, 'app-monitor-error');
   });
 
+  /** An open application leading the queue, with an address that has to break on a phone. */
+  function aLongCardFirst(marketId: string, applicant: string) {
+    const at = '2026-01-01T00:00:00.000Z';
+    insertApplications([
+      {
+        id: `open-${marketId}-long-card`,
+        market_id: marketId,
+        applicant_email: applicant,
+        form_data: { essential_full_name: 'Vendor Long Card' },
+        status: 'open',
+        application_type: 'main',
+        submitted_at: at,
+        updated_at: at,
+      },
+    ]);
+  }
+
+  test('the card\'s own long address breaks only before its "@" or a dot', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const applicant = `a-very-long-applicant-address-on-the-card@${DOMAIN}`;
+    const marketId = await aMarket(request);
+    aLongCardFirst(marketId, applicant);
+    const monitor = await theCardUp(page, marketId);
+    await expect(monitor.email).toHaveText(applicant);
+    await settle(page);
+
+    await expectWholeAddress(monitor.email, applicant);
+    await expectWholeAddress(monitor.email, applicant, true);
+  });
+
+  test('a refused card names who decided it first, a long address breaking only before its "@" or a dot, with room under the line', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const giver = `a-very-long-giver-address-for-a-narrow-row@${DOMAIN}`;
+    const marketId = await aMarket(request);
+    const monitor = await theCardUp(page, marketId);
+    const up = ((await monitor.email.textContent()) ?? '').trim();
+    await page.route('**/applications/*/review', (route) =>
+      route.fulfill({
+        status: 409,
+        json: {
+          error: 'Someone approved this application since you opened it.',
+          application: {
+            id: route.request().url().split('/').at(-2),
+            status: 'reviewer_approved',
+            applicantEmail: up,
+            verdictBy: { kind: 'person', email: giver },
+            verdictAt: new Date().toISOString(),
+          },
+        },
+      }),
+    );
+    await monitor.rejectButton.tap();
+    const changed = page.getByTestId('app-monitor-changed');
+    await expect(changed).toBeVisible();
+    await settle(page);
+
+    // The band's margin keeps it off the answers below, which have none above them.
+    const { margin, gap } = await changed.evaluate((el) => ({
+      margin: getComputedStyle(el).marginBottom,
+      gap: el.nextElementSibling!.getBoundingClientRect().top - el.getBoundingClientRect().bottom,
+    }));
+    expect(margin).toBe('12px');
+    expect(gap).toBeGreaterThanOrEqual(12);
+
+    const line = page.getByTestId('app-monitor-changed-giver');
+    await expect(line).toContainText(`Approved by ${giver}, `);
+    await expectWholeAddress(line, giver);
+    await expectWholeAddress(line, giver, true);
+  });
+
   test('a long address on a refused card, beside who decided it first, stays on the phone', async ({
     authenticatedPage: page,
     request,

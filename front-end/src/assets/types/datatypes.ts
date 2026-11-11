@@ -403,6 +403,11 @@ export interface Market {
   applicationsStopReason?: string | null;
   /** Why the setup on Market Setup can no longer change, or null in draft (E31/F01/S02). */
   setupLockReason?: string | null;
+  /**
+   * How many times the plan was written (T274). Market Setup sends back the revision its copy came
+   * from with every plan save, and a save from an older copy is refused (ADR 0024).
+   */
+  planRevision?: number;
   /** The Discord server this market is connected to, and what its card chose (E46/F01/S02). */
   discord?: DiscordConnection | null;
   /** Whether this Conventioner has Discord's values; the Discord card offers nothing without. */

@@ -162,5 +162,5 @@ test('a verdict on a card skipped ahead to hands out the one after it', async ({
   // The decided card leaves the queue but keeps its place: on to the next, not back to the first.
   await reviewer.approveButton.click();
   await expect(reviewer.email).toHaveText(vendors[3]);
-  await expect(reviewer.progress).toHaveText('3 of 3 to review');
+  await expect(reviewer.progress).toHaveText('3 of 3 open');
 });

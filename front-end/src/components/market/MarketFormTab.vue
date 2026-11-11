@@ -39,7 +39,7 @@ import {
   intakeModeOf,
   type FormStepId,
 } from '@/utils/marketGuide';
-import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
+import { api, getApiErrorMessage, getApiErrorStatus, isMarketChanged } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import {
   EMPTY_ESSENTIAL_OPTIONS,
@@ -77,6 +77,12 @@ const storedFields = ref('[]');
  * of a key input and the stored-form seed in {@link adoptStoredApplicationForm} ever write it.
  */
 const keyTouched = ref<boolean[]>([]);
+/**
+ * The revision of the form this tab's copy came from (ADR 0024): the form read answers it, every
+ * save sends it and answers the next, so a save from a copy older than the stored form is refused
+ * rather than replacing the questions someone else saved. Null until the form is read.
+ */
+const formRevision = ref<number | null>(null);
 const formSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const formErrorMessage = ref<string | null>(null);
 const formLoadStatus = ref<'loading' | 'loaded' | 'error'>('loading');
@@ -190,6 +196,7 @@ async function loadApplicationForm() {
     const response = await api.get(`/markets/${market.value.id}/application-form`);
     adoptStoredApplicationForm(response.data?.application_form ?? null);
     serverEssentialOptions.value = response.data?.essential_options ?? null;
+    formRevision.value = response.data?.formRevision ?? null;
     formLoadStatus.value = 'loaded';
   } catch (err: unknown) {
     formLoadStatus.value = 'error';
@@ -225,6 +232,25 @@ function clearSavedStatusTimer() {
 
 onUnmounted(clearSavedStatusTimer);
 
+/** A form save's body: the form, and the revision this tab's copy of it came from. */
+function savedForm(form: ApplicationForm) {
+  return { ...form, formRevision: formRevision.value };
+}
+
+/**
+ * A save the server refused with a 409: either the form locked under us, or the market changed
+ * since this tab read it (ADR 0024). Either way the tab stops presenting the rejected edits and
+ * puts back the form as it now stands, with its revision for the next save; the market-changed
+ * interceptor already re-reads the market, so only a lock reads it here.
+ */
+async function rereadAfterARefusal(err: unknown) {
+  if (getApiErrorStatus(err) !== 409) return;
+  await Promise.all([
+    isMarketChanged(err) ? Promise.resolve() : marketStore.refresh(),
+    loadApplicationForm(),
+  ]);
+}
+
 /**
  * Switch a preference ordering on or off for this market (E01/F06).
  *
@@ -253,8 +279,12 @@ async function handleToggleUnasked(key: string, unasked: boolean) {
   clearSavedStatusTimer();
   formSaveStatus.value = 'saving';
   try {
-    const response = await api.put(`/markets/${market.value.id}/application-form`, updated);
+    const response = await api.put(
+      `/markets/${market.value.id}/application-form`,
+      savedForm(updated),
+    );
     const stored: ApplicationForm = response.data?.application_form ?? updated;
+    formRevision.value = response.data?.formRevision ?? formRevision.value;
     const working = applicationForm.value;
     adoptApplicationForm(stored);
     if (working) {
@@ -269,22 +299,24 @@ async function handleToggleUnasked(key: string, unasked: boolean) {
   } catch (err: unknown) {
     formSaveStatus.value = 'error';
     formErrorMessage.value = getApiErrorMessage(err, 'Could not update the form.');
+    await rereadAfterARefusal(err);
   }
 }
 
 async function saveApplicationForm() {
-  if (!market.value?.id || !canSaveForm.value) return;
+  if (!market.value?.id || !canSaveForm.value || !applicationForm.value) return;
   clearSavedStatusTimer();
   formSaveStatus.value = 'saving';
   formErrorMessage.value = null;
   try {
     const response = await api.put(
       `/markets/${market.value.id}/application-form`,
-      applicationForm.value,
+      savedForm(applicationForm.value),
     );
     formSaveStatus.value = 'saved';
     // What was sent is what is stored, when the answer does not say otherwise.
     adoptApplicationForm(response.data?.application_form ?? applicationForm.value);
+    formRevision.value = response.data?.formRevision ?? formRevision.value;
     void marketStore.refresh();
     savedStatusTimer.value = setTimeout(() => {
       savedStatusTimer.value = null;
@@ -293,11 +325,7 @@ async function saveApplicationForm() {
   } catch (err: unknown) {
     formSaveStatus.value = 'error';
     formErrorMessage.value = getApiErrorMessage(err, 'The form was not saved.');
-    // A 409 means the server locked the form under us; stop presenting the rejected edits as
-    // editable, and put back the form applicants will actually see.
-    if (getApiErrorStatus(err) === 409) {
-      await Promise.all([marketStore.refresh(), loadApplicationForm()]);
-    }
+    await rereadAfterARefusal(err);
   }
 }
 

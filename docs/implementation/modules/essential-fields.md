@@ -83,7 +83,7 @@ What every screen does with the name is [a vendor is called by their chosen name
 The first applicant save or imported row writes the offering it was validated against onto `applicationForm.essentialOptions` (camelCase, server-owned like `publishedAt`; no client payload can write it), before the answer itself is stored, so no answer ever lands against an unfrozen offering.
 Every later read serves that snapshot (`effective_essential_options`), so no plan edit reaches the form afterwards, and there is deliberately no refresh path.
 The freeze is one conditional update, first writer wins (`freeze_and_effective_essential_options`); a save that loses the race re-validates against the snapshot that won.
-The form save carries the stored snapshot, which before the first answer is `essentialOptions: null`, so the freeze filter matches null-or-missing (`None` in a Mongo filter), never `$exists`.
+The form save never writes the snapshot: it sets the questions and the unasked essentials alone and holds `essentialOptions` as it read it, so a save crossing the first answer is refused rather than erasing the offering ([the form's revision](market-write.md#the-forms-revision)); a first save on a market with no form writes it with `essentialOptions: null`, so the freeze filter matches null-or-missing (`None` in a Mongo filter), never `$exists`.
 The plan itself settles earlier still, on leaving draft.
 
 ## A form is custom fields plus asked essentials

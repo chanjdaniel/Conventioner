@@ -7,7 +7,7 @@ import {
   type PermissionTableRow,
   type PersonWithAccess,
 } from '@/assets/types/datatypes';
-import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
+import { api, getApiErrorMessage, getApiErrorStatus, isMarketChanged } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
@@ -218,6 +218,8 @@ async function handleAddUser() {
     findPerson(email);
   } catch (err) {
     addUserError.value = getApiErrorMessage(err, 'The person was not added.');
+    // The market changed under the add (ADR 0024): who has access is re-read, the sentence kept.
+    if (isMarketChanged(err)) await fetchMarket(false);
     // It stands under the form, which a short window's body can hold at its very foot.
     await nextTick();
     addUserErrorLine.value?.scrollIntoView?.({ block: 'nearest' });
@@ -245,7 +247,8 @@ function cancelRemove() {
  * Confirmed: the market role is taken, and the list re-read in place with Manage market still
  * open. The Remove that opened the confirmation is gone with the role, so focus goes to the list. A
  * 404 is a role another admin took first: what was asked for is true, so it is read as done. Any
- * other refusal stays in the confirmation, which said what was about to happen.
+ * other refusal stays in the confirmation, which said what was about to happen; one saying the
+ * market changed under it re-reads the list too, as an add's does.
  */
 async function handleRemoveUser() {
   const target = removing.value;
@@ -260,6 +263,9 @@ async function handleRemoveUser() {
   } catch (err) {
     if (getApiErrorStatus(err) !== 404) {
       removeError.value = getApiErrorMessage(err, 'The person was not removed.');
+      // The market changed under the removal (ADR 0024): the list behind is re-read, the
+      // confirmation kept open with the sentence.
+      if (isMarketChanged(err)) await fetchMarket(false);
       removeBusy.value = false;
       return;
     }
@@ -365,6 +371,9 @@ async function handleRename() {
   } catch (err) {
     // The server's own words: a clash is about the public web address, not only the exact name.
     renameError.value = getApiErrorMessage(err, 'The name was not changed.');
+    // The market changed under the rename (ADR 0024), most likely leaving draft: it is read again,
+    // so the field gives way to why the name is fixed, the sentence kept.
+    if (isMarketChanged(err)) await fetchMarket(false);
   }
 }
 
@@ -617,6 +626,7 @@ async function closeAddUser() {
         v-if="marketData.permissionTable?.length"
         :market="marketData"
         @changed="handleTableChanged"
+        @market-changed="fetchMarket(false)"
       />
       <!-- Every change on the market, newest first, a page at a time (E40/F01/S03): after the
            people and who may do what (E39/F01/S04). -->
