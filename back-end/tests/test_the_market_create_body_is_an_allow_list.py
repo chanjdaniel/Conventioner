@@ -60,6 +60,8 @@ EVERY_FIELD = {
     "phase_history": [{"phase": "archived"}],
     "permissions": {"check-in": {"role": "viewer", "source": "market"}},
     "discord": {"guild_id": "1234", "guild_name": "Spring Fair"},
+    "form_revision": 7,
+    "plan_revision": 5,
 }
 
 #: What the server writes itself, whatever the body says, each asserted on its own below.
