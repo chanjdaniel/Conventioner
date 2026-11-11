@@ -368,7 +368,7 @@ Conventioner/
 │   │   ├── placements.py # The only writer of a market's assignment
 │   │   ├── attendance.py, door.py  # Check-in, by the vendor and at the door
 │   │   ├── floorplans*.py   # The floorplan routes: a location's layout, its image and placement
-│   │   └── layouts.py    # A location's layout reads and saves
+│   │   └── layouts.py    # The market's table types, their own write
 │   ├── utils/            # Utility modules
 │   │   ├── tokens.py     # Token/OTP generation
 │   │   ├── email.py      # Email service integration

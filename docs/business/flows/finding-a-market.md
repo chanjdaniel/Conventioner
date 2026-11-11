@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-08
+verified: 2026-11-12
 sources:
   - wayfinding/readable-journey/07
   - E21/F02/S02
@@ -95,7 +95,7 @@ Covered by:
 
 1. `/markets/<id>` lands on the page the market is worked on in its phase (see [the lifecycle](lifecycle.md#the-phases)).
 2. Every page has its own address: `/markets/<id>/setup`, `/form`, `/applications`, `/settings`, `/assignments`, `/vendors`, `/attendance`, `/stats`, plus the `/import` and `/start-from-csv` flows and a location's `/layout/<location>`.
-3. Two old names forward, each with its query: `/markets/<id>/assignment` to `/settings` and `/markets/<id>/result` to `/assignments`.
+3. Two old names forward, each with its query: `/markets/<id>/assignment` to `/settings` and `/markets/<id>/result` to `/assignments`; the floorplan beta's `/markets/<id>/floorplan` forwards to `/layout`, the market's first location's layout.
    Nothing older forwards: its address answers "Page not found", and `setup?tab=<page>` opens the plan ([old addresses](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
 4. An id you cannot reach shows "This market does not exist, or you do not have access to it." with "Choose a market".
 
