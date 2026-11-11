@@ -19,7 +19,7 @@ describes:
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/api/markets.py#read_refused
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E39
   - E39/F01/S01
@@ -121,6 +121,7 @@ Asked by:
 - the Payments page (`GET /markets/:id/payments`, `get_market_payments`)
 - a vendor's payments (`GET /markets/:id/payments/<email>`)
 - `POST /floorplans/export`
+- `GET /floorplans/<id>`
 
 ### Read the market's history (`read-history`)
 
@@ -150,7 +151,6 @@ Asked by:
 - `PUT /markets/:id/plan`
 - `POST /floorplans/upload`
 - `DELETE /floorplans/<id>`
-- `POST /floorplans/analyze`
 - `POST /floorplans/calibrate`
 - `POST /floorplans/save-to-market`
 - `POST /floorplans/place-tables`

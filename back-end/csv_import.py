@@ -26,12 +26,14 @@ import io
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Set, Tuple
 
 import api.applications as ApplicationsApi
 import rejection_rules as RejectionRules
 import essential_fields as EssentialFields
-from application_write import answer_errors, record_application_answers, validated_form_data
+from application_write import (
+    ANSWERS_MOVED, answer_errors, record_application_answers, validated_form_data,
+)
 from datatypes import (
     SUBMITTED_AT_RULE_TARGET,
     Application,
@@ -1630,6 +1632,73 @@ def import_counts(result: Dict[str, Any]) -> Dict[str, int]:
     }
 
 
+# A row whose application moves under it this many times running is left out (T270).
+ROW_TRIES = 3
+CHANGED_WHILE_IMPORTED = (
+    "This application changed while the file was imported, so its row was left out. "
+    "Import the file again to bring it in."
+)
+
+
+class _RowOutcome(NamedTuple):
+    """What writing one row did: left it unchanged, created or updated it (and whether that sent
+    an approval back to review), or failed it with a sentence for the organizer."""
+    unchanged: bool = False
+    created: bool = False
+    returned: bool = False
+    error: Optional[str] = None
+
+
+def _write_row(
+    markets_collection: Any, market_doc: Dict[str, Any], market_id: str, email: str,
+    submitted_at: str, form_data: Dict[str, Any],
+) -> _RowOutcome:
+    """Write one row's answers, held to the application as it was read (T270).
+
+    The answers and any "back to review" are one update, held to the status and the verdict's time
+    this read: a verdict given between the read and the write makes it match nothing, and the row
+    is decided again on what is stored then, at most ``ROW_TRIES`` times in all.
+    """
+    existing = ApplicationsApi.find_application_by_email(market_id, email)
+    created_here = False
+    for _attempt in range(ROW_TRIES):
+        if existing and _unchanged(market_doc, existing, form_data):
+            # Nothing to write, and nothing to call an update.
+            return _RowOutcome(unchanged=True)
+        # Decided BEFORE the write, while the stored answers are still the ones the organizer
+        # approved: afterwards there is nothing left to compare against.
+        stale_review = _would_return_to_review(market_doc, existing, form_data)
+        app_doc = existing or ApplicationsApi.find_or_create_application(Application(
+            market_id=market_id,
+            applicant_email=email,
+            form_data={},
+            status=ApplicationStatus.OPEN,
+            submitted_at=submitted_at or None,
+        )).model_dump()
+        created_now = existing is None
+        created_here = created_here or created_now
+
+        held = app_doc
+        if submitted_at and not app_doc.get("submitted_at"):
+            app_doc = {**app_doc, "submitted_at": submitted_at}
+
+        row_error, _ = record_application_answers(
+            markets_collection, market_doc, app_doc, form_data, imported=True,
+            held=held, back_to_review=stale_review,
+        )
+        if row_error == ANSWERS_MOVED:
+            existing = ApplicationsApi.find_application_by_email(market_id, email)
+            continue
+        if row_error:
+            # Only reachable if the offering froze differently between the check and the write.
+            # The application this try just created must not outlive the answers it was for.
+            if created_now:
+                ApplicationsApi.delete_application(app_doc.get("id", ""))
+            return _RowOutcome(error=row_error)
+        return _RowOutcome(created=created_here, returned=stale_review)
+    return _RowOutcome(error=CHANGED_WHILE_IMPORTED)
+
+
 def import_applications(
     markets_collection: Any,
     market_doc: Dict[str, Any],
@@ -1700,9 +1769,6 @@ def import_applications(
         }, 422
 
     resolutions = resolutions or {}
-    options = EssentialFields.effective_essential_options(market_doc)
-    form = market_doc_field(market_doc, "application_form") or {}
-    fields_by_key = {f.get("key"): f for f in form.get("fields") or [] if f.get("key")}
     market_id = market_doc.get("id", "")
 
     # An unspoken-for value would otherwise be dropped or refused row by row, so it is settled
@@ -1740,46 +1806,18 @@ def import_applications(
         if row_number in refused:
             continue
 
-        existing = ApplicationsApi.find_application_by_email(market_id, email)
-        if existing and _unchanged(market_doc, existing, form_data):
-            # Nothing to write, and nothing to call an update.
+        outcome = _write_row(markets_collection, market_doc, market_id, email, submitted_at,
+                             form_data)
+        if outcome.error:
+            failures.append({"row": row_number, "email": email, "error": outcome.error})
+        elif outcome.unchanged:
             unchanged += 1
-            continue
-        # Decided BEFORE the write, while the stored answers are still the ones the organizer
-        # approved: afterwards there is nothing left to compare against.
-        stale_review = _would_return_to_review(market_doc, existing, form_data)
-        app_doc = existing or ApplicationsApi.find_or_create_application(Application(
-            market_id=market_id,
-            applicant_email=email,
-            form_data={},
-            status=ApplicationStatus.OPEN,
-            submitted_at=submitted_at or None,
-        )).model_dump()
-
-        if submitted_at and not app_doc.get("submitted_at"):
-            app_doc = {**app_doc, "submitted_at": submitted_at}
-
-        row_error, _ = record_application_answers(
-            markets_collection, market_doc, app_doc, form_data, imported=True,
-        )
-        if row_error:
-            # Only reachable if the offering froze differently between the check and the write.
-            # The application this run just created must not outlive the answers it was for.
-            if not existing:
-                ApplicationsApi.delete_application(app_doc.get("id", ""))
-            failures.append({"row": row_number, "email": email, "error": row_error})
-            continue
-
-        if stale_review:
-            ApplicationsApi.update_application_status(
-                app_doc.get("id", ""), ApplicationStatus.OPEN,
-            )
-            returned_to_review += 1
-
-        if existing:
-            updated += 1
         else:
-            created += 1
+            returned_to_review += outcome.returned
+            if outcome.created:
+                created += 1
+            else:
+                updated += 1
 
     if SHEET_NOTE_TARGET in resolved:
         _replace_sheet_notes(market_id, rows, resolved, {

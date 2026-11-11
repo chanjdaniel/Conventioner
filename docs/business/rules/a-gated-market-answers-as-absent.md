@@ -11,7 +11,7 @@ describes:
   - back-end/market_documents.py#vendor_page_market_by_slug
   - back-end/tests/test_a_google_form_markets_page.py
   - front-end/e2e/a-google-form-markets-vendor-page.spec.ts
-verified: 2026-11-04
+verified: 2026-11-10
 sources:
   - wayfinding/v0-1-0/06
   - wayfinding/v0-1-0/07

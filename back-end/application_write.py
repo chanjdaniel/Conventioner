@@ -56,6 +56,8 @@ def _asks_nothing(market_doc: Dict[str, Any], fields: List[Dict[str, Any]]) -> b
 
 
 NO_FORM_ERROR = "This market does not have an application form configured."
+# A held write that matched nothing: a verdict moved since the caller read the application.
+ANSWERS_MOVED = "This application's status changed since it was read."
 
 
 def validate_application_answers(
@@ -90,6 +92,8 @@ def record_application_answers(
     form_data: Dict[str, Any],
     *,
     imported: bool = False,
+    held: Optional[Dict[str, Any]] = None,
+    back_to_review: bool = False,
 ) -> Tuple[Optional[str], Optional[Application]]:
     """Validate, freeze, persist and status an applicant's answers. The whole sequence, once.
 
@@ -103,6 +107,12 @@ def record_application_answers(
     The freeze happens BEFORE the answers are persisted so no answer is ever recorded against an
     unfrozen offering, and a concurrent first save that froze a different offering is handled by
     re-validating against whichever one actually governs.
+
+    ``held`` and ``back_to_review`` are ``update_application_form_data``'s: the write lands only
+    while the application's status and verdict's time are still those ``held`` has, and with
+    ``back_to_review`` it returns the application to open in the same update. When the held write
+    matches nothing the answer is ``ANSWERS_MOVED`` with no application, and nothing was written.
+    An applicant's own save passes neither.
     """
     application_form = market_doc_field(market_doc, "application_form")
     fields = (application_form or {}).get("fields") or []
@@ -136,7 +146,11 @@ def record_application_answers(
     submitted_at = app_doc.get("submitted_at") or now
     app_id = app_doc.get("id", "")
 
-    ApplicationsApi.update_application_form_data(app_id, stored_form_data, submitted_at, now)
+    written = ApplicationsApi.update_application_form_data(
+        app_id, stored_form_data, submitted_at, now, held=held, back_to_review=back_to_review,
+    )
+    if held is not None and not written:
+        return ANSWERS_MOVED, None
     if not app_doc.get("status"):
         ApplicationsApi.update_application_status(app_id, ApplicationStatus.OPEN)
 

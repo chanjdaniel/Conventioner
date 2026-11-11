@@ -29,7 +29,6 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   const imageSizePx = ref<{ width: number; height: number } | null>(null);
   const stageConfig = ref({ x: 0, y: 0, scale: 1 });
   const isLoading = ref(false);
-  const isDirty = ref(false);
 
   // ── Undo / redo history ────────────────────────────────────────────
   const MAX_HISTORY = 50;
@@ -59,23 +58,30 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   });
 
   // ── Internal helpers ───────────────────────────────────────────────
-  function markDirty() {
-    isDirty.value = true;
-  }
-
   function resetState() {
     history.value = [];
     historyIndex.value = -1;
-    isDirty.value = false;
     selectedTableIds.value = [];
   }
 
   // ── Floorplan lifecycle ────────────────────────────────────────────
 
+  /**
+   * The id of the floorplan the market already stores, which the wizard's floorplan takes, so a
+   * later visit's save replaces that floorplan rather than adding one (T272); null for a new id.
+   */
+  const storedFloorplanId = ref<string | null>(null);
+
+  /** The wizard opens on a market: its floorplan takes the id of the one the market stores. */
+  function openOnMarket(storedId: string | null) {
+    storedFloorplanId.value = storedId;
+    if (storedId && floorplan.value) floorplan.value.id = storedId;
+  }
+
   /** Create a brand-new floorplan from a partial definition. */
   function initFloorplan(data: Partial<FloorplanObject>) {
     floorplan.value = {
-      id: crypto.randomUUID(),
+      id: storedFloorplanId.value ?? crypto.randomUUID(),
       scaleUnit: 'mm',
       tableTypes: [],
       walls: [],
@@ -121,25 +127,21 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   // ── Table-type management ──────────────────────────────────────────
   function addTableType(tt: TableTypeObject) {
     tableTypes.value.push(tt);
-    markDirty();
   }
 
   function removeTableType(id: string) {
     tableTypes.value = tableTypes.value.filter((t) => t.id !== id);
-    markDirty();
   }
 
   // ── Wall / obstacle management ─────────────────────────────────────
   function setWalls(w: WallSegment[]) {
     walls.value = w;
-    markDirty();
   }
 
   function updateWall(id: string, updates: Partial<WallSegment>) {
     const idx = walls.value.findIndex((w) => w.id === id);
     if (idx >= 0) {
       walls.value[idx] = { ...walls.value[idx], ...updates };
-      markDirty();
     }
   }
 
@@ -147,14 +149,12 @@ export const useFloorplanStore = defineStore('floorplan', () => {
     const idx = obstacles.value.findIndex((o) => o.id === id);
     if (idx >= 0) {
       obstacles.value[idx] = { ...obstacles.value[idx], ...updates };
-      markDirty();
     }
   }
 
   // ── Table placement ────────────────────────────────────────────────
   function setPlacedTables(tables: PlacedTableObject[]) {
     placedTables.value = tables;
-    markDirty();
   }
 
   function updateTablePosition(id: string, x: number, y: number, rotation?: number) {
@@ -163,18 +163,15 @@ export const useFloorplanStore = defineStore('floorplan', () => {
       tbl.x = x;
       tbl.y = y;
       if (rotation !== undefined) tbl.rotation = rotation;
-      markDirty();
     }
   }
 
   function addPlacedTable(table: PlacedTableObject) {
     placedTables.value.push(table);
-    markDirty();
   }
 
   function removePlacedTable(id: string) {
     placedTables.value = placedTables.value.filter((t) => t.id !== id);
-    markDirty();
   }
 
   // ── Selection ──────────────────────────────────────────────────────
@@ -204,7 +201,6 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   // ── Sections ───────────────────────────────────────────────────────
   function setSections(secs: FloorplanSectionObject[]) {
     sections.value = secs;
-    markDirty();
   }
 
   // ── Undo / redo history ────────────────────────────────────────────
@@ -246,7 +242,6 @@ export const useFloorplanStore = defineStore('floorplan', () => {
     imageSizePx,
     stageConfig,
     isLoading,
-    isDirty,
     history,
     historyIndex,
 
@@ -258,11 +253,11 @@ export const useFloorplanStore = defineStore('floorplan', () => {
     currentFloorplan,
 
     // actions – lifecycle
+    openOnMarket,
     initFloorplan,
     setFloorplan,
     setImageSize,
     resetState,
-    markDirty,
 
     // actions – table types
     addTableType,

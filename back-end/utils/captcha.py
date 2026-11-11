@@ -23,6 +23,7 @@ and passed only because the shell running it happened to hold no key. ``utils.se
 call; so does this, and so does ``utils.email``.
 """
 
+import logging
 import os
 import requests
 from typing import Tuple, Optional
@@ -31,12 +32,15 @@ from utils.configured_secret import configured_secret, is_published
 from utils.deployment import (
     INSECURE_LOCAL_DEV_VAR,
     insecure_local_dev,
+    switch_on,
     warn_insecure_local_dev,
 )
 
 RECAPTCHA_SECRET_KEY_VAR = "RECAPTCHA_SECRET_KEY"
 RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify"
 MIN_SCORE = 0.5  # Minimum score threshold for reCAPTCHA v3
+
+logger = logging.getLogger(__name__)
 
 
 class CaptchaNotConfiguredError(RuntimeError):
@@ -111,7 +115,7 @@ def verify_recaptcha(token: str, ip_address: Optional[str] = None) -> Tuple[bool
     # Explicit test-mode bypass: DISABLE_CAPTCHA env var skips verification. Honored only by a
     # process that has opted in to being a local development one, so it cannot be a live bypass on
     # a deployment that merely forgot to unset it.
-    if insecure_local_dev() and os.getenv("DISABLE_CAPTCHA", "").lower() in ("true", "1"):
+    if insecure_local_dev() and switch_on("DISABLE_CAPTCHA"):
         warn_insecure_local_dev("reCAPTCHA verification (DISABLE_CAPTCHA)")
         return True, 1.0
 
@@ -120,7 +124,9 @@ def verify_recaptcha(token: str, ip_address: Optional[str] = None) -> Tuple[bool
         if not insecure_local_dev():
             # Unreachable through app.py, which refuses to boot in this state. Reached only by an
             # entrypoint that skipped that check, and an unverifiable token is not a verified one.
-            print(f"Error: {RECAPTCHA_SECRET_KEY_VAR} is not a usable secret, refusing the request")
+            # The variable's name is written into the words, never passed as an argument: CodeQL
+            # reads an argument named for a secret as the secret itself.
+            logger.error("RECAPTCHA_SECRET_KEY is not a usable secret, refusing the request")
             return False, 0.0
         warn_insecure_local_dev("reCAPTCHA verification (no secret configured)")
         return True, 1.0
@@ -147,9 +153,11 @@ def verify_recaptcha(token: str, ip_address: Optional[str] = None) -> Tuple[bool
         if success and score >= MIN_SCORE:
             return True, score
         else:
-            print(f"reCAPTCHA verification failed: success={success}, score={score}")
+            # Google's own two fields, never the token or the address the caller sent.
+            logger.warning("reCAPTCHA verification failed: success=%s, score=%s", success, score)
             return False, score
             
     except Exception as e:
-        print(f"Error verifying reCAPTCHA: {e}")
+        # By its type alone: a requests error's message can quote what it was sent.
+        logger.error("Error verifying reCAPTCHA: %s", type(e).__name__)
         return False, 0.0

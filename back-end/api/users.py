@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 from flask import current_app, request, jsonify, session
 from flask_login import UserMixin
 from flask_login.config import COOKIE_NAME
-from datatypes import User
+from datatypes import OrganizationRole, User, organization_people_of
 from db_config import get_database
 from utils.tokens import (
     generate_verification_token, generate_reset_token, generate_otp,
@@ -114,10 +114,16 @@ CODE_EXPIRED = "That code has expired."
 NEXT_CODE_LATER = "You can ask for a new code in {wait}."
 NEXT_CODE_NOW = "Ask for a new one."
 
+#: When another reset link may be asked for: ``{wait}`` is what is left of the account's wait, which
+#: ends an hour after its last link expired (``RESET_WAIT``).
+NEXT_RESET_LATER = "You can ask for another reset link in {wait}."
+
 #: How many tries reach one code before it is discarded.
 CODE_TRIES = 5
 #: How long after a code expires the account may ask for the next.
 CODE_WAIT = timedelta(hours=1)
+#: How long after a reset link expires the account may ask for the next.
+RESET_WAIT = timedelta(hours=1)
 
 #: What a sign-in past its limit says (``sign_in_limits``), ``{wait}`` being the time left of the
 #: limit's window; the password form puts "Forgot password?" beside it.
@@ -248,14 +254,41 @@ def _moment(stored: Any) -> Optional[datetime]:
     return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
 
 
+def _wait_after(expires: Any, wait: timedelta, now: datetime) -> Optional[int]:
+    """The whole seconds left of ``wait`` after the stored moment ``expires``, or None when none is
+    left or nothing is stored."""
+    expired_at = _moment(expires)
+    if expired_at is None:
+        return None
+    left = (expired_at + wait - now).total_seconds()
+    return math.ceil(left) if left > 0 else None
+
+
 def _code_wait(otp_expires: Any, now: datetime) -> Optional[int]:
     """The whole seconds left until the account may ask for another code, or None when it may now:
     one code at a time, until an hour after the last one expired (``CODE_WAIT``)."""
-    expired_at = _moment(otp_expires)
-    if expired_at is None:
-        return None
-    left = (expired_at + CODE_WAIT - now).total_seconds()
-    return math.ceil(left) if left > 0 else None
+    return _wait_after(otp_expires, CODE_WAIT, now)
+
+
+#: The field holding the secret a mail names, of each kind of mail ``_put_back`` puts back.
+_MAILED_SECRETS = ("otp", "password_reset_token", "verification_token")
+
+
+def _put_back(email: str, written: Dict[str, Any], previous: dict) -> None:
+    """Puts back what a request stored for a mail that could not be sent, so that the account may
+    ask again at once and a link already in its inbox keeps working.
+
+    ``written`` is what the request set, its secret among it (``_MAILED_SECRETS``), and ``previous``
+    the account as the request read it; each written field gets back what the account held, an
+    absent one read as None. Only while the account still holds the secret the request wrote: a
+    newer code or link another request stored meanwhile is left. The request's counts are not taken
+    back, since they count requests whether or not a mail went.
+    """
+    held = {field: written[field] for field in _MAILED_SECRETS if field in written}
+    users_collection.update_one(
+        {"email": email, **held},
+        {"$set": {field: previous.get(field) for field in written}},
+    )
 
 
 def _next_code(otp_expires: Any, now: datetime) -> str:
@@ -623,19 +656,16 @@ def resend_verification_email():
     verification_token_expires = get_token_expiry(hours=1)
 
     # Update user with new token
-    users_collection.update_one(
-        {"email": email},
-        {
-            "$set": {
-                "verification_token": verification_token,
-                "verification_token_expires": verification_token_expires
-            }
-        }
-    )
+    written = {
+        "verification_token": verification_token,
+        "verification_token_expires": verification_token_expires,
+    }
+    users_collection.update_one({"email": email}, {"$set": written})
 
-    # Send verification email
+    # Send verification email; the link already in the inbox keeps working if it could not be sent
     email_sent = send_verification_email(email, verification_token)
     if not email_sent:
+        _put_back(email, written, user_doc)
         return jsonify({"msg": "Failed to send verification email"}), 500
 
     return jsonify({"msg": "Verification email sent"}), 200
@@ -667,36 +697,26 @@ def request_password_reset():
 
     # One link at a time: refused until an hour after the last link expired (two hours after it was
     # sent), unless that link was used, which clears its expiry.
-    last_reset_time = user_doc.get("password_reset_token_expires")
-    if last_reset_time:
-        try:
-            last_reset = datetime.fromisoformat(last_reset_time.replace('Z', '+00:00'))
-            if last_reset.tzinfo is None:
-                last_reset = last_reset.replace(tzinfo=timezone.utc)
-            time_since_last = datetime.now(timezone.utc) - last_reset
-            if time_since_last < timedelta(hours=1):
-                return jsonify({"msg": "Please wait before requesting another password reset"}), 429
-        except (ValueError, AttributeError):
-            pass
+    wait = _wait_after(user_doc.get("password_reset_token_expires"), RESET_WAIT, now)
+    if wait is not None:
+        return jsonify(
+            {"msg": NEXT_RESET_LATER.format(wait=sign_in_limits.wait_in_words(wait))}), 429
 
     # Generate reset token
     reset_token = generate_reset_token()
     reset_token_expires = get_token_expiry(hours=1)
 
     # Update user with reset token
-    users_collection.update_one(
-        {"email": email},
-        {
-            "$set": {
-                "password_reset_token": reset_token,
-                "password_reset_token_expires": reset_token_expires
-            }
-        }
-    )
+    written = {
+        "password_reset_token": reset_token,
+        "password_reset_token_expires": reset_token_expires,
+    }
+    users_collection.update_one({"email": email}, {"$set": written})
 
-    # Send password reset email
+    # Send password reset email; if it could not be sent, the next request may ask again at once
     email_sent = send_password_reset_email(email, reset_token)
     if not email_sent:
+        _put_back(email, written, user_doc)
         return jsonify({"msg": "Failed to send password reset email"}), 500
 
     return jsonify({"msg": "If an account exists, a password reset email has been sent"}), 200
@@ -788,20 +808,13 @@ def request_otp():
     otp_expires = get_otp_expiry(minutes=5)
 
     # Update user with OTP
-    users_collection.update_one(
-        {"email": email},
-        {
-            "$set": {
-                "otp": otp,
-                "otp_expires": otp_expires,
-                "otp_attempts": 0
-            }
-        }
-    )
+    written = {"otp": otp, "otp_expires": otp_expires, "otp_attempts": 0}
+    users_collection.update_one({"email": email}, {"$set": written})
 
-    # Send OTP email
+    # Send OTP email; if it could not be sent, the next request may ask again at once
     email_sent = send_otp_email(email, otp)
     if not email_sent:
+        _put_back(email, written, user_doc)
         return jsonify({"msg": "The sign-in code could not be sent. Please try again."}), 500
 
     return jsonify({"msg": "If an account exists for that address, a sign-in code has been sent to it."}), 200
@@ -937,14 +950,15 @@ def delete_user(authenticated_email: str):
         return jsonify({"msg": "User not found"}), 404
 
     from api.organizations import organizations_collection
+    import organization_people as OrganizationPeople
 
     user_id_to_delete = user_to_delete.get("id")
 
-    owned_orgs = (
-        list(organizations_collection.find({"owner": user_id_to_delete}))
-        if user_id_to_delete
-        else []
-    )
+    # Read by the person's one place in each organization they are in (T283).
+    owned_orgs = [
+        org for org in organizations_collection.find(OrganizationPeople.of_person(user_id_to_delete))
+        if organization_people_of(org).get(user_id_to_delete) == OrganizationRole.OWNER
+    ] if user_id_to_delete else []
     if owned_orgs:
         org_names = [org.get("name") for org in owned_orgs]
         return jsonify({
@@ -958,12 +972,10 @@ def delete_user(authenticated_email: str):
     result = users_collection.delete_one({"email": email_to_delete})
 
     if result.deleted_count > 0:
-        # Membership elsewhere is not ownership, so it is safe to drop on the way out.
+        # Membership elsewhere is not ownership, so it is safe to drop on the way out: their one
+        # place in every organization they were an admin or a member of (T283).
         if user_id_to_delete:
-            organizations_collection.update_many(
-                {},
-                {"$pull": {"members": user_id_to_delete, "admins": user_id_to_delete}}
-            )
+            OrganizationPeople.forget(user_id_to_delete)
         return jsonify({"msg": "User deleted successfully"}), 200
 
     return jsonify({"msg": "Failed to delete user"}), 500

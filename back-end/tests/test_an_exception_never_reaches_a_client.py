@@ -19,7 +19,9 @@ import pytest
 from conftest import (
     COMPLETE_PLAN,
     FakeMarketsCollection,
+    FakeOrganizations,
     FakeSlugMarketsCollection,
+    install_organizations,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
     stored_market,
@@ -37,6 +39,7 @@ import api.discord_connection as DiscordConnectionApi
 import api.door as DoorApi
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
+import organization_people as OrganizationPeople
 import api.payments as PaymentsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
@@ -149,6 +152,7 @@ class TestTheTypes:
         (AddedVendorsApi.AddVendorInvalid, BadRequestError),
         (CsvStart.ConfirmRefused, ConflictError),
         (OrgsApi.OrganizationHasLiveMarkets, ConflictError),
+        (OrganizationPeople.OrganizationChanged, ConflictError),
     ])
     def test_the_domain_refusals_are_client_errors_and_nothing_else(self, refusal, client_error):
         assert issubclass(refusal, client_error)
@@ -178,16 +182,6 @@ ORG_ID = "org-1"
 ORG_NAME = "Night Market Society"
 
 
-class FakeOrganizations:
-    def __init__(self, *docs):
-        self.docs = list(docs)
-
-    def find_one(self, query):
-        return next(
-            (dict(d) for d in self.docs if all(d.get(k) == v for k, v in query.items())), None,
-        )
-
-
 class FakeOrganizationMarkets:
     def __init__(self, *docs):
         self.docs = list(docs)
@@ -200,7 +194,7 @@ class FakeOrganizationMarkets:
 def organization(monkeypatch):
     """One organization, owned by whoever ``owner`` names, holding the markets given."""
     def install(owner=OWNER_ID, markets=()):
-        monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations({
+        install_organizations(monkeypatch, FakeOrganizations({
             "_id": "org-object-id", "id": ORG_ID, "name": ORG_NAME, "owner": owner,
             "admins": [], "members": [],
         }))
@@ -409,6 +403,8 @@ ORGANIZATION_AND_ROLE_ROUTES = [
     ("post", f"/organizations/{ORG_ID}/members", {"user_email": "member@example.com"},
      OrgsApi, "add_org_member"),
     ("delete", f"/organizations/{ORG_ID}/users/user-2", None, OrgsApi, "remove_org_user"),
+    ("put", f"/organizations/{ORG_ID}/users/user-2", {"place": "admin"},
+     OrgsApi, "change_org_place"),
     ("post", f"/organizations/{ORG_ID}/transfer", {"new_owner_email": "next@example.com"},
      OrgsApi, "transfer_org_ownership"),
     ("put", f"/organizations/{ORG_ID}/default-permissions/check-in", {"role": "admin"},
@@ -467,6 +463,27 @@ class TestTheOrganizationAndRoleRoutes:
 
         assert response.status_code == 404
         assert response.get_json() == {"error": "Organization not found"}
+
+    def test_a_change_that_met_another_is_the_organizations_409(
+        self, client, monkeypatch, organization,
+    ):
+        organization()
+        owner = UsersApi.get_user
+        monkeypatch.setattr(UsersApi, "get_user", lambda email: SimpleNamespace(
+            id="user-member", email=email) if email == "member@example.com" else owner(email))
+        stored = OrgsApi.organizations_collection
+        # The owner's own place changes between the read and the write.
+        stored.before_write = lambda: stored.doc.update(owner="someone-else")
+        raised = refusals_raised_by(monkeypatch, OrgsApi, "add_org_member")
+
+        response = client.post(
+            f"/organizations/{ORG_ID}/members", json={"user_email": "member@example.com"},
+        )
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 409
+        assert response.get_json() == {
+            "error": OrganizationPeople.ORGANIZATION_CHANGED, "code": "organization_changed"}
 
     def test_the_owner_cannot_be_added_as_a_member(self, client, organization):
         organization()
@@ -1305,6 +1322,7 @@ REQUIRED_BODIES = [
     ("put", "/organizations/<org_id>", None),
     ("post", "/organizations/<org_id>/admins", None),
     ("post", "/organizations/<org_id>/members", None),
+    ("put", "/organizations/<org_id>/users/<user_id>", None),
     ("post", "/organizations/<org_id>/transfer", None),
     ("post", "/markets/<market_id>/roles", None),
     ("put", "/markets/<market_id>/roles/<user_id>", None),
@@ -1472,7 +1490,7 @@ def send_body(client, monkeypatch, method, rule, phase, **kwargs):
     """``kwargs`` sent to the route at ``rule``, on a market in ``phase``, by an applicant signed in
     where the route is theirs; an organization's route finds no organization, nor a vendor's own
     check-in its vendor page."""
-    monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations())
+    install_organizations(monkeypatch, FakeOrganizations())
     use_market(monkeypatch, stored_market(
         phase=phase or MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN,
     ))
@@ -1988,6 +2006,64 @@ class TestTheCopyIsOurs:
         assert ORG_ID in caplog.text
         assert "markets (list_type)" in caplog.text
         assert "unreadable-markets" not in caplog.text
+
+
+# A library's message quoting what it was given: the stranger's address, and a word of theirs.
+STRANGERS_ADDRESS = "stranger.vendor@example.com"
+LIBRARY_MESSAGE = f"550 mailbox {STRANGERS_ADDRESS} refused: 'Ember & Ash'"
+
+
+class TestAFailureARouteSurvivesIsLoggedWithoutItsMessage:
+    """A failure a route goes on past, and answers as a success, is logged once by its type and its
+    frames, naming the market, the way a 500 is: never by its message, and never with ``exc_info``,
+    whose formatter would print the message under the frames."""
+
+    def test_a_code_that_could_not_be_sent(self, monkeypatch, caplog):
+        from test_applicant_auth import FakeDatabase, _published_market_doc
+
+        database = FakeDatabase(markets=[_published_market_doc()])
+        monkeypatch.setattr(ApplicantAuthApi, "db", database)
+        monkeypatch.setattr(
+            ApplicantAuthApi, "challenges_collection", database["applicant_login_challenges"],
+        )
+        monkeypatch.setattr(
+            ApplicantAuthApi, "_send_code_email", fail_with(RuntimeError(LIBRARY_MESSAGE)),
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            response = app_module.app.test_client().post(
+                f"/public/markets/{SLUG}/applicant-login/request-code",
+                json={"email": STRANGERS_ADDRESS},
+            )
+
+        assert response.status_code == 200
+        [record] = [r for r in caplog.records if r.name == "api.applicant_auth"]
+        assert record.levelno == logging.ERROR
+        assert_logged_without_message(record, RuntimeError, LIBRARY_MESSAGE)
+        assert SLUG in record.getMessage()
+        assert STRANGERS_ADDRESS not in caplog.text
+        assert "Ember" not in caplog.text
+
+    def test_an_offers_sweep_that_failed(self, client, monkeypatch, caplog):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.OFFERS, setupObject=COMPLETE_PLAN))
+        monkeypatch.setattr(MarketsApi, "evaluate_transition", lambda *_args: [])
+        monkeypatch.setattr(
+            ApplicationsApi, "sweep_unanswered_offers", fail_with(RuntimeError(LIBRARY_MESSAGE)),
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            response = client.post(
+                "/markets/market-123/transition", json={"toPhase": MarketPhase.MARKET_DAYS.value},
+            )
+
+        assert response.status_code == 200
+        [record] = [r for r in caplog.records if r.name == "api.markets"]
+        assert record.levelno == logging.ERROR
+        assert_logged_without_message(record, RuntimeError, LIBRARY_MESSAGE)
+        assert "market-123" in record.getMessage()
+        assert STRANGERS_ADDRESS not in caplog.text
+        assert "Ember" not in caplog.text
+
 
 class TestFlasksOwnAnswers:
     def test_an_unknown_url_is_still_flasks_404(self, client):

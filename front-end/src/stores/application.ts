@@ -119,6 +119,65 @@ function keepDoorCode(held: HeldDoorCode | null): void {
   }
 }
 
+/**
+ * The answers a vendor has typed into Apply or Edit and not yet saved, kept in this tab's
+ * sessionStorage as they type (T271), so a reload, or a phone discarding the tab, reopens the form
+ * on them. The tab is the sign-in's own lifetime (bug 36), so nothing of the vendor's outlives it.
+ *
+ * It is kept for one market and one address, and opens only for them (`draftFor`). It goes when
+ * the answers are saved, on Cancel, on Sign out, when this tab signs in to its market as another
+ * address, and once the market no longer takes applications (`VendorApplication`). Every read and
+ * write is guarded, as the sign-in's are: with storage unavailable the answers last as long as the
+ * page, as they always did.
+ *
+ * A save that meets an ended sign-in the device cannot renew keeps the answers it sent, marked
+ * `saveAfterSignIn`, and the form sends them once by itself after the vendor signs in again as the
+ * same address (`takeSaveAfterSignIn`).
+ */
+const DRAFT_KEY = 'conventioner.applicationDraft';
+
+export interface ApplicationDraft {
+  marketSlug: string;
+  applicantEmail: string;
+  formData: Record<string, unknown>;
+  /** A save met an ended sign-in: send it once the vendor signs in again. */
+  saveAfterSignIn: boolean;
+}
+
+function storedDraft(): ApplicationDraft | null {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? 'null') as unknown;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const draft = parsed as Partial<ApplicationDraft>;
+    if (
+      typeof draft.marketSlug !== 'string' ||
+      typeof draft.applicantEmail !== 'string' ||
+      !draft.formData ||
+      typeof draft.formData !== 'object' ||
+      Array.isArray(draft.formData)
+    ) {
+      return null;
+    }
+    return {
+      marketSlug: draft.marketSlug,
+      applicantEmail: draft.applicantEmail,
+      formData: draft.formData,
+      saveAfterSignIn: draft.saveAfterSignIn === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function keepDraft(draft: ApplicationDraft | null): void {
+  try {
+    if (draft) sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    else sessionStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Unavailable storage: the answers last as long as the page.
+  }
+}
+
 /** What a check-in or its undo came to: done, or refused with the sentence to show. */
 export type CheckInResult = { ok: true } | { ok: false; message: string; signedOut: boolean };
 
@@ -142,6 +201,44 @@ export const useApplicationStore = defineStore('application', () => {
   const formFields = ref<FormField[]>([]);
   const essentialOptions = ref<EssentialFormOptions>(EMPTY_ESSENTIAL_OPTIONS);
   const heldDoorCode = ref<HeldDoorCode | null>(storedDoorCode());
+  /** The vendor's unsaved answers, kept in this tab; read through `draftFor`. */
+  const draft = ref<ApplicationDraft | null>(storedDraft());
+
+  /** The answers kept for `email` at `slug`, or null: one address's never open for another. */
+  function draftFor(slug: string, email: string | null): ApplicationDraft | null {
+    const held = draft.value;
+    if (!held || !email || held.marketSlug !== slug || held.applicantEmail !== email) return null;
+    return held;
+  }
+
+  /** Keep the signed-in vendor's answers as they stand, for this market and address. */
+  function holdDraft(formData: Record<string, unknown>): void {
+    if (!marketSlug.value || !applicantEmail.value) return;
+    draft.value = {
+      marketSlug: marketSlug.value,
+      applicantEmail: applicantEmail.value,
+      formData: JSON.parse(JSON.stringify(formData)) as Record<string, unknown>,
+      saveAfterSignIn: false,
+    };
+    keepDraft(draft.value);
+  }
+
+  function dropDraft(): void {
+    draft.value = null;
+    keepDraft(null);
+  }
+
+  /**
+   * Whether the signed-in vendor's kept answers wait to be sent after this sign-in, taken: the mark
+   * is cleared here, before the save is out, so a save that fails is never sent again by itself.
+   */
+  function takeSaveAfterSignIn(): boolean {
+    const held = marketSlug.value ? draftFor(marketSlug.value, applicantEmail.value) : null;
+    if (!held?.saveAfterSignIn) return false;
+    draft.value = { ...held, saveAfterSignIn: false };
+    keepDraft(draft.value);
+    return true;
+  }
 
   function isAuthenticatedFor(slug: string): boolean {
     return token.value !== null && marketSlug.value === slug;
@@ -194,6 +291,11 @@ export const useApplicationStore = defineStore('application', () => {
 
   /** Hold a sign-in the server gave, from a right code or a remembered one, for this tab. */
   function holdSignIn(slug: string, result: SignedIn & { token: string }): void {
+    // Another address signing in here never opens the answers kept for the last one.
+    const held = draft.value;
+    if (held && held.marketSlug === slug && held.applicantEmail !== result.applicantEmail) {
+      dropDraft();
+    }
     marketId.value = result.marketId;
     marketSlug.value = slug;
     applicantEmail.value = result.applicantEmail;
@@ -303,6 +405,8 @@ export const useApplicationStore = defineStore('application', () => {
 
   async function saveApplication(formData: Record<string, unknown>): Promise<Application | null> {
     if (!token.value || !marketSlug.value) return null;
+    const slug = marketSlug.value;
+    const email = applicantEmail.value;
     loading.value = true;
     error.value = null;
     try {
@@ -313,8 +417,21 @@ export const useApplicationStore = defineStore('application', () => {
       return app;
     } catch (err: unknown) {
       if ((err as { response?: { status?: number } })?.response?.status === 401) {
+        // An ended sign-in the device could not renew (`withRenewal`): the answers are kept, to be
+        // sent once the vendor signs in again, and the sentence says so.
+        if (email) {
+          draft.value = {
+            marketSlug: slug,
+            applicantEmail: email,
+            formData: JSON.parse(JSON.stringify(formData)) as Record<string, unknown>,
+            saveAfterSignIn: true,
+          };
+          keepDraft(draft.value);
+        }
         clearSession();
-        error.value = 'Your session has expired. Please sign in again.';
+        error.value = email
+          ? 'Your session has expired. Sign in again, and your answers will be saved.'
+          : 'Your session has expired. Please sign in again.';
       } else {
         error.value = saveErrorFrom(err);
       }
@@ -404,6 +521,8 @@ export const useApplicationStore = defineStore('application', () => {
    * was would sign them straight back in on their next visit, which is not what Sign out says.
    */
   async function signOut(slug: string): Promise<boolean> {
+    // Before the request: on a shared device the answers go even when the server is not reached.
+    dropDraft();
     try {
       await endRememberedSignIn(slug);
     } catch {
@@ -426,6 +545,11 @@ export const useApplicationStore = defineStore('application', () => {
     formFields,
     essentialOptions,
     heldDoorCode,
+    draft,
+    draftFor,
+    holdDraft,
+    dropDraft,
+    takeSaveAfterSignIn,
     isAuthenticatedFor,
     loadPage,
     loadVendorRead,

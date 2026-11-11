@@ -30,6 +30,7 @@ sources:
   - T205
   - T217
   - T263
+  - T271
 ---
 
 # Planning the market
@@ -42,14 +43,17 @@ Market Setup is one scrolling page of cards that saves itself: Market Dates, Tie
 The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.
 It is deliberately not a wizard; the floorplan flow ([E6](#e6-sections-from-a-floorplan)) is the product's one wizard.
 A draft opens on Market Setup, and an address naming a tab opens that tab, so a shared link keeps working.
-"Plan saved" appears after each edit (debounced about 0.6 s); a failed save says "Could not save the plan. Retry in a moment."
+"Plan saved" appears after each edit (debounced about 0.6 s), once the server holds the last edit.
+A save that failed on the way keeps the edit on screen, says why ("You seem to be offline. Check the connection and try again.", say), and offers Retry; one the server refused puts the plan back as the server holds it, and says the server's sentence and "The plan is back as it was last saved."
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
-Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
+The saves go one at a time, so a slow save never stores an older plan over a later edit (T271); how the page saves itself is [the plan's autosave](../../implementation/modules/plan-autosave.md).
+Any pending edit is saved before a phase move, so the guards judge what the organizer sees; a plan that did not save stops the move, Allocate tables and the start from a CSV, each saying why.
 The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
 The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, tables at every tier, and Review setup's two decisions ([the lifecycle](lifecycle.md#what-refuses-a-move), [review waits on the review setup](../rules/review-waits-on-the-review-setup.md)).
 Covered by:
 
 - `plan-saves-once.spec.ts`
+- `the-plan-saves-one-at-a-time.spec.ts`
 
 **Task for the section:** "Your market runs on two Saturdays in October in Pier Hall, with 4 premium tables in the North Row and 6 standard tables in the South Row. Set that up."
 
@@ -123,16 +127,20 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
 2. `/markets/<id>/floorplan`, a five-step wizard with "← Back" and "Next →":
    1. **Upload:** "Drop a floorplan image or PDF here, or choose a file", the app's one drop zone (PNG, JPG, WebP or PDF; a PDF of more than one page asks which page).
    2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
-   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted.
-   4. **Edit Layout:** draw walls and no-go zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
+   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted, and when fewer did, whether the room had no space for the rest or Auto-Place ran out of time before them.
+   4. **Edit Layout:** draw walls and obstacle zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
    5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" writes the sections to the plan.
+      The market opens afterwards with the floorplan's sections and locations and the rest of its plan as it was, or an empty plan when none had been saved, and saving again replaces the floorplan rather than adding a copy.
 
+Nothing of the wizard reaches the market until "Save & Continue" (the image is uploaded, but nothing reads it until then): from the upload on, a link, a market tab or Back asks "Leave without saving?" first ("This floorplan is not saved to the market yet. Leaving drops the upload, the scale, the tables and the sections."), with Stay and Leave, and a reload or closing the tab is asked by the browser; the save's own move back to Market Setup never asks.
 The wizard makes no AI calls; placement is a geometry solver ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
 Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
 Covered by:
 
+- `a-floorplan-save-keeps-the-market-readable.spec.ts`
 - `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures)
+- `the-floorplan-asks-before-it-drops-a-drawing.spec.ts`
 - `the-floorplan-beta-places-tables.spec.ts`
 
 ## E7. Edit the plan after Draft

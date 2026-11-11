@@ -47,6 +47,53 @@ function assertCaptchaSiteKey(env: Record<string, string>) {
 }
 
 /**
+ * Refuse to build a bundle with no API address (T273).
+ *
+ * `VITE_FLASK_HOST` is baked into the bundle at build time as the base of every API request. With
+ * none, each request goes to the front end's own origin, whose rewrite answers every path with
+ * `index.html` and 200, so the deployment looks healthy and nothing works. The hatch is the site
+ * key's: a bundle built under `VITE_ALLOW_INSECURE_LOCAL_DEV` warns and builds, as CI's and the
+ * gate's builds do.
+ */
+function assertApiHost(env: Record<string, string>) {
+  if (env.VITE_FLASK_HOST?.trim()) {
+    return;
+  }
+  if (env.VITE_ALLOW_INSECURE_LOCAL_DEV === 'true') {
+    console.warn(
+      '[api] VITE_ALLOW_INSECURE_LOCAL_DEV is set: building a bundle with no VITE_FLASK_HOST. It ' +
+        'calls its own origin. Never deploy this bundle.',
+    );
+    return;
+  }
+  throw new Error(
+    'VITE_FLASK_HOST is not set, so this bundle would send every API request to its own origin, ' +
+      "where every path answers index.html with 200 and nothing works. Set it to the back end's " +
+      'address (https://api.conventioner.io in production), or set ' +
+      'VITE_ALLOW_INSECURE_LOCAL_DEV=true if this build only ever talks to a local back end.',
+  );
+}
+
+/**
+ * Refuse the hatch on a Vercel build outright (T273): it lets a bundle build with no site key and
+ * no API address, and a build Vercel makes is one that may be served. Vercel's build sets
+ * `VERCEL=1` while the project's "Enable access to System Environment Variables" setting is ticked,
+ * and not otherwise, so the refusal is armed only with that box ticked. It is not a `VITE_`
+ * variable, so it is read from the build's process environment, as `BUILD_COMMIT` is, and no `.env`
+ * file can set it.
+ */
+function assertNoLocalHatchOnVercel(env: Record<string, string>) {
+  if (!process.env.VERCEL?.trim() || env.VITE_ALLOW_INSECURE_LOCAL_DEV !== 'true') {
+    return;
+  }
+  throw new Error(
+    'VITE_ALLOW_INSECURE_LOCAL_DEV is set on a Vercel build. It lets a bundle build with no ' +
+      'reCAPTCHA site key or API address, which a deployed front end must never ship. Remove it ' +
+      "from the front-end project's environment on Vercel.",
+  );
+}
+
+/**
  * The headers `vercel.json` sends on every path, so `vite preview` serves a production build under
  * the same security headers and Content-Security-Policy as production does. `vercel.json` is the one
  * place they are declared; walk a page with `npm run build-only && npm run preview` to see what the
@@ -159,7 +206,9 @@ export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_');
 
   if (command === 'build') {
+    assertNoLocalHatchOnVercel(env);
     assertCaptchaSiteKey(env);
+    assertApiHost(env);
   }
 
   return {

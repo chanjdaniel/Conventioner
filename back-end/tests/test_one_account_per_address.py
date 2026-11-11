@@ -254,7 +254,7 @@ class TestTheAccountExistsEmail:
 
         sent = []
         monkeypatch.setenv("FRONTEND_URL", "https://app.example.com")
-        monkeypatch.setattr(email_mod, "_send", lambda *args: sent.append(args) or True)
+        monkeypatch.setattr(email_mod, "send_mail", lambda *args: sent.append(args) or True)
         assert email_mod.send_account_exists_email("dan@example.com") is True
         [message] = sent
         return dict(zip(("kind", "to", "subject", "html", "text"), message))

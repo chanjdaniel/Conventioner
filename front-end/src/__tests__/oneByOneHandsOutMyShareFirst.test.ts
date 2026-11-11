@@ -413,3 +413,66 @@ describe('anyone else', () => {
     expect(wrapper.find('[data-testid="app-monitor-share-done"]').exists()).toBe(false);
   });
 });
+
+describe('a next card whose deal moved others (T270)', () => {
+  /** Two arrivals a dead deal left undealt, which the next card's deal hands both to me. */
+  function dealtByTheNextCard(dealt: number) {
+    team = [ME, SAM];
+    stored = [application('amy', 1, null), application('ben', 2, null)];
+    serve();
+    api.post.mockImplementation(async (url: string) => {
+      if (!url.endsWith('/review/next')) return { data: {} };
+      for (const app of stored) app.reviewer = { userId: ME, email: ME } as Application['reviewer'];
+      return { data: { application: { ...stored[0] }, dealt } };
+    });
+  }
+
+  it('reads the list again, so the share counts what the deal handed me', async () => {
+    dealtByTheNextCard(2);
+    const wrapper = mount(ApplicationMonitor, {
+      props: reactive({ market: market(), visible: true }),
+    });
+    await flushPromises();
+
+    expect(shown(wrapper)).toBe('amy@vendor.test');
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 2 in your share');
+    expect(fetchMarketApplications).toHaveBeenCalledTimes(2);
+  });
+
+  it('puts the card handed out up before it reads the list again', async () => {
+    const wrapper = await monitor();
+    expect(shown(wrapper)).toBe('amy@vendor.test');
+    // The next card is cal, further down; its deal dealt another, and the list read it asks is
+    // held, so the card up meanwhile is whatever the screen chose before that read.
+    let letGo: () => void = () => undefined;
+    fetchMarketApplications.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          letGo = () => resolve(stored.map((app) => ({ ...app })));
+        }),
+    );
+    const handOut = api.post.getMockImplementation() as (
+      url: string,
+      body: Record<string, unknown>,
+    ) => Promise<{ data: Record<string, unknown> }>;
+    api.post.mockImplementation(async (url: string, body: Record<string, unknown>) => {
+      const answer = await handOut(url, body);
+      return url.endsWith('/review/next') ? { data: { ...answer.data, dealt: 1 } } : answer;
+    });
+
+    await approve(wrapper);
+
+    expect(fetchMarketApplications).toHaveBeenCalledTimes(2);
+    expect(shown(wrapper)).toBe('cal@vendor.test');
+    letGo();
+    await flushPromises();
+    expect(shown(wrapper)).toBe('cal@vendor.test');
+  });
+
+  it('reads nothing more when the deal moved nothing', async () => {
+    const wrapper = await monitor();
+
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 of 2 in your share');
+    expect(fetchMarketApplications).toHaveBeenCalledTimes(1);
+  });
+});

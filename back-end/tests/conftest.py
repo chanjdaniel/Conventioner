@@ -41,7 +41,8 @@ MONGO_ENV_KEYS = (
     "MONGODB_AUTH_DB",
 )
 
-UNREACHABLE_MONGODB_URI = "mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=100"
+# No timeout in it: `db_config` passes its bounds as keywords, which win over the URI's.
+UNREACHABLE_MONGODB_URI = "mongodb://127.0.0.1:1/"
 
 if not any(os.getenv(key) for key in MONGO_ENV_KEYS):
     os.environ["MONGODB_URI"] = UNREACHABLE_MONGODB_URI
@@ -1179,6 +1180,10 @@ def market_records(monkeypatch):
         placement_history=FakeApplicationsCollection(), payments=FakeApplicationsCollection(),
         amounts_owed=FakeApplicationsCollection(), images=FakeGridFS(),
     )
+    # The boot builds these three's unique indexes (T270), so a test that runs app.py afresh
+    # builds against them: none stands yet.
+    for built_at_boot in (fakes.attendance, fakes.payments, fakes.amounts_owed):
+        built_at_boot.index_information = lambda: {}
     monkeypatch.setattr(GridfsService, "_fs", fakes.images)
     monkeypatch.setattr(Payments, "payments_collection", fakes.payments)
     monkeypatch.setattr(Payments, "amounts_owed_collection", fakes.amounts_owed)
@@ -1318,12 +1323,36 @@ class FakeTemplates:
         return SimpleNamespace(deleted_count=before - len(self.docs))
 
 
+class WriteCut(Exception):
+    """The connection lost at a write ``FakeOrganizations.cut_at`` names: nothing of it stored."""
+
+
 class FakeOrganizations:
-    """The organizations collection, read only, recording every filter it is asked with."""
+    """The organizations collection as MongoDB answers it, recording every filter it is asked with.
+
+    A read hands back a copy, so a caller's change to what it read never reaches what is stored. A
+    write filters through ``mongo_matches`` and applies its update through ``mongo_update``, both
+    checked against the server by ``tests/mongo_cases.py``, and answers the server's counts.
+
+    ``before_write``, when set, runs once before the next write is matched, as another request
+    landing between this one's read and its write; the writes it makes itself land first.
+    ``cut_at``, when set, is the write (counted from 1 over ``update_one``, ``update_many`` and
+    ``insert_one``) at which the connection is lost: ``WriteCut`` is raised and nothing of it is
+    stored. ``writes`` holds every filter and update it was sent, in order.
+    """
 
     def __init__(self, *docs):
-        self.docs = [dict(doc) for doc in docs]
+        self.docs = [copy.deepcopy(dict(doc)) for doc in docs]
         self.queries = []
+        self.writes = []
+        self.before_write = None
+        self.cut_at = None
+
+    @property
+    def doc(self):
+        """The one organization it holds, for a test that installs one."""
+        [doc] = self.docs
+        return doc
 
     def find_one(self, query, projection=None):
         return next(self.find(query, projection), None)
@@ -1331,8 +1360,84 @@ class FakeOrganizations:
     def find(self, query, projection=None):
         self.queries.append(query)
         return iter([
-            mongo_project(dict(doc), projection) for doc in self.docs if mongo_matches(doc, query)
+            mongo_project(copy.deepcopy(doc), projection)
+            for doc in self.docs if mongo_matches(doc, query)
         ])
+
+    def _writing(self, query, update):
+        if self.before_write:
+            hook, self.before_write = self.before_write, None
+            hook()
+        self.writes.append((query, update))
+        if self.cut_at == len(self.writes):
+            raise WriteCut(f"the connection was lost at write {len(self.writes)}")
+
+    def insert_one(self, doc):
+        """Stored with an ``_id`` the driver gives it, as the driver sets it on ``doc`` too."""
+        self._writing(None, doc)
+        doc.setdefault("_id", _new_object_id())
+        self.docs.append(copy.deepcopy(doc))
+        return SimpleNamespace(inserted_id=doc["_id"])
+
+    def update_one(self, query, update):
+        reject_malformed_update(update)
+        self._writing(query, update)
+        return _update_first(self.docs, query, update)
+
+    def update_many(self, query, update):
+        reject_malformed_update(update)
+        self._writing(query, update)
+        mongo_matches({}, query)
+        matched = modified = 0
+        for index, doc in enumerate(self.docs):
+            if mongo_matches(doc, query):
+                after = mongo_update(doc, update)
+                matched += 1
+                modified += int(not _identical(doc, after))
+                self.docs[index] = after
+        if not matched:
+            mongo_update({}, update)
+        return SimpleNamespace(matched_count=matched, modified_count=modified, upserted_id=None)
+
+    def delete_one(self, query):
+        self._writing(query, None)
+        for index, doc in enumerate(self.docs):
+            if mongo_matches(doc, query):
+                del self.docs[index]
+                return SimpleNamespace(deleted_count=1)
+        return SimpleNamespace(deleted_count=0)
+
+
+class FakeAccountCopies:
+    """The users collection as the organization writers touch it: each account's own copy of its
+    organizations, written best effort. Records every write; stores nothing."""
+
+    def __init__(self):
+        self.writes = []
+
+    def update_one(self, query, update, **_kwargs):
+        reject_malformed_update(update)
+        self.writes.append((query, update))
+        return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
+
+    def update_many(self, query, update, **_kwargs):
+        return self.update_one(query, update)
+
+
+def install_organizations(monkeypatch, organizations, accounts=None):
+    """Make ``organizations`` (a ``FakeOrganizations``) the organizations collection for every
+    reader and for ``organization_people``, the one writer, and ``accounts`` (by default a new
+    ``FakeAccountCopies``) the users collection both write the account's copy to. Answers
+    ``organizations``, with ``organizations.accounts`` set."""
+    import api.organizations as OrgsApi
+    import organization_people as OrganizationPeople
+
+    accounts = FakeAccountCopies() if accounts is None else accounts
+    for module in (OrgsApi, OrganizationPeople):
+        monkeypatch.setattr(module, "organizations_collection", organizations)
+        monkeypatch.setattr(module, "users_collection", accounts)
+    organizations.accounts = accounts
+    return organizations
 
 # app.py refuses to boot unless the market-key migration is recorded as applied, and it fails
 # closed when it cannot read the marker at all -- which is exactly what would happen here, since
@@ -1433,6 +1538,24 @@ if not STUBBED_MODULES:
     _users_fake = FakeApplicationsCollection()
     _users_fake.index_information = lambda: {}
     _stand_in(_users_module, "users_collection", _users_fake)
+
+    # And the check-ins, whose unique vendor-day index the boot builds (T270).
+    import api.attendance as _attendance_module
+
+    _attendance_fake = FakeApplicationsCollection()
+    _attendance_fake.index_information = lambda: {}
+    _stand_in(_attendance_module, "attendance_collection", _attendance_fake)
+
+    # And what vendors owe and paid, whose unique vendor-day and request-key indexes the boot
+    # builds (T270).
+    import payments as _payments_module
+
+    _amounts_owed_fake = FakeApplicationsCollection()
+    _amounts_owed_fake.index_information = lambda: {}
+    _stand_in(_payments_module, "amounts_owed_collection", _amounts_owed_fake)
+    _payments_fake = FakeApplicationsCollection()
+    _payments_fake.index_information = lambda: {}
+    _stand_in(_payments_module, "payments_collection", _payments_fake)
 
 
 def a_solver_vendor(application_id: str = "app-1", **overrides):

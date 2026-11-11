@@ -13,7 +13,7 @@ describes:
   - back-end/api/organizations.py#get_history
   - back-end/tests/test_the_organizations_history.py
   - back-end/api/organizations.py#get_default_permission_history
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
@@ -98,7 +98,7 @@ One block per action, in the order of [the actions table](../modules/market-acti
   - Detail: whichever of `currency`, `half_table_percent`, `groups` (each `{name, conditions, prices}`, the whole list) and `everyone_else` (each tier's `{tier, cents}`) changed; a market never priced is the card's defaults before (CAD, 50, no group, no price), so its first price records only the prices typed
 - `floorplan`: saving a floorplan to the market
   - Subject: `floorplan_id`
-  - Detail: whichever of `sections`, `locations` and `floorplan_ids` changed
+  - Detail: whichever of `sections`, `locations` and `floorplan_ids` changed, and of the saved floorplan's summary: `tables`, `walls`, `no_go_zones` and `table_types` counted, and `layout_digest`, a digest of all but its id and sections, so a moved table changes it; each null on the side where the market held no floorplan of that id, and never the floorplan itself
 - `floorplan_image_deleted`: deleting a floorplan image
   - Subject: `image_id`
   - Detail: `image_id`, then null

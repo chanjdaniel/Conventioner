@@ -26,6 +26,8 @@ const open = vi.hoisted(() => ({ market: null as unknown, refresh: vi.fn() }));
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn(), resolve: (to: string) => ({ fullPath: to }) }),
   useRoute: () => ({ params: { marketId: 'market-1' }, fullPath: '/markets/market-1/import' }),
+  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteUpdate: vi.fn(),
 }));
 vi.mock('@/utils/openMarket', () => ({
   useOpenMarket: () => ({ market: open.market, status: ref('ready'), refresh: open.refresh }),

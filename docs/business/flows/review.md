@@ -58,6 +58,7 @@ sources:
   - T217
   - T262
   - T263
+  - T270
 ---
 
 # Reviewing applications
@@ -117,6 +118,7 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, until they have been idle for five minutes and its lease runs out, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
 A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 Beside it is what they decided, "Approved by <email>, <when>.", and the market is read again, so the rail's count already holds their verdict.
+A verdict on a card whose answers changed since it was opened, by the vendor's own edit, a re-import or an organizer's update ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)), is refused the same way, "Its answers changed since you opened it.", and the card shows the answers as they stand.
 If they approved or rejected it, the card offers a verdict only to someone who may change one (below), and tells a reviewer it refuses the row's sentence instead.
 A verdict on the card hands out the one after it in arrival order, even when Next had moved the reviewer ahead.
 Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
@@ -198,7 +200,7 @@ Covered by:
    It narrows together with the status filter and Mine, so the count line, Select all and the ticks follow what it shows; with no reviewers chosen it is not there and every application shows (`assignedTo` in [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts)).
 3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs; on an application already approved or rejected, only for someone who may change a verdict, and a reviewer the change row refuses reads its sentence there instead.
    The drawer names the application's reviewer as its row does, and on an open application or a follow-up dealt to another reviewer and not in the reader's share warns someone who may decide it above the verdicts, as One by one's card does (I1).
-   Its "Update info" updates the vendor's answers, and the list is read again once it saves.
+   Its "Update info" updates the vendor's answers: the row takes the application as saved at once, so a verdict given in the drawer next is on the answers just saved, and the list is read again (T270).
 4. Tick rows and give one verdict to the selection: "N applications selected", then Reject, Needs follow-up or Approve, confirmed by count ("Approve N applications?"): "Each is written only if it is still as you see it here; any that another reviewer has changed or has open is skipped, and said so."
    "Select all" ticks every row on screen, and none the filter, Mine, the words or the cap leave off, reading "Select all 50 shown" while the cap leaves some; it leaves the rows another reviewer has open, and says so ("N applications not selected: another reviewer has them open."), counting only the rows on screen.
    For someone who may not change a verdict it leaves the rows already approved or rejected too, in a clause of their own: "N applications not selected: another reviewer has K open, and M already have a verdict, which only an Admin or the owner may change.", naming whoever the market's table lets change one (`notSelectedLine` in [`front-end/src/utils/reviewQueue.ts`](../../../front-end/src/utils/reviewQueue.ts)).

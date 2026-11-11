@@ -11,10 +11,13 @@ import SectionGrouping from './SectionGrouping.vue';
 import SaveFlow from './SaveFlow.vue';
 import TemplatePanel from './TemplatePanel.vue';
 import ExportButton from './ExportButton.vue';
+import { useUnsavedWork } from '@/utils/useUnsavedWork';
 
 // ── Props ────────────────────────────────────────────────────────────
 const props = defineProps<{
   marketId: string;
+  /** The id of the floorplan the market stores, the last saved when it holds several, or null. */
+  storedFloorplanId: string | null;
 }>();
 
 // ── Emits ────────────────────────────────────────────────────────────
@@ -24,12 +27,29 @@ const emit = defineEmits<{
 
 // ── Store ────────────────────────────────────────────────────────────
 const store = useFloorplanStore();
+// Saved under the stored floorplan's id, so running the wizard again on a later visit replaces
+// that floorplan rather than adding another to the market (T272).
+store.openOnMarket(props.storedFloorplanId);
 
 // ── Local state ──────────────────────────────────────────────────────
 const step = ref(0);
 const gridfsId = ref<string | null>(null);
 const wallEditMode = ref(false);
 const editorRef = ref<InstanceType<typeof FloorplanEditor> | null>(null);
+/** Set as the save is taken, before `saved` moves the page to the plan. */
+const savedToMarket = ref(false);
+
+/**
+ * The upload, the scale, the tables and the sections live in the page until the save (T271): once
+ * a floorplan is uploaded in this visit and until it is saved to the market, leaving drops them, so
+ * a move off the flow asks first and a reload is asked by the browser.
+ */
+const holdsAFloorplan = computed(() => gridfsId.value !== null && !savedToMarket.value);
+useUnsavedWork({
+  unsaved: () => holdsAFloorplan.value,
+  sentence:
+    'This floorplan is not saved to the market yet. Leaving drops the upload, the scale, the tables and the sections.',
+});
 
 /** Non-null-safe string for prop binding when v-if guards the value. */
 const safeGridfsId = computed(() => gridfsId.value ?? '');
@@ -91,6 +111,8 @@ function onSectionsUpdated() {
 }
 
 function onSaved(payload: { market_id: string }) {
+  // Saved, so the move to the plan that follows has nothing to ask about.
+  savedToMarket.value = true;
   emit('saved', payload);
 }
 </script>

@@ -12,6 +12,7 @@ describes:
   - back-end/api/users.py#request_otp
   - back-end/api/users.py#request_password_reset
   - back-end/api/users.py#resend_verification_email
+  - back-end/api/users.py#_put_back
   - back-end/api/users.py#_Bounds
   - back-end/api/users.py#_password_matches
   - back-end/api/users.py#get_user_by_login_id
@@ -25,6 +26,7 @@ describes:
   - back-end/tests/test_the_remember_cookie.py
   - back-end/tests/test_the_organizer_sign_in_is_bounded.py
   - back-end/tests/test_one_account_per_address.py
+  - back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py
 verified: 2026-11-10
 sources:
   - E32/F03/S04
@@ -37,6 +39,7 @@ sources:
   - T251
   - E47/F02/S01
   - T263
+  - T273
 ---
 
 # Users, and the one spelling of an address
@@ -151,11 +154,22 @@ The code is compared with `secrets.compare_digest`.
 - A right code otherwise is consumed by an update conditional on the stored code; of two right tries only the one whose update changed the account signs in, and the other answers `SIGN_IN_WRONG_CODE`.
 
 `{wait}` in the expired code's sentence and in `/request-otp`'s refusal, "You can ask for a new code in {wait}.", is what is left of the account's wait, which ends an hour after its code's `otp_expires` (`_code_wait`); once it is over, the expired code's sentence ends "Ask for a new one." instead, and `/request-otp` sends a code.
+`/request-password-reset` keeps one link at a time the same way: until an hour after the last link's `password_reset_token_expires` (`RESET_WAIT`), unless that link was used, which clears it, it answers 429 `NEXT_RESET_LATER`, "You can ask for another reset link in {wait}.", under `msg`, with no `Retry-After`.
 
 **A password longer than 72 bytes** in UTF-8 (`PASSWORD_MAX_BYTES`), which bcrypt refuses to hash or check, matches no account: `_password_matches` answers false without a bcrypt check, so `/login` answers `SIGN_IN_DOES_NOT_MATCH`, never the server's fault.
 `/register` and `/reset-password` refuse one before hashing, after the 8-character minimum, with 400 `PASSWORD_TOO_LONG` under `msg`, "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one.", and store nothing; the register form and the reset page show it as the server says it.
 
 [`back-end/tests/test_the_organizer_sign_in_is_bounded.py`](../../../back-end/tests/test_the_organizer_sign_in_is_bounded.py) holds each; [`back-end/tests/test_sign_in_limits.py`](../../../back-end/tests/test_sign_in_limits.py) holds the counters.
+
+### A failed send puts back what it replaced
+
+**`/request-otp`, `/request-password-reset` and `/resend-verification` store their code or link before they mail it**, since the mail names it, and when the send fails they put back what the account held before, then answer 500 with their own sentence as before (`_put_back`).
+So the next request works at once, with no code or reset wait armed by a mail that never went, and a verification link already in the inbox keeps working.
+The put-back is one `update_one` whose filter is the address and the code or link the request wrote, setting each field it wrote (`otp`, `otp_expires`, `otp_attempts`; `password_reset_token`, `password_reset_token_expires`; `verification_token`, `verification_token_expires`) to what the account held when the request read it, an absent field read as None.
+So a newer code or link another request stored meanwhile matches nothing and is left.
+The counts are not taken back: a failed send still counts against the caller and the address, so a sixth request in a quarter hour answers `ASKED_TOO_OFTEN` whether or not any mail went, and a failing provider cannot be asked without bound.
+The vendor's code is not put back: its challenge arms no wait, and its failed send is answered as a sent one ([where it is kept](../../business/rules/a-vendor-signs-in-before-applying.md#where-it-is-kept)).
+[`back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py`](../../../back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py) holds each, and the reset link's wait.
 
 ## Lookups
 
@@ -183,6 +197,6 @@ The fix for each refusal is in [Operations](../../OPERATIONS.md#when-the-back-en
 ## Deleting an account
 
 A person deletes only their own account, and not while they own an organization: they transfer it first.
-Deleting it pulls them from every organization's `admins` and `members`; a role entry naming them on a market stays in that market's `roles`.
+Deleting it takes their place in every organization's people, the map and its `admins` and `members` mirror alike ([the organization's people](../modules/organization-people.md)); a role entry naming them on a market stays in that market's `roles`.
 
 What an organizer does with their account, from registering to resetting a password, is [the accounts flows](../../business/flows/accounts.md).

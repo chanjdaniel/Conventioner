@@ -94,9 +94,13 @@ describes:
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
   - back-end/api/applicant_auth.py#_send_code_email
-  - back-end/utils/email.py#_send
+  - back-end/utils/email.py#send_mail
   - back-end/tests/test_account_emails_log_no_address.py
-verified: 2026-11-10
+  - back-end/api/applicant_auth.py#request_login_code
+  - back-end/api/markets.py#take_move
+  - back-end/utils/captcha.py#verify_recaptcha
+  - back-end/tests/test_captcha.py
+verified: 2026-11-11
 sources:
   - T74
   - E41/F01/S01
@@ -109,6 +113,7 @@ sources:
   - T254
   - T251
   - T263
+  - T273
 ---
 
 # An exception never reaches a client
@@ -163,6 +168,7 @@ Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedE
 **Every other module's refusals** are client errors too, each with the status its routes answer today.
 
 - [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) raises `BadRequestError` and `ForbiddenError`, and `NotFoundError` for "Organization not found", which every organization route answers 404; `OrganizationHasLiveMarkets` is a 409 whose `body()` names the blocking markets ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)).
+- [`back-end/organization_people.py`](../../../back-end/organization_people.py), the one writer of an organization's people, raises the table's `BadRequestError`, `ForbiddenError` and `NotFoundError`, and `OrganizationChanged`, a 409 whose `body()` adds `code: "organization_changed"`, for a change that met another ([the organization's people](../modules/organization-people.md)).
 - [Placements](../modules/placements.md): `PlacementError` is a `BadRequestError`, `SeatTakenError` one with status 409, and `AssignPhaseError` a `ConflictError`.
 - `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError`, in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py) ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 - The vendor export's `ExportInvalid` is a `BadRequestError`, in [`back-end/api/vendor_export.py`](../../../back-end/api/vendor_export.py).
@@ -216,8 +222,14 @@ None catches anything, and each keeps its literal answers: the applicant's expir
 A status a request names is read by `_named_status`, which names none for anything but a status's own string, as `_named_phase` does for a phase.
 A follow-up owner the market does not offer answers its `BadRequestError`, 400; `confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py) lets a `ConfirmRefused`, a locked form and a refused plan or form reach the handler as raised; a door write on a market that does not exist, is archived or cannot be read answers what the change loader raises.
 Two lines these routes reach are kept free of an applicant's address for the 500 log: an application that keeps losing its upsert race (`find_or_create_application` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) is named by its market, and an application document that cannot be parsed (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)) logs `parse_failure_detail`, never its answers.
-A mail that carries a sign-in or an account link is logged by what it is, never by whom it went to: the applicant sign-in code (`_send_code_email` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)) names the market's slug, and the verification, existing account, password reset and sign-in code emails (`_send` in [`back-end/utils/email.py`](../../../back-end/utils/email.py)) name their kind.
-A failed send logs the exception's type and never its text, and an account email adds the provider's status code but never its response body, since each can carry the address back.
+A mail that carries a sign-in or an account link is logged by what it is, never by whom it went to: all five, the verification, existing account, password reset and sign-in code emails and the applicant sign-in code (`_send_code_email` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)), go through `send_mail` in [`back-end/utils/email.py`](../../../back-end/utils/email.py), which names their kind, and `request_login_code` names the market's slug when the applicant's code was not sent.
+A failed send logs the exception's type and never its text, and the provider's status code when the failure is a `ResendError`, but never its response body, since each can carry the address back.
+
+**A failure a route goes on past is logged as a 500 is.**
+Two routes catch an exception and answer as though it had not happened, and each logs it once with `logger.error`, the market and `traceback_without_messages(error)`, with no `exc_info`, whose formatter would print the message under the frames.
+An applicant's code send that raises (`request_login_code` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)) is named by the market's slug and answered as a sent one, and the offers sweep that fails once a move from offers to market days is written (`take_move` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) is named by the market's id and the move still answers 200.
+reCAPTCHA's verification (`verify_recaptcha` in [`back-end/utils/captcha.py`](../../../back-end/utils/captcha.py)) prints nothing and logs its three failures: no secret it can use, outside the escape hatch, as an error naming `RECAPTCHA_SECRET_KEY`, a failed verification as a warning with Google's `success` and `score` and nothing the caller sent, and an exception as an error by its type's name alone.
+Two lines keep a message on purpose: `healthz`'s `logger.exception`, since the database driver's message is how an operator reads an outage and holds no request's value, and the CSV import's parse warning, since the `csv` module's messages name a limit or a character class, never a cell.
 
 No route in `app.py` answers what it caught: `healthz` alone catches, to answer 503 with `"status": "unavailable"` and its build's commit, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
 
@@ -246,6 +258,7 @@ Before that it refuses a database the environment does not name, or the primary 
   So does each application form and phase route, and a phase that is not a name is unknown.
   So does each assignment and placement route; a run over incomplete answers names them, and a body that is not an object is refused in words.
   So does each applicant, review, import and door route; on a public route the failure is logged with the market's slug and never the vendor's address in the path, an applicant whose session expired is asked to sign in again, and an application that cannot be parsed is logged without its answers.
+  An applicant's code send and the offers sweep, each raising an exception whose message holds an address, log its type and frames with the market and not the address, and the route answers as it would have.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
   `TestABodyThatIsNotAnObject` reads `app.url_map` and classifies every POST, PUT or DELETE route whose view is defined in `app.py` as one of a required body or an optional body read in the view, no body, or a body another module reads, each route in exactly one of those lists.
   Each route that takes no body runs to its success answer, and each whose body another module reads has that module's function stubbed out, while every way to read the body (`get_json` and `request.json`, `get_data` and `request.data`, the form parser and `request.form`, `.values` and `.files`, and `request.stream`) records the read and raises: none is read in the view on its way to its success answer, which is the one path each runs.
@@ -254,7 +267,8 @@ Before that it refuses a database the environment does not name, or the primary 
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.
-- `test_a_code_send_logs_the_market_and_never_the_address` in [`test_applicant_auth.py`](../../../back-end/tests/test_applicant_auth.py) and [`test_account_emails_log_no_address.py`](../../../back-end/tests/test_account_emails_log_no_address.py) send each mail with email disabled, accepted, answered with no message id and refused by an error whose message holds the address, and find the address, the error's text and the provider's response body in no log record.
+- [`test_captcha.py`](../../../back-end/tests/test_captcha.py) meets each of reCAPTCHA's three failures and finds one log record, the exception's by its type alone, nothing of the caller, the secret or a library's message in the log, and nothing printed.
+- [`test_account_emails_log_no_address.py`](../../../back-end/tests/test_account_emails_log_no_address.py) sends each of the five mails with email disabled, accepted, answered with no message id and refused by an error whose message holds the address, and finds the address, the error's text and the provider's response body in no log record.
 - CodeQL's `py/stack-trace-exposure` is the automated backstop: it is in the default suite GitHub's default setup runs on every pull request and weekly on `dev` ([CI and the gate](../testing/ci-and-the-gate.md#codeql)), and it flags a route that catches an exception and answers its text.
   It stops following a flow at a `raise`, so the client copy rule and these route tests hold the rest: a library's message carried into a client error's copy is invisible to it.
 

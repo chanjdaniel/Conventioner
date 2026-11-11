@@ -239,6 +239,7 @@ test.describe('a section, and a dialog over Manage market', () => {
   test('Manage market keeps its length, and the dialog is at most 80% of the window', async ({
     authenticatedPage: page,
   }) => {
+    await routeManyChanges(page);
     const manage = await openManage(page);
     const scrolled = page.getByTestId('manage-market-scrolled');
     const before = await scrolled.evaluate((box) => box.scrollHeight);
@@ -249,6 +250,9 @@ test.describe('a section, and a dialog over Manage market', () => {
 
     await manage.showPermissions();
     await expect(manage.permissionSources.first()).toBeVisible();
+    // The changes are read after the dialog opens: their box must be in before the body is scrolled,
+    // or it grows beneath the scroll and brings the bottom shade back.
+    await expect(manage.permissionChangesBox).toBeVisible();
     expect(await scrolled.evaluate((box) => box.scrollHeight)).toBe(before);
 
     const dialog = await shape(manage);

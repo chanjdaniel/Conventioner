@@ -12,6 +12,7 @@ describes:
   - front-end/src/components/ValueFixes.vue
   - front-end/src/components/csvImport/ImportRefusedRows.vue
   - front-end/src/views/CsvImportView.vue#mapsTo
+  - front-end/src/views/CsvImportView.vue#holdsAMapping
 verified: 2026-11-10
 sources:
   - wayfinding/readable-journey/05
@@ -36,6 +37,8 @@ sources:
   - T205
   - T223
   - T263
+  - T271
+  - T270
 ---
 
 # The CSV import
@@ -87,6 +90,12 @@ Every refusal is decided before anything is written: creating first and validati
 A Google Form keeps every submission, so a vendor who applied twice is two rows; they are one application, judged on the latest row and dated by the first (`_latest_rows`), and the earlier rows are reported as repeats (bug 34).
 A re-import updates each applicant's main application by the market and the address, keeps every organizer's [update of an answer](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), which it never writes over, writes nothing for an unchanged applicant, returns an approved one to review only when their answers, normalised, changed something the solver reads, and leaves an application absent from the file exactly as it is ([ADR 0011](../../adr/0011-re-import-upserts-on-market-and-email.md)).
 
+**A row's answers and its "back to review" are one update, held to what the row's read found** (`_write_row`, T270).
+`record_application_answers` passes `held`, the application as read, and `back_to_review` to `update_application_form_data`, which writes only while the status and the verdict's time are still those, so a request cut short after the answers cannot leave a vendor approved on answers nobody saw, and importing the file again finds nothing left to repair.
+A held write that matches nothing answers `ANSWERS_MOVED`: a verdict was given between the read and the write, so the row is read and decided again on what is stored then, and an approval that landed first goes back to review.
+After `ROW_TRIES`, three tries in all, the row is a row failure: "This application changed while the file was imported, so its row was left out. Import the file again to bring it in."
+A new row's application is written held to the document `find_or_create_application` returned, and `returnedToReview` counts the rows written with `back_to_review`.
+
 **`submitted_at` is the form's own timestamp**, an ordinary mapping target, optional, and auto-detected from Google Forms' "Timestamp" heading; it is normalised to ISO 8601 at the boundary (`normalized_submitted_at`, [the application document](../data/application-document.md#the-fields-that-matter)).
 A row without one gets the import's moment, so the screen warns when the market orders by arrival and nothing maps it (`orders_by_submitted_at`, [priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md)); the warning, not a refusal, because a market with no rule on arrival does not need the column.
 
@@ -106,6 +115,13 @@ Each value is settled in [`ValueFixes.vue`](../../../front-end/src/components/Va
 **A fix can only name an answer the question offers**: the import stores what a fix names, and `application_write.py` refuses a select's answer that is no option ("must be one of"), so words typed and not chosen clear on leaving the field, and no typed fix is offered.
 The rows offered one set of answers share one list of choices, keyed by the target and the answers, since a tier grid's target offers two sets: the dates to its day headings and the tiers to its cells.
 Every value still waiting is drawn; those already decided stop at 6 and "Show all".
+
+**Nothing is written until the final confirm, so leaving before it asks** (T271).
+The mapping and every value settled live in the view alone, and a link, Back or a reload dropped them with no word.
+`holdsAMapping` is true on Map columns, and on Preview while no import is running, and the view hands it to [`useUnsavedWork`](../conventions/unsaved-work-asks-before-it-is-dropped.md) with its sentence, so a move off the page opens the one leave question and a reload the browser's.
+"Cancel import" leaves by `router.push`, so it asks through the same guard; a jump to another market's import is a new path of the same route, so it asks too, before the view's `watch(marketId)` starts that market at Upload.
+Upload holds no file and the done step has written it, so neither asks; nor does an import running (`busy` on Preview), which leaving does not stop.
+The import's own Back stays in the page and never asks, though from Map columns it drops the file (`startOver`).
 
 **A list of a file's rows stops at 20, and is read whole by asking.**
 The preview's refused rows and the done step's are [`ImportRefusedRows.vue`](../../../front-end/src/components/csvImport/ImportRefusedRows.vue), the preview's replaced and rejected rows the view's own, each a [`ListFrame`](../../design-system.md#the-primitive-layer) with `showAll` and `IMPORT_LIST_FIRST`, so a bad file does not push the confirm 361 rows down.
@@ -144,7 +160,7 @@ A first import's reviewers are chosen on its preview step, whose confirm, when t
 - [Priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md): a row must carry its own `submitted_at` for first come, first served to decide anything.
 - [A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md).
 
-`back-end/tests/test_csv_import.py`, `front-end/src/__tests__/aFileThatIsNotCsv.test.ts`, `front-end/e2e/csv-import.spec.ts` and `front-end/e2e/the-import-lines-up.spec.ts` pin it; the synthetic exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
+`back-end/tests/test_csv_import.py`, `back-end/tests/test_a_re_imports_back_to_review_lands_with_the_answers.py`, `front-end/src/__tests__/aFileThatIsNotCsv.test.ts`, `front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts`, `front-end/e2e/csv-import.spec.ts`, `front-end/e2e/the-import-lines-up.spec.ts` and `front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts` pin it; the synthetic exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
 
 What the organizer does on the import, step by step, is [importing a Google Form's responses](../../business/flows/import.md).
 

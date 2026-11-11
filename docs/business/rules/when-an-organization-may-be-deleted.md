@@ -9,7 +9,7 @@ describes:
   - back-end/api/organizations.py#delete_organization
   - front-end/src/components/DeleteOrgDialog.vue
   - back-end/history.py#delete_for_organization
-verified: 2026-11-05
+verified: 2026-11-11
 sources:
   - wayfinding/the-order-of-the-work/10
   - E20/F04/S01

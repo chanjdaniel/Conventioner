@@ -19,3 +19,4 @@ One line per node, sorted by file name.
 - [One market, from the server](one-market-from-the-server.md) - one store, a re-read after every write, nothing in the browser, facts served on the market
 - [Security invariants](security-invariants.md) - no control keyed on an insecure default: the six boot requirements, the one escape hatch, secrets read when asked
 - [Two features never share a line](two-features-never-share-a-line.md) - a list features grow is one item a line in a stated order, a table whose rows they edit is one block per row, and where a new feature's row goes
+- [Unsaved work asks before it is dropped](unsaved-work-asks-before-it-is-dropped.md) - `useUnsavedWork()`: the browser's question on unload, "Leave without saving?" on a move in the app, never on a query change or to sign-in
