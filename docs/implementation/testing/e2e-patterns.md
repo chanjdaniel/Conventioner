@@ -19,7 +19,7 @@ describes:
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
   - front-end/e2e/helpers/stackReady.ts
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - E21/F02/S02
   - E22/F04/S02
