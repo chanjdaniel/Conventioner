@@ -146,6 +146,26 @@ class TestWhatIsRecorded:
         assert entry["subject"] == {"user_id": person.id, "email": person.email}
         assert entry["detail"] == {"before": {"role": role}, "after": {"role": None}}
 
+    @pytest.mark.parametrize("person,before,after", [
+        (ADMIN, "admin", "member"),
+        (MEMBER, "member", "admin"),
+    ], ids=["an admin made a member", "a member made an admin"])
+    def test_a_place_changed_by_the_owner_is_a_role_changed(
+            self, org, history, person, before, after):
+        OrgsApi.change_org_place(ORG, person.id, after, OWNER.email)
+
+        entry = only(history)
+        assert entry["actor"] == OWNER.email
+        assert entry["action"] == History.MANAGE_ORGANIZATION_ADMINS
+        assert entry["kind"] == History.ROLE_CHANGED
+        assert entry["subject"] == {"user_id": person.id, "email": person.email}
+        assert entry["detail"] == {"before": {"role": before}, "after": {"role": after}}
+
+    def test_a_place_set_to_the_place_held_records_nothing(self, org, history):
+        OrgsApi.change_org_place(ORG, ADMIN.id, "admin", OWNER.email)
+
+        assert entries(history) == []
+
     def test_ownership_handed_on_names_the_owner_before_and_after(self, org, history):
         OrgsApi.transfer_org_ownership(ORG, OWNER.email, ADMIN.email)
 
@@ -342,6 +362,7 @@ RECORDED = {
     ("POST", "/organizations/<org_id>/admins"): "an admin added",
     ("POST", "/organizations/<org_id>/members"): "a member added",
     ("DELETE", "/organizations/<org_id>/users/<user_id>"): "a person removed",
+    ("PUT", "/organizations/<org_id>/users/<user_id>"): "a person's place changed",
     ("POST", "/organizations/<org_id>/transfer"): "ownership handed on",
     # Sent in ``test_the_organizations_default.py`` (E39/F02/S01).
     ("PUT", "/organizations/<org_id>/default-permissions/<action_id>"): "a default row set",

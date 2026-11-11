@@ -10,7 +10,9 @@ This module builds the one filter that finds the organizations a person is in, `
 either shape; nothing else spells that query. ``people_key`` is the one spelling of a person's path
 in the map.
 
-It is also the only writer of a person's place. ``TABLE`` says what each change does to the
+It is also the only writer of a person's place: adding an admin or a member, the owner making an
+admin a member or a member an admin (``change_place``), removing someone, and forgetting a deleted
+account. ``TABLE`` says what each change does to the
 target's place as read, ``AUTHORITY`` who may ask for it, and ``next_people`` answers the map a
 change leaves, or its refusal, without a database. Each change is then one conditional write
 (``_write``) that lands only on the places it judged: on an organization with a map, the
@@ -49,6 +51,8 @@ ORGANIZATION_CHANGED = (
 )
 ALREADY_AN_ADMIN = "They are already an admin of this organization."
 ALREADY_A_MEMBER = "They are already a member of this organization."
+THE_OWNERS_PLACE = "The owner's place changes only when the organization is handed on."
+NOT_A_PLACE = "A place is admin or member."
 
 
 class OrganizationChanged(ConflictError):
@@ -101,6 +105,8 @@ class Event(str, Enum):
     ADD_ADMIN = "add admin"
     ADD_MEMBER = "add member"
     REMOVE = "remove"
+    CHANGE_TO_ADMIN = "change place to admin"
+    CHANGE_TO_MEMBER = "change place to member"
     FORGET = "forget"  # their account deleted
 
 
@@ -124,8 +130,15 @@ class Move:
     otherwise: Optional[Refusal] = None
 
 
+#: The place change each place a request may name asks for.
+PLACE_CHANGES = {ADMIN: Event.CHANGE_TO_ADMIN, MEMBER: Event.CHANGE_TO_MEMBER}
+
 #: An account deletion never reaches an owner: ``delete_user`` refuses one before it forgets them.
 NEVER_REACHED = "never reached"
+
+#: A place change is the owner's alone, whichever place it gives.
+_THE_OWNERS_ALONE = (frozenset({OWNER}), Refusal(
+    ForbiddenError, "Only the organization's owner can change someone's place in it."))
 
 #: Who may ask for each change, by their place as read, and the refusal for anyone else. Checked
 #: before the target's place. Forgetting is the account deletion's, with no requester.
@@ -136,6 +149,8 @@ AUTHORITY: Dict[Event, Tuple[FrozenSet[str], Refusal]] = {
                        Refusal(ForbiddenError, "Only organization owner or admin can add members")),
     Event.REMOVE: (frozenset({OWNER, ADMIN}),
                    Refusal(ForbiddenError, "Only organization owner or admin can remove users")),
+    Event.CHANGE_TO_ADMIN: _THE_OWNERS_ALONE,
+    Event.CHANGE_TO_MEMBER: _THE_OWNERS_ALONE,
 }
 
 #: What each change does, by the target's place as read (``None``, no place). "Add admin" of a
@@ -157,6 +172,17 @@ TABLE: Dict[Tuple[Event, Optional[str]], Union[Move, Refusal, str]] = {
                                 otherwise=Refusal(ForbiddenError, "Only owner can remove admins")),
     (Event.REMOVE, OWNER): Refusal(
         BadRequestError, "Cannot remove organization owner. Transfer ownership first."),
+
+    # A place set to the place held is a Move to it, which writes and records nothing.
+    (Event.CHANGE_TO_ADMIN, None): Refusal(NotFoundError, NO_LONGER_IN_THE_ORGANIZATION),
+    (Event.CHANGE_TO_ADMIN, MEMBER): Move(ADMIN),
+    (Event.CHANGE_TO_ADMIN, ADMIN): Move(ADMIN),
+    (Event.CHANGE_TO_ADMIN, OWNER): Refusal(BadRequestError, THE_OWNERS_PLACE),
+
+    (Event.CHANGE_TO_MEMBER, None): Refusal(NotFoundError, NO_LONGER_IN_THE_ORGANIZATION),
+    (Event.CHANGE_TO_MEMBER, MEMBER): Move(MEMBER),
+    (Event.CHANGE_TO_MEMBER, ADMIN): Move(MEMBER),
+    (Event.CHANGE_TO_MEMBER, OWNER): Refusal(BadRequestError, THE_OWNERS_PLACE),
 
     (Event.FORGET, None): Move(None),
     (Event.FORGET, MEMBER): Move(None),
@@ -316,11 +342,13 @@ def _change(org: Dict[str, Any], event: Event, requester: Any, target_id: str,
         return
     if not _write(org, people, after, requester.id, target_id):
         raise _met_a_change(org["id"], event, target_id)
-    # The account's own copy, best effort after the organization's write: no check reads it.
-    users_collection.update_one(
-        {"id": target_id},
-        {"$pull" if after_place is None else "$addToSet": {"organizations": org["id"]}},
-    )
+    # The account's own copy, best effort after the organization's write: no check reads it. A
+    # place changed, rather than given or taken, leaves the copy as it was.
+    if before_place is None or after_place is None:
+        users_collection.update_one(
+            {"id": target_id},
+            {"$pull" if after_place is None else "$addToSet": {"organizations": org["id"]}},
+        )
     _record_role(org["id"], requesting_user_email, target_id, before_place, after_place)
 
 
@@ -354,6 +382,21 @@ def remove(org_id: str, user_id: str, requesting_user_email: str) -> None:
     """
     org, requester = _requester(org_id, requesting_user_email)
     _change(org, Event.REMOVE, requester, user_id, requesting_user_email)
+
+
+def change_place(org_id: str, user_id: str, place: Any, requesting_user_email: str) -> None:
+    """Make this admin a member, or this member an admin: the owner's to do. ``place`` is the
+    request's, ``"admin"`` or ``"member"``, refused as anything else before the organization is
+    read. Setting the place held answers as done and writes nothing; someone with no place in it is
+    a 404 saying so, and the owner's place is the transfer's, refused.
+
+    ``user_id`` is the request's text: it reaches a path only once the stored map holds it.
+    """
+    event = PLACE_CHANGES.get(place) if isinstance(place, str) else None
+    if event is None:
+        raise BadRequestError(NOT_A_PLACE)
+    org, requester = _requester(org_id, requesting_user_email)
+    _change(org, event, requester, user_id, requesting_user_email)
 
 
 def forget(user_id: str) -> None:

@@ -16,6 +16,7 @@ describes:
   - back-end/api/organizations.py#add_org_admin
   - back-end/api/organizations.py#add_org_member
   - back-end/api/organizations.py#remove_org_user
+  - back-end/api/organizations.py#change_org_place
   - back-end/api/organizations.py#transfer_org_ownership
   - back-end/api/organizations.py#get_history
   - back-end/api/organizations.py#read_organization
@@ -88,8 +89,8 @@ Manage organization draws its rows from the pairs, each section a [list frame](.
 [`test_the_organizations_read_names_everyone_at_once.py`](../../../back-end/tests/test_the_organizations_read_names_everyone_at_once.py) pins the one read and the pairs, a deleted admin among them, an organization with a map served from it and one stored before it served folded.
 It serves each with what removing someone from it takes (E38/F15/S01): `marketCount`, its markets counted from the markets themselves by their indexed `organizationId`, since `markets` is kept in step only at best effort, and `marketsWithOwnRole`, each admin's and member's count of those markets whose own `roles` name them, since removing them from the organization leaves those roles; Manage organization's Remove says both ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)), and the organization's card says `marketCount`; the front end reads no organization's `markets` list.
 
-**Who changes an organization**: only the owner renames it, adds an admin or transfers ownership; the owner or an admin adds a member or changes its default table; the owner removes anyone but themselves, an admin only members.
-A person's place changes only through [the organization's people](../modules/organization-people.md), whose table says each of these and refuses the rest: "Add admin" of a member makes them an admin, "Add admin" of an admin and "Add member" of a member say they already are, 400, and adding the owner or an admin as a member is refused as before.
+**Who changes an organization**: only the owner renames it, adds an admin, changes someone's place between admin and member, or transfers ownership; the owner or an admin adds a member or changes its default table; the owner removes anyone but themselves, an admin only members.
+A person's place changes only through [the organization's people](../modules/organization-people.md), whose table says each of these and refuses the rest: "Add admin" of a member makes them an admin, the owner's `PUT /organizations/<org_id>/users/<user_id>` with `{"place": "admin" | "member"}` makes a member an admin or an admin a member (the place they hold already answers 200 and writes nothing, the owner's place is refused), "Add admin" of an admin and "Add member" of a member say they already are, 400, and adding the owner or an admin as a member is refused as before.
 Renaming is all an update does: it reads the body's `name`, a string that is not blank, and nothing else, so the owner, the admins, the members and the markets change only through the writes above, which keep each user's `organizations` in step.
 Transferring ownership makes the old owner an admin; transferring it to its own owner is refused before anything is written.
 The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
@@ -112,7 +113,7 @@ An organization with a map is never found by a stale list.
 `organization_documents_of`, `get_user_organizations` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py) and the account deletion use it, and [`test_a_persons_organizations_in_either_shape.py`](../../../back-end/tests/test_a_persons_organizations_in_either_shape.py) pins it finding both shapes alike, with its server twin in [the real-MongoDB suite](../testing/real-mongo-suite.md).
 It refuses, as a `RuntimeError`, an id that is not a non-empty string or that holds a `.` or starts with `$`, since the id becomes a dotted path; an id reaches it only from a stored account.
 
-**One writer keeps the map, and the lists as its mirror**: `create_organization` inserts `people: {<owner id>: "owner"}` beside the lists, and adding an admin or a member, removing someone and an account's deletion go through [the organization's people](../modules/organization-people.md), each one conditional write holding the places it judged.
+**One writer keeps the map, and the lists as its mirror**: `create_organization` inserts `people: {<owner id>: "owner"}` beside the lists, and adding an admin or a member, changing someone's place, removing someone and an account's deletion go through [the organization's people](../modules/organization-people.md), each one conditional write holding the places it judged.
 On an organization with a map the write holds the requester's and the target's keys as read and moves one key, keeping `admins` and `members` in step with `$addToSet` and `$pull`; on one stored before the map it holds `owner`, `admins` and `members` as read and sets `people` whole beside the three lists as its mirror, so the first change to such an organization folds it.
 A write that met another change answers 404 when the organization or the person being removed is gone, else `OrganizationChanged`, 409, and Manage organization says its sentence where that control's refusal shows and reads the organization again.
 The transfer still writes its lists and then, on an organization with a map, the two keys in a second write, until it becomes one write of its own (T283's ticket 04).

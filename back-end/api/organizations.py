@@ -566,6 +566,12 @@ def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> No
     OrganizationPeople.remove(org_id, user_id, requesting_user_email)
 
 
+def change_org_place(org_id: str, user_id: str, place: Any, requesting_user_email: str) -> None:
+    """Make an admin a member or a member an admin, as the organization's owner
+    (``organization_people``). Setting the place held writes nothing."""
+    OrganizationPeople.change_place(org_id, user_id, place, requesting_user_email)
+
+
 def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_email: str) -> bool:
     """Transfer organization ownership. Only current owner can transfer."""
     org = organizations_collection.find_one({"id": org_id})

@@ -19,6 +19,9 @@
  * Three closes are correct and stay: deleting the organization, the explicit close control, and
  * dismissal by Escape or the backdrop - the last two now owned by `AppDialog`.
  *
+ * Its owner makes an admin a member, or a member an admin, from their row (T283), each asking
+ * first, as Remove does.
+ *
  * A member opens it too, to read the organization's History (E40/F02/S01) and the default
  * permissions its new markets copy (E39/F02/S01); the people and the controls an owner or an admin
  * manages are theirs alone.
@@ -31,7 +34,12 @@ import {
   type PermissionTableRow,
 } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage, getApiErrorStatus, isOrganizationChanged } from '@/utils/api';
-import { fetchOrganizations, organizationRemoval } from '@/utils/organizations';
+import {
+  fetchOrganizations,
+  organizationPlaceChange,
+  organizationRemoval,
+  type OrganizationPlace,
+} from '@/utils/organizations';
 import AppDialog from '@/components/AppDialog.vue';
 import DeleteOrgDialog from '@/components/DeleteOrgDialog.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
@@ -79,6 +87,20 @@ const removing = ref<{
 } | null>(null);
 const removeError = ref('');
 const removeBusy = ref(false);
+/**
+ * The person a "Make member" or "Make admin" is asking about (T283), until it is confirmed or
+ * cancelled, with the words taken when it opens, as Remove's are.
+ */
+const placing = ref<{
+  userId: string;
+  from: OrganizationPlace;
+  to: OrganizationPlace;
+  title: string;
+  text: string;
+  confirmLabel: string;
+} | null>(null);
+const placeError = ref('');
+const placeBusy = ref(false);
 const adminsList = ref<HTMLElement | null>(null);
 const membersList = ref<HTMLElement | null>(null);
 /** What finds in Admins and in Members, for as long as the dialog is open: never in the address. */
@@ -102,6 +124,8 @@ watch(
       deleteConfirming.value = false;
       removing.value = null;
       removeError.value = '';
+      placing.value = null;
+      placeError.value = '';
       adminWords.value = '';
       memberWords.value = '';
       errorMessage.value = '';
@@ -332,6 +356,60 @@ async function handleRemoveUser() {
   (target.place === 'admins' ? adminsList : membersList).value?.focus();
 }
 
+/**
+ * "Make member" and "Make admin" ask first (T283): each changes what the person may do on every
+ * market of the organization, so one slip must not do it.
+ */
+function askToChangePlace(userId: string, email: string, from: OrganizationPlace) {
+  if (!orgData.value) return;
+  const to: OrganizationPlace = from === 'admin' ? 'member' : 'admin';
+  placeError.value = '';
+  placing.value = { userId, from, to, ...organizationPlaceChange(orgData.value, email, to) };
+}
+
+/** Cancel, Escape and the backdrop change nothing; the shell gives focus back to the row's button. */
+function cancelPlaceChange() {
+  if (placeBusy.value) return;
+  placing.value = null;
+  placeError.value = '';
+}
+
+/**
+ * Confirmed: the place changed, and the organization re-read in place. The row, and with it the
+ * button that opened the confirmation, has moved to the other list, so focus goes to that list. A
+ * 404 is someone removed meanwhile, read as done as Remove reads it, with focus on the list their
+ * row left. Any other refusal stays in the confirmation; one that met another change to the same
+ * people is read again behind it.
+ */
+async function handlePlaceChange() {
+  const target = placing.value;
+  if (!orgData.value || !target || placeBusy.value) return;
+  placeError.value = '';
+  placeBusy.value = true;
+  let landedIn: OrganizationPlace = target.to;
+  try {
+    await api.put(
+      `/organizations/${encodeURIComponent(orgData.value.id)}/users/${encodeURIComponent(target.userId)}`,
+      { place: target.to },
+    );
+  } catch (err) {
+    if (getApiErrorStatus(err) !== 404) {
+      placeError.value = getApiErrorMessage(err, 'Their place was not changed.');
+      await readAgainIfChanged(err);
+      placeBusy.value = false;
+      return;
+    }
+    landedIn = target.from;
+  }
+  // Busy until the confirmation closes: during the re-read its confirm would send a second change.
+  await saved();
+  placing.value = null;
+  placeBusy.value = false;
+  // Once the confirmation has closed and the page behind it is no longer inert.
+  await nextTick();
+  (landedIn === 'admin' ? adminsList : membersList).value?.focus();
+}
+
 function canRemoveUser(userId: string, role: OrganizationRoleType): boolean {
   if (role === 'owner') return false;
   if (!isOwner()) return role === 'member';
@@ -401,6 +479,18 @@ function handleDeleted() {
                     ><EmailAddress :words="admin.email"
                   /></span>
                   <span class="role-badge role-admin">Admin</span>
+                  <!-- Never what the dialog opens on: one stray Enter would ask to change the first
+                       admin's place. -->
+                  <button
+                    v-if="isOwner()"
+                    type="button"
+                    class="btn btn--secondary"
+                    data-testid="manage-org-make-member-button"
+                    data-dialog-not-first
+                    @click="askToChangePlace(admin.userId, admin.email, 'admin')"
+                  >
+                    Make member<span class="visually-hidden"> {{ admin.email }}</span>
+                  </button>
                   <button
                     v-if="isOwner() && canRemoveUser(admin.userId, 'admin')"
                     type="button"
@@ -495,6 +585,16 @@ function handleDeleted() {
                     ><EmailAddress :words="member.email"
                   /></span>
                   <span class="role-badge role-member">Member</span>
+                  <button
+                    v-if="isOwner()"
+                    type="button"
+                    class="btn btn--secondary"
+                    data-testid="manage-org-make-admin-button"
+                    data-dialog-not-first
+                    @click="askToChangePlace(member.userId, member.email, 'member')"
+                  >
+                    Make admin<span class="visually-hidden"> {{ member.email }}</span>
+                  </button>
                   <button
                     v-if="canRemoveUser(member.userId, 'member')"
                     type="button"
@@ -624,6 +724,20 @@ function handleDeleted() {
     @submit="handleRemoveUser"
   >
     <p class="confirm-text" data-testid="manage-org-remove-consequence">{{ removing?.loses }}</p>
+  </AppDialog>
+
+  <!-- Not destructive, since another change undoes it, as a market role change's is not (T211). -->
+  <AppDialog
+    :open="manageOpen && !!placing"
+    :title="placing?.title ?? ''"
+    testid="manage-org-place-change"
+    :confirm-label="placing?.confirmLabel ?? ''"
+    :confirm-disabled="placeBusy"
+    :error="placeError"
+    @close="cancelPlaceChange"
+    @submit="handlePlaceChange"
+  >
+    <p class="confirm-text" data-testid="manage-org-place-change-text">{{ placing?.text }}</p>
   </AppDialog>
 
   <DeleteOrgDialog

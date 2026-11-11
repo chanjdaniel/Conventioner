@@ -1,6 +1,7 @@
 """One writer changes a person's place in an organization, holding the places it judged (T283).
 
-"Add admin", "Add member" and "Remove" change an organization's people only through
+"Add admin", "Add member", "Remove" and the owner's place change ("Make member", "Make admin")
+change an organization's people only through
 ``organization_people``: its table (``next_people``) says what each change does to the target's
 place as read and who may ask for it, and each change is one conditional write that lands only
 while the requester's and the target's places still stand as read. On an organization stored before
@@ -42,6 +43,7 @@ from organization_people import (
     ALREADY_AN_ADMIN,
     NO_LONGER_IN_THE_ORGANIZATION,
     ORGANIZATION_CHANGED,
+    THE_OWNERS_PLACE,
     Event,
     OrganizationChanged,
     next_people,
@@ -134,6 +136,8 @@ def test_an_add_member_judged_before_a_transfer_to_that_person_is_refused(stored
 
 # ── The table, cell by cell, through ``next_people`` ─────────────────────────────────────────
 
+ONLY_THE_OWNER_CHANGES_A_PLACE = "Only the organization's owner can change someone's place in it."
+
 AS_READ = {OWNER.id: "owner", ADMIN.id: "admin", MEMBER.id: "member"}
 TARGET_IN = {None: NEW.id, "member": MEMBER.id, "admin": ADMIN.id, "owner": OWNER.id}
 
@@ -155,6 +159,14 @@ CELLS = [
     (Event.REMOVE, ADMIN, "admin", (ForbiddenError, "Only owner can remove admins")),
     (Event.REMOVE, ADMIN, "owner",
      (BadRequestError, "Cannot remove organization owner. Transfer ownership first.")),
+    (Event.CHANGE_TO_ADMIN, OWNER, None, (NotFoundError, NO_LONGER_IN_THE_ORGANIZATION)),
+    (Event.CHANGE_TO_ADMIN, OWNER, "member", "admin"),
+    (Event.CHANGE_TO_ADMIN, OWNER, "admin", "admin"),
+    (Event.CHANGE_TO_ADMIN, OWNER, "owner", (BadRequestError, THE_OWNERS_PLACE)),
+    (Event.CHANGE_TO_MEMBER, OWNER, None, (NotFoundError, NO_LONGER_IN_THE_ORGANIZATION)),
+    (Event.CHANGE_TO_MEMBER, OWNER, "member", "member"),
+    (Event.CHANGE_TO_MEMBER, OWNER, "admin", "member"),
+    (Event.CHANGE_TO_MEMBER, OWNER, "owner", (BadRequestError, THE_OWNERS_PLACE)),
     (Event.FORGET, None, None, None),
     (Event.FORGET, None, "member", None),
     (Event.FORGET, None, "admin", None),
@@ -189,6 +201,11 @@ def test_a_member_made_an_admin_keeps_their_place_in_the_maps_order():
     assert list(after) == [OWNER.id, ADMIN.id, MEMBER.id]
 
 
+def test_an_admin_made_a_member_keeps_their_place_in_the_maps_order():
+    after = next_people(AS_READ, Event.CHANGE_TO_MEMBER, OWNER.id, ADMIN.id)
+    assert list(after) == [OWNER.id, ADMIN.id, MEMBER.id]
+
+
 def test_someone_added_joins_the_map_at_its_end():
     after = next_people(AS_READ, Event.ADD_MEMBER, OWNER.id, NEW.id)
     assert list(after) == [OWNER.id, ADMIN.id, MEMBER.id, NEW.id]
@@ -208,6 +225,10 @@ AUTHORITY_CELLS = [
     (Event.ADD_MEMBER, OUTSIDER, "Only organization owner or admin can add members"),
     (Event.REMOVE, MEMBER, "Only organization owner or admin can remove users"),
     (Event.REMOVE, OUTSIDER, "Only organization owner or admin can remove users"),
+    (Event.CHANGE_TO_ADMIN, ADMIN, ONLY_THE_OWNER_CHANGES_A_PLACE),
+    (Event.CHANGE_TO_ADMIN, MEMBER, ONLY_THE_OWNER_CHANGES_A_PLACE),
+    (Event.CHANGE_TO_MEMBER, ADMIN, ONLY_THE_OWNER_CHANGES_A_PLACE),
+    (Event.CHANGE_TO_MEMBER, OUTSIDER, ONLY_THE_OWNER_CHANGES_A_PLACE),
 ]
 
 
@@ -245,6 +266,10 @@ def add(client, person, list_name, email):
 
 def remove(client, person, user_id):
     return signed_in(client, person).delete(f"/organizations/{ORG}/users/{user_id}")
+
+
+def change(client, person, user_id, body):
+    return signed_in(client, person).put(f"/organizations/{ORG}/users/{user_id}", json=body)
 
 
 ROUTE_AUTHORITY = [
@@ -331,6 +356,61 @@ def test_an_add_the_table_allows_answers_200(client, stored, list_name, email, m
     assert_one_map(stored.doc)
 
 
+@pytest.mark.parametrize("target,place", [(ADMIN, "member"), (MEMBER, "admin")],
+                         ids=["an admin made a member", "a member made an admin"])
+def test_the_owner_changes_a_persons_place(client, stored, recorded, target, place):
+    response = change(client, OWNER, target.id, {"place": place})
+
+    assert (response.status_code, response.get_json()) == (200, {"message": "Place changed"})
+    assert places(stored.doc)[target.id] == place
+    assert len(stored.writes) == 1 and len(recorded) == 1
+    assert_one_map(stored.doc)
+
+
+@pytest.mark.parametrize("target,place", [(ADMIN, "admin"), (MEMBER, "member")],
+                         ids=["an admin made an admin", "a member made a member"])
+def test_a_place_set_to_the_place_held_answers_200_and_writes_nothing(
+        client, stored, recorded, target, place):
+    response = change(client, OWNER, target.id, {"place": place})
+
+    assert (response.status_code, response.get_json()) == (200, {"message": "Place changed"})
+    assert stored.writes == [] and stored.accounts.writes == [] and recorded == []
+
+
+@pytest.mark.parametrize("requester,target", [
+    (ADMIN, MEMBER), (ADMIN, ADMIN), (MEMBER, MEMBER), (OUTSIDER, ADMIN),
+], ids=lambda p: p.id)
+def test_a_place_change_by_anyone_but_the_owner_is_a_403(
+        client, stored, recorded, requester, target):
+    response = change(client, requester, target.id, {"place": "admin"})
+
+    assert (response.status_code, response.get_json()) == (
+        403, {"error": ONLY_THE_OWNER_CHANGES_A_PLACE})
+    assert stored.writes == [] and recorded == []
+
+
+@pytest.mark.parametrize("target,body,status,sentence", [
+    (OWNER.id, {"place": "member"}, 400, THE_OWNERS_PLACE),
+    (OWNER.id, {"place": "admin"}, 400, THE_OWNERS_PLACE),
+    (NEW.id, {"place": "admin"}, 404, NO_LONGER_IN_THE_ORGANIZATION),
+    ("a.b", {"place": "member"}, 404, NO_LONGER_IN_THE_ORGANIZATION),
+    ("$where", {"place": "member"}, 404, NO_LONGER_IN_THE_ORGANIZATION),
+    (MEMBER.id, {"place": "owner"}, 400, "A place is admin or member."),
+    (MEMBER.id, {"place": "Admin"}, 400, "A place is admin or member."),
+    (MEMBER.id, {"place": ["admin"]}, 400, "A place is admin or member."),
+    (MEMBER.id, {"place": ""}, 400, "A place is admin or member."),
+    (MEMBER.id, {"role": "admin"}, 400, "A place is admin or member."),
+], ids=["the owner made a member", "the owner made an admin", "someone not in it",
+        "a dotted id", "a dollar id", "owner as a place", "a place in capitals",
+        "a place in a list", "an empty place", "no place"])
+def test_a_place_change_the_table_refuses_says_why_and_writes_nothing(
+        client, stored, recorded, target, body, status, sentence):
+    response = change(client, OWNER, target, body)
+
+    assert (response.status_code, response.get_json()) == (status, {"error": sentence})
+    assert stored.writes == [] and recorded == []
+
+
 # ── What each write holds and writes ─────────────────────────────────────────────────────────
 
 
@@ -366,9 +446,20 @@ WRITES = [
      {"$unset": {"people.user-member": ""},
       "$pull": {"admins": MEMBER.id, "members": MEMBER.id}},
      {OWNER.id: "owner", ADMIN.id: "admin"}),
+    (lambda: OrganizationPeople.change_place(ORG, ADMIN.id, "member", OWNER.email),
+     {"id": ORG, "people.user-owner": "owner", "people.user-admin": "admin"},
+     {"$set": {"people.user-admin": "member"}, "$addToSet": {"members": ADMIN.id},
+      "$pull": {"admins": ADMIN.id}},
+     {OWNER.id: "owner", ADMIN.id: "member", MEMBER.id: "member"}),
+    (lambda: OrganizationPeople.change_place(ORG, MEMBER.id, "admin", OWNER.email),
+     {"id": ORG, "people.user-owner": "owner", "people.user-member": "member"},
+     {"$set": {"people.user-member": "admin"}, "$addToSet": {"admins": MEMBER.id},
+      "$pull": {"members": MEMBER.id}},
+     {OWNER.id: "owner", ADMIN.id: "admin", MEMBER.id: "admin"}),
 ]
 WRITE_IDS = ["add admin of someone new", "add member of someone new",
-             "add admin of a member", "remove an admin", "remove a member"]
+             "add admin of a member", "remove an admin", "remove a member",
+             "an admin made a member", "a member made an admin"]
 
 
 @pytest.mark.parametrize("change,query,update,after", WRITES, ids=WRITE_IDS)
@@ -454,6 +545,22 @@ def test_a_member_made_an_admin_is_recorded_as_the_place_changed(stored, recorde
     assert kwargs["detail"]() == History.changes({"role": "member"}, {"role": "admin"})
 
 
+@pytest.mark.parametrize("target,place,before", [(ADMIN, "member", "admin"),
+                                                 (MEMBER, "admin", "member")],
+                         ids=["an admin made a member", "a member made an admin"])
+def test_a_place_change_is_recorded_with_the_place_before_and_after(
+        stored, recorded, target, place, before):
+    OrganizationPeople.change_place(ORG, target.id, place, OWNER.email)
+
+    [(args, kwargs)] = recorded
+    assert args == (ORG, OWNER.email, History.MANAGE_ORGANIZATION_ADMINS)
+    assert kwargs["kind"] == History.ROLE_CHANGED
+    assert kwargs["subject"]() == {"user_id": target.id, "email": target.email}
+    assert kwargs["detail"]() == History.changes({"role": before}, {"role": place})
+    # They were in the organization before and are after: the account's copy has nothing to do.
+    assert stored.accounts.writes == []
+
+
 def test_a_remove_takes_the_organization_off_the_account_and_records_it(stored, recorded):
     OrganizationPeople.remove(ORG, ADMIN.id, OWNER.email)
 
@@ -531,6 +638,42 @@ def test_two_adds_of_one_person_land_once(stored, recorded):
     assert_one_map(stored.doc)
 
 
+def test_a_place_change_of_someone_removed_meanwhile_is_refused(stored, recorded):
+    stored.before_write = lambda: OrganizationPeople.remove(ORG, ADMIN.id, OWNER.email)
+
+    with pytest.raises(OrganizationChanged):
+        OrganizationPeople.change_place(ORG, ADMIN.id, "member", OWNER.email)
+
+    assert ADMIN.id not in places(stored.doc)
+    assert len(recorded) == 1
+    assert_one_map(stored.doc)
+
+
+def test_two_place_changes_of_one_person_judged_on_one_read_land_once(stored, recorded):
+    # Two of the owner's tabs: one makes the admin a member, the other, judged on the same read,
+    # makes them a member too. The second meets the first and stores nothing.
+    stored.before_write = lambda: OrganizationPeople.change_place(
+        ORG, ADMIN.id, "member", OWNER.email)
+
+    with pytest.raises(OrganizationChanged):
+        OrganizationPeople.change_place(ORG, ADMIN.id, "member", OWNER.email)
+
+    assert places(stored.doc)[ADMIN.id] == "member"
+    assert len(recorded) == 1
+    assert_one_map(stored.doc)
+
+
+def test_a_place_change_by_an_owner_who_handed_the_organization_on_meanwhile_is_refused(
+        stored, recorded):
+    stored.before_write = lambda: OrgsApi.transfer_org_ownership(ORG, OWNER.email, ADMIN.email)
+
+    with pytest.raises(OrganizationChanged):
+        OrganizationPeople.change_place(ORG, MEMBER.id, "admin", OWNER.email)
+
+    assert places(stored.doc)[MEMBER.id] == "member"
+    assert_one_map(stored.doc)
+
+
 def test_the_409_answers_the_sentence_and_its_code(client, stored, recorded):
     stored.before_write = lambda: OrgsApi.transfer_org_ownership(ORG, OWNER.email, NEW.email)
 
@@ -556,6 +699,14 @@ def test_a_new_organizations_map_and_lists_stay_alike_through_every_writer(
     assert_one_map(stored.doc)
 
     OrgsApi.add_org_admin(org_id, ADMIN.email, OWNER.email)
+    assert places(stored.doc) == {OWNER.id: "owner", ADMIN.id: "admin", MEMBER.id: "member"}
+    assert_one_map(stored.doc)
+
+    OrgsApi.change_org_place(org_id, ADMIN.id, "member", OWNER.email)
+    assert places(stored.doc) == {OWNER.id: "owner", ADMIN.id: "member", MEMBER.id: "member"}
+    assert_one_map(stored.doc)
+
+    OrgsApi.change_org_place(org_id, ADMIN.id, "admin", OWNER.email)
     assert places(stored.doc) == {OWNER.id: "owner", ADMIN.id: "admin", MEMBER.id: "member"}
     assert_one_map(stored.doc)
 

@@ -140,6 +140,7 @@ A Viewer who is not chosen reads the review and decides nothing.
 Whoever creates a market is its owner, and a market has exactly one.
 **An organization's owner and admins are Admin on every market it holds, and a member is Viewer.**
 Each person holds one place in an organization; one stored before its people were one map, its owner also listed among its admins or members, is read with the owner winning, so it grants its people their roles as any other does ([one map of people](../../implementation/data/organization-document.md#one-map-of-people), T283).
+**Only the organization's owner changes someone's place in it**: from their row in Manage organization, after a confirmation, an admin is made a member, who then reads its markets instead of running them, and a member an admin; the owner's own place changes only when the organization is handed on ([B3a](../flows/organizations.md#b3a-make-an-admin-a-member-or-a-member-an-admin)).
 "Add admin" of a member makes them an admin; adding someone to the place they hold says they already hold it; and a change that met someone else's change to the same people is refused with a sentence saying so, the organization shown as it now stands ([the organization's people](../../implementation/modules/organization-people.md)).
 A market may also give a person a role of its own; both are held, and the higher one counts: Owner (4) > Admin (3) > Editor (2) > Viewer (1).
 So an organization admin once given Viewer on one market is still Admin there, and a member given Editor on one market edits it.

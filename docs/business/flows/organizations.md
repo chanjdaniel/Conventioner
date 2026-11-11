@@ -23,6 +23,7 @@ sources:
   - T224
   - T217
   - T223
+  - T283
 ---
 
 # Organizations
@@ -105,6 +106,23 @@ Covered by:
 - `*-sweep.spec.ts`, the sweeps' state "the manage-organization dialog, removing a member"
 - `access-control.spec.ts` ("org membership changes")
 - [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, someone removed in another window included
+
+## B3a. Make an admin a member, or a member an admin
+
+**Status:** Works (T283, driven by `an-organizations-people-change-place.spec.ts`).
+The owner's alone: each admin's row has "Make member" and each member's "Make admin", before Remove, and an admin's or a member's Manage organization draws neither.
+Each asks first, in a confirmation that is not destructive, since another change undoes it:
+
+- "Make admin@example.com a member?", "They will read every market of Seed Test Org instead of running it, unless a market gives them a role of its own.", confirmed by "Make member";
+- "Make member@example.com an admin?", "They will run every market of Seed Test Org as its Admin.", confirmed by "Make admin".
+
+Cancel and Escape change nothing and give focus back to the row's button; confirming moves them to the other list in place, where they keep their place in the organization's order, with the dialog open and focus on the list they now stand in, and the History says "<owner> changed <email> from Admin to Member" or back.
+Someone removed meanwhile is read as done, the list re-read without them; any other refusal is said in the confirmation, and one that met another change to the same people is read again behind it ([the organization's people](../../implementation/modules/organization-people.md#make-member-and-make-admin)).
+Typing a member's address into "Add admin" still makes them an admin, listed under Admins alone.
+Covered by:
+
+- [`an-organizations-people-change-place.spec.ts`](../../../front-end/e2e/an-organizations-people-change-place.spec.ts) at 1440 and 390
+- [`changingAPlaceAsksFirst.test.ts`](../../../front-end/src/__tests__/changingAPlaceAsksFirst.test.ts)
 
 ## B4. Rename an organization
 

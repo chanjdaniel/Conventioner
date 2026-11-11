@@ -719,6 +719,15 @@ def remove_org_user(org_id: str, user_id: str) -> Response:
     OrgsApi.remove_org_user(org_id, user_id, authenticated_email())
     return jsonify({"message": "User removed successfully"}), 200
 
+@app.route('/organizations/<org_id>/users/<user_id>', methods=['PUT'])
+@login_required
+def change_org_place(org_id: str, user_id: str) -> Response:
+    """Make an admin of an organization a member, or a member an admin: the owner's to do. The body
+    is ``{"place": "admin" | "member"}``."""
+    data = json_object(required=True)
+    OrgsApi.change_org_place(org_id, user_id, string_field(data, 'place'), authenticated_email())
+    return jsonify({"message": "Place changed"}), 200
+
 @app.route('/organizations/<org_id>/transfer', methods=['POST'])
 @login_required
 def transfer_org_ownership(org_id: str) -> Response:

@@ -153,6 +153,7 @@ def _png():
 # the caller's role: with the default body it would answer 400 and never reach the role check.
 BODIES = {
     ("POST", "/markets/<market_id>/applications-stopped"): {"json": {"stopped": True}},
+    ("PUT", "/organizations/<org_id>/users/<user_id>"): {"json": {"place": "member"}},
     ("PUT", "/markets/<market_id>/plan"): {"json": {"setupObject": {}}},
     ("PUT", "/markets/<market_id>/rejection-rules"): {"json": {"rules": []}},
     ("PUT", "/markets/<market_id>/review-highlights"): {"json": {"keys": []}},

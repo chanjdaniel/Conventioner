@@ -79,3 +79,31 @@ export function organizationRemoval(
       `and keep the ${kept} they hold a role on of their own.`,
   };
 }
+
+/** The two places below the owner that the owner moves a person between. */
+export type OrganizationPlace = 'admin' | 'member';
+
+/**
+ * What Manage organization's "Make member" and "Make admin" ask (T283), and what the person gains or
+ * loses on the organization's markets: a member reads every one of them, an admin runs every one.
+ */
+export function organizationPlaceChange(
+  org: Organization,
+  email: string,
+  to: OrganizationPlace,
+): { title: string; text: string; confirmLabel: string } {
+  if (to === 'member') {
+    return {
+      title: `Make ${email} a member?`,
+      text:
+        `They will read every market of ${org.name} instead of running it, ` +
+        'unless a market gives them a role of its own.',
+      confirmLabel: 'Make member',
+    };
+  }
+  return {
+    title: `Make ${email} an admin?`,
+    text: `They will run every market of ${org.name} as its Admin.`,
+    confirmLabel: 'Make admin',
+  };
+}
