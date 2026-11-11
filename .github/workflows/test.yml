@@ -323,7 +323,7 @@ jobs:
         working-directory: front-end
         run: npm ci
       # Shard 1 alone saves what it built, so ten shards never race to write one key.
-      - uses: $/.github/actions/e2e-stack
+      - uses: ./.github/actions/e2e-stack # zizmor: ignore[self-repository] actionlint 1.7.12, the latest, refuses the $/ form
         with:
           save-caches: ${{ matrix.shard == 1 }}
       - name: Run Playwright tests
@@ -423,7 +423,7 @@ jobs:
             echo "any=false" >>"$GITHUB_OUTPUT"
             echo "No spec file changed: nothing to repeat." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
-      - uses: $/.github/actions/e2e-stack
+      - uses: ./.github/actions/e2e-stack # zizmor: ignore[self-repository] actionlint 1.7.12, the latest, refuses the $/ form
         if: steps.changed.outputs.any == 'true'
       - name: Run each several times
         if: steps.changed.outputs.any == 'true'
