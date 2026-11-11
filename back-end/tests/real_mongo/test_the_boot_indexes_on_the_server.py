@@ -49,6 +49,23 @@ DUPLICATES = (
         "users", "user_email",
         ({"id": "user-1", "email": DUPLICATE_ADDRESS}, {"id": "user-2", "email": DUPLICATE_ADDRESS}),
         "verify_user_indexes", "api.users.UserIndexError"),
+    Duplicates(
+        "attendance", "attendance_vendor_day_unique",
+        ({"market_id": "market-1", "vendor_email": DUPLICATE_ADDRESS, "date": "2099-05-08"},
+         {"market_id": "market-1", "vendor_email": DUPLICATE_ADDRESS, "date": "2099-05-08"}),
+        "verify_attendance_indexes", "unique_indexes.UniqueIndexError"),
+    Duplicates(
+        "amounts_owed", "amounts_owed_vendor_day_unique",
+        ({"market_id": "market-1", "vendor_email": DUPLICATE_ADDRESS, "date": "2099-05-08"},
+         {"market_id": "market-1", "vendor_email": DUPLICATE_ADDRESS, "date": "2099-05-08"}),
+        "verify_payment_indexes", "unique_indexes.UniqueIndexError"),
+    Duplicates(
+        "payments", "payments_request_key_unique",
+        ({"id": "pay-1", "market_id": "market-1", "vendor_email": DUPLICATE_ADDRESS,
+          "request_key": "request-key-1"},
+         {"id": "pay-2", "market_id": "market-1", "vendor_email": DUPLICATE_ADDRESS,
+          "request_key": "request-key-1"}),
+        "verify_payment_indexes", "unique_indexes.UniqueIndexError"),
 )
 
 
