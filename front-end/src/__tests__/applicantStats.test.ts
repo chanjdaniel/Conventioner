@@ -1,7 +1,7 @@
 /**
  * Who applied, as the Stats tab counts it (E45/F01/S01): the server's counts by stored status, read
- * as the Applications tab's All view filters, and the times each applied, read as days in the
- * reader's own calendar.
+ * as the Applications tab's All view filters, each a part of the review's split bar. When they
+ * applied is drawn over time by `appliedOverTime.ts`, tested beside it.
  */
 import { describe, expect, it } from 'vitest';
 import { ApplicationStatus, type Application } from '@/assets/types/datatypes';
@@ -34,6 +34,8 @@ function counted(applications: Application[]): ApplicantCounts {
     addedByHand: applications.length - applied.length,
     statuses,
     submittedAt: applied.flatMap((a) => (a.submittedAt ? [a.submittedAt] : [])),
+    openedAt: null,
+    closedAt: null,
   };
 }
 
@@ -84,10 +86,13 @@ describe('who applied', () => {
     });
   });
 
-  it('gives each status its share of all applications, and a bar against the largest', () => {
-    expect(row('Approved').share).toBe(43);
-    expect(row('Approved').bar).toBe(100);
-    expect(row('Open').bar).toBeCloseTo(66.67, 1);
+  it("fills each status in its own colour, in the All view's order", () => {
+    expect(stats.byStatus.map((r) => [r.label, r.fill])).toEqual([
+      ['Open', '--mm-blue'],
+      ['Needs follow-up', '--mm-chart-yellow'],
+      ['Approved', '--mm-green'],
+      ['Rejected', '--mm-red'],
+    ]);
   });
 
   it('still counts a status the All view has no filter for, so the rows add up', () => {
@@ -98,35 +103,13 @@ describe('who applied', () => {
     const cancelled = odd.byStatus.find((r) => r.label === 'Cancelled')!;
     expect(cancelled.count).toBe(1);
     expect(cancelled.to).toBeUndefined();
+    expect(cancelled.fill).toBe('--mm-text-muted');
     expect(odd.byStatus.reduce((sum, r) => sum + r.count, 0)).toBe(odd.total);
-  });
-
-  it('counts the days people applied on, earliest first, leaving out those added by hand', () => {
-    expect(stats.byDay.map((r) => [r.value, r.label, r.count])).toEqual([
-      ['2026-09-01', 'Sep 1, 2026', 2],
-      ['2026-09-02', 'Sep 2, 2026', 1],
-      ['2026-09-03', 'Sep 3, 2026', 3],
-    ]);
-    expect(stats.byDay.map((r) => r.share)).toEqual([33, 17, 50]);
-    expect(stats.byDay.every((r) => r.to === undefined)).toBe(true);
-  });
-
-  it("reads a day in the reader's own calendar, not the server's", () => {
-    const at = new Date(2026, 8, 5, 23, 45).toISOString();
-    expect(applicantStats(counted([app(ApplicationStatus.Open, at)]), 'm1').byDay[0].value).toBe(
-      '2026-09-05',
-    );
-  });
-
-  it('puts a time it cannot read on no day', () => {
-    const odd = applicantStats({ ...counted(APPS), submittedAt: ['not a time'] }, 'm1');
-    expect(odd.byDay).toEqual([]);
   });
 
   it('is nothing for a market nobody has applied to', () => {
     const none = applicantStats(counted([]), 'm1');
     expect(none.total).toBe(0);
-    expect(none.byDay).toEqual([]);
-    expect(none.byStatus.every((r) => r.count === 0 && r.share === 0 && r.bar === 0)).toBe(true);
+    expect(none.byStatus.every((r) => r.count === 0)).toBe(true);
   });
 });

@@ -9,26 +9,32 @@
  * each the figure the page it links to shows, and the link opens that page with its filter.
  *
  * Every figure is counted on the server and read in one small answer (`utils/marketStats.ts`),
- * so the page never downloads the applications to count them. It starts with who applied: every
- * application by its status, counted as the Applications tab's All view filters them, and by the
- * day it arrived, as a ledger of bars (`BarLedger`, `utils/applicantStats.ts`). Then what they
- * answered: a card per choice question of the form (`utils/answerCounts.ts`), its answers most
- * chosen first and folded past `ANSWERS_SHOWN` (T201), narrowed by a switch, kept in the address as
- * `among`, to the approved or the assigned (E45/F01/S02). Stats reads; it changes nothing, so a
- * Viewer sees all of it and nothing here is disabled.
+ * so the page never downloads the applications to count them. It starts with who applied: how many,
+ * a column per day (or week) from the day applications opened to today or their close
+ * (`ColumnChart`, `utils/appliedOverTime.ts`), and the review's state as one split bar, each status
+ * counted as the Applications tab's All view filters it and linked to that filter (`SplitBar`,
+ * `utils/applicantStats.ts`). Then what they answered: a card per choice question of the form
+ * (`utils/answerCounts.ts`), its answers most chosen first and folded past `ANSWERS_SHOWN` (T201),
+ * narrowed by a switch, kept in the address as `among`, to the approved or the assigned
+ * (E45/F01/S02). Stats reads; it changes nothing, so a Viewer sees all of it and nothing here is
+ * disabled.
  *
  * Its sections keep one order, the market's life's (T201): who applied, then what they answered.
- * Their cards stand two to a row while the page's content is 48rem wide or more, one below it.
+ * Their cards stand two to a row while the page's content is 48rem wide or more, one below it; a
+ * chart that reads as one line of a whole, over time or across the review, spans the row.
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { getApiErrorMessage } from '@/utils/api';
 import { applicantStats } from '@/utils/applicantStats';
+import { appliedOverTime } from '@/utils/appliedOverTime';
 import { ANSWER_GROUPS, answerGroup, questionLedgers } from '@/utils/answerCounts';
 import { fetchMarketStats, type MarketStats } from '@/utils/marketStats';
 import { statsHeadlines } from '@/utils/statsHeadlines';
 import { useOpenMarket } from '@/utils/openMarket';
 import BarLedger from '@/components/BarLedger.vue';
+import ColumnChart from '@/components/charts/ColumnChart.vue';
+import SplitBar from '@/components/charts/SplitBar.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 
 const route = useRoute();
@@ -52,6 +58,15 @@ watch(marketId, load, { immediate: true });
 
 const stats = computed(() =>
   figures.value ? applicantStats(figures.value.applicants, marketId.value) : null,
+);
+/** Applications over time; none until someone applied with a time, or before the market is read. */
+const overTime = computed(() =>
+  figures.value && market.value
+    ? appliedOverTime(figures.value.applicants, market.value.phase ?? '')
+    : null,
+);
+const overTimeColumns = computed(() =>
+  (overTime.value?.buckets ?? []).map((bucket) => ({ ...bucket, key: bucket.start })),
 );
 const answers = computed(() => figures.value?.answers ?? null);
 const headlines = computed(() =>
@@ -124,20 +139,25 @@ const NOBODY: Record<string, string> = {
             >
           </p>
           <div class="stats-ledgers">
-            <BarLedger
-              title="By status"
-              :rows="stats.byStatus"
-              testid="stats-status"
-              whole="applications"
-              action="Show these applications"
-              data-testid="stats-by-status"
+            <ColumnChart
+              v-if="overTime"
+              class="stats-wide"
+              title="When they applied"
+              :columns="overTimeColumns"
+              :summary="overTime.summary"
+              :numbers="overTime.unit === 'day' ? 'Numbers by day' : 'Numbers by week'"
+              :key-head="overTime.unit === 'day' ? 'Day' : 'Week'"
+              count-head="Applications"
+              testid="stats-over-time"
+              data-testid="stats-over-time"
             />
-            <BarLedger
-              title="Applied per day"
-              :rows="stats.byDay"
-              testid="stats-day"
-              whole="those who applied"
-              data-testid="stats-by-day"
+            <SplitBar
+              class="stats-wide"
+              title="Where the review stands"
+              :parts="stats.byStatus"
+              whole="applications"
+              testid="stats-status"
+              data-testid="stats-by-status"
             />
           </div>
         </template>
@@ -277,6 +297,11 @@ const NOBODY: Record<string, string> = {
   .stats-ledgers {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* A chart of one whole, over time or across the review, spans the row. */
+.stats-wide {
+  grid-column: 1 / -1;
 }
 
 .stats-among {

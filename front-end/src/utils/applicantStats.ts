@@ -1,35 +1,29 @@
 /**
- * Who applied, as the Stats tab counts it (E45/F01/S01): every application by its status and by the
- * day it arrived.
+ * Who applied, as the Stats tab counts it (E45/F01/S01): every application by its status, as the
+ * parts of the review's split bar (T201).
  *
  * Read from the server's counts (`GET /markets/:id/stats`, `back-end/market_stats.py`), so the
  * page never downloads the applications to count them: every application by its stored status, how
  * many were added by hand, and the time each of the others applied. The statuses are counted into
  * the Applications tab's All view filters through the All view's own test (`allViewLists`), so the
- * two pages can never disagree: a status row's count is what its filter lists, and the row opens
+ * two pages can never disagree: a part's count is what its filter lists, and its legend line opens
  * it, on every reviewer's share (E38/F07/S04). A vendor added by hand never applied, so they are
- * counted apart and on no day, while their status is the approval the adding gave them, as the All
- * view shows it.
- *
- * A day is the reader's calendar day, as every "today" in the app is (`calendarToday`): the server
- * keeps no time zone for a market, so it sends times and the page makes them days.
+ * counted apart, while their status is the approval the adding gave them, as the All view shows it.
+ * When the others applied is drawn over time by `appliedOverTime.ts`.
  */
 import { marketPath } from '@/utils/market';
-import { calendarToday } from '@/utils/marketGuide';
-import { ledgerRows, type Counted, type LedgerRow } from '@/utils/barLedger';
-import { ALL_VIEW_FILTERS, allViewLists } from '@/utils/reviewQueue';
-import { getShortDate } from '@/utils/utils';
+import type { IntakeTimes } from '@/utils/appliedOverTime';
+import { ALL_VIEW_FILTERS, allViewLists, type AllViewFilter } from '@/utils/reviewQueue';
+import type { SplitPart } from '@/utils/splitBar';
 import { statusLabel } from '@/utils/verdicts';
 
 /** Who applied, as the server counts them. */
-export interface ApplicantCounts {
+export interface ApplicantCounts extends IntakeTimes {
   /** Every application, those added by hand among them. */
   total: number;
   addedByHand: number;
   /** Every application by its stored status. */
   statuses: Record<string, number>;
-  /** When each that was not added by hand applied, as stored. */
-  submittedAt: string[];
 }
 
 export interface ApplicantStats {
@@ -38,19 +32,28 @@ export interface ApplicantStats {
   /** Those who applied, on the market's page or in an imported form. */
   applied: number;
   addedByHand: number;
-  /** By status, in the All view's order; shares are of `total`. */
-  byStatus: LedgerRow[];
-  /** By the day each applied, earliest first; shares are of `applied`. */
-  byDay: LedgerRow[];
+  /** By status, in the All view's order, the parts of the review's split bar. */
+  byStatus: SplitPart[];
 }
+
+/** Each filter's fill; Needs follow-up the chart's yellow, as the button's is under 3:1 on white. */
+const FILLS: Record<Exclude<AllViewFilter, 'all'>, string> = {
+  undecided: '--mm-blue',
+  needs_follow_up: '--mm-chart-yellow',
+  reviewer_approved: '--mm-green',
+  reviewer_rejected: '--mm-red',
+};
+/** A status no filter lists, such as `cancelled`: grey, a part of the whole and of no filter. */
+const OTHER_FILL = '--mm-text-muted';
 
 export function applicantStats(counts: ApplicantCounts, marketId: string): ApplicantStats {
   const { total, addedByHand } = counts;
   const statuses = Object.entries(counts.statuses);
   const filters = ALL_VIEW_FILTERS.filter((filter) => filter.id !== 'all');
-  const filtered: Counted[] = filters.map((filter) => ({
+  const filtered: SplitPart[] = filters.map((filter) => ({
     label: filter.label,
     value: filter.id,
+    fill: FILLS[filter.id],
     count: statuses
       .filter(([status]) => allViewLists(filter.id, status))
       .reduce((sum, [, count]) => sum + count, 0),
@@ -61,28 +64,20 @@ export function applicantStats(counts: ApplicantCounts, marketId: string): Appli
     },
   }));
 
-  // A status no filter lists is still counted, so the rows add up to every application.
-  const others: Counted[] = statuses
+  // A status no filter lists is still counted, so the parts add up to every application.
+  const others: SplitPart[] = statuses
     .filter(([status]) => !filters.some((filter) => allViewLists(filter.id, status)))
-    .map(([status, count]) => ({ label: statusLabel(status), value: status, count }));
-
-  const applied = total - addedByHand;
-  const perDay = new Map<string, number>();
-  for (const submitted of counts.submittedAt) {
-    const at = new Date(submitted);
-    if (Number.isNaN(at.getTime())) continue;
-    const day = calendarToday(at);
-    perDay.set(day, (perDay.get(day) ?? 0) + 1);
-  }
-  const days: Counted[] = [...perDay]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([day, count]) => ({ label: getShortDate(day), value: day, count }));
+    .map(([status, count]) => ({
+      label: statusLabel(status),
+      value: status,
+      count,
+      fill: OTHER_FILL,
+    }));
 
   return {
     total,
-    applied,
+    applied: total - addedByHand,
     addedByHand,
-    byStatus: ledgerRows([...filtered, ...others], total),
-    byDay: ledgerRows(days, applied),
+    byStatus: [...filtered, ...others],
   };
 }

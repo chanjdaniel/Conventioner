@@ -2,15 +2,25 @@ import { marketScreenPath } from '../helpers/marketScreens';
 import type { Locator, Page } from '@playwright/test';
 
 /**
- * Page object for a market's Stats tab (/markets/:marketId/stats): who applied, by status and by
- * the day each applied (E45/F01/S01), and a chart per choice question, narrowed to the approved or
- * the assigned (E45/F01/S02); above them the placement and money headlines (E45/F01/S03).
+ * Page object for a market's Stats tab (/markets/:marketId/stats): who applied, a column a day (or
+ * week) and the review as one split bar (E45/F01/S01, T201), and a chart per choice question,
+ * narrowed to the approved or the assigned (E45/F01/S02); above them the placement and money
+ * headlines (E45/F01/S03).
  */
 export class StatsPage {
   readonly page: Page;
   readonly total: Locator;
   readonly none: Locator;
-  readonly days: Locator;
+  /** The chart of applications over time: its image, columns, axis, top mark and numbers. */
+  readonly overTimePlot: Locator;
+  readonly overTimeColumns: Locator;
+  readonly overTimeAxis: Locator;
+  readonly overTimeMost: Locator;
+  readonly overTimeNumbers: Locator;
+  readonly overTimeRows: Locator;
+  /** The review's split bar, hidden from a screen reader, and the parts drawn in it. */
+  readonly statusBar: Locator;
+  readonly statusBarParts: Locator;
   readonly answers: Locator;
   readonly questions: Locator;
   /** "N of M": how many of every application the charts count. */
@@ -20,7 +30,14 @@ export class StatsPage {
     this.page = page;
     this.total = page.getByTestId('stats-applicants-total');
     this.none = page.getByTestId('stats-applicants-none');
-    this.days = page.getByTestId('stats-day');
+    this.overTimePlot = page.getByTestId('stats-over-time-plot');
+    this.overTimeColumns = page.getByTestId('stats-over-time-column');
+    this.overTimeAxis = page.getByTestId('stats-over-time-axis');
+    this.overTimeMost = page.getByTestId('stats-over-time-most');
+    this.overTimeNumbers = page.getByTestId('stats-over-time-numbers');
+    this.overTimeRows = page.getByTestId('stats-over-time-row');
+    this.statusBar = page.getByTestId('stats-status-bar');
+    this.statusBarParts = page.getByTestId('stats-status-bar-part');
     this.answers = page.getByTestId('stats-answers');
     this.questions = page.getByTestId('stats-question');
     this.amongCount = page.getByTestId('stats-among-count');
@@ -40,18 +57,13 @@ export class StatsPage {
     return this.headline(id).getByTestId('stats-headline-figure');
   }
 
-  /** A status's row, by the All view filter it opens: `undecided`, `reviewer_approved`, ... */
+  /** A status's legend line, by the All view filter it opens: `undecided`, `reviewer_approved`, ... */
   status(filter: string): Locator {
     return this.page.locator(`[data-testid="stats-status"][data-value="${filter}"]`);
   }
 
   statusCount(filter: string): Locator {
     return this.status(filter).getByTestId('stats-status-count');
-  }
-
-  /** The day's row, as the ledger lists them, earliest first. */
-  dayCount(index: number): Locator {
-    return this.days.nth(index).getByTestId('stats-day-count');
   }
 
   /** The switch's button for a group: `all`, `approved` or `assigned`. */

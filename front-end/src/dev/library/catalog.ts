@@ -91,7 +91,7 @@ export const ENTRIES: readonly LibraryEntry[] = [
   {
     id: 'charts',
     title: 'Charts',
-    summary: "The answers' bars, one line each in a wide card, folded past 8",
+    summary: "Applications over time, the review's split bar, and the answers' bars folded past 8",
     serves: 'Stats, L11',
   },
 ];

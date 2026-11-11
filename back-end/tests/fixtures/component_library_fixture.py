@@ -9,7 +9,9 @@ copying a real export would publish applicants, so every value here comes from t
 exports in ``tests/test_data/google_forms/``, which ``synthetic_form_exports.py`` made, read with
 the product's own readers:
 
-- the files are read with ``csv_import.parse_csv``, as an import reads them;
+- the files are read with ``csv_import.parse_csv``, as an import reads them, and each application's
+  time from the column the proposal reads as when it arrived, by ``normalized_submitted_at``, as
+  the import stores it;
 - a choice column's answers are split and counted by ``csv_proposal.proposal``, as starting a
   market from the file splits them;
 - the export's columns and filters are ``api.vendor_export``'s ``offered_columns`` and
@@ -157,6 +159,8 @@ def _named(proposal: Dict[str, Any], rows) -> List[List[str]]:
 def _applications(rng: random.Random, proposal: Dict[str, Any], named,
                   reviewers: List[str]) -> List[Dict[str, Any]]:
     name, email = _who(proposal)
+    arrived = next(c["index"] for c in proposal["columns"]
+                   if c["fate"] == CsvProposal.FATE_SUBMITTED_AT)
     business = _proposed(proposal, "Business Name")["index"]
     sells = _proposed(proposal, QUESTION)["index"]
     ids = [f"a{index:03d}" for index in range(1, len(named) + 1)]
@@ -167,6 +171,7 @@ def _applications(rng: random.Random, proposal: Dict[str, Any], named,
     return [
         {"id": app_id, "name": row[name].strip(), "email": row[email].strip(),
          "business": row[business].strip(), "sells": row[sells].strip(),
+         "submittedAt": CsvImport.normalized_submitted_at(row[arrived]),
          "status": status[app_id], "reviewer": reviewer[app_id]}
         for app_id, row in zip(ids, named)
     ]

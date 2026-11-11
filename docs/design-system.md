@@ -381,6 +381,8 @@ The other fills such a button is drawn in step once, on hover: `--mm-yellow-hove
 The deep focus border reads less on a darker fill: 3.17:1 on `--mm-green-hover`, 2.80 on `--mm-green-pressed`, 2.68 on `--mm-red-hover` and 2.37 on `--mm-red-pressed`, against 3.26, 2.74, 2.68 and 2.28 under the opacity it replaced.
 
 **A mark that carries no text is held to the non-text bar, 3:1**: the bar's current-tab dot, `--mm-green` on `--mm-black`, measures 3.39:1, and the test pins it, so a bar retinted darker or a green lightened for a light ground cannot take it under unnoticed.
+A chart's marks are held to the same 3:1 on the white card they are drawn on (T201): the review's split bar fills Open, Needs follow-up, Approved and Rejected with `--mm-blue`, `--mm-chart-yellow`, `--mm-green` and `--mm-red`, a status no filter lists with `--mm-text-muted`, each part set apart by a 2px white gap so neighbouring fills need no contrast with each other.
+`--mm-yellow` is 2.15:1 on white, too faint for a mark, so a chart's yellow is its own token, `--mm-chart-yellow` (`#bd8619`, 3.19:1), darker and never under text; `contrast.test.ts` lists the chart marks and holds each to 3:1 on white.
 
 [`src/__tests__/contrast.test.ts`](../front-end/src/__tests__/contrast.test.ts) parses the real `base.css`, so the file that ships is the file under test, and lists every colour token as ink, fill, chip ground or line; a colour token in none of those lists fails it, so a new colour must declare itself.
 

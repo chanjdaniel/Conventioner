@@ -1095,13 +1095,15 @@ export const SCREENS: Screen[] = [
     open: at(screen('big', 'attendance'), 'attendance-row'),
   },
   {
-    // The headlines, who applied, and a chart per choice question, as ledgers of bars (E45/F01/S01
-    // to S03); it fits a phone (T180). The two load apart, so it waits for both.
+    // The headlines, who applied - a column a day over the 19 days its applications span, and
+    // the review's split bar (T201) - and a chart per choice question, as ledgers of bars
+    // (E45/F01/S01 to S03); it fits a phone (T180). The two load apart, so it waits for both.
     name: 'the stats',
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: async (page, seed) => {
       await at(screen('big', 'stats'), 'stats-status')(page, seed);
+      await visible(page, 'stats-over-time-column');
       await visible(page, 'stats-answer');
     },
   },

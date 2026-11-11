@@ -47,6 +47,18 @@ def test_the_applications_are_every_named_applicant_of_the_four_day_grid():
         "open": 110, "needs_follow_up": 25, "reviewer_approved": 160, "reviewer_rejected": 64}
 
 
+def test_each_application_arrived_when_the_file_says_over_17_days():
+    """The Stats tab's column chart is judged on these: each time read from the file's Timestamp
+    column as the import stores it, spread over 17 days with none empty."""
+    times = [a["submittedAt"] for a in FIXTURE["applications"]]
+    assert all(times)
+    assert min(times) == "2024-02-25T09:28:56"
+    assert max(times) == "2024-03-12T21:50:38"
+    days = collections.Counter(time[:10] for time in times)
+    assert len(days) == 17
+    assert max(days.values()) == 31
+
+
 def test_the_people_are_150_applicants_of_the_five_day_grid_dealt_the_market_roles():
     people = FIXTURE["people"]
     assert len(people) == 150
@@ -195,7 +207,8 @@ def test_it_holds_only_strings_numbers_and_the_shape_the_library_reads():
     assert sorted(FIXTURE) == [
         "applications", "export", "people", "question", "reviewers", "seats", "valuesToFix"]
     assert sorted(FIXTURE["applications"][0]) == [
-        "business", "email", "export", "id", "name", "reviewer", "sells", "status"]
+        "business", "email", "export", "id", "name", "reviewer", "sells", "status",
+        "submittedAt"]
     assert sorted(FIXTURE["people"][0]) == ["email", "id", "name", "role"]
     assert sorted(FIXTURE["seats"][0]) == ["application", "date", "section", "table", "tier"]
     json.dumps(FIXTURE)

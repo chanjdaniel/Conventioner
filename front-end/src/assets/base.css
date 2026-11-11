@@ -73,6 +73,12 @@
   --mm-red: #c0392b; /* white text on it: 5.44 */
   --mm-blue: #1a6f8b; /* white text on it: 5.69 */
 
+  /* ---- A chart's marks (T201): fills that carry no text, each held to the 3:1 a graphic needs on
+     white. The split bar's parts are --mm-blue, --mm-green, --mm-red and this yellow, set apart by
+     white gaps so no two fills need contrast with each other. --mm-yellow is 2.15 on white, too
+     faint for a mark, so a chart's yellow is its own: darker, and never under text. ---- */
+  --mm-chart-yellow: #bd8619; /* on white: 3.19 */
+
   /* ---- A button under the pointer and pressed (T229): each fill a step darker, then another, so
      its ink only gains on it. Hover and pressed were `opacity` 0.9 and 0.8, which faded the ink
      with the fill: white on the green to 3.81 and 3.21, on the red pressed to 3.86, the pressed

@@ -8,6 +8,8 @@ describes:
   - front-end/src/utils/marketStats.ts
   - back-end/market_stats.py
   - front-end/src/utils/statsHeadlines.ts
+  - front-end/src/utils/appliedOverTime.ts
+  - front-end/src/components/charts/
 verified: 2026-11-11
 sources:
   - E45/F01/S01
@@ -23,11 +25,11 @@ sources:
 **Who:** anyone who can read the market, a Viewer included; the page changes nothing ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Stats tab, last on the market bar, at `/markets/<id>/stats`, open in every phase from draft to the archive.
 
-The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as cards of bars: each row an answer with its count, its share of the whole and a bar against the largest in its card, rather than a chart library.
+The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as charts drawn in the app's own HTML and CSS ([`components/charts/`](../../../front-end/src/components/charts/)), each with its figures as text, rather than a chart library: applications over time as columns, the review as one split bar, and the answers as cards of bars, each row an answer with its count, its share of the whole and a bar against the largest in its card.
 Before anyone applies it says "Nobody has applied yet." and nothing else.
 Every figure is counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
 Its sections keep one order, the market's life's: who applied, then what they answered (T201).
-Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width.
+Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width; the chart over time and the review's split bar, each one line of a whole, span the row.
 The page fits a phone, so how the day stands is read at the market (T180): its headlines stand one to a line, each link a thumb's target, and the switch and the cards stay inside the window ([the design language](../../design-system.md#layout)).
 
 ## N1. See the market's state at a glance
@@ -51,17 +53,26 @@ Covered by:
 
 ## N2. See who applied
 
-**Status:** Works (read from the code as of E45/F01/S01: `the-stats-tab.spec.ts`).
+**Status:** Works (read from the code as of T201 ticket 02: `the-stats-tab.spec.ts`, `test_the_stats_tab.py`).
 
 1. "Who applied" totals the market's [applications](../concepts/application.md): "7 applications in all, 1 of them added by hand".
-2. "By status" counts them as the Applications tab's All view filters them: Open, Needs follow-up, Approved and Rejected, each count what that filter lists; a row opens the All view on its filter, on every reviewer's share ("Assigned to: Anyone"), since the count is everyone's.
-   The server counts every application by its stored status, and the page counts those into the filters through the All view's own test ([`applicantStats.ts`](../../../front-end/src/utils/applicantStats.ts)), so the two pages agree.
-3. "Applied per day" counts those who applied by the day they did, earliest first, in the reader's own calendar; a vendor added by hand never applied, so is on no day.
-   The server keeps no time zone for a market, so it sends only the time each applied, never who, and the page makes the days.
+2. "When they applied" draws a column a day, from the day applications opened, or the first response if that came earlier, as a Google Form's can, to today while the market takes applications or to the day they closed, so a quiet day is a gap on the baseline and a late rush stands out ([`appliedOverTime.ts`](../../../front-end/src/utils/appliedOverTime.ts)).
+   Once that span passes 42 days a column is a week, Monday to Sunday, so the columns stay readable on a phone.
+   A line at the top marks the largest count, and the first and last column are named under the axis.
+   The chart is one image named by a sentence, "6 applications from Aug 31 to Sep 5, 2026, most on Sep 3: 3", and "Numbers by day" (or by week) opens a table of every day, the empty ones included.
+   A vendor added by hand never applied, so is on no day; with nobody applied with a time there is no chart.
+3. The days are the reader's own calendar: the server keeps no time zone for a market, so it sends only the time each applied, never who, and the page makes the days.
+   When applications opened and closed come from the market's [phase record](../../implementation/modules/phase-record.md): the first entry into applications, and the first entry into assignment after it, so a market reopened or sent back to review keeps its first window.
+   A market out of applications whose record holds no close, one that predates the record, ends at its last response; a response after the close is still drawn.
+4. "Where the review stands" is one bar of every application split by status, in the Applications tab's All view's order: Open, Needs follow-up, Approved and Rejected, each its own fill, set apart by a white gap.
+   Its legend is the text, a line per status with its count and share, each count what that filter lists; a line opens the All view on its filter, on every reviewer's share ("Assigned to: Anyone"), since the count is everyone's, and a status nobody is in is told but not linked.
+   The server counts every application by its stored status, and the page counts those into the filters through the All view's own test ([`applicantStats.ts`](../../../front-end/src/utils/applicantStats.ts)), so the two pages agree; a status no filter lists is a grey part of its own, linked nowhere.
 
 Covered by:
 
-- `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Applications tab does")
+- `test_the_stats_tab.py` (when applications opened and closed, a reopened market's first window included)
+- `the-component-library-charts.spec.ts` (the column chart a day and a week, its numbers, the split bar and its legend, a zero not linked)
+- `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Applications tab does, for anyone who reads it", "a review status with nobody in it is told, and not linked")
 
 ## N3. See what they answered
 

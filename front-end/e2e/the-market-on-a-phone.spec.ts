@@ -733,16 +733,21 @@ for (const size of PHONE_AND_DESK) {
       }
       await expectTargets(headlines.getByRole('link'), "a headline's link");
 
-      // The answer groups' switch is a row of targets, and the ledgers read inside the window.
+      // The answer groups' switch is a row of targets, and the charts read inside the window: the
+      // column a day, the review's split bar, whose legend lines are each a target, and the ledgers.
       const among = page.getByRole('group', { name: 'Count the answers of' }).getByRole('button');
       await expect(among).toHaveText(['All', 'Approved', 'Assigned']);
       await expectWide(among, 'a group');
       await expectTargets(among, 'a group');
-      const ledgers = page.getByTestId(/^stats-(by-status|by-day|question)$/);
-      expect(await ledgers.count(), 'the ledgers are drawn').toBeGreaterThanOrEqual(3);
-      for (const ledger of await ledgers.all()) {
-        await expectAcross(ledger, 'a ledger');
+      const charts = page.getByTestId(/^stats-(over-time|by-status|question)$/);
+      expect(await charts.count(), 'the charts are drawn').toBeGreaterThanOrEqual(3);
+      for (const chart of await charts.all()) {
+        await expectAcross(chart, 'a chart');
       }
+      await expectTargets(
+        page.getByTestId('stats-by-status').getByRole('link'),
+        "a review status's line",
+      );
       await press(among.filter({ hasText: 'Assigned' }));
       await expect(among.filter({ hasText: 'Assigned' })).toHaveAttribute('aria-pressed', 'true');
       await expectFits(page, 'Stats, counting the assigned');

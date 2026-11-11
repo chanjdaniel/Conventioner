@@ -12,7 +12,8 @@ Who applied: every application by its stored status, how many were added by hand
 each of the others applied. Statuses go out as stored, and the page counts them into the
 Applications tab's All view filters, which are decided by status alone, so the two agree; times go
 out rather than days because the server keeps no time zone for a market, and a day is the
-reader's.
+reader's. Beside them, when applications opened and closed, from the phase record
+(``intake_window``), which bound the page's chart of applications over time (T201).
 
 What they answered, as the organizer reads it, each organizer's update of an answer in its place
 (``effective_answers``): each select, multi-select and checkbox question of the form gets a row per
@@ -31,7 +32,9 @@ import api.applications as ApplicationsApi
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
 import result_outcome as ResultOutcome
-from datatypes import ApplicationStatus, FormField, Market
+from datatypes import (
+    LEGACY_STAGE_PHASES, ApplicationStatus, FormField, Market, MarketPhase, PhaseEntry,
+)
 from utils.email_address import normalized_email
 
 CHOICE_TYPES = ("select", "multi_select", "checkbox")
@@ -47,7 +50,7 @@ def stats_for_market(market: Market) -> Dict[str, Any]:
     form = market.application_form
     applications = ApplicationsApi.list_applications_for_market(market.id)
     figures = {
-        "applicants": count_applicants(applications),
+        "applicants": {**count_applicants(applications), **intake_window(market.phase_history)},
         "answers": count_answers(
             form.fields if form else [], applications, ResultOutcome.seated_addresses(market),
         ),
@@ -107,6 +110,33 @@ def count_applicants(applications: List[Dict[str, Any]]) -> Dict[str, Any]:
         "addedByHand": added,
         "statuses": statuses,
         "submittedAt": submitted,
+    }
+
+
+def intake_window(record: Iterable[PhaseEntry]) -> Dict[str, Optional[str]]:
+    """When applications opened, the time of the record's first entry into them, and when they
+    closed, the time of the first entry into assignment after that; each ``None`` where the record
+    holds no such entry, or holds it undated (the first entry of a record begun partway through).
+
+    The first of each, so a market reopened or sent back to review keeps its first window: the
+    chart shows when its applications came in, and a reopening does not move that.
+    """
+    opened: Optional[PhaseEntry] = None
+    closed: Optional[PhaseEntry] = None
+    for entry in record:
+        # An entry still naming a phase E38/F04 folded into the stage reads as the stage.
+        phase = entry.phase
+        if phase in LEGACY_STAGE_PHASES:
+            phase = MarketPhase.APPLICATIONS.value
+        if opened is None:
+            if phase == MarketPhase.APPLICATIONS.value:
+                opened = entry
+        elif phase == MarketPhase.ASSIGNMENT.value:
+            closed = entry
+            break
+    return {
+        "openedAt": opened.entered_at if opened else None,
+        "closedAt": closed.entered_at if closed else None,
     }
 
 

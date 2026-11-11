@@ -568,6 +568,23 @@ function manyVendors(marketId: string, prefix: string, count: number, dates: str
   );
 }
 
+/**
+ * Applications spread over 19 days ending today, for the Stats tab's chart over time (T201):
+ * most in a late rush over the last four days, the rest earlier with two quiet days between, so the
+ * sweep draws the chart at size, columns, gaps and all, not as one column of a day.
+ */
+function appliedOverDays<T extends { submitted_at: string; updated_at: string }>(
+  applications: T[],
+): T[] {
+  const noon = new Date();
+  noon.setHours(12, 0, 0, 0);
+  return applications.map((application, i) => {
+    const daysBack = i < applications.length * 0.6 ? i % 4 : 6 + ((i * 5) % 13);
+    const at = new Date(noon.getTime() - daysBack * 86_400_000).toISOString();
+    return { ...application, submitted_at: at, updated_at: at };
+  });
+}
+
 const RULES = [
   { id: 1, target: 'category', ordering: CATEGORIES, direction: null },
   { id: 2, target: 'application.submitted_at', ordering: [], direction: 'ascending' },
@@ -670,7 +687,7 @@ export async function seedTheScreens(
     longName('Fall Makers Fair at the Old Cannery Warehouse District'),
     plan(),
   );
-  insertApplications(manyVendors(big.marketId, 'vendor', 36, MARKET_DATES));
+  insertApplications(appliedOverDays(manyVendors(big.marketId, 'vendor', 36, MARKET_DATES)));
   await walk(api, backend, email, big.marketId, UP_TO_ASSIGNMENT);
   await assignAndPublish(api, backend, email, big.marketId);
   ensureVerifiedUser(SCREENS_EDITOR.email, SCREENS_EDITOR.password);
@@ -692,7 +709,7 @@ export async function seedTheScreens(
       ],
     },
   });
-  insertApplications(manyVendors(rules.marketId, 'rules', 8, two));
+  insertApplications(appliedOverDays(manyVendors(rules.marketId, 'rules', 8, two)));
   await walk(api, backend, email, rules.marketId, UP_TO_ASSIGNMENT);
   await assignAndPublish(api, backend, email, rules.marketId);
 

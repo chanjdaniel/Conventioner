@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
-import { approvedVendorApplication, insertApplications } from './helpers/seedApplication';
+import {
+  approvedVendorApplication,
+  insertApplications,
+  seedApplication,
+} from './helpers/seedApplication';
 import { ensureTestOrg, SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
@@ -13,25 +17,31 @@ import { StatsPage } from './pages/StatsPage';
 
 /**
  * The Stats tab (E45/F01/S01): the last tab on the market bar, open in every phase and to anyone who
- * reads the market, starting with who applied - by status and by the day each applied - counted as
- * the Applications tab counts them; then a chart per choice question of the form, narrowed to the
- * approved or the assigned (E45/F01/S02).
+ * reads the market, starting with who applied - a column a day from the opening to today (T201), and
+ * the review as one bar split by status, counted as the Applications tab counts them - then a chart
+ * per choice question of the form, narrowed to the approved or the assigned (E45/F01/S02).
  */
 const VIEWER = { email: 'e2e-stats-viewer@example.com', password: 'e2estatsviewer1' };
 
 /** An application as it was stored on the day it arrived, straight into Mongo. */
 function seedApplied(marketId: string, email: string, status: string, submittedAt: string) {
-  mongoEval(
-    `db.applications.insertOne(${JSON.stringify({
-      id: randomUUID(),
-      market_id: marketId,
-      applicant_email: email,
-      form_data: { name: 'Stats Vendor', category: 'Crafts' },
+  seedApplication(
+    marketId,
+    email,
+    { name: 'Stats Vendor', category: 'Crafts' },
+    {
       status,
-      application_type: 'main',
-      submitted_at: submittedAt,
-      updated_at: submittedAt,
-    })})`,
+      submittedAt,
+    },
+  );
+}
+
+/** When the market's record says applications opened, so the chart starts on a known day. */
+function openedOn(marketId: string, enteredAt: string) {
+  mongoEval(
+    `db.markets.updateOne({id: ${JSON.stringify(marketId)}}, ` +
+      `{$set: {"phaseHistory.$[opening].enteredAt": ${JSON.stringify(enteredAt)}}}, ` +
+      `{arrayFilters: [{"opening.phase": "applications"}]})`,
   );
 }
 
@@ -73,6 +83,9 @@ test('the Stats tab counts who applied as the Applications tab does, for anyone 
     { intakeMode: 'form' },
   );
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  // Opened on Monday Aug 31 in Vancouver, and read on Saturday Sep 5 there.
+  openedOn(marketId, '2026-08-31T16:00:00Z');
+  await page.clock.setFixedTime(new Date('2026-09-05T12:00:00-07:00'));
   seedApplied(marketId, 'nadia@ember.test', 'open', '2026-09-01T12:00:00Z');
   seedApplied(marketId, 'theo@thistle.test', 'open', '2026-09-01T19:00:00Z');
   seedApplied(marketId, 'ines@loom.test', 'needs_follow_up', '2026-09-02T12:00:00Z');
@@ -93,26 +106,44 @@ test('the Stats tab counts who applied as the Applications tab does, for anyone 
   await expect(page.getByTestId('market-bar-tab-stats')).toHaveClass(/active/);
   await expect(stats.total).toHaveText('7 applications in all, 1 of them added by hand');
 
+  // A column a day from the opening to today, the quiet days kept, the walk-in on none of them:
+  // one image, named by its sentence.
+  await expect(stats.overTimePlot).toHaveAttribute(
+    'aria-label',
+    '6 applications from Aug 31 to Sep 5, 2026, most on Sep 3: 3',
+  );
+  await expect(stats.overTimePlot).toHaveAttribute('role', 'img');
+  await expect(stats.overTimeColumns).toHaveCount(6);
+  await expect(stats.overTimeAxis).toHaveText(/Aug 31\s*Sep 5/);
+  await expect(stats.overTimeMost).toHaveText('3');
+
+  // Its numbers, every day, behind the disclosure.
+  await expect(stats.overTimeRows.first()).toBeHidden();
+  await stats.overTimeNumbers.getByText('Numbers by day').click();
+  await expect(stats.overTimeRows).toHaveText([
+    /Mon, Aug 31, 2026\s*0/,
+    /Tue, Sep 1, 2026\s*2/,
+    /Wed, Sep 2, 2026\s*1/,
+    /Thu, Sep 3, 2026\s*3/,
+    /Fri, Sep 4, 2026\s*0/,
+    /Sat, Sep 5, 2026\s*0/,
+  ]);
+
+  // The review as one bar, its legend the text: each status counted as the All view filters it.
   const expected: Record<string, number> = {
     undecided: 2,
     needs_follow_up: 1,
     reviewer_approved: 3,
     reviewer_rejected: 1,
   };
+  await expect(stats.statusBar).toHaveAttribute('aria-hidden', 'true');
+  await expect(stats.statusBarParts).toHaveCount(4);
+  await expect(stats.status('undecided')).toHaveText('Open: 2, 29% of applications');
   for (const [value, count] of Object.entries(expected)) {
     await expect(stats.statusCount(value)).toHaveText(String(count));
   }
 
-  // Each day someone applied, the walk-in on none of them.
-  await expect(stats.days).toHaveCount(3);
-  await expect(stats.days.nth(0)).toContainText('Sep 1, 2026');
-  await expect(stats.dayCount(0)).toHaveText('2');
-  await expect(stats.days.nth(1)).toContainText('Sep 2, 2026');
-  await expect(stats.dayCount(1)).toHaveText('1');
-  await expect(stats.days.nth(2)).toContainText('Sep 3, 2026');
-  await expect(stats.dayCount(2)).toHaveText('3');
-
-  // The Applications tab's All view lists the same count under each status, and a row opens it.
+  // The Applications tab's All view lists the same count under each status, and its line opens it.
   const all = new ApplicationsAllPage(page);
   for (const [value, count] of Object.entries(expected)) {
     await stats.goto(marketId);
@@ -129,8 +160,37 @@ test('the Stats tab counts who applied as the Applications tab does, for anyone 
     await expect(theirs.total).toHaveText('7 applications in all, 1 of them added by hand', {
       timeout: 15000,
     });
-    await expect(theirs.days).toHaveCount(3);
+    await expect(theirs.overTimePlot).toHaveAttribute('aria-label', /^6 applications from Aug 31/);
+    await expect(theirs.statusCount('reviewer_approved')).toHaveText('3');
   });
+});
+
+test('a review status with nobody in it is told, and not linked', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  seedApplied(marketId, 'nadia@ember.test', 'open', new Date().toISOString());
+
+  const stats = new StatsPage(page);
+  await stats.goto(marketId);
+  await expect(stats.statusCount('undecided')).toHaveText('1', { timeout: 15000 });
+  await expect(stats.status('undecided')).toHaveRole('link');
+  await expect(stats.statusBarParts).toHaveCount(1);
+  for (const empty of ['needs_follow_up', 'reviewer_approved', 'reviewer_rejected']) {
+    await expect(stats.statusCount(empty)).toHaveText('0');
+    await expect(stats.status(empty).locator('xpath=self::a')).toHaveCount(0);
+  }
+  await expect(page.getByRole('link', { name: /^Approved/ })).toHaveCount(0);
+  // Applied today, so the chart is that one day.
+  await expect(stats.overTimeColumns).toHaveCount(1);
 });
 
 test('a market nobody has applied to says so, in draft', async ({

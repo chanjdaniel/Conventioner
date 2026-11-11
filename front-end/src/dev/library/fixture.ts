@@ -20,6 +20,8 @@ export interface LibraryFixture {
     business: string;
     /** Their answer to the question, as the file holds it. */
     sells: string;
+    /** When they applied, from the file's Timestamp column as the import stores it: 17 days. */
+    submittedAt: string;
     status: ApplicationStatus;
     /** The person id of the reviewer it is dealt to. */
     reviewer: string;

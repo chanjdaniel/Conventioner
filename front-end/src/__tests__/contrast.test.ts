@@ -280,6 +280,27 @@ describe('the palette carries a contrast contract', () => {
     });
   }
 
+  /*
+   * A chart's marks (T201): a bar's fill or a part of a split bar carries no text, so it is held to
+   * the 3:1 a graphic needs on the white card it is drawn on, laid over that white where it is
+   * translucent (the grey of a status no filter lists is the muted ink). Each is listed here, those
+   * it shares with the buttons and the text included, so a token retinted for one of those cannot
+   * fade a chart unseen.
+   */
+  const CHART_MARKS = [
+    '--mm-chart-yellow',
+    '--mm-blue',
+    '--mm-green',
+    '--mm-red',
+    '--mm-text-muted',
+  ];
+
+  for (const mark of CHART_MARKS) {
+    it(`${mark} is visible as a chart mark on white`, () => {
+      expect(contrast(inkOn(mark, WHITE), WHITE)).toBeGreaterThanOrEqual(3);
+    });
+  }
+
   it('white is never put on --mm-yellow, which is a black-text fill', () => {
     // Stated as a test so the reason survives: white on this yellow is 2.15, and someone will
     // eventually reach for it because every other fill in the product takes white.
@@ -298,6 +319,7 @@ describe('the palette carries a contrast contract', () => {
       ...FILLS.map(([f]) => f),
       ...CHIPS.map(([ground]) => ground),
       ...BUTTON_STATES.flatMap(([, steps]) => steps),
+      ...CHART_MARKS,
       // Lines, hover states and a scroller's edge shades. These never sit under text.
       '--focus-border-on-fill',
       '--mm-border',
