@@ -29,7 +29,12 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
-import type { FloorplanObject, FloorplanTable, LocationObject } from '@/assets/types/datatypes';
+import type {
+  FloorplanObject,
+  FloorplanTable,
+  LocationObject,
+  TableTypeObject,
+} from '@/assets/types/datatypes';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import { useUnsavedWork } from '@/utils/useUnsavedWork';
@@ -42,6 +47,8 @@ import LayoutMap from './LayoutMap.vue';
 import LayoutPanelKeyboard from './LayoutPanelKeyboard.vue';
 import LayoutPanelSections from './LayoutPanelSections.vue';
 import LayoutPanelSelection, { type Arrangement } from './LayoutPanelSelection.vue';
+import LayoutPanelTypes from './LayoutPanelTypes.vue';
+import LayoutPanelZones from './LayoutPanelZones.vue';
 import { metresAcross, pxPerMm, type Point } from './calibration';
 import {
   NO_TABLE_FITS,
@@ -49,6 +56,7 @@ import {
   saidRemoved,
   saidRowAdded,
   saidTurned,
+  saidZoneRemoved,
   useAnnouncements,
 } from './layoutAnnouncements';
 import { layoutSections } from './layoutDrawing';
@@ -57,6 +65,13 @@ import { STANDARD_TABLE, hallOf } from './layoutGeometry';
 import { MAX_LAYOUT_TABLES, gapMmOf, rowChoices, rowOnFrom, standingShapes } from './layoutRow';
 import { saveLayout, saveLayoutOnUnload, type UploadedFloorplan } from './layoutSave';
 import { turnSelection } from './layoutSelection';
+import {
+  LayoutNotSaved,
+  listSavedTypes,
+  saveTableTypes,
+  saveTypes,
+  tablesOfEachType,
+} from './layoutTypes';
 import { useLayoutEditor } from './useLayoutEditor';
 import { useFloorplanImage } from './useFloorplanImage';
 
@@ -263,6 +278,15 @@ watch(
   { flush: 'pre' },
 );
 
+/** The no-table zones card, whose field for a zone just drawn takes the focus. */
+const zonesCard = ref<InstanceType<typeof LayoutPanelZones> | null>(null);
+
+function removeZone(id: string) {
+  const zone = floorplan.value?.zones.find((one) => one.id === id);
+  editor.removeZone(id);
+  if (zone) say(saidZoneRemoved(zone.label));
+}
+
 /** The layout's pending change lands before a phase move reads the market. */
 async function flushLayout(): Promise<void> {
   await editor.flush();
@@ -336,6 +360,25 @@ const selectedTables = computed(() => {
   return (floorplan.value?.tables ?? []).filter((table) => ids.has(table.id));
 });
 const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
+
+/** How many of the market's tables are of each type, this layout's as it stands unsaved. */
+const typeCounts = computed(() =>
+  tablesOfEachType(market.value?.setupObject?.floorplans ?? [], floorplan.value),
+);
+
+/** Write the market's types once the layout's own last change has landed, so the server judges
+ * which types its tables use as the page shows them; then re-read the market, whose types the
+ * map and the editor draw by. */
+async function writeTableTypes(types: TableTypeObject[]) {
+  const refused = await editor.flush();
+  if (refused) throw new LayoutNotSaved(refused);
+  await saveTableTypes(marketId.value, types);
+  await refresh();
+}
+
+const listSaved = () => listSavedTypes(market.value?.organizationId);
+const saveTheseTypes = (name: string) =>
+  saveTypes(name, tableTypes.value, market.value?.organizationId);
 </script>
 
 <template>
@@ -444,6 +487,7 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
               :fill="(request) => placeTables(marketId, request)"
               @announce="say"
               @status="showStatus"
+              @zoneAdded="zonesCard?.focusZone($event)"
             />
             <div
               v-else
@@ -537,6 +581,24 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
               @color="(sectionId, color) => editor.setSectionStyle(sectionId, { color })"
               @renumber="editor.renumber($event)"
               @selectUnsectioned="editor.select(unsectioned.map((table) => table.id))"
+            />
+            <LayoutPanelTypes
+              v-if="editing"
+              class="layout-card"
+              :tableTypes="tableTypes"
+              :counts="typeCounts"
+              :editable="editing"
+              :save="writeTableTypes"
+              :listSaved="listSaved"
+              :saveAs="saveTheseTypes"
+            />
+            <LayoutPanelZones
+              v-if="editing"
+              ref="zonesCard"
+              class="layout-card"
+              :zones="floorplan?.zones ?? []"
+              @label="editor.setZoneLabel"
+              @remove="removeZone"
             />
             <section class="layout-card" data-testid="layout-panel-floorplan">
               <h2 class="layout-card-title">Floorplan</h2>

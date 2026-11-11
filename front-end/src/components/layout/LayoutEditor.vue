@@ -83,6 +83,7 @@ import {
   saidRowAdded,
   saidSide,
   saidTurned,
+  saidZoneAdded,
 } from './layoutAnnouncements';
 import { plural } from '@/utils/historyReaders/shared';
 import { NO_SECTION_PAINT, layoutSections } from './layoutDrawing';
@@ -126,7 +127,7 @@ import {
 } from './layoutFill';
 import { rowChoices, useRowTool } from './layoutRow';
 import { centreOf, selectionBounds, turnSelection } from './layoutSelection';
-import type { LayoutEditor } from './useLayoutEditor';
+import { MAX_ZONES, type LayoutEditor } from './useLayoutEditor';
 
 const props = withDefaults(
   defineProps<{
@@ -145,6 +146,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   /** What a change did, in words for the page's live region. */
   announce: [words: string];
+  /** A no-table zone was drawn, to be named in the panel. */
+  zoneAdded: [id: string];
   /** What Fill an area did, or why it did not, for the panel's status line; '' clears it. */
   status: [words: string];
 }>();
@@ -174,7 +177,7 @@ const tableOf = (id: string | null) =>
 
 // ── The tools ────────────────────────────────────────────────────────────────
 
-type Tool = 'select' | 'add' | 'row' | 'fill';
+type Tool = 'select' | 'add' | 'row' | 'fill' | 'zone';
 const tool = ref<Tool>('select');
 
 /** The location's sections as the map draws them, by which a table is named when it is said. */
@@ -273,6 +276,9 @@ const hint = computed(() => {
         'area, Backspace takes one back, Ctrl and Enter closes it to fill it and Escape drops it.'
       );
     }
+    if (tool.value === 'zone') {
+      return 'A no-table zone is drawn with the pointer. The arrow keys move between tables.';
+    }
     return tool.value === 'add'
       ? 'Enter places a table at the middle of the view. The arrow keys move between tables.'
       : 'The arrow keys move between tables. Enter picks a table up to move it, ' +
@@ -288,6 +294,12 @@ const hint = computed(() => {
     return (
       'Drag a box over the floor to fill. For another shape, click its corners, then click the ' +
       'first corner, double-click or press Enter to close it.'
+    );
+  }
+  if (tool.value === 'zone') {
+    return (
+      'Drag a box over a stage, a pillar or an exit to keep tables off it, then name it in ' +
+      'the panel.'
     );
   }
   return tool.value === 'add'
@@ -460,6 +472,7 @@ type Gesture =
       point: number | null;
       begun: boolean;
     }
+  | { kind: 'zone'; from: { x: number; y: number }; fromMm: PointMm; begun: boolean }
   | {
       kind: 'floor';
       from: { x: number; y: number };
@@ -505,6 +518,8 @@ let gesturePointer: number | null = null;
 const guides = shallowRef<Guide[]>([]);
 /** The box a drag on the floor is drawing. */
 const selectBox = shallowRef<Bounds | null>(null);
+/** The no-table zone a drag with No-table zone on is drawing. */
+const zoneBox = shallowRef<Bounds | null>(null);
 const dragging = ref(false);
 const spaceHeld = ref(false);
 const hovering = ref(false);
@@ -705,6 +720,7 @@ function onPointerDown(event: PointerEvent) {
       }
       guides.value = [];
       selectBox.value = null;
+      zoneBox.value = null;
       gesture = { kind: 'pinch', ...pinch, camera: cam };
       gesturePointer = null;
       stage.value.setPointerCapture(event.pointerId);
@@ -753,6 +769,8 @@ function onPointerDown(event: PointerEvent) {
       point: fillTool.pointNear(toMm(event), ROW_POINT_PX / cam.pxPerMm),
       begun: false,
     };
+  } else if (tool.value === 'zone') {
+    gesture = { kind: 'zone', from, fromMm: clampToHall(toMm(event), hall.value), begun: false };
   } else {
     const id = tableAt(event);
     const label = id ? null : labelAt(event);
@@ -872,6 +890,10 @@ function onPointerMove(event: PointerEvent) {
     if (gesture.point !== null) fillTool.movePoint(gesture.point, to);
     else if (!fillTool.points.value.length) fillTool.dragTo([gesture.fromMm, to]);
     else fillTool.hoverAt(to);
+  } else if (gesture.kind === 'zone') {
+    if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
+    gesture.begun = true;
+    zoneBox.value = boxBetween(gesture.fromMm, clampToHall(toMm(event), hall.value));
   } else if (gesture.kind === 'floor') {
     if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
     gesture.begun = true;
@@ -919,6 +941,7 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
   gesturePointer = null;
   guides.value = [];
   selectBox.value = null;
+  zoneBox.value = null;
   dragging.value = false;
   if (stage.value?.hasPointerCapture(event.pointerId)) {
     stage.value.releasePointerCapture(event.pointerId);
@@ -942,6 +965,11 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
     } else if (done.kind === 'turn' && moved.length) {
       say(saidTurned(moved, done.by, drawnSections.value));
     }
+    return;
+  }
+  if (done.kind === 'zone') {
+    if (!done.begun || cancelled) return;
+    addZone(boxBetween(done.fromMm, clampToHall(toMm(event), hall.value)));
     return;
   }
   if (done.kind === 'floor') {
@@ -1031,12 +1059,29 @@ function place(at: PointMm): string | null {
   return ids[0];
 }
 
+/** Mark a no-table zone over a box drawn, and say so; the page then asks for its name. A box too
+ *  small, or a layout holding as many zones as it may, marks none and says why. */
+function addZone(box: Bounds) {
+  const id = props.editor.addZone(box);
+  if (!id) {
+    tell(
+      layout.value.zones.length >= MAX_ZONES
+        ? `A layout holds at most ${MAX_ZONES} no-table zones.`
+        : 'Drag a larger box to mark a no-table zone.',
+    );
+    return;
+  }
+  say(saidZoneAdded(box));
+  emit('zoneAdded', id);
+}
+
 /** Put back a drag, a turn or a box that Escape, or the browser, ended early. */
 function abandon() {
   const done = gesture;
   gesture = null;
   guides.value = [];
   selectBox.value = null;
+  zoneBox.value = null;
   dragging.value = false;
   if (done?.kind === 'row') {
     // A straight drag is dropped; a point that was being moved stays where it was let go.
@@ -1778,6 +1823,17 @@ watch(
       >
         Fill an area
       </button>
+      <button
+        type="button"
+        class="btn btn--secondary btn--compact"
+        data-tool="zone"
+        data-testid="layout-tool-zone"
+        :aria-pressed="tool === 'zone'"
+        :tabindex="effectiveStop === 'zone' ? 0 : -1"
+        @click="tool = 'zone'"
+      >
+        No-table zone
+      </button>
       <span class="layout-toolbar__rule" role="separator" aria-orientation="vertical" />
       <button
         type="button"
@@ -1838,7 +1894,7 @@ watch(
     </div>
 
     <div
-      v-if="tool !== 'select'"
+      v-if="tool !== 'select' && tool !== 'zone'"
       class="layout-options"
       :class="{ 'layout-options--row': tool === 'row' }"
       data-testid="layout-add-options"
@@ -1948,7 +2004,8 @@ watch(
       ref="stage"
       class="layout-stage"
       :class="{
-        'layout-stage--drawing': tool !== 'select',
+        'layout-stage--drawing': tool !== 'select' && tool !== 'zone',
+        'layout-stage--zone': tool === 'zone',
         'layout-stage--row': tool === 'row',
         'layout-stage--hand': spaceHeld,
         'layout-stage--dragging': dragging,
@@ -1995,6 +2052,22 @@ watch(
             vector-effect="non-scaling-stroke"
             aria-hidden="true"
             data-testid="layout-select-box"
+          />
+          <rect
+            v-if="zoneBox"
+            class="layout-zone-box"
+            :x="zoneBox.left"
+            :y="zoneBox.top"
+            :width="zoneBox.right - zoneBox.left"
+            :height="zoneBox.bottom - zoneBox.top"
+            fill="var(--layout-zone-fill)"
+            fill-opacity="0.7"
+            stroke="var(--layout-zone-edge)"
+            stroke-width="1.5"
+            stroke-dasharray="6 4"
+            vector-effect="non-scaling-stroke"
+            aria-hidden="true"
+            data-testid="layout-zone-box"
           />
           <LayoutRowPreview
             v-if="tool === 'row' && (row.pending.value || crosshair)"
@@ -2195,13 +2268,17 @@ watch(
   cursor: grab;
 }
 
-.layout-select-box {
+.layout-select-box,
+.layout-zone-box {
   pointer-events: none;
 }
 
 .layout-stage--drawing,
 .layout-stage--drawing :deep(.layout-table--button),
-.layout-stage--drawing :deep(.layout-map__label) {
+.layout-stage--drawing :deep(.layout-map__label),
+.layout-stage--zone,
+.layout-stage--zone :deep(.layout-table--button),
+.layout-stage--zone :deep(.layout-map__label) {
   cursor: crosshair;
 }
 

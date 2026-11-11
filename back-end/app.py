@@ -9,6 +9,7 @@ load_env_file()
 import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
+import api.layouts as LayoutsApi
 import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
 import api.vendor_info as VendorInfoApi
@@ -900,6 +901,19 @@ def save_plan(market_id: str) -> Response:
     data = json_object(required=True)
     MarketsApi.save_plan(market_id, data, authenticated_email())
     return jsonify({"message": "Plan saved"}), 200
+
+
+@app.route('/markets/<market_id>/table-types', methods=['PUT'])
+@login_required
+def save_table_types(market_id: str) -> Response:
+    """Replace the market's table types, which size a layout's tables (T257).
+
+    Body: { "tableTypes": [{ "id", "name", "widthMm", "depthMm" }, ...] }. Answers the types as
+    stored. A type tables use is not taken away, and the types settle on leaving draft.
+    """
+    data = json_object(required=False)
+    table_types = LayoutsApi.save_table_types(market_id, data, authenticated_email())
+    return jsonify({"tableTypes": table_types}), 200
 
 
 @app.route('/markets/<market_id>/discord/authorization', methods=['POST'])

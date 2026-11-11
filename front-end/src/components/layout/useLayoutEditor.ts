@@ -54,6 +54,8 @@ import {
   tableBounds,
   tableCorners,
   turnedAbout,
+  offZones,
+  zoneBounds,
   type Alignment,
   type Bounds,
   type MoveMm,
@@ -63,6 +65,10 @@ import { SAVE_FAILED, STALE_LAYOUT, type SavedLayout } from './layoutSave';
 
 /** How many steps undo holds. */
 export const UNDO_STEPS = 200;
+/** How many no-table zones a layout holds, as the server bounds them. */
+export const MAX_ZONES = 100;
+/** The smallest side a no-table zone is drawn with: smaller is a slip of the pointer. */
+export const MIN_ZONE_SIDE_MM = 100;
 /**
  * How the layout's saves stand: `idle` with nothing to say, `saving` while a change waits or a
  * write is out, `saved` just after one landed, `failed` when one did not (Retry), `stale` when the
@@ -70,14 +76,17 @@ export const UNDO_STEPS = 200;
  */
 export type LayoutSaveState = 'idle' | 'saving' | 'saved' | 'failed' | 'stale';
 
-/** What a step of undo holds of a layout: its tables and its sections' styles, as they stood. */
-type Step = Pick<FloorplanObject, 'tables' | 'sectionStyles'>;
+/** What a step of undo holds of a layout: its tables, its sections' styles and its no-table
+ *  zones, as they stood. */
+type Step = Pick<FloorplanObject, 'tables' | 'sectionStyles' | 'zones'>;
 
 const stepOf = (layout: FloorplanObject): Step => ({
   tables: layout.tables,
   sectionStyles: layout.sectionStyles,
+  zones: layout.zones,
 });
-const sameStep = (a: Step, b: Step) => a.tables === b.tables && a.sectionStyles === b.sectionStyles;
+const sameStep = (a: Step, b: Step) =>
+  a.tables === b.tables && a.sectionStyles === b.sectionStyles && a.zones === b.zones;
 
 /** A table to add: where it stands and what it is; its id and number are the editor's to give. */
 export interface NewTable {
@@ -165,6 +174,12 @@ export interface LayoutEditor {
   /** Choose a section's colour of the palette, or where its name stands (null: beside its tables,
    *  where the drawing puts it). */
   setSectionStyle(sectionId: string, style: { color?: number; labelAt?: PointMm | null }): void;
+  /** Mark a no-table zone over a box of the hall, held inside it; its id, or null for a box too
+   *  small to hold a table's corner, or a layout that holds as many zones as it may. */
+  addZone(box: Bounds, label?: string): string | null;
+  /** Name a no-table zone: "Stage", "Pillar". */
+  setZoneLabel(id: string, label: string): void;
+  removeZone(id: string): void;
   begin(): void;
   /** End the gesture in hand: true when it changed the layout, so made a step and a save. */
   end(): boolean;
@@ -226,7 +241,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
         // copy's, which may hold a change made while this write was out.
         layout.value =
           now === held && sent === held
-            ? { ...answer.floorplan, tables: now.tables, sectionStyles: now.sectionStyles }
+            ? { ...answer.floorplan, ...stepOf(now) }
             : {
                 ...now,
                 revision,
@@ -306,11 +321,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
       revision = 0;
     }
     const before = layout.value;
-    layout.value = {
-      ...next,
-      tables: before?.tables ?? next.tables,
-      sectionStyles: before?.sectionStyles ?? next.sectionStyles,
-    };
+    layout.value = { ...next, ...(before ? stepOf(before) : {}) };
     touch();
     const landed = (await autosave.flush()) === null;
     // A write refused as stale never can land, so the page shows the layout as it read it, with
@@ -392,7 +403,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
           rotation: roundTurn(table.rotation ?? 0),
         });
       }
-      return added.length ? next : tables;
+      return added.length ? pushedOff(next, new Set(ids), whole) : tables;
     });
     return ids;
   }
@@ -403,11 +414,12 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
       const own = tables.filter((table) => moving.has(table.id));
       const by = clampMove(own, { dxMm, dyMm }, hallOf(whole));
       if (!own.length || (by.dxMm === 0 && by.dyMm === 0)) return tables;
-      return tables.map((table) =>
+      const moved = tables.map((table) =>
         moving.has(table.id)
           ? { ...table, xMm: roundMm(table.xMm + by.dxMm), yMm: roundMm(table.yMm + by.dyMm) }
           : table,
       );
+      return carried() ? moved : pushedOff(moved, moving, whole);
     });
   }
 
@@ -439,7 +451,8 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
           return [table.id, { ...table, ...at }] as const;
         }),
       );
-      return tables.map((table) => placed.get(table.id) ?? table);
+      const done = tables.map((table) => placed.get(table.id) ?? table);
+      return carried() ? done : pushedOff(done, turning, whole);
     });
   }
 
@@ -457,6 +470,33 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
 
   const sizeOf = (table: FloorplanTable) =>
     options.tableTypes?.().find((type) => type.id === table.tableTypeId) ?? STANDARD_TABLE;
+
+  /**
+   * The tables with those named pushed off the no-table zones they stand on, together, to the
+   * nearest clear place inside the hall, as a snap would take them (`offZones`); the same array
+   * when they stand clear. What is picked up by keyboard is pushed only as it is dropped, so the
+   * keys can carry it across a zone.
+   */
+  function pushedOff(
+    tables: FloorplanTable[],
+    ids: ReadonlySet<string>,
+    whole: FloorplanObject,
+  ): FloorplanTable[] {
+    if (!whole.zones.length) return tables;
+    const own = tables.filter((table) => ids.has(table.id));
+    const by = offZones(
+      own.map((table) => tableCorners(table, sizeOf(table))),
+      whole.zones.map(zoneBounds),
+      hallOf(whole),
+    );
+    if (by.dxMm === 0 && by.dyMm === 0) return tables;
+    return tables.map((table) =>
+      ids.has(table.id)
+        ? { ...table, xMm: roundMm(table.xMm + by.dxMm), yMm: roundMm(table.yMm + by.dyMm) }
+        : table,
+    );
+  }
+  const carried = () => Boolean(gesture?.carried);
 
   function setSection(ids: readonly string[], sectionId: string | null) {
     const named = new Set(ids);
@@ -620,6 +660,58 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     });
   }
 
+  // ── No-table zones ─────────────────────────────────────────────────────────
+
+  function addZone(box: Bounds, label = ''): string | null {
+    const id = newId();
+    let added = false;
+    alter((from, whole) => {
+      const hall = hallOf(whole);
+      const left = Math.max(box.left, 0);
+      const top = Math.max(box.top, 0);
+      const right = hall ? Math.min(box.right, hall.widthMm) : box.right;
+      const bottom = hall ? Math.min(box.bottom, hall.heightMm) : box.bottom;
+      if (
+        from.zones.length >= MAX_ZONES ||
+        right - left < MIN_ZONE_SIDE_MM ||
+        bottom - top < MIN_ZONE_SIDE_MM
+      ) {
+        return {};
+      }
+      added = true;
+      return {
+        zones: [
+          ...from.zones,
+          {
+            id,
+            label: label.trim(),
+            xMm: roundMm(left),
+            yMm: roundMm(top),
+            widthMm: roundMm(right - left),
+            depthMm: roundMm(bottom - top),
+          },
+        ],
+      };
+    });
+    return added ? id : null;
+  }
+
+  function setZoneLabel(id: string, label: string) {
+    const named = label.trim();
+    alter((from) => {
+      const zone = from.zones.find((one) => one.id === id);
+      if (!zone || zone.label === named) return {};
+      return { zones: from.zones.map((one) => (one === zone ? { ...one, label: named } : one)) };
+    });
+  }
+
+  function removeZone(id: string) {
+    alter((from) => {
+      const left = from.zones.filter((one) => one.id !== id);
+      return left.length === from.zones.length ? {} : { zones: left };
+    });
+  }
+
   function begin() {
     if (layout.value && !gesture) gesture = { found: stepOf(layout.value), from: null };
   }
@@ -661,8 +753,11 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
 
   function drop(): boolean {
     const held = gesture;
+    if (!held?.carried || !layout.value) return false;
+    // Put down on a no-table zone, the tables are pushed off it, as a drag's are.
+    const ids = new Set(pickedUp.value);
+    change((tables, whole) => pushedOff(tables, ids, whole));
     const now = layout.value;
-    if (!held?.carried || !now) return false;
     // Moved out and back, or turned all the way round, the tables stand as they were picked up:
     // no step and no save, and the layout is again the one that was read.
     const before = new Map(held.found.tables.map((table) => [table.id, table]));
@@ -736,6 +831,9 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     distribute,
     renumber,
     setSectionStyle,
+    addZone,
+    setZoneLabel,
+    removeZone,
     begin,
     end,
     cancel,

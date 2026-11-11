@@ -1199,3 +1199,10 @@ class TestEveryFloorplanRouteNeedsASignIn:
             f"These floorplan routes answer without a sign-in: {', '.join(open_routes)}. "
             "Give each @login_required, under its @route."
         )
+
+    def test_the_table_types_write_asks_for_a_sign_in(self, market):
+        # Not a floorplan blueprint's: it stands in app.py beside the plan write (T257).
+        response = app_module.app.test_client().put(
+            f"/markets/{MARKET_ID}/table-types", json={"tableTypes": []})
+
+        assert response.status_code == 401

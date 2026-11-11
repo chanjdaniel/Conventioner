@@ -7,8 +7,8 @@
 import { ref, type Ref } from 'vue';
 import type { FloorplanTable } from '@/assets/types/datatypes';
 import { plural } from '@/utils/historyReaders/shared';
-import { placeInMetres, tableCode, type LayoutSection } from './layoutDrawing';
-import type { PointMm } from './layoutGeometry';
+import { metres, placeInMetres, tableCode, type LayoutSection } from './layoutDrawing';
+import type { Bounds, PointMm } from './layoutGeometry';
 
 /** A table's code among the sections the map draws; null for a table in no section. */
 function codeOf(table: FloorplanTable, sections: readonly LayoutSection[]): string | null {
@@ -195,4 +195,17 @@ export function useAnnouncements(): { said: Ref<string>; say: (words: string) =>
     said.value = said.value === words ? `${words} ` : words;
   }
   return { said, say };
+}
+
+/** "Added a no-table zone 4.0 m by 3.0 m. Name it in the panel." */
+export function saidZoneAdded(box: Bounds): string {
+  return (
+    `Added a no-table zone ${metres(box.right - box.left)} by ${metres(box.bottom - box.top)}. ` +
+    'Name it in the panel.'
+  );
+}
+
+/** "Removed the no-table zone Stage", or one with no name. */
+export function saidZoneRemoved(label: string): string {
+  return label.trim() ? `Removed the no-table zone ${label.trim()}` : 'Removed a no-table zone';
 }

@@ -4,7 +4,7 @@
  * corner, y downwards; a rotation is degrees clockwise about a table's centre, as the layout is
  * stored.
  */
-import type { FloorplanObject, SectionStyle } from '@/assets/types/datatypes';
+import type { FloorplanObject, FloorplanZone, SectionStyle } from '@/assets/types/datatypes';
 
 export interface PointMm {
   xMm: number;
@@ -2154,4 +2154,116 @@ export function polygonIsSimple(points: readonly PointMm[]): boolean {
     }
   }
   return true;
+}
+
+// ── No-table zones ───────────────────────────────────────────────────────────
+
+/** The box a no-table zone covers. */
+export function zoneBounds(
+  zone: Pick<FloorplanZone, 'xMm' | 'yMm' | 'widthMm' | 'depthMm'>,
+): Bounds {
+  return {
+    left: zone.xMm,
+    top: zone.yMm,
+    right: zone.xMm + zone.widthMm,
+    bottom: zone.yMm + zone.depthMm,
+  };
+}
+
+/** How far past a zone's edge a table is pushed, so the rounding of its place never takes it back
+ *  over the edge. */
+const PAST_THE_EDGE_MM = 0.05;
+/** How many places are tried before a push gives up, leaving the tables where they are. */
+const PUSH_TRIES = 400;
+
+/**
+ * The move that takes tables off every no-table zone they stand on, together, to the nearest place
+ * clear of all of them with every centre inside the hall; no move when they stand clear, or when
+ * no such place is found. Tried nearest first: from where they stand, each zone a table meets
+ * offers four ways off it (past each of its edges), and a way that lands on another zone offers
+ * that zone's ways in turn. Touching a zone is clear of it.
+ */
+export function offZones(
+  shapes: readonly (readonly PointMm[])[],
+  zones: readonly Bounds[],
+  hall: Hall | null,
+): MoveMm {
+  const still: MoveMm = { dxMm: 0, dyMm: 0 };
+  if (!shapes.length || !zones.length) return still;
+  const boxes = shapes.map(boxOfPoints);
+  const zoneShapes = zones.map(cornersOf);
+  const centres = shapes.map((shape) => ({
+    xMm: shape.reduce((sum, corner) => sum + corner.xMm, 0) / shape.length,
+    yMm: shape.reduce((sum, corner) => sum + corner.yMm, 0) / shape.length,
+  }));
+  const inside = (by: MoveMm) =>
+    !hall ||
+    centres.every(
+      (centre) =>
+        centre.xMm + by.dxMm >= 0 &&
+        centre.xMm + by.dxMm <= hall.widthMm &&
+        centre.yMm + by.dyMm >= 0 &&
+        centre.yMm + by.dyMm <= hall.heightMm,
+    );
+  /** Each table and zone that meet with the tables moved so. */
+  const meeting = (by: MoveMm) => {
+    const met: [number, number][] = [];
+    boxes.forEach((box, i) => {
+      zones.forEach((zone, j) => {
+        if (
+          box.right + by.dxMm <= zone.left ||
+          box.left + by.dxMm >= zone.right ||
+          box.bottom + by.dyMm <= zone.top ||
+          box.top + by.dyMm >= zone.bottom
+        ) {
+          return;
+        }
+        const moved = shapes[i].map((corner) => ({
+          xMm: corner.xMm + by.dxMm,
+          yMm: corner.yMm + by.dyMm,
+        }));
+        if (shapesOverlap(moved, zoneShapes[j])) met.push([i, j]);
+      });
+    });
+    return met;
+  };
+  const length = (by: MoveMm) => Math.hypot(by.dxMm, by.dyMm);
+  const queue: MoveMm[] = [still];
+  const seen = new Set<string>();
+  for (let tries = 0; queue.length && tries < PUSH_TRIES; tries += 1) {
+    queue.sort((a, b) => length(a) - length(b));
+    const by = queue.shift()!;
+    const key = `${by.dxMm.toFixed(2)} ${by.dyMm.toFixed(2)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!inside(by)) continue;
+    const met = meeting(by);
+    if (!met.length) return by;
+    for (const [i, j] of met) {
+      const box = boxes[i];
+      const zone = zones[j];
+      const x = box.left + by.dxMm;
+      const y = box.top + by.dyMm;
+      const width = box.right - box.left;
+      const depth = box.bottom - box.top;
+      queue.push(
+        { dxMm: by.dxMm + zone.left - (x + width) - PAST_THE_EDGE_MM, dyMm: by.dyMm },
+        { dxMm: by.dxMm + zone.right - x + PAST_THE_EDGE_MM, dyMm: by.dyMm },
+        { dxMm: by.dxMm, dyMm: by.dyMm + zone.top - (y + depth) - PAST_THE_EDGE_MM },
+        { dxMm: by.dxMm, dyMm: by.dyMm + zone.bottom - y + PAST_THE_EDGE_MM },
+      );
+    }
+  }
+  return still;
+}
+
+function boxOfPoints(points: readonly PointMm[]): Bounds {
+  const xs = points.map((point) => point.xMm);
+  const ys = points.map((point) => point.yMm);
+  return {
+    left: Math.min(...xs),
+    top: Math.min(...ys),
+    right: Math.max(...xs),
+    bottom: Math.max(...ys),
+  };
 }
