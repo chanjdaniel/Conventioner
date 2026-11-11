@@ -51,7 +51,6 @@ export interface AppliedOverTime {
 /** Past this many days a column is a week, so the columns stay readable on a phone. */
 const MOST_DAYS = 42;
 
-
 /** A time as a day in the reader's calendar, or null when it is not a time. */
 function readersDay(time: string | null | undefined): string | null {
   if (!time) return null;

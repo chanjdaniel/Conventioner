@@ -6,7 +6,8 @@
  *
  * Here they become the section's card: the three figures, each to the cent (`money`), still owed a
  * link to Payments on Owes where anyone owes, a zero told and not linked; and one `MeterBar` of paid
- * against owed, its mark at owed, so a payment beyond what is owed is drawn past it.
+ * against owed, the track's end standing for what is owed. Only a payment beyond what is owed
+ * marks it, inside the track, and is drawn past it.
  */
 import type { RouteLocationRaw } from 'vue-router';
 import { marketPath } from '@/utils/market';
@@ -25,7 +26,7 @@ export interface MoneyFigure {
 export interface MoneyCard {
   figures: MoneyFigure[];
   /** Paid against owed, as a `MeterBar` draws it. */
-  bar: { words: string; value: number; mark: number; scale: number };
+  bar: { words: string; value: number; mark: number | undefined; scale: number };
 }
 
 export function moneyCard(counted: MoneyHeadlines | null, marketId: string): MoneyCard | null {
@@ -50,7 +51,7 @@ export function moneyCard(counted: MoneyHeadlines | null, marketId: string): Mon
     bar: {
       words: `${amount(paidCents)} of ${amount(owedCents)} paid`,
       value: paid,
-      mark: owedCents,
+      mark: paid > owedCents ? owedCents : undefined,
       scale: Math.max(paid, owedCents),
     },
   };

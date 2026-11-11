@@ -26,7 +26,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="fill-grid">
+  <div class="fill-grid" :data-testid="`${testid}-card`">
     <p class="fill-grid-title" aria-hidden="true">{{ title }}</p>
     <ScrollBox axis="x" :label="title" :testid="`${testid}-scroller`">
       <table class="fill-grid-table">
@@ -91,11 +91,15 @@ defineProps<{
 </template>
 
 <style scoped>
+/* As wide as its table and no wider, so a few days leave no empty band at its right; a table
+   wider than the room scrolls in its box. */
 .fill-grid {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  width: fit-content;
   min-width: 0;
+  max-width: 100%;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);

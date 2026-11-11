@@ -122,6 +122,14 @@ test('the Stats tab counts who applied as the Applications tab does, for anyone 
   await expect(stats.overTimeColumns).toHaveCount(6);
   await expect(stats.overTimeAxis).toHaveText(/Aug 31\s*Sep 5/);
   await expect(stats.overTimeMost).toHaveText('3');
+  // The columns spread across the whole card, none wider than 3rem, so no empty band is left at
+  // its right.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const spread = await plotAndColumns(stats);
+  expect(spread.plot.width).toBeGreaterThan(spread.card.width - 40);
+  expect(spread.columns[0]!.left).toBeCloseTo(spread.plot.left, 0);
+  expect(spread.columns[spread.columns.length - 1]!.right).toBeCloseTo(spread.plot.right, 0);
+  for (const column of spread.columns) expect(column.width).toBeLessThanOrEqual(48);
 
   // Its numbers, every day, behind the disclosure.
   await expect(stats.overTimeRows.first()).toBeHidden();
@@ -195,9 +203,35 @@ test('a review status with nobody in it is told, and not linked', async ({
     await expect(stats.status(empty).locator('xpath=self::a')).toHaveCount(0);
   }
   await expect(page.getByRole('link', { name: /^Approved/ })).toHaveCount(0);
-  // Applied today, so the chart is that one day.
+  // Applied today, so the chart is that one day: its column, and the day under it, in the middle
+  // of the card.
   await expect(stats.overTimeColumns).toHaveCount(1);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const lone = await plotAndColumns(stats);
+  const middle = (box: { left: number; right: number }) => (box.left + box.right) / 2;
+  expect(lone.plot.width).toBeGreaterThan(lone.card.width - 40);
+  expect(middle(lone.columns[0]!)).toBeCloseTo(middle(lone.plot), 0);
+  expect(middle(lone.axis)).toBeCloseTo(middle(lone.plot), 0);
 });
+
+/** The over-time card, its plot, each column and the axis's first label, as drawn. */
+async function plotAndColumns(stats: StatsPage) {
+  const rect = (element: Element) => {
+    const { left, right, width } = element.getBoundingClientRect();
+    return { left, right, width };
+  };
+  return {
+    card: await stats.overTime.evaluate(rect),
+    plot: await stats.overTimePlot.evaluate(rect),
+    columns: await stats.overTimeColumns.evaluateAll((all) =>
+      all.map((element) => {
+        const { left, right, width } = element.getBoundingClientRect();
+        return { left, right, width };
+      }),
+    ),
+    axis: await stats.overTimeAxis.locator('span').first().evaluate(rect),
+  };
+}
 
 test('a market nobody has applied to says so, in draft', async ({
   authenticatedPage: page,
@@ -470,11 +504,17 @@ test('how full reads each section on each day as its tables used, totalled, and 
   await expect(grid.getByRole('cell').first()).toHaveAccessibleName(/3 of 3 used, full/);
   // The cells add up to the headline's table-days used, half a table held counted.
   await expect(stats.headline('used')).toHaveText('5 of 40 table-days used');
+  // The card ends where its table does, so no empty band stands at its right.
+  const edges = (element: Element) => element.getBoundingClientRect().right;
+  const tableEnd = await grid.evaluate(edges);
+  const cardEnd = await stats.fillCard.evaluate(edges);
+  expect(cardEnd - tableEnd).toBeLessThanOrEqual(20);
+  expect(cardEnd).toBeLessThan(await stats.fill.getByRole('heading', { level: 2 }).evaluate(edges));
 
   // On a phone the page stays inside the window, and the table scrolls in its box, the section
   // names held at the left.
   await page.setViewportSize({ width: 390, height: 844 });
-  const scroller = page.getByTestId('stats-fill-scroller');
+  const scroller = stats.fillScroller;
   await expect
     .poll(() => scroller.evaluate((box) => box.scrollWidth - box.clientWidth))
     .toBeGreaterThan(0);

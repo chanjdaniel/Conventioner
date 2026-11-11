@@ -34,7 +34,7 @@ Before anyone applies it says "Nobody has applied yet." and shows the room alone
 Every figure is counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
 A jump through history from one market's Stats to another's keeps the page, so the first market's figures go at once: none of them is drawn under the next market's name while it counts, or if its read fails (`the-stats-tab.spec.ts`).
 Its sections keep one order, the market's life's: who applied, the room, how full, the money, check-in, then what they answered (T201).
-Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width; the chart over time and the review's split bar, each one line of a whole, and the How full table span the row.
+Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width; the chart over time and the review's split bar, each one line of a whole, span the row, the chart's columns spread across it; the How full card spans it up to its table's width, ending where its table does.
 The page fits a phone, so how the day stands is read at the market (T180): its strip's tiles stand two to a row, each link a thumb's target, and the switch and the cards stay inside the window ([the design language](../../design-system.md#layout)).
 
 ## N1. See the market's state at a glance
@@ -130,7 +130,7 @@ Covered by:
 1. "Money" shows where the market sets prices and the [Payments](payments.md) page has someone to count, in any phase.
 2. "Owed and paid" tells "Owed", "Paid" and "Still owed", each to the cent ([an amount reads to the cent](../rules/an-amount-reads-to-the-cent.md)), the Payments page's own figures, counted on the server by that page's code (`count_money`, by `market_money`: [payments, and what a vendor owes](../../implementation/data/payments.md)).
    "Still owed" opens Payments on "Owes" (`?show=owes`); at "$0.00" it is told but not linked, as nobody owes.
-3. Under them one meter bar, "Collected", reads "$900.00 of $1,450.00 paid": paid drawn against a black line at what is owed, so a payment beyond it is drawn past the line in the attention fill; a refund beyond what was paid leaves the bar empty, its words still saying it.
+3. Under them one meter bar, "Collected", reads "$900.00 of $1,450.00 paid": paid drawn against what is owed, the track's end; only a payment beyond what is owed marks it with a black line inside the track and is drawn past it in the attention fill; a refund beyond what was paid leaves the bar empty, its words still saying it.
    The bar is hidden from a screen reader, which reads the words.
 4. On a card wide enough for a large amount in each, the three stand side by side, each its label over its amount; on a narrower one, a phone's, one to a line, the label at its start and the amount at its end.
 
@@ -145,7 +145,7 @@ Covered by:
 **Status:** Works (read from the code as of T201 ticket 05: `the-stats-headlines.spec.ts`, `test_the_stats_check_in.py`).
 
 1. "Check-in" shows from Market Days on, in Market Days and in the archive of a market that ran ([the phase record](../../implementation/modules/phase-record.md)'s `ran`); an archived market that never reached its days has none.
-2. "Checked in each day" is a row per market date: the date, "18 of 24 checked in", and a bar of those checked in against a black line at those expected.
+2. "Checked in each day" is a row per market date: the date, "18 of 24 checked in", and a bar of those checked in, every day on the scale of the day with the most expected; a day expected short of it has a black line at its own expected, where its whole ends inside the track.
    Expected and checked in are the door's own count of the day, [Attendance](../../implementation/modules/attendance-and-door.md)'s "18/24": a row each for every seat the stored assignment holds that day, here when its vendor has checked in, by an organizer at the door or by the vendor on their vendor page.
 3. Beside the figures, how many are missing: "6 not yet" while the day may still come, "6 did not come" once it is over, past or the market archived, as the door words a row; either opens Attendance on that day (`?date=`).
    A day with nobody missing says "Everyone is in" and links nowhere; a day nobody is assigned to says "Nobody is assigned" with no bar.

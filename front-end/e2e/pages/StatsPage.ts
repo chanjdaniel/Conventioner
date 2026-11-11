@@ -19,7 +19,8 @@ export class StatsPage {
   readonly counting: Locator;
   /** The failure line, when the figures could not be read. */
   readonly error: Locator;
-  /** The chart of applications over time: its image, columns, axis, top mark and numbers. */
+  /** The chart of applications over time: its card, image, columns, axis, top mark and numbers. */
+  readonly overTime: Locator;
   readonly overTimePlot: Locator;
   readonly overTimeColumns: Locator;
   readonly overTimeAxis: Locator;
@@ -31,8 +32,10 @@ export class StatsPage {
   readonly statusBarParts: Locator;
   /** The Room section: its cards, `days` and `tiers`. */
   readonly room: Locator;
-  /** The How full section: its table of sections against days. */
+  /** The How full section: its card, holding the table of sections against days in its scroller. */
   readonly fill: Locator;
+  readonly fillCard: Locator;
+  readonly fillScroller: Locator;
   /** The Money section: owed, paid and still owed, and a bar of paid against owed. */
   readonly money: Locator;
   readonly moneyBar: Locator;
@@ -51,6 +54,7 @@ export class StatsPage {
     this.none = page.getByTestId('stats-applicants-none');
     this.counting = page.getByTestId('stats-counting');
     this.error = page.getByTestId('stats-error');
+    this.overTime = page.getByTestId('stats-over-time');
     this.overTimePlot = page.getByTestId('stats-over-time-plot');
     this.overTimeColumns = page.getByTestId('stats-over-time-column');
     this.overTimeAxis = page.getByTestId('stats-over-time-axis');
@@ -61,6 +65,8 @@ export class StatsPage {
     this.statusBarParts = page.getByTestId('stats-status-bar-part');
     this.room = page.getByTestId('stats-room');
     this.fill = page.getByTestId('stats-fill');
+    this.fillCard = page.getByTestId('stats-fill-card');
+    this.fillScroller = page.getByTestId('stats-fill-scroller');
     this.money = page.getByTestId('stats-money');
     this.moneyBar = page.getByTestId('stats-money-bar-bar');
     this.checkIn = page.getByTestId('stats-check-in');

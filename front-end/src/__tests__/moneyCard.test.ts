@@ -34,16 +34,16 @@ describe('moneyCard', () => {
     expect(card.figures[2]).toMatchObject({ amount: '$0.00', to: null });
   });
 
-  it('draws paid against owed, the mark at what is owed', () => {
+  it('draws paid against owed, the track standing for what is owed, with no mark at its end', () => {
     expect(moneyCard(MONEY, 'm-1')!.bar).toEqual({
       words: '$900.00 of $1,450.00 paid',
       value: 90000,
-      mark: 145000,
+      mark: undefined,
       scale: 145000,
     });
   });
 
-  it('draws paid past the mark when more was paid than owed', () => {
+  it('marks what is owed, and draws paid past it, only when more was paid than owed', () => {
     const { bar } = moneyCard({ ...MONEY, paidCents: 160000, stillOwedCents: 0 }, 'm-1')!;
 
     expect(bar).toMatchObject({ value: 160000, mark: 145000, scale: 160000 });

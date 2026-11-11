@@ -353,9 +353,10 @@ test("the money reads the Payments page's figures, a bar of paid against owed, a
   await expect(stats.money.getByTestId('stats-money-bar-words')).toHaveText(
     '$90.00 of $117.50 paid',
   );
-  // The bar is drawn for the eye; the words carry its figures. Nobody paid past what is owed.
+  // The bar is drawn for the eye; the words carry its figures. Nobody paid past what is owed, so
+  // the track's end is what is owed, and no mark stands there.
   await expect(stats.moneyBar).toHaveAttribute('aria-hidden', 'true');
-  await expect(stats.money.getByTestId('stats-money-bar-mark')).toBeVisible();
+  await expect(stats.money.getByTestId('stats-money-bar-mark')).toHaveCount(0);
   await expect(stats.money.getByTestId('stats-money-bar-past')).toHaveCount(0);
   // Only still owed is worked on somewhere of its own.
   await expect(stats.moneyFigure('owed').getByRole('link')).toHaveCount(0);

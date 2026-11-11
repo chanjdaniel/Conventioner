@@ -214,7 +214,6 @@ const answers = ledgerRows(
   >
     <LibraryPanel label="The fixture's seats: every table taken" class="library-wide">
       <FillGrid
-        class="library-full"
         title="Tables used of each section's tables, each day"
         :grid="full"
         testid="library-charts-fill"
@@ -222,7 +221,6 @@ const answers = ledgerRows(
     </LibraryPanel>
     <LibraryPanel label="Partway placed: a cell at each step" class="library-wide">
       <FillGrid
-        class="library-full"
         title="Tables used of each section's tables, each day"
         :grid="steps"
         testid="library-charts-fill-steps"
@@ -230,7 +228,6 @@ const answers = ledgerRows(
     </LibraryPanel>
     <LibraryPanel label="Nine days: wider than a phone, scrolling in its box" class="library-wide">
       <FillGrid
-        class="library-full"
         title="Tables used of each section's tables, each day"
         :grid="nineDays"
         testid="library-charts-fill-days"

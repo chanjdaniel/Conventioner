@@ -27,15 +27,17 @@ describe('checkInRows', () => {
     ]);
   });
 
-  it('draws every day on the card largest expected, the mark at its own expected', () => {
+  it('draws every day on the card largest expected, marking a day expected short of it', () => {
     const card = checkInRows(CHECK_IN, 'm-1', 'market_days', BEFORE)!;
 
     expect(card.scale).toBe(24);
-    expect(card.rows.map((row) => [row.checkedIn, row.expected])).toEqual([
-      [18, 24],
-      [20, 20],
+    expect(card.rows.map((row) => [row.checkedIn, row.expected, row.mark])).toEqual([
+      // The largest day's whole is the track's end: no mark there.
+      [18, 24, undefined],
+      // A smaller day's whole falls inside the track, so it is marked.
+      [20, 20, 20],
       // Nobody to check in: no bar.
-      [null, 0],
+      [null, 0, undefined],
     ]);
   });
 

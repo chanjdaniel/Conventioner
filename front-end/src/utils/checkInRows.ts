@@ -5,8 +5,8 @@
  * and `came`, the vendors checked in on any date; `null` until the market has reached Market Days.
  *
  * Here those counts become the section's card, a row per market day drawn as a `MeterBar` of
- * checked in, its mark at the day's expected, every row on one scale, the card's largest expected,
- * so the days compare. Beside each row, how many are missing, linking to Attendance on that day
+ * checked in, every row on one scale, the card's largest expected, so the days compare; a day
+ * expected short of that is marked at its own expected, where its whole ends inside the track. Beside each row, how many are missing, linking to Attendance on that day
  * (`?date=`), in the door's words: "not yet" while the day may still come, "did not come" once it
  * is over, past or archived. A day with nobody missing says so and links nowhere, and a day nobody
  * is assigned to draws no bar.
@@ -39,8 +39,12 @@ export interface CheckInRow {
   words: string;
   /** Checked in, drawn as the bar; `null` on a day nobody is assigned to, so no bar. */
   checkedIn: number | null;
-  /** Expected, drawn as the bar's mark. */
   expected: number;
+  /**
+   * The bar's mark, at expected where that falls short of the card's scale; none where it is the
+   * track's end, which says it already.
+   */
+  mark: number | undefined;
   /** Those not in, beside the row; `null` on a day nobody is assigned to. */
   missing: { words: string; to: RouteLocationRaw | null } | null;
 }
@@ -60,6 +64,7 @@ export function checkInRows(
 ): CheckInCard | null {
   if (!checkIn?.dates.length) return null;
   const attendance = marketPath(marketId, 'attendance');
+  const scale = Math.max(0, ...checkIn.dates.map((day) => day.expected));
   return {
     rows: checkIn.dates.map(({ date, expected, checkedIn }) => {
       const label = getFormattedDate(date) ?? date;
@@ -70,6 +75,7 @@ export function checkInRows(
           words: 'Nobody is assigned',
           checkedIn: null,
           expected,
+          mark: undefined,
           missing: null,
         };
       }
@@ -81,6 +87,7 @@ export function checkInRows(
         words: `${checkedIn} of ${expected} checked in`,
         checkedIn,
         expected,
+        mark: expected < scale ? expected : undefined,
         missing: left
           ? {
               words: `${left} ${over ? 'did not come' : 'not yet'}`,
@@ -89,6 +96,6 @@ export function checkInRows(
           : { words: 'Everyone is in', to: null },
       };
     }),
-    scale: Math.max(0, ...checkIn.dates.map((day) => day.expected)),
+    scale,
   };
 }

@@ -50,8 +50,6 @@ const LOCALLY_DEFINED = new Set([
   '--scroll-box-shade',
   // A picker row's space over and under, read by the row and its tick alike (SearchPicker).
   '--row-inset',
-  // How many columns a chart draws, set on its plot and read by the plot's width (ColumnChart).
-  '--column-count',
 ]);
 
 function sourceFiles(dir: string, extensions: string[]): string[] {

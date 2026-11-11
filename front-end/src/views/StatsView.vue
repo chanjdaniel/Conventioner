@@ -33,8 +33,8 @@
  * Its sections keep one order, the market's life's (T201): who applied, the room, how full, the
  * money, check-in, then what they answered.
  * Their cards stand two to a row while the page's content is 48rem wide or more, one below it; a
- * chart that reads as one line of a whole, over time or across the review, and the How full table
- * span the row.
+ * chart that reads as one line of a whole, over time or across the review, spans the row, and the
+ * How full card spans it up to its table's width.
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
@@ -341,7 +341,7 @@ const NOBODY: Record<string, string> = {
                   :label="row.label"
                   :words="row.words"
                   :value="row.checkedIn"
-                  :mark="row.expected"
+                  :mark="row.mark"
                   :scale="checkIn.scale"
                   testid="stats-check-in-row"
                   data-testid="stats-check-in-row"

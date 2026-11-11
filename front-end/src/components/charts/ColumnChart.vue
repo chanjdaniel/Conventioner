@@ -55,13 +55,7 @@ const ends = computed(() => {
 <template>
   <div class="column-chart">
     <h3>{{ title }}</h3>
-    <div
-      class="column-chart-plot"
-      role="img"
-      :aria-label="summary"
-      :style="{ '--column-count': columns.length }"
-      :data-testid="`${testid}-plot`"
-    >
+    <div class="column-chart-plot" role="img" :aria-label="summary" :data-testid="`${testid}-plot`">
       <div class="column-chart-area">
         <span class="column-chart-most" :data-testid="`${testid}-most`">{{ most }}</span>
         <div class="column-chart-columns">
@@ -118,13 +112,11 @@ const ends = computed(() => {
   color: var(--mm-text-muted);
 }
 
-/* No wider than 3rem a column, so a few weeks are not a few slabs across a desk; the axis and the
-   top line are the plot's, so they end where the last column does. */
+/* The plot spans the card, so no empty band stands at its right; its columns spread across it. */
 .column-chart-plot {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  max-width: calc(var(--column-count) * 3rem);
 }
 
 /* The largest count's line at the top, its figure standing on it at the left; the columns rise
@@ -147,6 +139,7 @@ const ends = computed(() => {
 .column-chart-columns {
   display: flex;
   align-items: flex-end;
+  justify-content: space-between;
   gap: var(--space-hairline);
   height: 8rem;
   border-top: 1px dashed var(--mm-border);
@@ -154,12 +147,20 @@ const ends = computed(() => {
 }
 
 /* Equal columns that share the width, however many: a day of six weeks is still a few pixels on
-   a 320px phone. A column with any count stands at least 2px, so a lone application shows. */
+   a 320px phone. No wider than 3rem, so a few weeks are not a few slabs across a desk: the room
+   left spreads them, the first at the left edge and the last at the right, where the axis names
+   them; a lone column stands in the middle. A column with any count stands at least 2px, so a
+   lone application shows. */
 .column-chart-column {
   flex: 1 1 0;
   min-width: 0;
+  max-width: 3rem;
   min-height: 2px;
   background: var(--mm-green);
+}
+
+.column-chart-column:only-child {
+  margin-inline: auto;
 }
 
 .column-chart-column--empty {
@@ -174,9 +175,9 @@ const ends = computed(() => {
   color: var(--mm-text-muted);
 }
 
-/* A single bucket is named under it at the left, where its column stands. */
+/* A single bucket is named under it, in the middle, where its column stands. */
 .column-chart-axis span:only-child {
-  margin-right: auto;
+  margin-inline: auto;
 }
 
 .column-chart-numbers summary {

@@ -7,8 +7,8 @@
  * Given a `mark`, a 2px `--mm-black` line stands where it falls, and the part of the value past it
  * is drawn in the chart's attention fill, `--mm-chart-yellow`, the rest in `--mm-green`. The Stats
  * tab draws with it its Room, each day's and tier's tables asked with the mark at the tables; its
- * Money, paid with the mark at owed; and its Check-in, each day's checked in with the mark at those
- * expected.
+ * Money, paid against owed, marked at owed only when more was paid; and its Check-in, each day's
+ * checked in, marked at those expected only on a day expected short of the card's largest.
  *
  * The bar is hidden from assistive technology; the label and the words are the text, so the
  * caller's words carry every figure the bar draws. Without a value there is no bar, the words

@@ -341,7 +341,8 @@ One elevation shadow, extracted from the newer screens, where it is already used
 
 ```css
 --shadow-card:
-  0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 6px 14px rgba(0, 0, 0, 0.08);
+  0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07),
+  0 6px 14px rgba(0, 0, 0, 0.08);
 ```
 
 **The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic. That rule is elevation's; the focus halo below is a focus indicator, deliberately a flat ring that hugs the control.
@@ -385,6 +386,7 @@ The deep focus border reads less on a darker fill: 3.17:1 on `--mm-green-hover`,
 A chart's marks are held to the same 3:1 on the white card they are drawn on (T201): the review's split bar fills Open, Needs follow-up, Approved and Rejected with `--mm-blue`, `--mm-chart-yellow`, `--mm-green` and `--mm-red`, a status no filter lists with `--mm-text-muted`, each part set apart by a 2px white gap so neighbouring fills need no contrast with each other.
 `--mm-yellow` is 2.15:1 on white, too faint for a mark, so a chart's yellow is its own token, `--mm-chart-yellow` (`#bd8619`, 3.19:1), darker and never under text; `contrast.test.ts` lists the chart marks and holds each to 3:1 on white.
 A meter bar (`MeterBar`, the Stats tab's room, money and check-in) fills its value in `--mm-green` up to its mark and in `--mm-chart-yellow`, the charts' attention fill, past it, on a `--mm-beige` track; the mark is a 2px `--mm-black` line standing a hairline over and under the track, and a row's bars in one card share one scale, the card's largest value or mark.
+Room marks the tables on every row; Money marks owed only when more was paid, and Check-in a day's expected only when that day is short of the card's largest, since a mark at the track's end says nothing the end does not.
 What its caller puts beside a row's figures, Check-in's "6 not yet" link, stays with them at the row's end, wrapping under them there on a narrow card, and a reader hears it after a comma.
 The How full table (`FillGrid`, the Stats tab's sections against days) shades each cell by how full it is in four fills that carry its figures, `--mm-fill-third`, `--mm-fill-two-thirds`, `--mm-fill-nearly` and `--mm-fill-full`, `--mm-green` laid over white at 14%, 32%, 52% and 75% (`--mm-black` on them 13.10, 10.26, 7.64 and 5.26:1), an empty cell keeping the card's white with its edge drawn; the cells are set apart by 2px white gaps, and each cell's step is also said in words, so a shade carries nothing alone.
 `contrast.test.ts` lists them as fills under `--mm-black` and holds each a step darker than the one before, from white.
