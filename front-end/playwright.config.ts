@@ -25,7 +25,7 @@ export default defineConfig({
   use: {
     baseURL: frontendURL(BASE_PORT),
     ignoreHTTPSErrors: true,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure-and-retries',
     screenshot: 'on',
     video: 'on',
   },

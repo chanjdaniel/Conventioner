@@ -44,6 +44,7 @@ sources:
   - T251
   - T260
   - T263
+  - T284
 ---
 
 # E2E patterns
@@ -157,3 +158,20 @@ A route that must fail the screen's own read fails every matching request until 
 **A spec that waits on a file chooser listens for it from before the page loads.**
 `page.waitForEvent('filechooser')` turns on Playwright's catching of choosers as it is called, without waiting for the browser to agree, so a chooser opened by the very next key press can slip past it and the wait times out with focus still on the input: [`the-upload-steps-are-one.spec.ts`](../../../front-end/e2e/the-upload-steps-are-one.spec.ts) missed its first Enter in 4 runs of 20 this way.
 It adds `page.on('filechooser', () => {})` before it opens the page, then waits for each chooser as before.
+
+## Chasing a flake
+
+A flake is chased the same way every time, so its report says what was tried; [when a test fails](../../TESTING.md#when-a-test-fails) is where each attempt's trace lands.
+
+**The load.** `stress-ng --cpu <n> --timeout <minutes>m`, always with `--timeout` so it ends by itself, with `<n>` chosen so `uptime` reads a load average of one to one and a half times the machine's cores (12 to 18 on the 12-core machine) once it runs, counting what already runs there.
+Start it only while `uptime` reads below that band, never push it past the band's top, run one at a time, and stop it by its own timeout or the process id it started with.
+Note `uptime` before and during each run in the report.
+
+**A cold stack**, for a flake seen on a stack's first spec: stop the worktree's stack and start it again (a team worker with `team-stack stop` and `team-stack up`), then run the spec as the first thing after it is up.
+
+**The run.** From `front-end/`, `npx playwright test <files> --retries=0 --repeat-each=<k> --output=<a new directory>`, with `<k>` 20 for a single test or file; a fresh `--output` per run keeps each run's traces apart, since a rerun empties the last one's.
+Before a fix the run must fail at least once; one that does not fail in 20 repeats under load, and 3 cold starts where a cold stack applies, is reported with what was tried, not fixed and not called fixed.
+After the fix the same run passes 30 of 30 under the same load.
+
+**A held route makes a race certain.** A `page.route` handler that awaits a promise the test releases holds one read while the page goes on, which turns a suspected race into a yes or no, as the second test of [`undoing-a-verdict.spec.ts`](../../../front-end/e2e/undoing-a-verdict.spec.ts) does.
+Release a held route before the page closes, since a request still held can keep `context.close()` waiting past the test's timeout, and never unroute it with a request still held.

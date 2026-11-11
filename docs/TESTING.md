@@ -15,6 +15,7 @@ sources:
   - T200
   - T205
   - T263
+  - T284
 ---
 
 # Testing Conventioner
@@ -301,6 +302,15 @@ frontend port via `stack().frontendPort`).
 **Prerequisite**: Docker stack running with seeded test users.
 Email: `e2e@example.com` (default, change via `TEST_EMAIL` env var when seeding),
 plus the organization-less user `e2e-noorg@example.com` (change via `NO_ORG_EMAIL`).
+
+### When a test fails
+
+Every attempt that fails keeps its Playwright trace, and so does every retry, passing or not (`trace: 'retain-on-failure-and-retries'`), so a local run with no retries keeps one too.
+A failed attempt's trace is `front-end/test-results/<test>/trace.zip`, and a retry's is in the same name's directory with `-retry1` or `-retry2` after it; a page of a second user's context (`withUser()`) is in the same trace as the test's own page.
+Open one with `npx playwright show-trace <path>` from `front-end/`, or from the HTML report (`npx playwright show-report`), which lists every attempt with its own trace.
+On CI a failed shard uploads `front-end/playwright-report/` and `front-end/test-results/` as the artifact `playwright-artifacts-shard-<n>`, kept 7 days; a flaky test fails its shard, so its failing attempt's trace is there too ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
+A rerun empties `test-results/` before it starts, so read or copy a failure's output first, or give the rerun an output directory of its own with `--output=<a new directory>`.
+Reproducing a flake under load is [chasing a flake](implementation/testing/e2e-patterns.md#chasing-a-flake).
 
 ### E2E Foundation
 
