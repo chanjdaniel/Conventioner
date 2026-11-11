@@ -23,7 +23,7 @@ describes:
   - back-end/api/markets.py#_floorplans_refusal
   - front-end/src/views/FloorplanEditorView.vue
   - front-end/src/stores/floorplan.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - bug/38
   - E26/F09/S01
@@ -34,6 +34,7 @@ sources:
   - T263
   - T271
   - T272
+  - T274
 ---
 
 # Floorplan placement
@@ -146,7 +147,7 @@ The rule is the wizard's, not the store's: the store keeps its data across a vis
 **Saving writes the plan's sections and locations, so it is a draft's only** ([the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)).
 `POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) refuses a body that is not a JSON object (400) and a `floorplan` that is not one ("floorplan is required"), needs EDITOR, refuses an archived market (403) and a settled setup (409), then parses the floorplan as `FloorplanObject`: a field that does not parse answers 400 "Invalid floorplan: ..." naming it, a floorplan with no id of its own answers "A floorplan needs its id.", and an unknown key is dropped.
 **It writes through the plan's own writer, so it can never store a market that does not read.**
-It builds the plan from the stored one, or from the empty plan Market Setup starts from when the market has none (empty dates, tiers, priority, locations and sections, both assignment options null, no pricing), with `sections` and `locations` the floorplan's and the floorplan in `floorplans` in the place of the stored one of its id, or added after them, so saving again replaces it; then `prepared_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) judges it as it judges a plan write, and the route writes the whole `setupObject` that returns.
+It builds the plan from the stored one, or from the empty plan Market Setup starts from when the market has none (empty dates, tiers, priority, locations and sections, both assignment options null, no pricing), with `sections` and `locations` the floorplan's and the floorplan in `floorplans` in the place of the stored one of its id, or added after them, so saving again replaces it; then `prepared_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) judges it as it judges a plan write, and the route writes the whole `setupObject` that returns through [the market write](market-write.md#the-plans-revision), holding the phase and the plan's revision as read and counting it: a plan saved meanwhile refuses the save with the 409 "market changed", and a Market Setup page read before it is refused the same way rather than storing its older plan over the floorplan.
 It used to write the three fields by hand, which on a market whose plan was never saved left a plan of those three alone, and with one wrong field a floorplan that did not parse: either way the market then answered as missing to every reader and refused every write, its Delete included (T272, [`a-floorplan-save-keeps-the-market-readable.spec.ts`](../../../front-end/e2e/a-floorplan-save-keeps-the-market-readable.spec.ts), [`test_a_floorplan_save_keeps_the_market_readable.py`](../../../back-end/tests/test_a_floorplan_save_keeps_the_market_readable.py)).
 The route has no blanket `except`, so a refusal `prepared_plan` raises answers its own status and sentence.
 **A later visit's wizard saves over the market's floorplan too**: when the wizard opens, [`FloorplanEditorView.vue`](../../../front-end/src/views/FloorplanEditorView.vue) hands [`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue) the id of the floorplan the market stores, the last saved when it holds several, and `openOnMarket()` in the wizard's store, [`front-end/src/stores/floorplan.ts`](../../../front-end/src/stores/floorplan.ts), gives the wizard's floorplan that id, so a run after a reload or on another day replaces it; it used to start each page session's floorplan under a new id, so every visit added one, until the 21st save was refused for good with nothing on screen to free a place.

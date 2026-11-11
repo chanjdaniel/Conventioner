@@ -16,6 +16,8 @@ describes:
   - back-end/api/markets.py#update_market_role
   - back-end/api/markets.py#apply_phase_transition
   - back-end/api/markets.py#write_application_form
+  - back-end/api/markets.py#save_plan
+  - back-end/api/floorplans_save.py#save_floorplan_to_market
   - back-end/api/placements.py#_store_vendor_assignments
   - back-end/api/applicants.py#publish_results
   - back-end/api/applicants.py#set_applications_stopped
@@ -31,6 +33,7 @@ describes:
   - back-end/tests/real_mongo/test_roles_written_per_person.py
   - back-end/tests/real_mongo/test_an_assignment_write_holds_the_market_it_read.py
   - back-end/tests/real_mongo/test_the_form_holds_its_revision.py
+  - back-end/tests/real_mongo/test_the_plan_holds_its_revision.py
   - front-end/src/utils/api.ts#isMarketChanged
   - front-end/src/utils/api.ts#onMarketChanged
   - front-end/src/stores/market.ts#installMarketChanged
@@ -41,6 +44,8 @@ describes:
   - front-end/src/__tests__/aPlacementThatMetAChangedMarket.test.ts
   - front-end/src/__tests__/aFormSaveThatMetAChangedMarket.test.ts
   - front-end/e2e/helpers/saveApplicationForm.ts
+  - front-end/e2e/helpers/savePlan.ts
+  - front-end/e2e/a-plan-save-from-an-older-tab.spec.ts
 verified: 2026-11-11
 sources:
   - T244
@@ -116,7 +121,8 @@ In [`back-end/api/markets.py`](../../../back-end/api/markets.py):
   A decision that counted the owners (giving or changing to Owner, taking an Owner) holds `roles` whole; no route reaches such a write today, since the market model refuses a market with no owner or two, and the Admin row and "Market already has an owner" refuse every give of Owner.
   A take refused because the person's role is already gone answers the 404 "They no longer have a role on this market.", which Manage market reads as done.
 - The form write (`write_application_form`), holding the form's revision, see [the form's revision](#the-forms-revision) below.
-- The phase move (`apply_phase_transition`), holding the facts its guards passed on that another write changes without moving the phase (`_what_the_move_stood_on`: `resultsPublished` for Back to review, `formRevision` for Open applications).
+- The plan write (`save_plan`), holding the plan's revision and `resultsPublished`, see [the plan's revision](#the-plans-revision) below.
+- The phase move (`apply_phase_transition`), holding the facts its guards passed on that another write changes without moving the phase (`_what_the_move_stood_on`: `resultsPublished` for Back to review, `formRevision` and `planRevision` for Open applications).
   The rail shows a refused move as a blocker beside the phase the market is in, so the move answers `MarketChanged` in those terms, read from its `latest`: `PhaseChangedUnderRequest` when the phase moved, `MoveBlockedUnderRequest` with the blockers the move meets now when it did not, or, when the move's guards pass on the market as it now stands, one blocker `market_changed` in the one sentence ([the guards](guards.md)).
 
 Elsewhere:
@@ -127,7 +133,8 @@ Elsewhere:
 - The Discord connection ([`back-end/api/discord_connection.py`](../../../back-end/api/discord_connection.py), [the Discord connection](discord.md)): the check and the run hold the server, the role and the username question they read the members against (the check its `checkedAt` too), declining a possible match holds the server, and the card's save and a connection hold each field they change, or `discord` whole on a market never connected.
   The run gives its roles in Discord before it writes, so its refusal, `RolesGivenOnAChangedMarket`, is a `MarketChanged` in its own words: "The Discord card changed while roles were being given. The roles given are in the market's history; check Discord again."
 - The import's saved mapping (`save_mapping` in [`back-end/csv_import.py`](../../../back-end/csv_import.py)), holding `importMapping`, written before any row, so an import meeting a market that moved, or another import's mapping saved since, writes no application ([the CSV import](csv-import.md)).
-- The start from a CSV (`confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py)), holding `applicationForm` as read, which the start judged had no questions of its own, and counting `formRevision`, since it writes the questions ([the CSV proposal and start](csv-proposal-and-start.md)).
+- The start from a CSV (`confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py)), holding `applicationForm` as read, which the start judged had no questions of its own, and counting `formRevision`, since it writes the questions; it writes the plan too, built on the plan as read, so it holds `planRevision` at its value as read and counts it ([the CSV proposal and start](csv-proposal-and-start.md)).
+- The floorplan save (`save_floorplan_to_market` in [`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)), which writes the plan through the plan's own judge, holding the phase and `planRevision` as read and counting it ([floorplan placement](floorplan-placement.md)).
 - Every write of the assignment, a run, a placement, a free and a swap (`_store_vendor_assignments` in [`back-end/api/placements.py`](../../../back-end/api/placements.py)), counting `assignmentObject.revision` from the one read; a run also holds `resultsPublished`, so an allocation never lands after Publish results, and no placement lands on a market archived a moment before ([placements](placements.md#the-four-doors)).
   The Tables page reads its grid again on the refusal and says the sentence in the seat's dialog.
 
@@ -144,7 +151,21 @@ A market with no form yet gets it whole, with `publishedAt` and `essentialOption
 
 The CSV start counts the revision without holding a client's, since no page sent one; Open applications holds it at its value as read and does not count it, nor does the freeze, since neither changes a question.
 
-Every other write to the markets collection is listed in the guard below, each either a permanent exception with its reason or "moves in ticket NN", a later ticket of the task that moves it onto `write_market`.
+## The plan's revision
+
+The market document keeps `planRevision`, a count of the plan's writes (absent reads as 0), served as `Market.plan_revision` and by the market read, `GET /markets/<id>`, as `planRevision` ([the market document](../data/market-document.md#the-fields-that-matter)).
+A plan save's body (`PUT /markets/<id>/plan`) carries `planRevision`, the revision its copy of the plan was read at, beside `setupObject` and `intakeMode`, and the answer is `{"message": "Plan saved", "planRevision": <new>}`, for the next save.
+A body naming none, the page from before the revision existed still open after a deploy, is answered `MarketChanged`, so it reloads; one naming anything but a whole number from 0 (`true` included) is answered 400 "planRevision must be a whole number.".
+The plan's own refusals are judged first, so a settled setup still says why it is settled.
+
+The plan is sent whole, so the write holds the revision: a save from an older copy is refused rather than putting back what another person saved since.
+It holds the phase, so an edit judged in draft that lands after Open applications is refused and [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md) holds against a move in flight, and `resultsPublished`, which the assignment rules' lock reads, so a rules change crossing Publish results is refused.
+
+Every other writer of `setupObject` counts it: the CSV start and the floorplan save, each holding it as read since each builds on the plan it read, and the seeder, which saves through the plan write from the revision it read.
+So a Market Setup page holding a copy from before any of them is refused too.
+Open applications holds it at its value as read and does not count it, since a move changes no part of the plan.
+
+Every other write to the markets collection is listed in the guard below, each a permanent exception with its reason.
 
 ## The guard
 
@@ -176,6 +197,10 @@ The Tables page reads the market from the store, but its grid and an open vendor
 
 The form tab ([F2](../../business/flows/form-tab.md#f2-custom-questions)) keeps the `formRevision` its form read answered, sends it with Save and with the unasked-essentials toggle, and takes the one each save answers.
 On a 409, the market changed or the form locked, it shows the server's sentence where a save's error shows and reads the form again, so the questions on screen are the ones stored, with their revision for the next save (`rereadAfterARefusal` in [`MarketFormTab.vue`](../../../front-end/src/components/market/MarketFormTab.vue)).
+Market Setup keeps the `planRevision` it took with the plan from the market, sends it with every plan save (the autosave, the keepalive write on leaving, and Allocate tables' save of the plan before a run, which goes through the same queue), and takes the one each save answers; the saves go one at a time ([the plan's autosave](plan-autosave.md)), so each carries the revision the last one answered.
+On that refusal the autosave drops the unsaved edits, the page takes the store's plan and its revision, and the server's sentence stands where the plan's status line shows a refusal (`MarketSetupView.vue`, [planning the market](../../business/flows/planning.md)).
+A seed or spec writes the plan through [`e2e/helpers/savePlan.ts`](../../../front-end/e2e/helpers/savePlan.ts), which reads the revision first.
+
 The import's form dialog sends the revision of the form it read the same way, and on that refusal stays open on the sentence while the import reads the form again ([the form amendment](form-amendment.md)).
 A seed or spec writes the form through [`e2e/helpers/saveApplicationForm.ts`](../../../front-end/e2e/helpers/saveApplicationForm.ts), which reads the revision first.
 
@@ -192,11 +217,14 @@ A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-e
 - [`tests/real_mongo/test_an_assignment_write_holds_the_market_it_read.py`](../../../back-end/tests/real_mongo/test_an_assignment_write_holds_the_market_it_read.py), through the routes: Allocate tables with Publish results landing after its solver ran, and a placement, a free and a swap with the market archived after their read, each answer the 409 with the sentence and leave the stored assignment and its revision as they were, with only the other change's history.
   The phase move's two answers over a changed market are [`test_the_market_side_races.py`](../../../back-end/tests/real_mongo/test_the_market_side_races.py)'s, and two assignment writes from one revision land one there, the other a `MarketChanged`.
 - [`tests/real_mongo/test_the_form_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_form_holds_its_revision.py), through the routes: a form save crossing Open applications, the first application on a market taking applications, and the first imported row on a draft, each answering the 409 and leaving the published stamp, the frozen offering and the questions as the other change left them; two saves from one revision landing one; a body with no revision or a malformed one; a first save on a market with no form; the start counting the revision; and Open applications with a form save landed in its window refused with the `market_changed` blocker, the market still a draft.
+- [`tests/real_mongo/test_the_plan_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_plan_holds_its_revision.py), through the routes: a plan save crossing Open applications and one crossing Publish results, each answering the 409 and leaving the plan as it stood; two saves from one revision landing one; a save from the revision answered; the CSV start and the floorplan save counting the revision, so a Market Setup page read before is refused, and each refused over a plan saved while it built its own; a move not counting it; a body with no revision or a malformed one; and Open applications with a plan save landed in its window refused with the `market_changed` blocker, the market still a draft.
 - [`tests/test_the_market_write.py`](../../../back-end/tests/test_the_market_write.py), without a server: the stored document a `Market` keeps and `model_copy` carries, the `RuntimeError`s, and the 409's body.
 - [`src/__tests__/aMarketThatChangedUnderAWrite.test.ts`](../../../front-end/src/__tests__/aMarketThatChangedUnderAWrite.test.ts): `isMarketChanged`, the interceptor, the store's re-read, and a refused rules save putting the server's rules on screen with the sentence, the re-read landing before the refusal and after it.
 - [`src/__tests__/manageMarketMeetsAChangedMarket.test.ts`](../../../front-end/src/__tests__/manageMarketMeetsAChangedMarket.test.ts): Manage market re-reading its own copy of the market after a refused add, take and change, each with the sentence where that action's refusal stands, and reading nothing again after an add refused for another reason.
 - [`src/__tests__/aFormSaveThatMetAChangedMarket.test.ts`](../../../front-end/src/__tests__/aFormSaveThatMetAChangedMarket.test.ts): the form tab sending the revision its form was read at, then each one a save answered, with Save and the toggle, and after a refused Save reading the form again, showing the sentence and the questions stored; `amendFormDialog.test.ts` the dialog's revision and its refusal.
 - `e2e/application-form.spec.ts`: two tabs of one organizer on one draft's form, the later save from the older copy refused in the sentence, its tab showing the question the other saved, and nothing of its own stored.
+- `src/__tests__/planAutosave.test.ts`, "the plan's revision": Market Setup sending the revision it read, then each one a save answered, a wanted save taking the answer's without a re-read, Allocate tables' save sending it, and a refused save dropping the edit and showing the plan as it now stands with the sentence.
+- [`e2e/a-plan-save-from-an-older-tab.spec.ts`](../../../front-end/e2e/a-plan-save-from-an-older-tab.spec.ts): two tabs of one organizer on Market Setup of one draft, A adding a market date, B, opened before, renaming a section: B's save refused in the sentence, B showing A's date, B's rename not stored.
 - [`src/__tests__/aPlacementThatMetAChangedMarket.test.ts`](../../../front-end/src/__tests__/aPlacementThatMetAChangedMarket.test.ts): the Tables page, after a refused placement, reading the tables and an open vendor's details again with the sentence in the seat's dialog, leaving the market to the interceptor; after a seat taken meanwhile, reading the tables and the market again with the refusal in the dialog; and reading nothing again after a refusal that is not a 409.
 
 ## Why
@@ -205,3 +233,4 @@ A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-e
 - [ADR 0008](../../adr/0008-each-write-names-what-it-changes.md): each write names what it changes, and now holds what it read.
 - [Review highlights](../../business/rules/review-highlights.md) and [automatic rejections](../../business/rules/automatic-rejections.md): the two lists written through it, the rules closing with the review.
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): the form write holds the frozen offering and the phase, so no save changes the questions under an applicant.
+- [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the plan write holds the phase, so no edit judged in draft lands after it.

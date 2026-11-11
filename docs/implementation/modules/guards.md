@@ -10,7 +10,7 @@ describes:
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
   - front-end/src/utils/blockerLink.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -30,6 +30,7 @@ sources:
   - T205
   - T206
   - T263
+  - T274
 ---
 
 # The guards and the phase move
@@ -111,7 +112,7 @@ The registry is validated against the transition table and is for transitions, s
 **`Market.phase` is server-owned.**
 `create_market` stamps `draft`, and `apply_phase_transition` is the only writer on an existing market: one update through [the market write](market-write.md), which holds the stored phase as read, that sets `phase`, `isDraft`, the form's `publishedAt` (`finalization_update`) and whether applications are stopped (`taking_applications_update`), and pushes the [phase record](phase-record.md)'s entry.
 The market write's refusal, `MarketChanged`, is answered in the rail's terms from the market it carries: a request that finds the market moved under it gets `PhaseChangedUnderRequest`, a `ConflictError` whose `body()` is the endpoint's 409: `phase_changed`, the phase it is in now, the phase asked for, and one blocker telling the organizer to reload.
-A move whose guard read a fact another write changes without moving the phase holds that fact at its value as read too (`_what_the_move_stood_on` names the keys): Back to review holds `resultsPublished`, which its guard read unset, since Publish results writes it in place ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)), and Open applications holds the form's revision, `formRevision`, since its guards judged the form as read and a form save writes it without moving the phase ([the form's revision](market-write.md#the-forms-revision)).
+A move whose guard read a fact another write changes without moving the phase holds that fact at its value as read too (`_what_the_move_stood_on` names the keys): Back to review holds `resultsPublished`, which its guard read unset, since Publish results writes it in place ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)), and Open applications holds the form's revision, `formRevision`, and the plan's, `planRevision`, since its guards judged the form and the plan as read and a form or a plan save writes them without moving the phase ([the form's revision](market-write.md#the-forms-revision), [the plan's revision](market-write.md#the-plans-revision)).
 When the phase stayed and that fact changed, the request gets `MoveBlockedUnderRequest`, a 409 shaped as the guards' own, `preconditions_not_met` with the blockers the move meets now, or, when they all pass on the market as it now stands, one blocker `market_changed` saying the market changed and to reload, so the rail never shows a refusal with no reason.
 The endpoint catches nothing: that 409, `MoveUnavailable`'s 400 and a market deleted under it (404) reach the [registered handler](../conventions/an-exception-never-reaches-a-client.md#the-two-handlers), and only the guards' own 409 is built by the endpoint.
 Do not add a second copy of that write: the endpoint carried one until E26, which is how stamps drift.
