@@ -550,8 +550,8 @@ class SetupObject(BaseModel):
     floorplans: Optional[List["FloorplanObject"]] = None
     #: Null on a market that was never priced, which shows no price anywhere.
     pricing: Optional[PricingObject] = None
-    #: The market's table types, which a layout's tables are sized by (T257); written only by the
-    #: layout's own routes, kept by the plan write like ``floorplans``.
+    #: The market's table types, which a layout's tables are sized by (T257); never written by the
+    #: plan write, which keeps the stored ones like ``floorplans``.
     table_types: List["TableTypeObject"] = []
 
     @model_validator(mode="before")
