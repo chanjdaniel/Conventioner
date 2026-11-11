@@ -165,7 +165,7 @@ Every other writer of `setupObject` counts it: the CSV start and the floorplan s
 So a Market Setup page holding a copy from before any of them is refused too.
 Open applications holds it at its value as read and does not count it, since a move changes no part of the plan.
 
-Every other write to the markets collection is listed in the guard below, each a permanent exception with its reason.
+Every other write to the markets collection is a permanent exception, listed in the guard below with its reason.
 
 ## The guard
 
@@ -173,17 +173,17 @@ Every other write to the markets collection is listed in the guard below, each a
 It finds each call of `insert_one`, `insert_many`, `update_one`, `update_many`, `replace_one`, `find_one_and_update`, `find_one_and_replace`, `delete_one`, `delete_many` or `bulk_write` whose receiver is the markets collection: a name or attribute ending in `markets_collection` or `markets`, or a subscript of `"markets"` or `MARKETS_COLLECTION`.
 Each must be in `market_write.py` or in `EXCEPTIONS`, keyed by module and function.
 A receiver the walk cannot name (a call's result, a subscript of a variable) may be the markets collection too, so it fails naming its file and line until it is listed the same way.
-An exception whose site no longer writes fails too, so the list shrinks as writes move.
+An exception whose site no longer writes fails too, so the list holds only writes that stand.
+Every exception is permanent: a write waiting to move onto the helper is no reason to stay outside it, so a reason naming a ticket, or one of fewer than four words, fails the list.
 
-The permanent exceptions, each with its reason in the list:
+The exceptions, each with its reason in the list:
 
 - the market's creation (an insert: no market as read, and the unique slug index settles an address race);
 - its deletion (it keeps no rule beyond the right to delete, and deletes in its own order, [market deletion](market-deletion.md));
 - the dealing lease's writes in `review_team.py` (a lease protocol of their own, [ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md));
 - the essential offering's freeze (the first writer wins, held by no snapshot stored yet, [essential fields](essential-fields.md));
-- the key migration in `market_documents.py` and the migrations under `migrations/`;
-- `reset_database.py`, an operator script whose receiver is a variable;
-- the fake Discord's `_give`, a collection of its own the walk cannot name.
+- the key migration in `market_documents.py` and the migrations under `migrations/`, each run once by an operator outside any request;
+- `reset_database.py`, an operator script emptying every collection of a local database, whose receiver is a variable.
 
 A migration that reaches the markets collection by a name the walk does not read as markets (`collection`) is not seen; the walk reads names, not data flow.
 
@@ -218,6 +218,7 @@ A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-e
   The phase move's two answers over a changed market are [`test_the_market_side_races.py`](../../../back-end/tests/real_mongo/test_the_market_side_races.py)'s, and two assignment writes from one revision land one there, the other a `MarketChanged`.
 - [`tests/real_mongo/test_the_form_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_form_holds_its_revision.py), through the routes: a form save crossing Open applications, the first application on a market taking applications, and the first imported row on a draft, each answering the 409 and leaving the published stamp, the frozen offering and the questions as the other change left them; two saves from one revision landing one; a body with no revision or a malformed one; a first save on a market with no form; the start counting the revision; and Open applications with a form save landed in its window refused with the `market_changed` blocker, the market still a draft.
 - [`tests/real_mongo/test_the_plan_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_plan_holds_its_revision.py), through the routes: a plan save crossing Open applications and one crossing Publish results, each answering the 409 and leaving the plan as it stood; two saves from one revision landing one; a save from the revision answered; the CSV start and the floorplan save counting the revision, so a Market Setup page read before is refused, and each refused over a plan saved while it built its own; a move not counting it; a body with no revision or a malformed one; and Open applications with a plan save landed in its window refused with the `market_changed` blocker, the market still a draft.
+- [`tests/test_every_market_write_holds_what_it_read.py`](../../../back-end/tests/test_every_market_write_holds_what_it_read.py), without a server: the guard over the back end as it stands, and over writes it plants in a temporary tree, each named by its file, line and function, every way of naming the markets collection, a receiver it cannot name, and a reason naming a ticket refused.
 - [`tests/test_the_market_write.py`](../../../back-end/tests/test_the_market_write.py), without a server: the stored document a `Market` keeps and `model_copy` carries, the `RuntimeError`s, and the 409's body.
 - [`src/__tests__/aMarketThatChangedUnderAWrite.test.ts`](../../../front-end/src/__tests__/aMarketThatChangedUnderAWrite.test.ts): `isMarketChanged`, the interceptor, the store's re-read, and a refused rules save putting the server's rules on screen with the sentence, the re-read landing before the refusal and after it.
 - [`src/__tests__/manageMarketMeetsAChangedMarket.test.ts`](../../../front-end/src/__tests__/manageMarketMeetsAChangedMarket.test.ts): Manage market re-reading its own copy of the market after a refused add, take and change, each with the sentence where that action's refusal stands, and reading nothing again after an add refused for another reason.

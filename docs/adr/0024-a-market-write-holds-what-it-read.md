@@ -35,13 +35,32 @@ Only four writes held what they read (the phase move, the assignment's revision,
 
 How it holds each kind of key, what it answers and the list: [the market write](../implementation/modules/market-write.md).
 
+## What each write holds, as built
+
+Beside the `id` and the phase, which every write holds:
+
+- The rename, the review highlights, the automatic rejections and the door code: nothing more.
+- Stop or take applications: `intakeMode`.
+- Publish results: `resultsPublished` and `assignmentObject.revision`.
+- The permission rows: each row changed, `permissions.<row id>`, or `permissions` whole where the stored rows are not a map.
+- The three role writes, each setting or unsetting one person's `roles.<user id>`: that person's role and the requester's, and `roles` whole for a decision that counted the owners.
+- The Discord check and run: the server, the role and the username question they read against; declining a match: the server; the card's save and a connection: each field they change, or `discord` whole on a market never connected.
+- The import's saved mapping: `importMapping`.
+- The start from a CSV: `applicationForm`, holding `planRevision` and counting it and `formRevision`.
+- The floorplan save: holding `planRevision` and counting it.
+- Every assignment write (a run, a placement, a free, a swap): holding `assignmentObject.revision` and counting it; a run also holds `resultsPublished`.
+- The phase move: the facts its guards passed on (`resultsPublished` for Back to review, `formRevision` and `planRevision` for Open applications).
+- The form write: `applicationForm.essentialOptions` (or `applicationForm` on a market with no form), holding `formRevision` and counting it.
+- The plan write: `resultsPublished`, holding `planRevision` and counting it.
+
 ## Consequences
 
 - A write over a market that changed is refused, not merged: the organizer reloads and makes the change again, on the market as it now stands.
   Showing another person's change as it happens is not part of this.
 - A `Market` carries the stored document it was parsed from, so a writer holds exactly what its loader read; a `Market` built in code cannot be written from.
-- Some writes stay outside it, each with its reason in the guard's list: the market's creation and deletion, the dealing lease's own protocol ([ADR 0020](0020-an-application-is-dealt-to-one-reviewer.md)), the essential offering's first-writer freeze, the migrations and the operator scripts.
-- The writes not yet moved onto it are listed in the guard by the ticket of the task that moves them, so the list says what is left to do.
+- Some writes stay outside it for good, each with its reason in the guard's list: the market's creation and deletion, the dealing lease's own protocol ([ADR 0020](0020-an-application-is-dealt-to-one-reviewer.md)), the essential offering's first-writer freeze, the migrations and the operator script that empties a local database.
+  A write waiting to move onto the helper is no reason to stay outside it, so the guard refuses a reason naming a ticket.
+- The plan and the application form are sent whole, so each carries a revision the server keeps and counts (`planRevision`, `formRevision`), and a copy older than the stored one is refused rather than stored.
 - A race between two collections, such as an application arriving as the review closes, is not one a single document's condition can hold, and stays outside it.
 
 ## Considered and rejected

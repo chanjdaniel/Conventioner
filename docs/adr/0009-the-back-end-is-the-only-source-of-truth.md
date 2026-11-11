@@ -8,6 +8,7 @@ sources:
   - wayfinding/the-market-frame/03
   - wayfinding/claims-and-room/02
   - E21/F02
+  - T274
 status: accepted
 ---
 
@@ -36,7 +37,8 @@ The rules all code follows are [one market, from the server](../implementation/c
 - Every write costs a second request, the re-read, and every arrival at a market screen waits for the server: a reload shows the frame's loading state, never a remembered market.
 - No caller needs to know which fields its write touched, and a field the server adds reaches every screen without a change to any of them.
 - A screen open in two browser tabs is current the moment its tab is shown again; live push is not needed for that, and is not built.
-  What the screens follow at once is a change made in this browser tab; another organizer's change reaches a screen at its next arrival or return, and two people editing one market at once is not handled.
+  What the screens follow at once is a change made in this browser tab; another organizer's change reaches a screen at its next arrival or return.
+  A write from a copy the server has moved past is refused with one sentence, "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again.", and the screen re-reads the market ([ADR 0024](0024-a-market-write-holds-what-it-read.md)).
 - Markets' "Previously opened" is a pointer (`lastMarketId`), forgotten when that market is gone.
 - A rule about the market lives once, on the server; a front-end copy of a judgement (a role threshold, a move's verdict, the form lock) is drift by construction.
 - Specs open a market by its URL; none plants a market in storage.
