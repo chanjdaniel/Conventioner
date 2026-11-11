@@ -22,6 +22,9 @@
  * or Ctrl+Z takes the last one back, F swaps the side of the line the tables stand on, and Escape,
  * another tool or another location drops the path: nothing of it is ever in the layout. Points
  * snap to the corners of the tables near them and the lines of their edges, and freely with Alt.
+ * A click on the first point of three or more, or C, closes the path into a shape, its tables
+ * spread evenly round it; closed, it is placed by Enter or a click on that point again, and
+ * opened again by Backspace. The strip's Rows and Aisle place several rows in the one gesture.
  * Backspace is the path's key alone while the tool is on, never the selection's.
  *
  * The view: the wheel or two fingers pan, Ctrl and the wheel or a pinch zoom about the pointer,
@@ -51,6 +54,7 @@ import {
   AT_THE_EDGE,
   NO_TABLE_FITS,
   ROW_DROPPED,
+  SHAPE_NEEDS_THREE,
   saidAdded,
   saidCrosshair,
   saidDropped,
@@ -60,6 +64,8 @@ import {
   saidPointTaken,
   saidPutBack,
   saidRemoved,
+  saidClosed,
+  saidOpened,
   saidRowAdded,
   saidSide,
   saidTurned,
@@ -193,8 +199,8 @@ const hint = computed(() => {
     if (tool.value === 'row') {
       return (
         'The arrow keys move the crosshair 10 cm, or 1 m with Shift. Enter lays a point, ' +
-        'Backspace takes one back, F swaps the side, Ctrl and Enter places the row and Escape ' +
-        'drops it.'
+        'Backspace takes one back, C closes a shape, F swaps the side, Ctrl and Enter places ' +
+        'the row and Escape drops it.'
       );
     }
     return tool.value === 'add'
@@ -205,7 +211,7 @@ const hint = computed(() => {
   if (tool.value === 'row') {
     return (
       'Click along a wall. A sharp turn makes a corner. Double-click or press Enter to place ' +
-      'the row, or drag for a straight one.'
+      'the row, click the first point to close a shape, or drag for a straight row.'
     );
   }
   return tool.value === 'add'
@@ -220,8 +226,8 @@ const keysId = useId();
 const mapKeys = computed(() =>
   tool.value === 'row'
     ? 'The arrow keys move a crosshair. Enter lays a point of the row at it, Backspace takes one ' +
-      'back, F swaps the side the tables stand on, Control and Enter places the row and Escape ' +
-      'drops it.'
+      'back, C closes the path into a shape, F swaps the side the tables stand on, Control and ' +
+      'Enter places the row and Escape drops it.'
     : tool.value === 'add'
       ? 'The arrow keys move between tables. Enter places a table at the middle of the view.'
       : 'The arrow keys move between tables. Enter picks a table up; then the arrow keys move it, ' +
@@ -451,14 +457,27 @@ function rowPointAt(event: PointerEvent): PointMm {
   return event.altKey ? at : row.snapped(at, SNAP_PX / camera.value!.pxPerMm, SNAP_REACH_MM);
 }
 
-/** The pointer over the map with Row of tables on: the path is shown through where it is, and
- *  as it would be placed where it rests on the last point, which a click there places. */
+/** The pointer over the map with Row of tables on: the path is shown through where it is, as
+ *  it would be placed where it rests on the last point, which a click there places, and closed
+ *  where it rests on the first, which a click there closes. A closed shape is its points alone. */
 function hoverRow(event: PointerEvent) {
   // While the keys have the path it is the points laid, wherever the pointer passes.
   if (keysOnMap.value) return;
   const points = row.points.value;
   const on = row.pointNear(toMm(event), ROW_POINT_PX / camera.value!.pxPerMm);
+  if (row.closed.value || (on === 0 && row.closable.value)) {
+    row.hoverAt(null);
+    row.hoverClose(!row.closed.value);
+    return;
+  }
   row.hoverAt(points.length > 1 && on === points.length - 1 ? null : rowPointAt(event));
+}
+
+/** Close the pending path into a shape, and say what it holds; of fewer than three points, say
+ *  what a shape takes. */
+function closeRow() {
+  if (row.closed.value) return;
+  say(row.close() ? saidClosed(row.poses.value.length) : SHAPE_NEEDS_THREE);
 }
 
 /** Place the pending row, and say what was added. Placed by keys, the focus goes to its first
@@ -734,12 +753,22 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
     }
     const points = row.points.value;
     if (done.point !== null) {
-      // A press on the last point that was no drag places the row: so a double-click does, its
-      // first click laying the point its second is on.
-      if (!done.begun && points.length > 1 && done.point === points.length - 1) {
+      if (done.begun) return;
+      const last = points.length - 1;
+      if (row.closed.value) {
+        // A closed shape is placed by a press on the point that closed it, or on its last: so a
+        // double-click on the first point closes the shape and places it.
+        if (done.point === 0 || done.point === last) placeRow();
+      } else if (done.point === 0 && row.closable.value) {
+        closeRow();
+      } else if (points.length > 1 && done.point === last) {
+        // A press on the last point that was no drag places the row: so a double-click does,
+        // its first click laying the point its second is on.
         row.hoverAt(null);
         placeRow();
       }
+    } else if (row.closed.value) {
+      // A press on the floor adds nothing to a closed shape.
     } else if (done.begun && !points.length) {
       row.dragTo([done.fromMm, rowPointAt(event)]);
       placeRow();
@@ -940,8 +969,10 @@ function onWindowKeydown(event: KeyboardEvent) {
  * A key with Row of tables on; true when it was the row's. `onStage` is a key heard on the map
  * itself. There, once the keys are the map's, the arrow keys move the crosshair and Enter lays a
  * point at it; for a pointer, Enter places the path as it is shown. Ctrl+Enter places it either
- * way. Backspace, and Ctrl+Z while a path is pending, take the last point back, leaving the
- * layout's own undo alone; Escape drops the path; F swaps the side the tables stand on.
+ * way. Backspace, and Ctrl+Z while a path is pending, take the last point back, or open a
+ * closed shape again, leaving the layout's own undo alone; Escape drops the path; F swaps the
+ * side the tables stand on; C closes a path of three points or more into a shape, which Enter
+ * then places.
  */
 function rowKey(event: KeyboardEvent, onStage: boolean): boolean {
   if (event.altKey) return false;
@@ -979,7 +1010,8 @@ function rowKey(event: KeyboardEvent, onStage: boolean): boolean {
   if (event.shiftKey) return false;
   if (key === 'enter' && ours) {
     if (event.repeat || gesture) return true;
-    if (onStage && keysOnMap.value) {
+    // A closed shape takes no further point: Enter places it, for the keys as for a pointer.
+    if (onStage && keysOnMap.value && !row.closed.value) {
       const at = row.crosshair.value ?? crosshairStart();
       const last = row.points.value.at(-1);
       row.moveCrosshair(at);
@@ -1007,6 +1039,10 @@ function rowKey(event: KeyboardEvent, onStage: boolean): boolean {
     if (!event.repeat) flipRow();
     return true;
   }
+  if (key === 'c' && ours && row.pending.value) {
+    if (!event.repeat && !gesture) closeRow();
+    return true;
+  }
   return false;
 }
 
@@ -1023,7 +1059,12 @@ function crosshairStart(): PointMm {
   );
 }
 
+/** Take back the last thing done to the path: its closing, else its last point. */
 function takeRowPoint() {
+  if (row.open()) {
+    say(saidOpened(row.poses.value.length));
+    return;
+  }
   const number = row.points.value.length;
   if (row.takePoint()) say(saidPointTaken(number, row.poses.value.length));
 }
@@ -1536,6 +1577,37 @@ watch(
         >
           Flip side
         </button>
+        <label class="layout-option">
+          <span class="layout-option__name">Rows</span>
+          <input
+            v-model="rowChoices.rows"
+            class="field layout-option__field layout-option__field--number"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            data-testid="layout-row-rows"
+          />
+        </label>
+        <label class="layout-option">
+          <span class="layout-option__name">Aisle (cm)</span>
+          <input
+            v-model="rowChoices.aisleCm"
+            class="field layout-option__field layout-option__field--number"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            data-testid="layout-row-aisle"
+          />
+        </label>
+        <label class="layout-option layout-option--tick">
+          <input
+            v-model="rowChoices.spread"
+            type="checkbox"
+            :disabled="row.closed.value"
+            data-testid="layout-row-spread"
+          />
+          <span class="layout-option__name">Spread evenly to the ends</span>
+        </label>
       </template>
     </div>
 
@@ -1598,6 +1670,7 @@ watch(
             :size="row.size.value"
             :points="row.points.value"
             :countAt="row.pending.value ? (crosshair ?? row.countAt.value) : null"
+            :closes="row.closing.value && row.closable.value"
             :crosshair="crosshair"
             :paint="rowPaint"
             :mmPerPx="mmPerPx"
@@ -1677,6 +1750,7 @@ watch(
 .layout-options {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-3) var(--space-4);
 }
 
@@ -1696,8 +1770,8 @@ watch(
   max-width: 100%;
 }
 
-/* A row's strip holds five controls: its fields are narrower, so they stand on one line beside
-   the panel. */
+/* A row's strip holds eight controls: its fields are narrower, so they stand on two lines
+   beside the panel. */
 .layout-options--row .layout-option__field {
   width: 10.5rem;
 }
@@ -1732,11 +1806,9 @@ watch(
   max-height: max(20rem, calc(100vh - 26.5rem));
 }
 
-/* Under 1400px a row's strip, of five controls, takes a second line. */
-@media (max-width: 1400px) {
-  .layout-stage--row {
-    max-height: max(20rem, calc(100vh - 29.5rem));
-  }
+/* A row's strip, of eight controls, takes a second line. */
+.layout-stage--row {
+  max-height: max(20rem, calc(100vh - 29.5rem));
 }
 
 .layout-stage :deep(.layout-map) {

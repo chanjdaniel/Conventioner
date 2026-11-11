@@ -37,9 +37,10 @@ const GROUPS: readonly { title: string; keys: readonly (readonly [string[], stri
     keys: [
       [['Arrow keys'], 'Move the crosshair 10 cm, or 1 m with Shift'],
       [['Enter'], 'Lay a point of the row at the crosshair'],
-      [['Backspace'], 'Take the last point back'],
+      [['Backspace'], 'Take the last point back, or open a closed shape again'],
+      [['C'], 'Close the path into a shape, of three points or more'],
       [['F'], 'Swap the side of the line the tables stand on'],
-      [['Ctrl+Enter'], 'Place the row'],
+      [['Ctrl+Enter'], 'Place the row; Enter places a closed shape'],
       [['Escape'], 'Drop the row'],
     ],
   },

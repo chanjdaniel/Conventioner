@@ -1055,10 +1055,16 @@ function flattened(curve: (t: number) => Vec, toleranceMm: number): Vec[] {
  * neighbours carries that line on, so a span from a straight wall into a curve leaves the wall
  * along it and bends toward the curve. Two points are one straight run, and fewer are no path. A
  * span with no curve in it is its two ends alone.
+ *
+ * `closed` joins the last point to the first, of three points or more: every point then has two
+ * neighbours and is judged by the same corner rule, the first among them, so the path is as
+ * smooth at its seam as anywhere. With no corner it is one run that ends on the point it began
+ * on; with corners its runs go round from the corner before the first point, the run that point
+ * is on first, each beginning where the last ended.
  */
 export function smoothRuns(
   points: readonly PointMm[],
-  options: { toleranceMm?: number; cornerDeg?: number } = {},
+  options: { toleranceMm?: number; cornerDeg?: number; closed?: boolean } = {},
 ): Run[] {
   const tolerance = options.toleranceMm ?? 2;
   const limit = ((options.cornerDeg ?? 70) * Math.PI) / 180;
@@ -1067,25 +1073,39 @@ export function smoothRuns(
     const next = vec(point);
     if (!at.length || between(at[at.length - 1], next) >= SAME_POINT_MM) at.push(next);
   }
+  // A last point on the first is the closing itself.
+  if (options.closed && at.length > 1 && between(at[0], at[at.length - 1]) < SAME_POINT_MM) {
+    at.pop();
+  }
   if (at.length < 2) return [];
+  const count = at.length;
+  const closed = options.closed === true && count >= 3;
+  const pointAt = (i: number) => at[((i % count) + count) % count];
 
   /** The circle at point i; 'corner' where the path turns too sharply there; 'straight' where its
    *  neighbours stand in a line with it; null at an end, which has one neighbour. */
   const turnAt = (i: number): Circle | 'corner' | 'straight' | null => {
-    if (i <= 0 || i >= at.length - 1) return null;
-    const [a, b, c] = [at[i - 1], at[i], at[i + 1]];
+    if (!closed && (i <= 0 || i >= count - 1)) return null;
+    const [a, b, c] = [pointAt(i - 1), pointAt(i), pointAt(i + 1)];
     const circle = circleThrough(a, b, c);
     if (!circle) return dot(minus(b, a), minus(c, b)) < 0 ? 'corner' : 'straight';
     return Math.max(sweepOn(circle, a, b), sweepOn(circle, b, c)) > limit ? 'corner' : circle;
   };
   const turns = at.map((_, i) => turnAt(i));
 
+  // A closed path's runs begin at the last corner before its first point, so the run that point
+  // is on comes first; with no corner, at the first point itself.
+  let start = 0;
+  if (closed && turns[0] !== 'corner') start = Math.max(0, turns.lastIndexOf('corner'));
+  const spans = closed ? count : count - 1;
+
   const runs: Vec[][] = [];
   let run: Vec[] = [];
-  for (let i = 0; i < at.length - 1; i += 1) {
-    const [p, q] = [at[i], at[i + 1]];
+  for (let k = 0; k < spans; k += 1) {
+    const i = (start + k) % count;
+    const [p, q] = [pointAt(i), pointAt(i + 1)];
     const before = turns[i];
-    const after = turns[i + 1];
+    const after = turns[(i + 1) % count];
     if (before === 'corner' && run.length) {
       runs.push(run);
       run = [];
@@ -1326,22 +1346,37 @@ interface Standing {
   corners: Vec[];
 }
 
+/** The most a loop turns where it ends on its beginning: more is a corner there, and no loop. */
+const LOOP_SEAM_RAD = Math.PI / 6;
+
 /**
- * A row of tables along runs, in the order drawn: each table goes at the first place along its run
- * where it stands exactly `gapMm` clear of every table before it (further on inside a bend than
- * where the last one's edge ended, nearer outside one), so no two overlap at any radius and the
- * gap asked holds where they are nearest. On a straight run that is `floor((length + gap) /
- * (width + gap))` tables, a table's width and the gap apart. A table is placed only while its
- * whole back edge fits before its run ends. A place that would overlap one of `obstacles` is
- * passed over for the next clear one; a table whose centre would stand outside `extent` is left
- * out, the row going on as if it stood there; and no more than `maxCount` are placed.
- * `placedBefore` are tables of the same size the row keeps its gap from, as an earlier row of the
- * same gesture.
+ * Whether a run is a loop: it ends on the point it began on, and turns there no more than a curve
+ * does between two of its points, as a closed path with no corner does. A table may then stand
+ * across its seam. A run that comes back to its start at a corner is not one.
  */
-export function placeAlongRuns(
+function loops(points: readonly Vec[]): boolean {
+  const count = points.length;
+  if (count < 4 || between(points[0], points[count - 1]) > 1e-6) return false;
+  const into = minus(points[0], points[count - 2]);
+  const out = minus(points[1], points[0]);
+  return Math.abs(Math.atan2(cross(into, out), dot(into, out))) <= LOOP_SEAM_RAD;
+}
+
+/** How near its end a row spread evenly comes, along an open run or in the gap at a loop's seam. */
+const SPREAD_WITHIN_MM = 0.02;
+/** The most tries a run's spread takes: a few where the row is clear, more where what stands in
+ *  its way makes the room left jump. */
+const SPREAD_TRIES = 12;
+
+/**
+ * The march behind `placeAlongRuns` and `spreadEvenly`: each run in order, against every table
+ * placed so far; with `spread`, each run's gap grown until its tables reach the run's end.
+ */
+function rowAlong(
   runs: readonly Run[],
   options: RowOptions,
-  placedBefore: readonly PathPose[] = [],
+  placedBefore: readonly PathPose[],
+  spread: boolean,
 ): PathPose[] {
   const { widthMm, depthMm, gapMm, side, extent } = options;
   const maxCount = options.maxCount ?? Infinity;
@@ -1387,18 +1422,33 @@ export function placeAlongRuns(
   }
   const out: PathPose[] = [];
 
+  // The places tried for one table stand within a table or two of each other: what stands round
+  // the first of them is found once, and asked again only when a try has gone far from it.
+  const roundMm = widthMm * 2;
+  let roundCentre: Vec | null = null;
+  let round: Standing[] = [];
+  const obstaclesNear = (centre: Vec): Standing[] => {
+    if (!roundCentre || between(centre, roundCentre) > roundMm) {
+      roundCentre = centre;
+      round = obstacles.filter(
+        (other) => between(centre, other.centre) <= roundMm + half + other.reach + 1,
+      );
+    }
+    return round;
+  };
+
   /** How clear a pose stands of everything, less the gap from the row's own: 0 or more is clear. */
-  const slack = (pose: Pose): number => {
+  const slack = (pose: Pose, gap: number): number => {
     const corners = cornersAt(pose.centre, pose.rotation, widthMm, depthMm);
     let best = Infinity;
     for (let i = placed.length - 1; i >= 0; i -= 1) {
       const other = placed[i];
-      if (between(pose.centre, other.centre) > half + other.reach + gapMm + 1) continue;
-      best = Math.min(best, separationOf(corners, other.corners) - gapMm);
+      if (between(pose.centre, other.centre) > half + other.reach + gap + 1) continue;
+      best = Math.min(best, separationOf(corners, other.corners) - gap);
       // Too near one is too near: how much nearer another stands changes nothing.
       if (best < -MARCH_EXACT_MM) return best;
     }
-    for (const other of obstacles) {
+    for (const other of obstaclesNear(pose.centre)) {
       if (between(pose.centre, other.centre) > half + other.reach + 1) continue;
       best = Math.min(best, separationOf(corners, other.corners));
       if (best < -MARCH_EXACT_MM) return best;
@@ -1408,70 +1458,591 @@ export function placeAlongRuns(
 
   for (const points of runs) {
     if (points.length < 2) continue;
-    const run = measureRun(points);
-    const at = (s: number) => poseAt(run, s, widthMm, depthMm, side);
-    /** The first clear place between one that is not and one that is, by halving. */
-    const firstClear = (blocked: number, clear: number): Pose => {
-      let low = blocked;
-      let high = clear;
-      while (high - low > MARCH_WITHIN_MM) {
-        const middle = (low + high) / 2;
-        const pose = at(middle);
-        if (pose && slack(pose) >= 0) high = middle;
-        else low = middle;
-      }
-      return at(high)!;
-    };
+    const whole = measureRun(points);
+    const loop = loops(points.map(vec));
+    // Round a loop a table may stand across the seam: the run goes on into its own beginning,
+    // far enough for a table's back edge, and a table begins before the seam or not at all.
+    const run = loop ? measureRun(lapped(points, widthMm * 2)) : whole;
+    const at = (s: number) =>
+      loop && s >= whole.length ? null : poseAt(run, s, widthMm, depthMm, side);
+
     const step = widthMm / 16;
-    let s = 0;
-    let lastS = -Infinity;
-    while (out.length < maxCount) {
-      let pose = at(s);
-      if (!pose) break;
-      const clear = slack(pose);
-      if (clear < -MARCH_EXACT_MM) {
-        // Too near: on to the first clear place.
-        let blocked = s;
-        let found: number | null = null;
-        for (let next = s + step; ; next += step) {
-          const there = at(next);
-          if (!there) break;
-          if (slack(there) >= 0) {
-            found = next;
-            break;
+    /** Place the run's tables `gap` apart: how many, the room left past the last, and whether
+     *  the row was cut short by the most it may place. */
+    const march = (gap: number): { count: number; left: number; capped: boolean } => {
+      const from = placed.length;
+      /**
+       * The first clear place between one that is not and one that is, each with how clear it
+       * stands where that is known: by where a straight line between the two would cross from
+       * too near to clear, which a few tries settle where halving takes a dozen, and by halving
+       * wherever that line is no guide.
+       */
+      const firstClear = (blocked: number, blockedBy: number, clear: number, clearBy: number) => {
+        let low = blocked;
+        let high = clear;
+        let lowBy = blockedBy;
+        let highBy = clearBy;
+        /** How clear the place at `high` truly stands; `highBy` may be halved to steer. */
+        let stands = clearBy;
+        let pose: Pose | null = null;
+        let kept = 0;
+        while (high - low > MARCH_WITHIN_MM && stands > MARCH_EXACT_MM / 2) {
+          const guided = lowBy < 0 && highBy > 0 && Number.isFinite(highBy);
+          const edge = (high - low) / 64;
+          const middle = guided
+            ? Math.min(
+                high - edge,
+                Math.max(low + edge, low + ((high - low) * -lowBy) / (highBy - lowBy)),
+              )
+            : (low + high) / 2;
+          const there = at(middle);
+          const by = there ? slack(there, gap) : NaN;
+          if (there && by >= 0) {
+            high = middle;
+            highBy = by;
+            stands = by;
+            pose = there;
+            // The same end moved twice running: the other counts for half, or it never moves.
+            if (kept === 1) lowBy /= 2;
+            kept = 1;
+          } else {
+            low = middle;
+            lowBy = by;
+            if (kept === -1) highBy /= 2;
+            kept = -1;
           }
-          blocked = next;
         }
-        if (found === null) break;
-        pose = firstClear(blocked, found);
-      } else if (clear > MARCH_EXACT_MM) {
-        // Looser than asked, as outside a bend: back to the first clear place.
-        let found = s;
+        return pose ?? at(high)!;
+      };
+      /** From a clear place, back to the first clear one after the last table: outside a bend
+       *  a table stands nearer the one before it than where that one's edge ended. */
+      const backFrom = (clearAt: number, clearBy: number, lastS: number): Pose => {
+        let found = clearAt;
+        let foundBy = clearBy;
         let blocked: number | null = null;
-        for (let next = s - step; next > lastS && next >= 0; next -= step) {
+        let blockedBy = NaN;
+        for (let next = clearAt - step; next > lastS && next >= 0; next -= step) {
           const there = at(next);
-          if (!there || slack(there) < 0) {
+          const by = there ? slack(there, gap) : NaN;
+          if (!there || by < 0) {
             blocked = next;
+            blockedBy = by;
             break;
           }
           found = next;
+          foundBy = by;
         }
-        if (blocked !== null) pose = firstClear(blocked, found);
-        else pose = at(found)!;
+        return blocked !== null ? firstClear(blocked, blockedBy, found, foundBy) : at(found)!;
+      };
+      /**
+       * Where a table stands the gap from the last one alone, sought from `near` either way: the
+       * place to try where the search by steps found none, since the room left is narrower than
+       * a step, between the last table and the run's end or what stands ahead (a loop's first
+       * table, at its seam). Null where no table fits there, or it is not clear of the rest.
+       */
+      const besideLast = (near: number, lastS: number): Pose | null => {
+        if (!Number.isFinite(lastS)) return null;
+        const last = placed[placed.length - 1];
+        const clearOfLast = (pose: Pose) =>
+          separationOf(cornersAt(pose.centre, pose.rotation, widthMm, depthMm), last.corners) -
+            gap >=
+          0;
+        /** The furthest place a table fits, between one where it does and one where none does. */
+        const lastFit = (fits: number, past: number): number => {
+          while (past - fits > MARCH_EXACT_MM) {
+            const middle = (fits + past) / 2;
+            if (at(middle)) fits = middle;
+            else past = middle;
+          }
+          return fits;
+        };
+        // No further than the run goes, however far on the try was.
+        let from = Math.min(near, run.length);
+        if (!at(from)) {
+          let fits = from - step;
+          while (fits > lastS && !at(fits)) fits -= step;
+          if (fits <= lastS) return null;
+          from = lastFit(fits, fits + step);
+        }
+        let low: number;
+        let high: number;
+        if (clearOfLast(at(from)!)) {
+          low = lastS;
+          high = from;
+        } else {
+          // On to the first place clear of the last table, no further than a table fits.
+          low = from;
+          high = from;
+          for (;;) {
+            let next = high + step;
+            if (!at(next)) {
+              next = lastFit(high, next);
+              if (next <= low || !clearOfLast(at(next)!)) return null;
+              high = next;
+              break;
+            }
+            high = next;
+            if (clearOfLast(at(high)!)) break;
+            low = high;
+          }
+        }
+        while (high - low > MARCH_WITHIN_MM) {
+          const middle = (low + high) / 2;
+          const pose = at(middle);
+          if (pose && clearOfLast(pose)) high = middle;
+          else low = middle;
+        }
+        const pose = at(high)!;
+        return slack(pose, gap) >= -MARCH_EXACT_MM ? pose : null;
+      };
+      let s = 0;
+      let lastS = -Infinity;
+      let lastEnd = 0;
+      let firstEnd = 0;
+      let capped = false;
+      for (;;) {
+        if (out.length >= maxCount) {
+          // Cut short only where another table would have fitted.
+          capped = at(s) !== null;
+          break;
+        }
+        let pose = at(s);
+        if (!pose) {
+          // The try is past where a table fits before the run's end: outside a bend one may
+          // still fit nearer the last table.
+          pose = besideLast(s, lastS);
+          if (!pose) break;
+        } else {
+          const clear = slack(pose, gap);
+          if (clear < -MARCH_EXACT_MM) {
+            // Too near: on to the first clear place.
+            let blocked = s;
+            let blockedBy = clear;
+            let found: number | null = null;
+            let foundBy = NaN;
+            for (let next = s + step; ; next += step) {
+              const there = at(next);
+              if (!there) break;
+              const by = slack(there, gap);
+              if (by >= 0) {
+                found = next;
+                foundBy = by;
+                break;
+              }
+              blocked = next;
+              blockedBy = by;
+            }
+            if (found !== null) {
+              pose = firstClear(blocked, blockedBy, found, foundBy);
+            } else {
+              // Nothing clear further on: what is too near may stand ahead, as a loop's first
+              // table does at the seam, with room still nearer the last table.
+              pose = besideLast(s, lastS);
+              if (!pose) break;
+            }
+          } else if (clear > MARCH_EXACT_MM) {
+            // Looser than asked, as outside a bend: back to the first clear place.
+            pose = backFrom(s, clear, lastS);
+          }
+        }
+        placed.push(standing(pose.centre, pose.rotation));
+        const inside =
+          !extent ||
+          (pose.centre[0] >= 0 &&
+            pose.centre[0] <= extent.widthMm &&
+            pose.centre[1] >= 0 &&
+            pose.centre[1] <= extent.depthMm);
+        if (inside) out.push(shown(pose));
+        if (placed.length - from === 1) firstEnd = pose.endS;
+        lastS = pose.startS;
+        lastEnd = pose.endS;
+        s = pose.endS + gap;
       }
-      placed.push(standing(pose.centre, pose.rotation));
-      const inside =
-        !extent ||
-        (pose.centre[0] >= 0 &&
-          pose.centre[0] <= extent.widthMm &&
-          pose.centre[1] >= 0 &&
-          pose.centre[1] <= extent.depthMm);
-      if (inside) out.push(shown(pose));
-      lastS = pose.startS;
-      s = pose.endS + gapMm;
+      const count = placed.length - from;
+      if (!count) return { count, left: 0, capped };
+      // Past the last table: the run's length left over, or round a loop the gap to the first
+      // table over the gap every other pair has.
+      // Two tables round a loop are one pair both ways, nearest on the side they were marched:
+      // their room is the path left between the second and the first, over the path between
+      // the first and the second.
+      const left = !loop
+        ? whole.length - lastEnd
+        : count > 2
+          ? separationOf(placed[placed.length - 1].corners, placed[from].corners) - gap
+          : count === 2
+            ? whole.length - lastEnd - (lastS - firstEnd)
+            : 0;
+      return { count, left, capped };
+    };
+
+    const placedFrom = placed.length;
+    const outFrom = out.length;
+    const first = march(gapMm);
+    if (!spread || first.capped || first.count < 2 || first.left <= SPREAD_WITHIN_MM) continue;
+
+    // Spread: the widest gap that still holds as many tables, so the last one ends at the run's
+    // end, or round a loop is as far from the first as from the one before it. The room left
+    // shrinks as the gap grows, by about one gap's worth for each gap in the row: each try aims
+    // at no room left by the rate the tries so far have shown, and a try that loses a table
+    // went too far.
+    const keep = () => ({ placed: placed.slice(placedFrom), out: out.slice(outFrom) });
+    let best = keep();
+    let low = gapMm;
+    let high = Infinity;
+    let left = first.left;
+    if (loop && first.count === 2) {
+      // Two tables round a loop: the widest gap at which the second still stands no further
+      // round than opposite the first, by halving. Past it there is no place for it at all.
+      let high = gapMm + whole.length;
+      while (high - low > MARCH_EXACT_MM) {
+        const gap = (low + high) / 2;
+        placed.length = placedFrom;
+        out.length = outFrom;
+        const tried = march(gap);
+        if (tried.count === 2 && !tried.capped && tried.left >= 0) {
+          low = gap;
+          best = keep();
+        } else {
+          high = gap;
+        }
+      }
+      placed.length = placedFrom;
+      out.length = outFrom;
+      placed.push(...best.placed);
+      out.push(...best.out);
+      continue;
     }
+    // Twice as fast as a straight row to begin with, so the first try falls short of the end.
+    const gaps = loop ? first.count : first.count - 1;
+    let rate = 2 * gaps;
+    for (let tries = 0; tries < SPREAD_TRIES && left > SPREAD_WITHIN_MM; tries += 1) {
+      // A little short of all the room left, so a rate a little off does not lose a table.
+      let gap = low + Math.min(left * 0.98, left - SPREAD_WITHIN_MM / 2) / rate;
+      if (gap >= high) gap = (low + high) / 2;
+      if (gap <= low || high - low < 0.001) break;
+      placed.length = placedFrom;
+      out.length = outFrom;
+      const tried = march(gap);
+      if (tried.count === first.count && !tried.capped && tried.left >= -SPREAD_WITHIN_MM) {
+        const shown = (left - tried.left) / (gap - low);
+        low = gap;
+        left = tried.left;
+        best = keep();
+        // The room left that a wider gap did not take up is held by something that stands in
+        // the row's way, not by the gap: no gap closes it, and the row stays as it is.
+        if (shown < gaps / 4) break;
+        // On a bend the room shrinks faster or slower than on a line, never by less than half.
+        rate = Math.max(shown, gaps / 2);
+      } else {
+        high = gap;
+      }
+    }
+    placed.length = placedFrom;
+    out.length = outFrom;
+    placed.push(...best.placed);
+    out.push(...best.out);
   }
   return out;
+}
+
+/** A loop's points with its beginning again after its end, for `furtherMm` or once round. */
+function lapped(points: readonly PointMm[], furtherMm: number): PointMm[] {
+  const out = points.slice();
+  let further = 0;
+  for (let i = 1; i < points.length && further < furtherMm; i += 1) {
+    further += between(vec(points[i - 1]), vec(points[i]));
+    out.push(points[i]);
+  }
+  return out;
+}
+
+/**
+ * A row of tables along runs, in the order drawn: each table goes at the first place along its run
+ * where it stands exactly `gapMm` clear of every table before it (further on inside a bend than
+ * where the last one's edge ended, nearer outside one), so no two overlap at any radius and the
+ * gap asked holds where they are nearest. On a straight run that is `floor((length + gap) /
+ * (width + gap))` tables, a table's width and the gap apart. A table is placed only while its
+ * whole back edge fits before its run ends. A place that would overlap one of `obstacles` is
+ * passed over for the next clear one; a table whose centre would stand outside `extent` is left
+ * out, the row going on as if it stood there; and no more than `maxCount` are placed.
+ * `placedBefore` are tables of the same size the row keeps its gap from, as an earlier row of the
+ * same gesture.
+ *
+ * A run that is a loop (a closed path with no corner) has no end to fit before: its tables go on
+ * across the seam, the last begun before it, until the next would be nearer the first than the
+ * gap. The room left there is whatever the loop's length leaves; `spreadEvenly` shares it out.
+ */
+export function placeAlongRuns(
+  runs: readonly Run[],
+  options: RowOptions,
+  placedBefore: readonly PathPose[] = [],
+): PathPose[] {
+  return rowAlong(runs, options, placedBefore, false);
+}
+
+/**
+ * The row of `placeAlongRuns` with each run's tables spread evenly along it: the gap between
+ * them grown, never under the gap asked, until the last table's edge ends at its run's end, or
+ * round a loop until the gap between the last table and the first is the gap between every other
+ * two, so a ring closes with no ragged hole at its seam. Each run keeps the tables the march
+ * gives it where it stands; a run spread to the corner it ends at can stand in the way of the
+ * next run's first table, so a path with corners may hold one fewer spread than not. A run of
+ * one table, one that fills its length already, one whose last table is held where it is by
+ * something that stands in the way, and a row cut short by `maxCount` stay as they are.
+ */
+export function spreadEvenly(
+  runs: readonly Run[],
+  options: RowOptions,
+  placedBefore: readonly PathPose[] = [],
+): PathPose[] {
+  return rowAlong(runs, options, placedBefore, true);
+}
+
+/** Offset points are tried this far apart along a stretch, to find where it is swallowed. */
+const OFFSET_STEP_MM = 250;
+/** How much nearer the path than the distance asked an offset point may stand, for rounding. */
+const OFFSET_WITHIN_MM = 0.01;
+/** The most a point is carried out at a bend, in distances: past it the bend is too sharp. */
+const MITER_MOST = 4;
+
+/**
+ * The runs of a path moved sideways by a distance, toward the right of the direction drawn where
+ * it is positive: the line a parallel row stands on. Each run is offset on its own, a loop to a
+ * loop; then whatever of it would stand nearer any run of the path than the distance is dropped,
+ * cut where it comes that near. So inside a bend tighter than the distance nothing is left of the
+ * bend, inside a corner each wall's offset stops short of the other wall, and a stretch swallowed
+ * out of the middle of a run leaves two runs. A run left with no length is left out.
+ */
+export function offsetRuns(runs: readonly Run[], distanceMm: number): Run[] {
+  const paths = runs.map((run) => run.map(vec)).filter((run) => run.length > 1);
+  if (distanceMm === 0) return paths.map((run) => run.map(pointOf));
+  const away = Math.abs(distanceMm);
+
+  // The path's segments by the squares of a grid they pass through, so a point asks only the
+  // segments near it however long the path. A square is twice the distance across and a segment
+  // is entered every `away` along it, so every segment within the distance of a point is in the
+  // nine squares round the point's own.
+  const cell = away * 2;
+  const grid = new Map<number, [Vec, Vec][]>();
+  /** A square's key from its column and row: unlike for any two squares a floorplan holds. */
+  const keyOf = (column: number, line: number) => column * 0x100000 + line;
+  for (const path of paths) {
+    for (let i = 0; i + 1 < path.length; i += 1) {
+      const segment: [Vec, Vec] = [path[i], path[i + 1]];
+      const steps = Math.max(1, Math.ceil(between(path[i], path[i + 1]) / away));
+      let last = NaN;
+      for (let j = 0; j <= steps; j += 1) {
+        const at = steps === 1 ? segment[j] : mix(path[i], path[i + 1], j / steps);
+        const key = keyOf(Math.floor(at[0] / cell), Math.floor(at[1] / cell));
+        if (key === last) continue;
+        last = key;
+        const held = grid.get(key);
+        if (held) held.push(segment);
+        else grid.set(key, [segment]);
+      }
+    }
+  }
+  /** Whether a point stands as far from the whole path as the distance asked. */
+  const clear = (v: Vec): boolean => {
+    const column = Math.floor(v[0] / cell);
+    const line = Math.floor(v[1] / cell);
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        const held = grid.get(keyOf(column + dx, line + dy));
+        if (!held) continue;
+        for (const [a, b] of held) {
+          if (toSegment(v, a, b) < away - OFFSET_WITHIN_MM) return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  const out: Vec[][] = [];
+  for (const path of paths) {
+    const loop = loops(path);
+    const count = path.length;
+    const moved: Vec[] = [];
+    for (let i = 0; i < count; i += 1) {
+      // The direction into and out of the point; a loop's seam has both, an end has one.
+      const before = i > 0 ? path[i - 1] : loop ? path[count - 2] : null;
+      const after = i < count - 1 ? path[i + 1] : loop ? path[1] : null;
+      const rightOf = (from: Vec, to: Vec): Vec | null => {
+        const length = between(from, to);
+        return length ? [-(to[1] - from[1]) / length, (to[0] - from[0]) / length] : null;
+      };
+      const first = before && rightOf(before, path[i]);
+      const second = after && rightOf(path[i], after);
+      const sum = first && second ? plus(first, second) : (first ?? second);
+      const length = sum ? Math.hypot(sum[0], sum[1]) : 0;
+      if (!sum || length < 1e-9) continue;
+      const normal = times(sum, 1 / length);
+      // At a bend the point is carried out along the bisector, so both stretches beside it
+      // stand the distance off.
+      const miter = first && second ? 1 / Math.max(1 / MITER_MOST, dot(normal, first)) : 1;
+      const at = plus(path[i], times(normal, distanceMm * miter));
+      moved.push([at[0] + 0, at[1] + 0]);
+    }
+    if (moved.length < 2) continue;
+    if (loop) moved[moved.length - 1] = moved[0];
+
+    // Along the offset, what is clear of the path is kept, cut where it stops being.
+    const pieces: Vec[][] = [];
+    let piece: Vec[] = [];
+    let from = moved[0];
+    let fromClear = clear(from);
+    if (fromClear) piece.push(from);
+    for (let i = 1; i < moved.length; i += 1) {
+      const to = moved[i];
+      const steps = Math.max(1, Math.ceil(between(from, to) / OFFSET_STEP_MM));
+      let lastT = 0;
+      for (let j = 1; j <= steps; j += 1) {
+        const t = j / steps;
+        const here = j === steps ? to : mix(from, to, t);
+        const hereClear = clear(here);
+        if (hereClear !== fromClear) {
+          // Where it changes, by halving: the place on the clear side.
+          let inT = fromClear ? lastT : t;
+          let outT = fromClear ? t : lastT;
+          for (let k = 0; k < 24; k += 1) {
+            const middle = (inT + outT) / 2;
+            if (clear(mix(from, to, middle))) inT = middle;
+            else outT = middle;
+          }
+          const cut = inT === 0 ? from : inT === 1 ? to : mix(from, to, inT);
+          if (fromClear) {
+            if (piece[piece.length - 1] !== cut) piece.push(cut);
+            pieces.push(piece);
+            piece = [];
+          } else {
+            piece = [cut];
+          }
+          fromClear = hereClear;
+        }
+        lastT = t;
+      }
+      if (fromClear && piece[piece.length - 1] !== to) piece.push(to);
+      from = to;
+    }
+    if (piece.length) pieces.push(piece);
+    // Round a loop, what is kept at its end goes on into what is kept at its beginning.
+    if (loop && pieces.length > 1 && pieces[0][0] === moved[0] && fromClear) {
+      const last = pieces.pop()!;
+      pieces[0] = last.concat(pieces[0].slice(1));
+    }
+    for (const kept of pieces) {
+      let length = 0;
+      for (let i = 1; i < kept.length; i += 1) length += between(kept[i - 1], kept[i]);
+      if (length >= SAME_POINT_MM) out.push(kept);
+    }
+  }
+  return out.map((run) => run.map(pointOf));
+}
+
+/**
+ * One run moved sideways by a distance, toward the right of the direction drawn where it is
+ * positive; the stretches the offset swallows are dropped, and what is left is one run in the
+ * order drawn. Nothing where all of it is swallowed. `offsetRuns` keeps the stretches apart.
+ */
+export function offsetRun(run: Run, distanceMm: number): Run {
+  return offsetRuns([run], distanceMm).flat();
+}
+
+/** How near the aisle asked two rows must stand, table to table, to be an aisle apart. */
+const AISLE_WITHIN_MM = 0.5;
+/** By how much a row's offset is widened over what its aisle is short of. */
+const AISLE_OVER = 1.05;
+/** How many times a row's offset is widened for the aisle its tables turned out short of. */
+const AISLE_TRIES = 6;
+
+/** The least distance between any table of one row and any of another; infinite of an empty row. */
+function leastBetween(a: readonly Standing[], b: readonly Standing[]): number {
+  let least = Infinity;
+  for (const one of a) {
+    for (const other of b) {
+      if (between(one.centre, other.centre) - one.reach - other.reach > least) continue;
+      least = Math.min(least, separationOf(one.corners, other.corners));
+    }
+  }
+  return least;
+}
+
+export interface RowsOptions extends RowOptions {
+  /** How many rows, the first on the path. */
+  rows: number;
+  /** The clear floor between one row's tables and the next's. */
+  aisleMm: number;
+  /** Each row spread evenly along its runs (`spreadEvenly`). */
+  spread?: boolean;
+}
+
+/**
+ * Rows of tables beside a path, the first along the path itself and each next one along the path
+ * offset further toward the tables' side (the right, for rows centred on the line), so on a curve
+ * they are concentric and each holds what its own length fits. The aisle is measured table to
+ * table, where the two rows stand nearest: a row's offset starts a table's depth and the aisle
+ * past the last and is widened, a few times, by what its tables turn out short of, since on a
+ * bend a table's back stands off its line. A row with no room, inside a curve tighter than its
+ * offset, is empty. `maxCount` holds across the rows, the first row whole first.
+ */
+export function placeRows(runs: readonly Run[], options: RowsOptions): PathPose[][] {
+  const { widthMm, depthMm, aisleMm, side } = options;
+  const most = options.maxCount ?? Infinity;
+  const way = side === 'left' ? -1 : 1;
+  const half = Math.hypot(widthMm, depthMm) / 2;
+  const standingOf = (row: readonly PathPose[]): Standing[] =>
+    row.map((pose) => ({
+      centre: [pose.xMm, pose.yMm],
+      reach: half,
+      corners: cornersAt([pose.xMm, pose.yMm], pose.rotation, widthMm, depthMm),
+    }));
+  const lay = (path: readonly Run[], room: number, obstacles = options.obstacles) =>
+    room > 0 ? rowAlong(path, { ...options, obstacles, maxCount: room }, [], !!options.spread) : [];
+
+  const rows: PathPose[][] = [lay(runs, most)];
+  const stood: Standing[][] = [standingOf(rows[0])];
+  let count = rows[0].length;
+  let offset = 0;
+  for (let k = 1; k < Math.max(1, Math.floor(options.rows)); k += 1) {
+    offset += depthMm + aisleMm;
+    let row: PathPose[] = [];
+    let standing: Standing[] = [];
+    let apart = Infinity;
+    for (let tries = 0; ; tries += 1) {
+      const path = offsetRuns(runs, way * offset);
+      row = path.length ? lay(path, most - count) : [];
+      standing = standingOf(row);
+      apart = leastBetween(stood[k - 1], standing);
+      if (apart >= aisleMm - AISLE_WITHIN_MM || tries === AISLE_TRIES) break;
+      // A little over what it is short of: on a bend the tables come apart by less than their
+      // line is moved, and the next try should be the last.
+      offset += (aisleMm - apart) * AISLE_OVER + AISLE_WITHIN_MM / 2;
+    }
+    // Where no widening gives the aisle, as round a sharp corner whose two walls' rows close on
+    // each other, the tables that stand in it are left out: an aisle is never narrower than asked.
+    if (apart < aisleMm - AISLE_WITHIN_MM) {
+      const clear = standing.map(
+        (table) => leastBetween(stood[k - 1], [table]) >= aisleMm - AISLE_WITHIN_MM,
+      );
+      row = row.filter((_, i) => clear[i]);
+      standing = standing.filter((_, i) => clear[i]);
+    }
+    // Where a path comes back near itself a row can still meet an earlier one: it then goes
+    // round those tables as round anything else that stands.
+    const earlier = stood.flat();
+    if (row.length && leastBetween(earlier, standing) < -MARCH_EXACT_MM) {
+      const path = offsetRuns(runs, way * offset);
+      row = lay(path, most - count, [
+        ...(options.obstacles ?? []),
+        ...earlier.map((table) => table.corners.map(pointOf)),
+      ]);
+      standing = standingOf(row);
+    }
+    rows.push(row);
+    stood.push(standing);
+    count += row.length;
+  }
+  return rows;
 }
 
 /**

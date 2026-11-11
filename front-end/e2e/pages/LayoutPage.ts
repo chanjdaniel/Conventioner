@@ -49,6 +49,11 @@ export class LayoutPage {
   readonly rowGap: Locator;
   readonly rowStand: Locator;
   readonly rowFlip: Locator;
+  readonly rowRows: Locator;
+  readonly rowAisle: Locator;
+  readonly rowSpread: Locator;
+  /** The ring the path's first point wears while a click on it would close the path. */
+  readonly rowClose: Locator;
   readonly rowPreview: Locator;
   readonly rowCount: Locator;
   readonly rowPoints: Locator;
@@ -125,6 +130,10 @@ export class LayoutPage {
     this.rowGap = page.getByTestId('layout-row-gap');
     this.rowStand = page.getByTestId('layout-row-stand');
     this.rowFlip = page.getByTestId('layout-row-flip');
+    this.rowRows = page.getByTestId('layout-row-rows');
+    this.rowAisle = page.getByTestId('layout-row-aisle');
+    this.rowSpread = page.getByTestId('layout-row-spread');
+    this.rowClose = this.map.getByTestId('layout-row-close');
     this.rowPreview = this.map.getByTestId('layout-row-preview');
     this.rowCount = this.map.getByTestId('layout-row-count');
     this.rowPoints = this.map.getByTestId('layout-row-point');
@@ -204,7 +213,7 @@ export class LayoutPage {
    */
   async tabToTheMap(): Promise<void> {
     await this.toolbar.locator('[tabindex="0"]').focus();
-    for (let press = 0; press < 8; press += 1) {
+    for (let press = 0; press < 12; press += 1) {
       await this.page.keyboard.press('Tab');
       if (await this.stage.locator(':focus').count()) return;
     }

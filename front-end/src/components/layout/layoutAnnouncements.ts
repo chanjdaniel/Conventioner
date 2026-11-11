@@ -154,6 +154,19 @@ export function saidSide(side: 'right' | 'left', count: number | null): string {
   return count === null ? said : `${said} ${held(count)}`;
 }
 
+/** A path closed into a shape, and what it holds: "Closed. 10 tables." */
+export function saidClosed(count: number): string {
+  return `Closed. ${held(count)}`;
+}
+
+/** A closed path opened again, and what it holds: "Opened again. 9 tables." */
+export function saidOpened(count: number): string {
+  return `Opened again. ${held(count)}`;
+}
+
+/** Said when a path of fewer than three points is asked to close. */
+export const SHAPE_NEEDS_THREE = 'A shape takes three points or more.';
+
 /** Said when a path is dropped unplaced. */
 export const ROW_DROPPED = 'Row dropped. No table was added.';
 /** Said when a path is placed that no table fits along. */

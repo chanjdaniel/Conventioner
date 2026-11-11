@@ -20,6 +20,7 @@ import { layoutSections } from '@/components/layout/layoutDrawing';
 import { separation, tableCorners } from '@/components/layout/layoutGeometry';
 import {
   MAX_LAYOUT_TABLES,
+  ROW_CHOICES_AT_FIRST,
   gapMmOf,
   rowChoices,
   rowOnFrom,
@@ -83,7 +84,7 @@ function aTool(tables: FloorplanTable[] = [], zones: FloorplanObject['zones'] = 
 
 beforeEach(() => {
   vi.useFakeTimers();
-  Object.assign(rowChoices, { side: 'right', centred: false, gapCm: '0' });
+  Object.assign(rowChoices, ROW_CHOICES_AT_FIRST);
 });
 afterEach(() => vi.useRealTimers());
 

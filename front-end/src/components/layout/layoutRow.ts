@@ -6,10 +6,15 @@
  * A path is the points clicked so far, with the pointer's place after them while it is over the
  * map, or the two ends of a straight drag. The row shown is always the row that placing would
  * add: the smooth path through those points (`smoothRuns`), lined with tables of the options
- * strip's type on the side chosen (`placeAlongRuns`), clear of the tables and no-table zones that
+ * strip's type on the side chosen (`placeRows`), clear of the tables and no-table zones that
  * stand already and inside the floorplan. Nothing of a pending path is in the layout: it is not
  * saved, not a step of undo, and it is dropped whole. Placed, the tables are ordinary tables,
  * numbered on in their section in the order drawn, selected, and one step of undo.
+ *
+ * A path of three points or more can be closed: its last point joined to its first, smooth at
+ * the seam as anywhere, its tables spread evenly round it. A closed path stays pending, to be
+ * placed or opened again. The options strip's Rows and Aisle place that many rows in the one
+ * gesture, each offset toward the tables' side, the first row numbered whole, then the next.
  */
 import { computed, reactive, shallowRef, type ComputedRef, type ShallowRef } from 'vue';
 import type { FloorplanObject, FloorplanTable, TableTypeObject } from '@/assets/types/datatypes';
@@ -18,6 +23,7 @@ import {
   cornersOf,
   hallOf,
   placeAlongRuns,
+  placeRows,
   smoothRuns,
   snapPoint,
   tableCorners,
@@ -33,16 +39,33 @@ import type { LayoutEditor, NewTable } from './useLayoutEditor';
 /** The most tables a layout holds: the server's `MAX_PLACED_TABLES` (`floorplan_limits.py`). */
 export const MAX_LAYOUT_TABLES = 1000;
 
+/** The most rows one gesture places. */
+export const MAX_ROWS = 10;
+
 /**
  * What the options strip holds for a row, kept while the app is open, so the side chosen for one
  * wall is the side the next row starts on: the side of the line the tables stand on, whether they
- * are centred on it instead, and the gap between them in centimetres, as typed.
+ * are centred on it instead, the gap between them in centimetres, as typed, how many rows and the
+ * aisle between them in centimetres, as typed, and whether an open path's tables are spread
+ * evenly to its ends.
  */
 export const rowChoices = reactive({
   side: 'right' as 'right' | 'left',
   centred: false,
   gapCm: '0',
+  rows: '1',
+  aisleCm: '120',
+  spread: false,
 });
+
+/** What `rowChoices` holds when the app opens. */
+export const ROW_CHOICES_AT_FIRST = { ...rowChoices } as const;
+
+/** The rows typed: a whole number from 1 to `MAX_ROWS`, 1 for a field that holds none. */
+export function rowsOf(typed: string): number {
+  const rows = Math.floor(Number(String(typed).trim()));
+  return Number.isFinite(rows) && rows >= 1 ? Math.min(rows, MAX_ROWS) : 1;
+}
 
 /** The gap typed in centimetres, in millimetres: nothing for a field that holds no length. */
 export function gapMmOf(typed: string): number {
@@ -126,13 +149,21 @@ export interface RowTool {
   crosshair: Readonly<ShallowRef<PointMm | null>>;
   /** Whether a path is being drawn: a point is laid, or a straight drag is in hand. */
   pending: ComputedRef<boolean>;
+  /** Whether the path has been closed into a shape, its last point joined to its first. */
+  closed: Readonly<ShallowRef<boolean>>;
+  /** Whether the path can be closed: it has three points or more, and is open. */
+  closable: ComputedRef<boolean>;
+  /** Whether the pointer rests on the first point of a path that can be closed: the path is
+   *  shown closed, as a click there would make it. */
+  closing: Readonly<ShallowRef<boolean>>;
   /** The smooth path through the points, and the pointer's place while it is over the map. */
   runs: ComputedRef<Run[]>;
   /** The row that placing would add. */
   poses: ComputedRef<PathPose[]>;
   /** The size of the tables it would add. */
   size: ComputedRef<SizeMm>;
-  /** Where the count is written: at the pointer, else at the last point. */
+  /** Where the count is written: at the pointer, else at the last point; of a closed shape, at
+   *  its first. */
   countAt: ComputedRef<PointMm | null>;
   side: ComputedRef<RowSide>;
   /** A point snapped to the tables near it, within `withinMm`: to a corner, else to the line of
@@ -141,6 +172,12 @@ export interface RowTool {
   /** The point within `withinMm` of a place, by its index; null where none is. */
   pointNear(at: PointMm, withinMm: number): number | null;
   addPoint(at: PointMm): void;
+  /** Close the path into a shape; false where it has fewer than three points or is closed. */
+  close(): boolean;
+  /** Open a closed path again, its points as they were; false where it was open. */
+  open(): boolean;
+  /** Show the path closed while the pointer rests on its first point. */
+  hoverClose(on: boolean): void;
   /** Take the last point back; false when there was none. */
   takePoint(): boolean;
   movePoint(index: number, to: PointMm): void;
@@ -165,6 +202,18 @@ export function useRowTool(options: RowToolOptions): RowTool {
   const hover = shallowRef<PointMm | null>(null);
   const drag = shallowRef<[PointMm, PointMm] | null>(null);
   const crosshair = shallowRef<PointMm | null>(null);
+  const closed = shallowRef(false);
+  const closing = shallowRef(false);
+  /** The points that are places of their own: one laid on the last, or a last on the first, is
+   *  no further corner of a shape. */
+  const places = computed(() => {
+    const apart = (a: PointMm, b: PointMm) => Math.hypot(a.xMm - b.xMm, a.yMm - b.yMm) >= 1;
+    const own = points.value.filter((point, i, all) => i === 0 || apart(point, all[i - 1]));
+    return own.length > 1 && !apart(own[0], own[own.length - 1]) ? own.length - 1 : own.length;
+  });
+  const closable = computed(() => places.value >= 3 && !closed.value);
+  /** The path is drawn closed: it is, or the pointer rests where a click would close it. */
+  const drawnClosed = computed(() => closed.value || (closing.value && closable.value));
 
   const layout = () => options.editor.layout.value;
   const typeSize = (id: string): SizeMm =>
@@ -181,26 +230,34 @@ export function useRowTool(options: RowToolOptions): RowTool {
 
   const path = computed<PointMm[]>(() => {
     if (drag.value) return drag.value;
+    if (drawnClosed.value) return points.value;
     return hover.value && points.value.length ? [...points.value, hover.value] : points.value;
   });
-  const runs = computed(() => smoothRuns(path.value));
+  const runs = computed(() => smoothRuns(path.value, { closed: drawnClosed.value }));
   const poses = computed(() => {
     const now = layout();
     if (!now || !runs.value.length) return [];
-    return placeAlongRuns(runs.value, {
+    // The rows in order, the first whole and then the next: the order they are numbered in.
+    return placeRows(runs.value, {
       ...size.value,
       gapMm: gapMmOf(rowChoices.gapCm),
       side: side.value,
       obstacles: shapes.value,
       extent: extentOf(hallOf(now)),
       maxCount: Math.max(0, MAX_LAYOUT_TABLES - now.tables.length),
-    });
+      rows: rowsOf(rowChoices.rows),
+      aisleMm: gapMmOf(rowChoices.aisleCm),
+      // A closed shape's tables are always spread round it; an open path's where asked.
+      spread: drawnClosed.value || rowChoices.spread,
+    }).flat();
   });
 
   function clear() {
     points.value = [];
     hover.value = null;
     drag.value = null;
+    closed.value = false;
+    closing.value = false;
   }
 
   function place(): FloorplanTable[] {
@@ -224,10 +281,14 @@ export function useRowTool(options: RowToolOptions): RowTool {
     points,
     crosshair,
     pending: computed(() => points.value.length > 0 || drag.value !== null),
+    closed,
+    closable,
+    closing,
     runs,
     poses,
     size,
-    countAt: computed(() => path.value.at(-1) ?? null),
+    // A closed shape's count stands at its first point, where the click that closed it was.
+    countAt: computed(() => (drawnClosed.value ? points.value[0] : path.value.at(-1)) ?? null),
     side,
     snapped: (at, withinMm, reachMm = 0) => snapPoint(at, tableShapes.value, withinMm, reachMm),
     pointNear(at, withinMm) {
@@ -243,11 +304,32 @@ export function useRowTool(options: RowToolOptions): RowTool {
       return nearest;
     },
     addPoint(at) {
+      // A closed shape takes no further point: it is placed, or opened again first.
+      if (closed.value) return;
       points.value = [...points.value, at];
+      // A point laid is no longer the pointer resting on the first.
+      closing.value = false;
+    },
+    close() {
+      if (!closable.value) return false;
+      closed.value = true;
+      closing.value = false;
+      hover.value = null;
+      return true;
+    },
+    open() {
+      if (!closed.value) return false;
+      closed.value = false;
+      return true;
+    },
+    hoverClose(on) {
+      closing.value = on;
     },
     takePoint() {
       if (!points.value.length) return false;
       points.value = points.value.slice(0, -1);
+      // Fewer than three points are no shape.
+      if (points.value.length < 3) closed.value = false;
       return true;
     },
     movePoint(index, to) {
@@ -255,6 +337,7 @@ export function useRowTool(options: RowToolOptions): RowTool {
     },
     hoverAt(at) {
       hover.value = at;
+      closing.value = false;
     },
     dragTo(ends) {
       drag.value = ends;
@@ -263,6 +346,7 @@ export function useRowTool(options: RowToolOptions): RowTool {
       crosshair.value = to;
       // The keys have the path: it is the points laid, wherever the pointer was left.
       hover.value = null;
+      closing.value = false;
     },
     flip() {
       rowChoices.side = rowChoices.side === 'right' ? 'left' : 'right';

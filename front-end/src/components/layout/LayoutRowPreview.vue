@@ -2,8 +2,9 @@
 /**
  * What the Row of tables tool draws over the map while a path is pending (T257): the tables the
  * row would place, in their section's colour and dashed, since they are not tables yet; the path
- * through the points; each point clicked; how many tables it holds, written at the pointer; and
- * the crosshair the keys move, with a lead from the last point to it. It is a picture of
+ * through the points; each point clicked, the first ringed while a click on it would close the
+ * path into a shape; how many tables it holds, written at the pointer; and the crosshair the
+ * keys move, with a lead from the last point to it. It is a picture of
  * `layoutRow.ts`'s state, in the map's millimetres, and takes no press: the editor finds a point
  * under the pointer by where it is.
  */
@@ -20,6 +21,8 @@ const props = defineProps<{
   /** Where the count is written; null writes none. */
   countAt: PointMm | null;
   crosshair: PointMm | null;
+  /** Whether a click on the first point would close the path: that point wears a ring. */
+  closes?: boolean;
   /** The colours of the section the tables would join. */
   paint: Paint;
   /** A screen pixel in the map's millimetres. */
@@ -98,6 +101,17 @@ const lead = computed(() => {
       stroke-width="1"
       stroke-dasharray="4 4"
       vector-effect="non-scaling-stroke"
+    />
+    <circle
+      v-if="closes && points.length"
+      :cx="points[0].xMm"
+      :cy="points[0].yMm"
+      :r="px(11)"
+      fill="none"
+      stroke="var(--mm-blue)"
+      stroke-width="2"
+      vector-effect="non-scaling-stroke"
+      data-testid="layout-row-close"
     />
     <circle
       v-for="(point, index) in points"
