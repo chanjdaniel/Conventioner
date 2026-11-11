@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
-import FloorplanUploader from './FloorplanUploader.vue';
+import FloorplanUploader from '@/components/layout/FloorplanUploader.vue';
 import ScaleCalibration from './ScaleCalibration.vue';
 import TableTypePanel from './TableTypePanel.vue';
 import AutoPlaceButton from './AutoPlaceButton.vue';

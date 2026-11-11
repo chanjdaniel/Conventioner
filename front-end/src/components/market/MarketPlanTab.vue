@@ -34,10 +34,13 @@ import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
 import ElementPricing from '@/components/elements/ElementPricing.vue';
 import { essentialOptionsFromSetup } from '@/utils/essentialFields';
 import { planGateReason } from '@/utils/planGate';
+import { layoutPath } from '@/utils/market';
 import { IntakeMode } from '@/assets/types/datatypes';
 import type { RejectionQuestion, SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{
+  /** The market the plan is of, for the links to its locations' layouts. */
+  marketId: string;
   setupObject: SetupObject;
   /** The plan's working copy of how vendors reach this market, not the stored value. */
   intakeMode: IntakeMode | undefined;
@@ -73,7 +76,8 @@ const emit = defineEmits<{
   (event: 'update:intakeMode', value: IntakeMode): void;
   /** A card's field shows text that is not a value: the plan waits rather than saving. */
   (event: 'held', value: boolean): void;
-  (event: 'choosePath'): void;
+  /** Open a location's layout, once the plan's pending edits have landed (T257). */
+  (event: 'openLayout', locationId: string): void;
   (event: 'openForm'): void;
   /** Open the flow that starts this draft from its Google Form's responses. */
   (event: 'startFromCsv'): void;
@@ -82,18 +86,35 @@ const emit = defineEmits<{
 /** What the plan is still missing before the form can ask anything, or null when it is ready. */
 const formGateReason = computed(() => planGateReason(essentialOptionsFromSetup(props.setupObject)));
 
-/**
- * The floorplan route is offered from the Section Setup card - the place it is a question about -
- * rather than over the whole page, and only while there is nothing to describe sections with yet.
- */
-const sectionsUndescribed = computed(
-  () =>
-    props.setupObject.sections.length === 0 &&
-    !(props.setupObject.floorplans && props.setupObject.floorplans.length > 0),
-);
-
 /** The plan cannot change, for either reason (bug 30). */
 const locked = computed(() => props.readOnly || Boolean(props.setupLockReason));
+
+/**
+ * Each named location's layout, offered under Section Setup's rows (T257): "Lay out Upper Hall",
+ * or "Open Upper Hall's layout · 49 tables" once it has one. A location with no name, or no id (a
+ * market stored before ids, until its next write), offers nothing. A plan that cannot change offers
+ * only the layouts it has, to read.
+ */
+const layoutEntries = computed(() =>
+  props.setupObject.locations
+    .filter((location) => location.id && location.name.trim() !== '')
+    .map((location) => {
+      const layout = (props.setupObject.floorplans ?? []).find(
+        (floorplan) => floorplan.locationId === location.id,
+      );
+      return {
+        id: location.id as string,
+        name: location.name,
+        tables: layout ? layout.tables.length : null,
+      };
+    })
+    .filter((entry) => entry.tables !== null || !locked.value),
+);
+
+function layoutLabel(entry: { name: string; tables: number | null }): string {
+  if (entry.tables === null) return `Lay out ${entry.name}`;
+  return `Open ${entry.name}'s layout · ${entry.tables} ${entry.tables === 1 ? 'table' : 'tables'}`;
+}
 
 const setupObject = computed(() => props.setupObject);
 const intakeEditable = computed(() => props.intakeEditable);
@@ -154,21 +175,34 @@ const intakeEditable = computed(() => props.intakeEditable);
         <h2>Section Setup</h2>
       </template>
       <template #setting-content>
-        <!-- The choice belongs here, where sections are described, rather than over the
-               whole page - and it is offered rather than imposed. -->
-        <button
-          v-if="sectionsUndescribed && !locked"
-          type="button"
-          class="section-path-button"
-          @click="emit('choosePath')"
-          data-testid="market-setup-choose-path-button"
-        >
-          Set up sections from a floorplan instead
-        </button>
         <ElementSectionSetup
           :setupObject="setupObject"
           @update:setupObject="(value) => emit('update:setupObject', value)"
         />
+        <!-- Each location's layout, under the rows that name its sections (T257). Opening one is a
+             link, which a plan that cannot change still offers; starting one waits for the plan's
+             pending edits, so the location is the server's when its layout begins. -->
+        <ul v-if="layoutEntries.length" class="layout-entries" data-testid="plan-layouts">
+          <li v-for="entry in layoutEntries" :key="entry.id">
+            <RouterLink
+              v-if="locked"
+              :to="layoutPath(marketId, entry.id)"
+              class="btn btn--secondary"
+              :data-testid="`plan-layout-open-${entry.id}`"
+            >
+              {{ layoutLabel(entry) }}
+            </RouterLink>
+            <button
+              v-else
+              type="button"
+              class="btn btn--secondary"
+              :data-testid="`plan-layout-${entry.tables === null ? 'start' : 'open'}-${entry.id}`"
+              @click="emit('openLayout', entry.id)"
+            >
+              {{ layoutLabel(entry) }}
+            </button>
+          </li>
+        </ul>
       </template>
     </ElementSettingContainer>
 
@@ -360,19 +394,14 @@ const intakeEditable = computed(() => props.intakeEditable);
   border-color: transparent;
 }
 
-.section-path-button {
-  align-self: flex-start;
-  margin-bottom: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-control);
-  border: 1px solid var(--mm-border);
-  background: white;
-  font-size: var(--text-xs);
-  color: var(--mm-text-link);
-  cursor: pointer;
-}
-
-.section-path-button:hover {
-  border-color: var(--mm-text-link);
+/* Each location's layout, a line of its own under the rows, on their left edge. */
+.layout-entries {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
 }
 </style>

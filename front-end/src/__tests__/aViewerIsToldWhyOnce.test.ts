@@ -114,6 +114,7 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
   function mountPlan(readOnly: boolean, setupLockReason: string | null) {
     return mount(MarketPlanTab, {
       props: {
+        marketId: 'market-1',
         setupObject: SETUP,
         intakeMode: IntakeMode.Form,
         intakeEditable: false,
@@ -134,7 +135,6 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
     expect(wrapper.get('fieldset').attributes('disabled')).toBeDefined();
     expect(wrapper.find('[data-testid="plan-setup-settled"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="market-read-only"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="market-setup-choose-path-button"]').exists()).toBe(false);
   });
 
   it('the plan: anyone reads why a settled setup cannot change', () => {

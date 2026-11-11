@@ -104,6 +104,10 @@
   --mm-chip-informational: #dfebef; /* rgba(26, 111, 139, 0.14) over white */
   --mm-chip-destructive: #f6e3e1; /* rgba(192, 57, 43, 0.14) over white */
 
+  /* The floor a layout's floorplan is drawn on (T257): the hall's ground behind the image and the
+     tables. --mm-black on it: 13.90. */
+  --layout-floor: #f4f2ee;
+
   /* ---- Lines and states. Never carry text, so exempt from the contrast rule. ---- */
   --mm-border: rgba(39, 35, 35, 0.25);
   --hover-grey: rgba(192, 192, 192, 0.486);

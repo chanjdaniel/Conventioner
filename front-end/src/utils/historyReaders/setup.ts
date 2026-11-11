@@ -5,7 +5,7 @@
  * - `change-setup/renamed`
  * - `change-setup/plan`
  * - `change-setup/pricing`, its sentence and its rows
- * - `change-setup/floorplan`
+ * - `change-setup/floorplan`, a layout's save (T257) and the beta's (T272)
  * - `change-setup/floorplan_image_deleted`
  * - `change-form/form`
  * - `change-form/review_highlights`
@@ -82,6 +82,33 @@ function floorplanChanges(before: Detail, after: Detail, path: IntakeMode): Chan
     });
   }
   return rows;
+}
+
+/** Metres across, as the layout page reads its scale: "36.0 m". */
+function metres(value: unknown): string {
+  return typeof value === 'number' ? `${value.toFixed(1)} m` : 'none';
+}
+
+/**
+ * Whether an entry is the beta's (T272): its detail the plan's and the floorplan's two sides. A
+ * layout's save (T257) records what it did instead, `layout.describe_change`'s fields.
+ */
+function isBetaFloorplanEntry(detail: Detail): boolean {
+  return 'before' in detail || 'after' in detail;
+}
+
+/** What a layout's save did, as clauses of one sentence, the location named in each. */
+function layoutClauses(detail: Detail, location: string): string[] {
+  const whose = location ? `${location}'s` : 'a';
+  const clauses: string[] = [];
+  if (detail.started === true) clauses.push(`started ${whose} layout`);
+  if (detail.image === 'replaced') clauses.push(`replaced ${whose} floorplan image`);
+  const scale = asDetail(detail.scale);
+  if (typeof scale.after === 'number') {
+    const verb = typeof scale.before === 'number' ? 'recalibrated' : 'calibrated';
+    clauses.push(`${verb} ${whose} layout to ${metres(scale.after)} across`);
+  }
+  return clauses.length ? clauses : [`changed ${whose} layout`];
 }
 
 /** The Pricing card's fields, in the card's order and words (`pricing_fields` in
@@ -275,11 +302,28 @@ export const readers: HistoryReaders = {
   },
   'change-setup/floorplan': {
     parts(entry, context) {
-      const { actor, text } = sentence(entry, context);
-      return [actor, text('saved a floorplan to the market')];
+      const { actor, text, detail } = sentence(entry, context);
+      if (isBetaFloorplanEntry(detail)) return [actor, text('saved a floorplan to the market')];
+      return [actor, text(listed(layoutClauses(detail, str(entry.subject.location))))];
     },
     changes(entry, { path }) {
       const detail = asDetail(entry.detail);
+      if (!isBetaFloorplanEntry(detail)) {
+        const scale = asDetail(detail.scale);
+        return {
+          changed:
+            'after' in scale
+              ? [
+                  {
+                    field: 'Metres across',
+                    before: metres(scale.before),
+                    after: metres(scale.after),
+                  },
+                ]
+              : [],
+          recorded: [],
+        };
+      }
       return {
         changed: floorplanChanges(asDetail(detail.before), asDetail(detail.after), path),
         recorded: [],

@@ -219,6 +219,8 @@ describe('the palette carries a contrast contract', () => {
     // unnoticed because a hardcoded colour has no name to hold to a contract.
     ['--mm-red', 'white'],
     ['--mm-blue', 'white'],
+    // A layout's floor (T257), under the floorplan, the tables and their labels.
+    ['--layout-floor', '--mm-black'],
   ];
 
   for (const [fill, ink] of FILLS) {

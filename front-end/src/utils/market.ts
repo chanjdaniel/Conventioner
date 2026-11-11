@@ -21,6 +21,12 @@ export function marketPath(marketId: string, page?: MarketPage | MarketFlow): st
   return page ? `${base}/${page}` : base;
 }
 
+/** A location's layout, or with no location the market's first (T257). */
+export function layoutPath(marketId: string, locationId?: string): string {
+  const path = marketPath(marketId, 'layout');
+  return locationId ? `${path}/${encodeURIComponent(locationId)}` : path;
+}
+
 /**
  * A blocker's `resolutionLink` as an address: the server names the page that holds the remedy,
  * relative to the market's own pages (`applications`, perhaps with a query), and never which market

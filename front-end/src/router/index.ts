@@ -177,10 +177,18 @@ const router = createRouter({
       name: 'start-from-csv',
       component: () => import('@/views/StartFromCsvView.vue'),
     },
+    // A location's layout (T257): the venue's floorplan, its scale and the tables over it. With no
+    // location it opens the market's first. Read on a phone at the venue, so it fits one.
+    {
+      path: '/markets/:marketId/layout/:locationId?',
+      name: 'market-layout',
+      component: () => import('@/components/layout/LayoutView.vue'),
+      meta: { fitsAPhone: true },
+    },
+    // The floorplan beta's address, which an old link or bookmark may hold, lands on the layout.
     {
       path: '/markets/:marketId/floorplan',
-      name: 'floorplan-editor',
-      component: () => import('@/views/FloorplanEditorView.vue'),
+      redirect: (to: RouteLocation) => marketPath(String(to.params.marketId), 'layout'),
     },
     // A market's vendor page (ADR 0022): sign-in, status, the application and the result, at the
     // market's own address. It is the vendors', so the app bar holds none of the organizer app's
