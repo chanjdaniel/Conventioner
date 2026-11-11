@@ -20,6 +20,7 @@ import {
   seedMarketWithVendors,
   seedPublishedMarketWithAssignments,
 } from './helpers/seeds';
+import { StatsPage } from './pages/StatsPage';
 
 /**
  * The organizer's market on the phone in their hand, and at a desk (T180).
@@ -746,8 +747,9 @@ for (const size of PHONE_AND_DESK) {
       await grantMarketRole(request, marketId, VIEWER, 'viewer');
 
       await page.goto(marketScreenPath(marketId, 'stats'));
-      const strip = page.getByTestId('stats-headlines');
-      await expect(strip.getByTestId('stats-headline-stillOwed')).toHaveText('$35.00 still owed', {
+      const stats = new StatsPage(page);
+      const strip = stats.strip;
+      await expect(stats.headline('stillOwed')).toHaveText('$35.00 still owed', {
         timeout: 15000,
       });
       for (const section of STATS_SECTIONS) {
@@ -782,11 +784,8 @@ for (const size of PHONE_AND_DESK) {
       for (const section of STATS_SECTIONS) {
         await expectAcross(page.getByTestId(section), section);
       }
-      await expectTargets(page.getByTestId('stats-money').getByRole('link'), 'still owed');
-      await expectTargets(
-        page.getByTestId('stats-check-in').getByRole('link'),
-        'who is not yet in',
-      );
+      await expectTargets(stats.money.getByRole('link'), 'still owed');
+      await expectTargets(stats.checkIn.getByRole('link'), 'who is not yet in');
 
       // The answer groups' switch is a row of targets, and the charts read inside the window: the
       // column a day, the review's split bar, whose legend lines are each a target, and the ledgers.
@@ -808,7 +807,7 @@ for (const size of PHONE_AND_DESK) {
       await expectFits(page, 'Stats, counting the assigned');
 
       // A tile's link lands on the page it names, at the window's width.
-      await press(strip.getByTestId('stats-headline-stillOwed').getByRole('link'));
+      await press(stats.headline('stillOwed').getByRole('link'));
       await page.waitForURL(/\/payments\?show=owes$/);
       await expect(page.getByTestId('payments-show-owes')).toHaveAttribute('aria-pressed', 'true', {
         timeout: 15000,
@@ -823,11 +822,11 @@ for (const size of PHONE_AND_DESK) {
         VIEWER.password,
         async (viewer) => {
           await viewer.goto(marketScreenPath(marketId, 'stats'));
-          await expect(viewer.getByTestId('stats-headline-stillOwed')).toHaveText(
-            '$35.00 still owed',
-            { timeout: 15000 },
-          );
-          await expect(viewer.getByTestId('stats-among-all')).toBeVisible();
+          const theirs = new StatsPage(viewer);
+          await expect(theirs.headline('stillOwed')).toHaveText('$35.00 still owed', {
+            timeout: 15000,
+          });
+          await expect(theirs.among('all')).toBeVisible();
           expect(await widths(viewer), 'Stats keeps the window for a Viewer').toEqual({
             layout: width,
             sideways: 0,
@@ -902,18 +901,19 @@ test('Stats keeps its strip and every section inside the frame at 320', async ({
   await page.setViewportSize({ width: 320, height: 640 });
   const marketId = await aMarketAtTheDoor(request);
   await page.goto(marketScreenPath(marketId, 'stats'));
-  await expect(page.getByTestId('stats-headline-stillOwed')).toBeVisible({ timeout: 15000 });
-  await expect(page.getByTestId('stats-question')).toHaveCount(1);
+  const stats = new StatsPage(page);
+  await expect(stats.headline('stillOwed')).toBeVisible({ timeout: 15000 });
+  await expect(stats.questions).toHaveCount(1);
   for (const section of STATS_SECTIONS) {
     await expect(page.getByTestId(section), `${section} is drawn`).toBeVisible();
   }
   expect((await widths(page)).sideways, 'Stats scrolls sideways').toBe(0);
   const frame = (await page.getByTestId('market-frame-card').boundingBox())!;
-  const tiles = page.getByTestId('stats-headlines').getByRole('listitem');
+  const tiles = stats.strip.getByRole('listitem');
   const parts = [
     ...(await tiles.all()),
     ...STATS_SECTIONS.map((section) => page.getByTestId(section)),
-    ...(await page.getByTestId('stats-question').all()),
+    ...(await stats.questions.all()),
   ];
   for (const part of parts) {
     const box = (await part.boundingBox())!;
@@ -931,7 +931,7 @@ test('Stats keeps its strip and every section inside the frame at 320', async ({
     items.map((item) => item.getBoundingClientRect().toJSON()),
   );
   expect(boxes[1].top, 'the second tile stands beside the first').toBe(boxes[0].top);
-  const figure = page.getByTestId('stats-headline-stillOwed').getByTestId('stats-headline-figure');
+  const figure = stats.headlineFigure('stillOwed');
   expect(
     await figure.evaluate((el) => {
       const range = document.createRange();
