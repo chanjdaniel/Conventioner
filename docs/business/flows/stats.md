@@ -8,13 +8,14 @@ describes:
   - front-end/src/utils/marketStats.ts
   - back-end/market_stats.py
   - front-end/src/utils/statsHeadlines.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E45/F01/S01
   - E45/F01/S02
   - E41/F01/S01
   - E45/F01/S03
   - T263
+  - T201
 ---
 
 # The market's statistics
@@ -25,6 +26,8 @@ sources:
 The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as cards of bars: each row an answer with its count, its share of the whole and a bar against the largest in its card, rather than a chart library.
 Before anyone applies it says "Nobody has applied yet." and nothing else.
 Every figure is counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
+Its sections keep one order, the market's life's: who applied, then what they answered (T201).
+Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width.
 The page fits a phone, so how the day stands is read at the market (T180): its headlines stand one to a line, each link a thumb's target, and the switch and the cards stay inside the window ([the design language](../../design-system.md#layout)).
 
 ## N1. See the market's state at a glance
@@ -62,10 +65,12 @@ Covered by:
 
 ## N3. See what they answered
 
-**Status:** Works (read from the code as of E45/F01/S02: `the-stats-tab.spec.ts`, `test_the_stats_tab.py`).
+**Status:** Works (read from the code as of T201 ticket 01: `the-stats-tab.spec.ts`, `test_the_stats_tab.py`).
 
 1. "What they answered" shows a card per question of the form that offers choices (select, multi-select or checkbox), titled by the question, in the form's order; a free-text question, and the essential questions about dates, tiers and tables, are not charted.
 2. Each option the question offers is a row, one nobody chose included, at zero; a multi-select counts every option ticked, so its shares add up to more than 100%; a checkbox reads "Yes" and "No".
+   A card lists its rows most chosen first, a tie in the form's order, and shows the first 8; "N more answers" unfolds the rest in place and becomes "Show fewer" ([the design language](../../design-system.md#the-primitive-layer)), so a question of 230 options does not bury the page.
+   In a card wider than 32rem, as each is in a window 1280px wide or more, a row is one line: the answer, its bar, then its count and share; in a narrower one the bar stands under the answer and its figures.
 3. Every answer the question does not offer, written in under "Other" on a Google Form or an option since taken off, is one row, "Other", counting each applicant once however many they wrote; those who gave no answer are a row, "No answer". Either is left out when nobody is in it.
 4. A switch, "All", "Approved" and "Assigned", narrows every card at once, with "N of M" beside it; the choice is kept in the address (`?among=approved`, `?among=assigned`), so a reload or a shared link opens on it.
    Approved is the All view's Approved, those added by hand among them; Assigned is everyone with an assignment, a table on any date, whatever their verdict, as the outcome they are told is read.
@@ -78,7 +83,8 @@ The counts come in the page's one answer, read by [`answerCounts.ts`](../../../f
 Covered by:
 
 - `test_the_stats_tab.py`
-- `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the assigned")
+- `the-component-library-charts.spec.ts` (the one-line rows at a desk, stacked on a phone and in a narrow card, the fold of 8)
+- `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the assigned", "a question of more than eight answers folds past eight, most chosen first, each one line at a desk")
 
 ## The rules it obeys
 

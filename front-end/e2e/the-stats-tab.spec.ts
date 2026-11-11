@@ -6,6 +6,7 @@ import { ensureTestOrg, SEED_MARKET_DATE, seedMarketWithVendors } from './helper
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { rowLayout } from './helpers/barLedger';
 import { withUser } from './helpers/withUser';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { StatsPage } from './pages/StatsPage';
@@ -322,7 +323,7 @@ test('a chart per choice question counts each option, groups "Other", and narrow
   };
 
   // Every option, even one nobody chose; the three written in are one "Other", counted per
-  // applicant, so Omar's two count once.
+  // applicant, so Omar's two count once. Most chosen first, a tie in the form's order.
   await expectCounts('selling', [
     ['Prints', 3],
     ['Stickers', 2],
@@ -333,9 +334,9 @@ test('a chart per choice question counts each option, groups "Other", and narrow
   await expect(stats.answerRows('selling')).toHaveText([
     /^Prints.*3.*60%/,
     /^Stickers.*2.*40%/,
+    /^Other.*2.*40%/,
     /^Jewelry.*1.*20%/,
     /^Ceramics.*0.*0%/,
-    /^Other.*2.*40%/,
   ]);
   await expectCounts('first_market', [
     ['Yes', 3],
@@ -383,4 +384,84 @@ test('a chart per choice question counts each option, groups "Other", and narrow
   await stats.among('all').click();
   await expect(page).not.toHaveURL(/among=/);
   await expect(stats.answerCount('selling', 'Prints')).toHaveText('3');
+});
+
+/** A question of twelve kinds of goods, in the form's order, the first chosen least. */
+const GOODS = [
+  'Candles',
+  'Soap',
+  'Zines',
+  'Pins',
+  'Patches',
+  'Tote bags',
+  'Mugs',
+  'Planters',
+  'Earrings',
+  'Prints',
+  'Stickers',
+  'Ceramics',
+];
+const GOODS_QUESTION = 'What goods will you bring?';
+
+test('a question of more than eight answers folds past eight, most chosen first, each one line at a desk', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
+    data: {
+      fields: [
+        { key: 'goods', label: GOODS_QUESTION, type: 'multi_select', options: GOODS, order: 0 },
+      ],
+    },
+  });
+  expect(form.ok(), await form.text()).toBeTruthy();
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  // The nth applicant ticks the last n goods, so each good is chosen as often as its place.
+  insertApplications(
+    GOODS.map((_, at) =>
+      approvedVendorApplication(marketId, `goods-${at + 1}@example.com`, {
+        dates: [SEED_MARKET_DATE],
+        tiers: ['Gold'],
+        extra: { goods: GOODS.slice(GOODS.length - 1 - at) },
+      }),
+    ),
+  );
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const stats = new StatsPage(page);
+  await stats.goto(marketId);
+  const rows = stats.answerRows('goods');
+  const byCount = [...GOODS].reverse();
+  await expect(rows).toHaveCount(8, { timeout: 15000 });
+  await expect(rows).toHaveText(
+    byCount.slice(0, 8).map((good, at) => new RegExp(`^${good}.*${12 - at}`)),
+  );
+  const fold = stats.question('goods').getByTestId('stats-answer-fold');
+  await expect(fold).toHaveText(`4 more answers to ${GOODS_QUESTION}`);
+
+  // A lone card is half the page, so no bar runs the frame, and each answer is one line.
+  const section = (await stats.answers.boundingBox())!;
+  const card = (await stats.question('goods').boundingBox())!;
+  expect(card.width, 'the lone card is half the page').toBeLessThanOrEqual(section.width / 2);
+  for (const row of await rows.all()) {
+    expect(await rowLayout(row), await row.innerText()).toBe('one line');
+    const bar = (await row.getByTestId('stats-answer-bar').boundingBox())!;
+    expect(bar.width, 'a bar is shorter than half the page').toBeLessThan(section.width / 2);
+  }
+
+  // The rest unfold in place, still most chosen first, and fold away again.
+  await fold.click();
+  await expect(rows).toHaveCount(12);
+  await expect(rows).toHaveText(byCount.map((good, at) => new RegExp(`^${good}.*${12 - at}`)));
+  await expect(fold).toHaveText(`Show fewer answers to ${GOODS_QUESTION}`);
+  await fold.click();
+  await expect(rows).toHaveCount(8);
+  await expect(fold).toBeFocused();
 });

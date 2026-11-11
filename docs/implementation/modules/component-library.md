@@ -9,7 +9,7 @@ describes:
   - back-end/tests/fixtures/component_library_fixture.py
   - back-end/tests/test_component_library_fixture.py
   - front-end/e2e/helpers/componentLibrary.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T200
   - T191
@@ -21,6 +21,7 @@ sources:
   - T224
   - T254
   - T263
+  - T201
 ---
 
 # The component library
@@ -67,6 +68,7 @@ An entry's own parts sit beside these in `parts/`, such as `PagedApplicationRows
 The `combobox` entry draws [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) too: the real `ValueFixes` at 12 answers, a select, and at 13, a field, C1's long list of values through `ChoiceField`, which keeps no typed words, its "Ignore this value" one of `leads`, C2, "Maps to" as the import builds it, with two targets taken, and C12, "Add an answer", a choice that adds, and C13, the role on the Discord card, a choice that may go back to none.
 The `list-frame` entry draws [`PagedList`](../../../front-end/src/components/PagedList.vue) beside `ListFrame`: a box of its own, a page that fails once until "Try again" brings it, and a body-scroll dialog whose body is the box, each with a `ReadOut` of how many it has read.
 Each pages the fixture's 359 applications 25 at a time through `pagedRead`, a short timer in the entry in place of a request, so a page is seen to land with no endpoint and no store.
+The `charts` entry draws the Stats tab's charts on the fixture's question of 228 answers: `BarLedger` as the tab passes it, folded past 8, in a card of at most 40rem, about a lone card's width on the tab at a desk, where each answer is one line, in a card narrower than 32rem, where each stacks, and on a question of five answers, with no button (T201).
 
 The page uses only the design tokens, the primitives and the app's components; Stylelint holds its files as it holds every file, so a raw colour, size or spacing is an error there.
 A state the pointer or the keyboard makes (hover, held down, focus) is drawn held beside the live control by a class of the entry's own that copies what `primitives.css`, or the component it mounts, draws for it (`FileDropZone`'s focus halo); the live control is the one to trust.

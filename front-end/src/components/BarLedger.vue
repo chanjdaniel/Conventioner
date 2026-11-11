@@ -11,6 +11,11 @@
  * With `fold` (T200) it answers a question of up to 230 options: the rows by count, the first `fold`
  * of them, and "N more answers" unfolding the rest in place (`utils/useFold.ts`). Without it the rows
  * are drawn in the order they came, all of them.
+ *
+ * In a card wider than 32rem each row is one line (T201): the label, the bar and the count with its
+ * share, the bar taking the room between, every row's columns one grid's, so the bars start and end
+ * together and compare. In a narrower card the count sits beside the label and the bar under both.
+ * Either way a reader hears the label, the count and the share, in that order.
  */
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
@@ -62,7 +67,7 @@ function tail(row: LedgerRow): string {
           :data-testid="testid"
           :data-value="row.value"
         >
-          <span class="bar-ledger-label"
+          <span class="bar-ledger-label" :data-testid="`${testid}-label`"
             >{{ row.label }}<span class="visually-hidden">: </span></span
           >
           <span class="bar-ledger-count"
@@ -71,7 +76,7 @@ function tail(row: LedgerRow): string {
             ><span class="bar-ledger-share">{{ row.share }}%</span
             ><span class="visually-hidden">{{ tail(row) }}</span></span
           >
-          <span class="bar-ledger-bar" aria-hidden="true">
+          <span class="bar-ledger-bar" aria-hidden="true" :data-testid="`${testid}-bar`">
             <span :style="{ width: `${row.bar}%` }" />
           </span>
         </component>
@@ -99,6 +104,7 @@ function tail(row: LedgerRow): string {
 
 <style scoped>
 .bar-ledger {
+  container: bar-ledger / inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -188,6 +194,45 @@ function tail(row: LedgerRow): string {
 
 .bar-ledger-fold {
   align-self: flex-start;
+}
+
+/*
+ * A wide card (T201): one line a row, so the label is not a card's width from its count. The list is
+ * the grid, and each item and row a subgrid of it, so every row shares its columns: a label's column
+ * at most 40% of the card, wrapping a longer one, the bar the room between, and the figures as wide
+ * as the widest. Only the bar and the figures change places on the grid, not in the markup, which
+ * still reads the label, the count and the share, the bar hidden.
+ */
+@container bar-ledger (width > 32rem) {
+  .bar-ledger ul {
+    display: grid;
+    grid-template-columns: fit-content(40%) minmax(0, 1fr) auto;
+    gap: var(--space-1) var(--space-3);
+  }
+
+  .bar-ledger li,
+  .bar-ledger-row {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    column-gap: var(--space-3);
+  }
+
+  .bar-ledger-row {
+    align-items: center;
+  }
+
+  .bar-ledger-bar {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .bar-ledger-count {
+    grid-row: 1;
+    grid-column: 3;
+    white-space: nowrap;
+    text-align: right;
+  }
 }
 
 .bar-ledger-none {

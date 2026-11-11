@@ -468,7 +468,7 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
       />
     </LibraryPanel>
     <LibraryPanel
-      :label="`Read only, unfolded as today: all ${answerCount} answers to one question`"
+      :label="`Read only, with no fold: all ${answerCount} answers to one question`"
       class="library-wide"
     >
       <BarLedger
@@ -632,10 +632,6 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
     <li>
       <code>StepHeader</code>'s step is a 32px target: give it a thumb's 44px, or keep the form tab
       a desk screen?
-    </li>
-    <li>
-      <code>BarLedger</code> shows all {{ answerCount }} answers unfolded: fold it past 10 (the
-      Folds entry), or keep it whole on Stats?
     </li>
     <li>
       <code>PhaseBadge</code> uses three tones for six phases: keep that, or give each phase its own

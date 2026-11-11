@@ -103,6 +103,7 @@ sources:
   - T224
   - T229
   - T263
+  - T201
 ---
 
 # Conventioner's design language
@@ -250,7 +251,8 @@ Its Discord row stacks as [the Vendors flow](business/flows/vendors.md) lays it 
 The Applications page on a phone narrows its gutter to 16px too: the All view's row is one column, read down, the applicant's name and address, the leading answers, then the status chip and its lines, each the row's width; each row's tick stands in a 44px square beside it, and "Mine" is its label's 44px row; the views switch's and the status filters' buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
 One by one's card is the page's width, its verdict buttons wrapping inside it; "Show N reviewed" opens its list in a dialog, which leaves the card where it is; "Include the N follow-ups", "Show N reviewed", "Choose what leads the card" and each tick in the dialog it opens are 44px targets, and a reviewer's label in the reviewers picker is a 44px row.
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
-Stats on a phone narrows its gutter to 16px too: its headlines stand one to a line, each a 44px row and each link a 44px target, the money set apart from the placements by a rule above it rather than beside it; the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone, and the cards stand one to a row, narrower than their 18rem where the window is, as on a 320px phone.
+Stats on a phone narrows its gutter to 16px too: its headlines stand one to a line, each a 44px row and each link a 44px target, the money set apart from the placements by a rule above it rather than beside it; the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
+Its cards stand two to a row while the page's content is 48rem wide or more and one below it, by a container query on the content, so a lone card stays half the page at a desk and no bar runs the frame's width; a phone, 320px included, has one column (T201).
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
 | Token             | Value  | Screens                                                                   |
@@ -549,8 +551,9 @@ A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-
 Its `heading` slot draws more beside the name, as a section's location and tier, and the `heading` prop still names the group on the button.
 A page that must keep its groups' folds past a re-read, or unfold them together, holds them with [`useGroupFolds`](../front-end/src/utils/useGroupFolds.ts) and each group's `v-model:unfolded` (T223): one "Show all 59 tables" above the groups, drawn only while one on the page passes the fold, which keeps the focus and stays where it stood, says "Show fewer" once all of them are unfolded however they came to be, and leaves a group a filter has hidden as it was.
 [`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
+In a card wider than 32rem, a container query on the card, each `BarLedger` row is one line (T201): the label, the bar, then the count and its share, every row on the list's one grid (a subgrid each), so the label's column is at most 40% of the card, the bars start and end together, and the figures stand as wide as the widest; in a narrower card the count sits beside the label and the bar under both.
 Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding by a group's own button hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
-The Assignments page's sections are `RowGroup`s; `BarLedger`'s fold is on no screen yet, and the library's `folds` entry shows both.
+The Assignments page's sections are `RowGroup`s; the Stats tab folds each question's answers past 8 with `BarLedger` ([the market's statistics](business/flows/stats.md#n3-see-what-they-answered)); the library's `folds` entry shows both, and its `charts` entry the Stats tab's one-line rows.
 A question's options on the form builder take the same fold in [`FormFieldEditor.vue`](../front-end/src/components/application/FormFieldEditor.vue), past 20, and "Add option" unfolds them, so a new row is never behind it.
 
 A list someone puts in order is [`OrderedList.vue`](../front-end/src/components/OrderedList.vue) (T200), generic over the item: each row has the `.drag-handle` and its own move up and move down buttons, named by `itemLabel`, so the keyboard can do what the mouse can, the first's up and the last's down disabled.

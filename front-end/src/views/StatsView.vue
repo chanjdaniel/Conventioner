@@ -12,9 +12,13 @@
  * so the page never downloads the applications to count them. It starts with who applied: every
  * application by its status, counted as the Applications tab's All view filters them, and by the
  * day it arrived, as a ledger of bars (`BarLedger`, `utils/applicantStats.ts`). Then what they
- * answered: a card per choice question of the form (`utils/answerCounts.ts`), narrowed by a
- * switch, kept in the address as `among`, to the approved or the assigned (E45/F01/S02). Stats
- * reads; it changes nothing, so a Viewer sees all of it and nothing here is disabled.
+ * answered: a card per choice question of the form (`utils/answerCounts.ts`), its answers most
+ * chosen first and folded past `ANSWERS_SHOWN` (T201), narrowed by a switch, kept in the address as
+ * `among`, to the approved or the assigned (E45/F01/S02). Stats reads; it changes nothing, so a
+ * Viewer sees all of it and nothing here is disabled.
+ *
+ * Its sections keep one order, the market's life's (T201): who applied, then what they answered.
+ * Their cards stand two to a row while the page's content is 48rem wide or more, one below it.
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
@@ -64,6 +68,8 @@ function narrowTo(group: string) {
   void router.replace({ query });
 }
 const ledgers = computed(() => (answers.value ? questionLedgers(answers.value, among.value) : []));
+/** How many of a question's answers show before "N more answers" (Daniel, T201). */
+const ANSWERS_SHOWN = 8;
 /** Nobody in the group yet, said instead of charts of noughts. */
 const NOBODY: Record<string, string> = {
   approved: 'Nobody is approved yet.',
@@ -178,6 +184,7 @@ const NOBODY: Record<string, string> = {
               :rows="ledger.rows"
               testid="stats-answer"
               :whole="amongGroup.whole"
+              :fold="ANSWERS_SHOWN"
               data-testid="stats-question"
               :data-key="ledger.key"
             />
@@ -190,6 +197,7 @@ const NOBODY: Record<string, string> = {
 
 <style scoped>
 .stats {
+  container: stats / inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
@@ -255,14 +263,20 @@ const NOBODY: Record<string, string> = {
   font-variant-numeric: tabular-nums;
 }
 
-/* The cards share the page's whole width rather than leaving its right half empty (Daniel, T104);
-   a card added later may want columns of one width again. A window narrower than one card's 18rem
-   (a 320px phone) narrows the card rather than running it past the frame. */
+/* Two equal columns while the page's content is 48rem wide or more, one below it (T201), so a lone
+   card stays half the page and no bar runs the frame's width, as one did at 1100px. The columns
+   follow the content's width, not the window's, and a 320px phone narrows its one card to fit. */
 .stats-ledgers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: var(--space-4);
+}
+
+@container stats (width >= 48rem) {
+  .stats-ledgers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .stats-among {
