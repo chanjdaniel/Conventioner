@@ -9,6 +9,10 @@ describes:
   - back-end/api/floorplans_save.py
   - back-end/floorplan_limits.py
   - back-end/api/markets.py#_floorplans_refusal
+  - back-end/api/markets.py#_with_the_layouts
+  - back-end/api/markets.py#release_removed_floorplans
+  - back-end/layout.py
+  - back-end/migrations/migrate_layouts.py
   - back-end/api/floorplans_calibrate.py
   - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
@@ -23,7 +27,7 @@ describes:
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - bug/38
   - E26/F09/S01
@@ -33,11 +37,13 @@ sources:
   - T217
   - T263
   - T272
+  - T257
 ---
 
 # Floorplan placement
 
 The floorplan beta: an organizer uploads a floor plan, calibrates its scale, defines table types, Auto-Places them, groups them into sections, and saves the result into the market's plan.
+T257 makes a floorplan a location's layout, stored in the plan as [the market document](../data/market-document.md#a-locations-layout) says; until its editor lands, the beta's wizard still draws but its save is refused (below).
 The wizard is five steps (Upload, Calibrate, Place Tables, Edit Layout, Save) and the Konva canvas draws every one of them.
 Each component that draws imports the vue-konva components it renders (`Stage as VStage`, `Layer as VLayer` and so on) rather than the app installing vue-konva for every page, so Konva rides only in the floorplan route's lazily loaded chunk, and [the bundle budget](../testing/ci-and-the-gate.md#the-bundle-budget) fails a pull request that brings it back to every page.
 No step scrolls by itself: the market's frame gives the wizard no height to outgrow, so a step grows with what it holds and the page scrolls, in any window; what scrolls inside the wizard is the Sections panel, the save dialog's body and the section dialog, each in a [`ScrollBox`](../../design-system.md#the-primitive-layer).
@@ -56,7 +62,7 @@ While it cannot place, with no table type, scale, count asked or room yet, or a 
 The zone is the room less a wall buffer (1500 mm unless configured) and the obstacles; tables keep a spacing between them (1200 mm unless configured).
 
 **Auto-Place's request is parsed and bounded before it places** (T272).
-After the access check the route parses the body as `PlaceTablesRequest`, defined in the route file of the stored `WallSegment`, `ObstacleZone` and `TableTypeObject`, `counts` of whole numbers from 0, a finite `scale_px_per_mm`, an optional `room_mm` of positive finite sides and an optional `aisle_config` with the wizard's camel-cased keys; a field that does not parse answers 400 "Invalid placement request: ..." naming it.
+After the access check the route parses the body as `PlaceTablesRequest`, defined in the route file of `WallSegment`, `ObstacleZone` and `BetaTableType` (the beta's table type, with a height and a capacity, never the market's `TableTypeObject`), `counts` of whole numbers from 0, a finite `scale_px_per_mm`, an optional `room_mm` of positive finite sides and an optional `aisle_config` with the wizard's camel-cased keys; a field that does not parse answers 400 "Invalid placement request: ..." naming it.
 Then `placement_refusal()` in [`back-end/floorplan_limits.py`](../../../back-end/floorplan_limits.py), the one statement of a floorplan's bounds, answers 400 with one sentence for a number in the geometry that is not finite or past 10,000,000, more than 100 walls, 100 obstacle zones or 100 points in a zone, more than 500 tables asked, a table type's side outside 100 mm to 20,000 mm, a `room_mm` side over 500 m, or a wall buffer or table spacing outside 0 to 10,000 mm.
 The tables asked are counted as the service places them, so a type the `counts` do not name counts as one table and a count for a type not listed counts as none.
 The service refuses a room its walls make over 500 m on a side, since it is what builds that room.
@@ -86,7 +92,7 @@ The wizard's steps are an editor's work on a market that can still change, which
 **The image read's audience is the people on the market too**: `GET /floorplans/<id>` asks the Read row on the image's market, as the export does, and an archived market's image still reads.
 It answers every refusal 404 "Image not found", a signed-in account with no role on the market included, so the answer never tells a stranger that an id names an image.
 The wizard's three readers, [`FloorplanUploader.vue`](../../../front-end/src/components/floorplan/FloorplanUploader.vue), [`FloorplanEditor.vue`](../../../front-end/src/components/floorplan/FloorplanEditor.vue) and [`ScaleCalibration.vue`](../../../front-end/src/components/floorplan/ScaleCalibration.vue), fetch it through the API client with the session's cookie, as a blob.
-The settled-setup refusal stays on save alone, since only save writes the sections.
+The settled-setup refusal stays on save alone, since only save writes a layout, whose tables are its sections' counts.
 **Every floorplan route needs a sign-in**, and `TestEveryFloorplanRouteNeedsASignIn` in [`back-end/tests/test_floorplan_access.py`](../../../back-end/tests/test_floorplan_access.py) keeps it so: it asks each route the floorplan blueprints register without a session and expects a 401, so a new route, or one whose `@login_required` is missing or above its `@route`, fails it.
 
 **An image belongs to the market it was uploaded for.**
@@ -98,7 +104,7 @@ The zone stays, busy, while the file uploads, and gives way to the preview (and,
 An image previews as the file chosen; a PDF previews as the page the server drew from it, fetched from `GET /floorplans/<id>` and following the page chosen, since a browser draws no PDF in an image.
 When that first page cannot be fetched, the zone comes back with "The floorplan was uploaded, but its page could not be shown. Choose the file again.", and any upload that does not end on a shown PDF page forgets the earlier PDF's pages, so no picker offers them under an image.
 The server draws each page at 200 dpi with pypdfium2 ([`pdf_converter.py`](../../../back-end/utils/pdf_converter.py)), whose `manylinux_2_17` wheel carries PDFium, so it needs no system package on Vercel, Docker or CI (T205).
-Images uploaded before images named a market have no `marketId`, so no route reads them, `GET /floorplans/<id>` included; the wizard never reopens a saved floorplan's image, so nothing on screen asks for them, and no migration gives them one.
+Images uploaded before images named a market have no `marketId`, so no route reads them, `GET /floorplans/<id>` included; no migration gives them one, and [`migrations/migrate_layouts.py`](../../../back-end/migrations/migrate_layouts.py) deletes them with every other image no floorplan names.
 Deleting a market deletes every image whose `metadata.marketId` names it, with its other records ([market deletion](market-deletion.md)); an image with no `marketId` names no market, so no deletion takes it.
 
 **A template is its creator's, and one filed under an organization is filed by someone in it.**
@@ -136,15 +142,25 @@ On the grid alone it also places a real hall's 59 tables in time, keeps the spac
 Handed `var(--mm-red)`, a canvas keeps painting with whatever colour it last had, silently.
 Pass a canvas colour through `canvasColor()` ([`front-end/src/utils/canvasColor.ts`](../../../front-end/src/utils/canvasColor.ts)), which resolves a `var(--name)` to the stylesheet's value at the moment of drawing and passes anything else, or a token the stylesheet lacks, through unchanged.
 
-**Saving writes the plan's sections and locations, so it is a draft's only** ([the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)).
-`POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) refuses a body that is not a JSON object (400) and a `floorplan` that is not one ("floorplan is required"), needs EDITOR, refuses an archived market (403) and a settled setup (409), then parses the floorplan as `FloorplanObject`: a field that does not parse answers 400 "Invalid floorplan: ..." naming it, a floorplan with no id of its own answers "A floorplan needs its id.", and an unknown key is dropped.
+**A floorplan is a location's layout, and a save writes only it** (T257).
+`POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) refuses a body that is not a JSON object (400) and a `floorplan` that is not one ("floorplan is required"), needs EDITOR, refuses an archived market (403) and a setup that has settled (409, [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)), then parses the floorplan as `FloorplanObject`: a field that does not parse answers 400 "Invalid floorplan: ..." naming it, a floorplan with no id of its own answers "A floorplan needs its id.", and an unknown key is dropped, the beta's `walls`, `placedTables` and `sections` among them.
 **It writes through the plan's own writer, so it can never store a market that does not read.**
-It builds the plan from the stored one, or from the empty plan Market Setup starts from when the market has none (empty dates, tiers, priority, locations and sections, both assignment options null, no pricing), with `sections` and `locations` the floorplan's and the floorplan in `floorplans` in the place of the stored one of its id, or added after them, so saving again replaces it; then `prepared_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) judges it as it judges a plan write, and the route writes the whole `setupObject` that returns.
-It used to write the three fields by hand, which on a market whose plan was never saved left a plan of those three alone, and with one wrong field a floorplan that did not parse: either way the market then answered as missing to every reader and refused every write, its Delete included (T272, [`a-floorplan-save-keeps-the-market-readable.spec.ts`](../../../front-end/e2e/a-floorplan-save-keeps-the-market-readable.spec.ts), [`test_a_floorplan_save_keeps_the_market_readable.py`](../../../back-end/tests/test_a_floorplan_save_keeps_the_market_readable.py)).
+It puts the floorplan in the stored plan's `floorplans` in the place of the one of its id, or after them, so saving again replaces it, and hands that list to `prepared_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), which judges it as it judges a plan write and derives the sections' counts from it; sections and locations are Market Setup's, and the save never writes them.
+Then [`layout.py`](../../../back-end/layout.py)'s `layout_refusal` answers 400 with one sentence for a layout whose location is not one of the plan's, a section's tables not numbered 1 to N (or a number on a table of no section), a table of a type the market does not have, a table with no scale to stand by, or a table whose centre is outside the floorplan; the beta's wizard sends a floorplan of no location, so its save is refused with "This layout's location is not one of the market's locations.".
+The save used to write the plan's sections and locations by hand, which on a market whose plan was never saved left a plan of those alone, and with one wrong field a floorplan that did not parse: either way the market then answered as missing to every reader and refused every write, its Delete included (T272, [`test_a_floorplan_save_keeps_the_market_readable.py`](../../../back-end/tests/test_a_floorplan_save_keeps_the_market_readable.py)).
 The route has no blanket `except`, so a refusal `prepared_plan` raises answers its own status and sentence.
-**A later visit's wizard saves over the market's floorplan too**: when the wizard opens, [`FloorplanEditorView.vue`](../../../front-end/src/views/FloorplanEditorView.vue) hands [`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue) the id of the floorplan the market stores, the last saved when it holds several, and `openOnMarket()` in the wizard's store, [`front-end/src/stores/floorplan.ts`](../../../front-end/src/stores/floorplan.ts), gives the wizard's floorplan that id, so a run after a reload or on another day replaces it; it used to start each page session's floorplan under a new id, so every visit added one, until the 21st save was refused for good with nothing on screen to free a place.
+**A later visit's wizard saves over the market's floorplan too**: when the wizard opens, [`FloorplanEditorView.vue`](../../../front-end/src/views/FloorplanEditorView.vue) hands [`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue) the id of the floorplan the market stores, the last saved when it holds several, and `openOnMarket()` in the wizard's store, [`front-end/src/stores/floorplan.ts`](../../../front-end/src/stores/floorplan.ts), gives the wizard's floorplan that id, so a run after a reload or on another day replaces it.
+
+**The plan write never writes a layout** (T257).
+`PUT /markets/:id/plan` keeps the stored `floorplans` and `tableTypes` and ignores the body's (`_with_the_layouts`), so Market Setup's autosave, which carries the whole working copy it read, can never overwrite a layout saved in between; only the layout's own write passes `prepared_plan` the floorplans it changes.
+Every write of the plan runs `layout.derive_counts`, so a section of a laid-out location stores the number of its layout's tables whatever count was sent, and a section of a location with no layout keeps its typed count.
+A floorplan whose location is no longer one of the plan's goes with it: the write drops it, and `release_removed_floorplans` deletes its image by id once the write has landed and records `floorplan_removed`; the CSV start does the same after its write.
+A floorplan of no location, which only the beta saved, is kept and ignored by every reader until [`migrations/migrate_layouts.py`](../../../back-end/migrations/migrate_layouts.py) removes it.
+What of a layout settles on leaving draft is its seats and the market's table types (`layout.settled_part`), never where a table stands.
+
 **A floorplan is held to its bounds wherever it is written.**
-[`back-end/floorplan_limits.py`](../../../back-end/floorplan_limits.py) is the one statement of them, and `prepared_plan` asks it, so the wizard's save and a plan write (`PUT /markets/:id/plan`, which carries the stored floorplans back as Market Setup read them) are refused alike, with 400 and one sentence: more than 20 floorplans on a market, more than 100 walls, 100 obstacle zones, 100 points in an obstacle zone, 50 table types, 1,000 tables, 200 sections or 1,000 tables in a section, a string over 200 characters, or a number that is not finite or past 10,000,000 by absolute value ("A floorplan's measurements must be finite numbers no larger than 10,000,000.").
+[`back-end/floorplan_limits.py`](../../../back-end/floorplan_limits.py) is the one statement of them, and `prepared_plan` asks it of the floorplans a layout's write passes, before a floorplan of a location gone is dropped, so the bounds answer first: with 400 and one sentence for more than 20 floorplans on a market, more than 1,000 tables, 100 no-table zones, 200 section styles or 200 starting counts, a string over 200 characters, or a number that is not finite or past 10,000,000 by absolute value ("A floorplan's measurements must be finite numbers no larger than 10,000,000.").
+`table_types_refusal()` holds the market's table types the same way when a write passes them: at most 50, each side 100 mm to 20,000 mm, and the same walk; `MAX_UPLOAD_BYTES` (4,000,000) and `MAX_PDF_PAGES` (20) are stated there with their sentences for the upload.
 `floorplan_refusal()` finds the strings and numbers by walking the floorplan's model dump, so a field added to `FloorplanObject` later is bounded with no new line; the list bounds are named one by one.
 `NaN` and `Infinity` pass Flask's JSON reader and a float field alike, and a market holding one is echoed back by the market read as bare tokens that are not JSON, so the browser could not read the market at all (Market Setup said "This market could not be loaded.").
 **The bounds are the request's, never the stored model's**: `datatypes.py` gains no constraint, since one there would make a market already holding a larger floorplan fail to read.
@@ -155,11 +171,12 @@ So a floorplan restated unchanged (equal, as a model, to one the market holds) i
 [`FloorplanEditor.vue`](../../../front-end/src/components/floorplan/FloorplanEditor.vue)'s `loadBackgroundImage()` calls `store.initFloorplan()` only when no floorplan exists yet, spreading the store's `placedTables`, `tableTypes`, `sections`, `walls`, `obstacles` and scale into it, so moving forward through the wizard keeps the auto-placed tables; when a floorplan exists it only refreshes the background image's fields.
 This replaced a snapshot-and-restore workaround in the E2E page object.
 
-**Saving a floorplan to the market and deleting an image record into [the market's history](../data/history.md)** (`floorplan`, `floorplan_image_deleted`, under `change-setup`), a floorplan save as one `floorplan` entry and never also a `plan` one, whose detail summarises the saved floorplan as it was under its id and as it is (its tables, walls, obstacle zones and table types counted, and a digest of its layout, never the floorplan itself, which could hold 1,000 tables), so a save that moved only its tables or walls is recorded, and Manage market reads it as its counts and "Layout: as saved before, changed"; a calibration and an Auto-Place keep nothing, and an upload stores an image the market uses only once a floorplan is saved, so none of them records.
+**Saving a floorplan to the market, deleting an image and a layout taken with its location record into [the market's history](../data/history.md)** (`floorplan`, `floorplan_image_deleted`, `floorplan_removed`, under `change-setup`), a floorplan save as one `floorplan` entry and never also a `plan` one, whose detail summarises the saved floorplan as it was under its id and as it is (its tables and no-table zones counted, and a digest of its layout, never the floorplan itself, which could hold 1,000 tables), so a save that moved only its tables is recorded, and Manage market reads it as its counts and "Layout: as saved before, changed"; a calibration and an Auto-Place keep nothing, and an upload stores an image the market uses only once a floorplan is saved, so none of them records.
+`layout.describe_change` is what a save changed in the layout's own terms (`started`, tables `added` and `removed` per section, `moved`, `turned`, `renumbered`, `zones`, `image`, `scale`, `colours`, `labels`), for the entry the layout's editor records.
 
 ## Why
 
-Auto-Place exists so an organizer with a hall plan gets section table counts from the room rather than typing them; the counts it saves become the plan's sections, which the [assignment solver](assignment-solver.md) seats vendors at.
+Auto-Place exists so an organizer with a hall plan gets section table counts from the room rather than typing them; a layout's tables are its location's sections' counts, which the [assignment solver](assignment-solver.md) seats vendors at, by section name as ever.
 The organizer's side of it, the beta's five-step wizard, is [sections from a floorplan](../../business/flows/planning.md#e6-sections-from-a-floorplan).
 
 The glossary concept it serves: [Placement and pin](../../business/concepts/placement-and-pin.md).

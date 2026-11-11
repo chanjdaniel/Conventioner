@@ -2,15 +2,13 @@
 layer: implementation
 kind: testing
 describes:
-  - front-end/e2e/floorplan.spec.ts
   - front-end/e2e/the-floorplan-beta-places-tables.spec.ts
-  - front-end/e2e/a-floorplan-save-keeps-the-market-readable.spec.ts
   - front-end/e2e/the-floorplan-takes-the-same-zone.spec.ts
   - front-end/e2e/pages/FloorplanWorkflowPage.ts
   - front-end/e2e/fixtures/test-floorplan.png
   - front-end/e2e/the-floorplan-shades-its-scrollers.spec.ts
   - front-end/e2e/the-floorplan-draws-as-its-tokens-say.spec.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - bug/38
   - E26/F09/S01
@@ -22,6 +20,7 @@ sources:
   - T221
   - T263
   - T272
+  - T257
 ---
 
 # Floorplan E2E
@@ -32,18 +31,16 @@ The fixture is [`front-end/e2e/fixtures/test-floorplan.png`](../../../front-end/
 
 ## The specs
 
-- [`floorplan.spec.ts`](../../../front-end/e2e/floorplan.spec.ts) walks the whole wizard from a draft's Market Setup (upload, calibrate, a table type and Auto-Place, sections, save), lands back on the market's setup page, and checks that the saved plan has the floorplan's sections and locations, that the store still holds the placed tables, and that the next plan edit does not erase the floorplan (a parser that dropped `floorplans` once did, E21/F02/S03).
-- [`a-floorplan-save-keeps-the-market-readable.spec.ts`](../../../front-end/e2e/a-floorplan-save-keeps-the-market-readable.spec.ts) pins T272's fix: a market fresh from `seedDraftMarket()`, whose plan was never saved, walks the whole wizard to "Save & Continue" and still opens, on Market Setup and to `GET /markets/<id>`, with the empty plan and the floorplan's section, location and floorplan.
-  Its second test runs the wizard twice with a `page.reload()` between and reads one floorplan, of the first save's id, after both saves.
+- No spec saves the wizard's floorplan any more: T257 made a floorplan a location's layout, the wizard's floorplan names no location, and the save refuses it, so `floorplan.spec.ts` and `a-floorplan-save-keeps-the-market-readable.spec.ts`, which pinned the save writing the plan's sections, went with that behaviour; the save's and the plan write's rules are pinned in pytest ([floorplan placement](../modules/floorplan-placement.md#sharp-edges)).
 - [`the-floorplan-beta-places-tables.spec.ts`](../../../front-end/e2e/the-floorplan-beta-places-tables.spec.ts) pins bug 38's fixes: the path choice promises nothing the wizard does not do, a calibration line drawn from beside the image still draws, the scale reads the right way round, a new table type seats two, and Auto-Place asked for twenty places twenty and says so.
 - [`the-floorplan-takes-the-same-zone.spec.ts`](../../../front-end/e2e/the-floorplan-takes-the-same-zone.spec.ts) pins the upload step on the app's one drop zone (T205): its words, the input named by them, a text file refused with the type message, the zone busy while a held upload is in flight, and a plan dropped on the zone uploading.
 - [`the-floorplan-shades-its-scrollers.spec.ts`](../../../front-end/e2e/the-floorplan-shades-its-scrollers.spec.ts) pins the rule on scrolling (T217): each canvas's height at 1440x900, a short window scrolling the page with nothing in the wizard scrolling, at the calibrating and placed steps, and the shades coming and going on the Sections panel, the section dialog and the save dialog, the panel keeping its translucent ground and a press beside it reaching the canvas; and focus going into the calibration's panels, on a redraw too, the section dialog and the save dialog, and back to Save as that one closes; and Enter on the length panel doing what has focus, so its field calibrates, or says a length is missing, and its Redraw redraws with nothing sent.
 - [`the-floorplan-draws-as-its-tokens-say.spec.ts`](../../../front-end/e2e/the-floorplan-draws-as-its-tokens-say.spec.ts) pins what the beta's move onto tokens leans on (T221): a section's row and its delete button read AA on the fill they hover, a wall toolbar separator stays 1px wide and a step label stays on one line at each size, so `--radius-pill` draws their corners as the raw radii did.
 
-[`FloorplanWorkflowPage`](../../../front-end/e2e/pages/FloorplanWorkflowPage.ts) is their page object, and `completeFloorplanWorkflow()` walks every step.
+[`FloorplanWorkflowPage`](../../../front-end/e2e/pages/FloorplanWorkflowPage.ts) is their page object.
 `uploadFloorplanImage()` sets the file on the drop zone's input (`floorplan-upload-file-input`) with `setInputFiles`, opening no file chooser.
 `reachTableTypes()` stops at the table types (upload and calibrate), which is where [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives the Edit Table Type dialog and [`every-control-is-named.spec.ts`](../../../front-end/e2e/every-control-is-named.spec.ts) walks the add form and that dialog (T45).
-`reachSaveStep()` goes on to the save step, with a table type placed and grouped, where the same two specs drive and walk the Save Template and Load Template dialogs; `completeFloorplanWorkflow()` is it plus the save.
+`reachSaveStep()` goes on to the save step, with a table type placed and grouped, where the same two specs drive and walk the Save Template and Load Template dialogs.
 A template the suite seeds belongs to the user, not the market, and the suite shares one user, so Load Template's list grows with every run: a spec seeds its own with `seedFloorplanTemplate()` ([E2E seeds](e2e-seeds.md)) and finds it by the unique name that returns.
 The table-type fields are native inputs, found by their test ids.
 The sweeps walk the upload step at rest, at a desk and a phone's width, and the wizard through `floorplanAt()` in [`e2e/helpers/screens.ts`](../../../front-end/e2e/helpers/screens.ts), with the same page object: calibrating, adding a table type, the sections listed, ready to save and the save dialog, on the screens seed's draft, saving nothing ([the design language](../../design-system.md#what-keeps-this-true)).

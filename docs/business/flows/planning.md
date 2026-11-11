@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
   - front-end/src/components/elements/ElementPricing.vue
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -116,7 +116,7 @@ Covered by:
 
 ## E6. Sections from a floorplan
 
-**Status:** Beta (steps 1 to 4 walked live; grouping by lasso not driven); "Auto-Place Tables" places the count asked for of each type (bug 38, `the-floorplan-beta-places-tables.spec.ts`).
+**Status:** Beta (steps 1 to 4 walked live; grouping by lasso not driven); "Auto-Place Tables" places the count asked for of each type (bug 38, `the-floorplan-beta-places-tables.spec.ts`); its save is refused since a floorplan became a location's layout (T257), until the layout replaces this flow.
 Offered as "Set up sections from a floorplan instead" on Section Setup while the plan has no sections and the market is a draft.
 
 1. "Choose your setup path": "Manual setup" (Recommended, "Get started") or "From a floorplan" (Beta, "Try the beta").
@@ -125,16 +125,13 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
    2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
    3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted, and when fewer did, whether the room had no space for the rest or Auto-Place ran out of time before them.
    4. **Edit Layout:** draw walls and obstacle zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
-   5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" writes the sections to the plan.
-      The market opens afterwards with the floorplan's sections and locations and the rest of its plan as it was, or an empty plan when none had been saved, and saving again replaces the floorplan rather than adding a copy.
+   5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" is refused with "This layout's location is not one of the market's locations.", since the wizard's floorplan names no location, and it writes nothing (T257).
 
 The wizard makes no AI calls; placement is a geometry solver ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
 Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
 Covered by:
 
-- `a-floorplan-save-keeps-the-market-readable.spec.ts`
-- `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures)
 - `the-floorplan-beta-places-tables.spec.ts`
 
 ## E7. Edit the plan after Draft

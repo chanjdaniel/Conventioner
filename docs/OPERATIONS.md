@@ -10,7 +10,7 @@ describes:
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_placement_history.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
-verified: 2026-11-09
+verified: 2026-11-11
 sources:
   - E32/F03/S03
   - T15
@@ -181,6 +181,8 @@ The first that is: the release carrying E32 refuses to boot until every account 
 If it names accounts that share an address (by id; it prints no address), keep one of each and run it again.
 The release carrying E40/F01/S01 moves the placement history into the market's history: once it is deployed, whenever is convenient, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_placement_history.py --dry-run` ([`migrate_placement_history.py`](../back-end/migrations/migrate_placement_history.py)), which counts the entries it would move, then without `--dry-run`.
 Until it runs, that release reads the old `placement_history` collection beside the new one, so the older placements still show in the Assignment history and a vendor's History tab, and nothing refuses to boot; a later release removes that fallback ([the market's history](implementation/data/history.md#the-move-from-placement_history)).
+The release that makes a floorplan a location's layout (T257) removes every floorplan the floorplan beta saved, with its image: once it is deployed, take a `mongodump`, then run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_layouts.py --dry-run` ([`migrate_layouts.py`](../back-end/migrations/migrate_layouts.py)), which names each market it would change and counts the floorplans and images it would remove, then without `--dry-run`.
+Until it runs, that release reads each market as the script would leave it and ignores the beta's floorplans, so nothing refuses to boot ([RELEASING.md](RELEASING.md#pre-deploy-database-migrations)).
 
 ### When the back end refuses to boot
 

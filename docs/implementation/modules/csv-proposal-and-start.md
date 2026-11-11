@@ -10,7 +10,7 @@ describes:
   - back-end/api/markets.py#leave_out_every_answer
   - back-end/tests/test_csv_proposal.py
   - front-end/src/utils/exampleColumns.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/the-form-started-from-a-csv/03
   - wayfinding/the-form-started-from-a-csv/05
@@ -61,6 +61,7 @@ Every column's "answered by N of M", its first answers and the share of the resp
 A request confirm cannot write is a `ConfirmRefused`, a 409 [client error](../conventions/an-exception-never-reaches-a-client.md) saying why.
 `confirm` catches nothing: a `ConfirmRefused`, a locked form (409), a plan or a form its writers refuse (400) and the Assign row's refusal (403) reach the handler as raised, and none of the three routes catches anything.
 Confirm judges the plan and the form through the plan's and the form's own writes (`prepared_plan`, whose parsed plan and `$set` it takes, and `prepared_application_form`, so [the form lock](../../business/rules/the-form-locks-at-the-first-application.md) above all), then writes them as one `$set` filtered on the market as it was read: its phase as stored and its form still without questions (`still_startable`).
+A layout whose location the start's plan no longer has goes as it does from a plan write: once the write lands, `release_removed_floorplans` deletes its image and records `floorplan_removed` ([floorplan placement](floorplan-placement.md#sharp-edges)).
 A market that changed since is written nothing, and told to start again.
 **A start whose rules differ from the market's asks the Assign row** (`ask_assign_if_the_rules_change`, the plan write's own check, [the market's actions](market-actions.md#each-routes-row)): the rules ride in the plan, and a ceiling the start fills sets a vendor's most tables, so someone the import's row lets in and the Assign row refuses is refused (403) and nothing is written.
 A market with no setup yet holds the rules a new plan starts with, so a start that sets no ceiling and keeps the plan's rules asks only the import's row; the organization asked is the one `_importing_market_document` read.

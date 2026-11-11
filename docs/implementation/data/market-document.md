@@ -22,10 +22,15 @@ describes:
   - back-end/migrations/migrate_phase.py
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
+  - back-end/migrations/migrate_layouts.py
+  - back-end/datatypes.py#fill_plan_ids
+  - back-end/datatypes.py#SetupObject
+  - back-end/datatypes.py#FloorplanObject
+  - back-end/datatypes.py#TableTypeObject
   - docs/schema.d.ts
   - back-end/db_config.py#get_mongodb_client
   - back-end/tests/test_db_config.py
-verified: 2026-11-03
+verified: 2026-11-11
 sources:
   - E02
   - E03/F03
@@ -46,6 +51,7 @@ sources:
   - T213
   - T263
   - T273
+  - T257
 ---
 
 # The market document
@@ -82,7 +88,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `phaseHistory`                                 | every phase the market entered, `{phase, enteredAt, by}`, written in the update that moves it ([`back-end/phase_record.py`](../../../back-end/phase_record.py))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `permissions`                                  | the rows of [the table](../modules/market-actions.md#a-markets-own-rows) this market differs on: a map from action id to `{role, source}`, `source` being `market` or `organization`; a row it does not hold reads its built-in default, so absent or `{}` is the built-in table and needs no migration; a new market starts with [its organization's default rows](organization-document.md#its-default-table), each `source: "organization"`, or `{}` when it has no organization or the organization sets none; after that only its owner's writes change it, copying the organization's default again among them ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md))                                                                                            |
 | `intakeMode`                                   | `csv` or `form`; absence means `csv` ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)); it [decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md), and a market it gates [answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) through `vendor_page_market_by_slug` (the vendor page) and `applicant_intake_market_by_slug` (applying)                                                                                                                                                                                                                                                                                                                                                                       |
-| `setupObject`                                  | the plan: dates, tiers, locations, sections, priority rules, assignment options, floorplans and `pricing`; null on a market whose plan was never saved                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `setupObject`                                  | the plan: dates, tiers, locations, sections, priority rules, assignment options, floorplans (each [a location's layout](#a-locations-layout)), `tableTypes` and `pricing`; null on a market whose plan was never saved                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `applicationForm`                              | the custom fields, `publishedAt`, the frozen `essentialOptions` and `unaskedEssentials`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `assignmentObject`                             | the stored assignment: `vendorAssignments` (each a seat on a date, `handPlaced` for a pin), `assignmentDate`, `madeFrom` (what the run read) and `revision` (how many times its rows were written, which each write is conditional on); its statistics are derived on every read and never stored (`_strip_persisted_assignment_statistics`); its one writer is [placements](../modules/placements.md)                                                                                                                                                                                                                                                                                                                                                                            |
 | `importMapping`                                | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -101,6 +107,25 @@ Each field's own rules are with the module that writes it; this node is the docu
 **The prices are `setupObject.pricing`**, null on a market never priced: `currency` (`CAD` unless the organizer picked another of `PRICING_CURRENCIES`), `halfTablePercent` (a whole number from 0 to 100, 50 unless changed), `groups`, the organizer's price groups, each `{name, conditions: [{key, answers}], prices}` with `prices` shaped as `everyoneElse` (absent on a card saved before there were groups, which has none), and `everyoneElse`, a list of `{tier, cents}`, each a full table's price for one day in whole cents.
 A list rather than a map keyed by tier name, because every write camel-cases the document's keys and a tier's name is the organizer's text; a half price rounds half up to the cent.
 What they mean and how an assignment is priced is [a price follows the table](../../business/rules/a-price-follows-the-table.md).
+
+<a id="a-locations-layout"></a>
+**A location's layout is a floorplan of `setupObject.floorplans`**, one per location (T257); "layout" is what the organizer reads, "floorplan" what the code and routes say.
+Lengths are millimetres, angles degrees clockwise, positions from the floorplan image's top-left corner at the floorplan's scale:
+
+- every location and section has an `id`, a UUID string stable across renames, since a layout names its location and a table its section by it; every other reader, the solver and the form's offering among them, still matches sections and locations by name
+  - Section Setup and Location Setup mint one as they add a row (`crypto.randomUUID()`), and every parse of a plan fills a missing one (`fill_plan_ids` in `datatypes.py`), so the CSV start and the seeds need nothing of their own
+  - a missing id is derived from the row's names and its place among rows of the same names (a UUID version 5 in `PLAN_ID_NAMESPACE`), never drawn at random, so a market stored before ids reads with the same ids on every read and a Market Setup tab writes back the ids it read
+  - a section's copy of its location carries that location's id, set by name on every parse
+- a floorplan (`FloorplanObject`): its `id`, `locationId`, `revision`, the image (`imageGridfsId`, `imageWidth`, `imageHeight`, `pdfPage`), the scale (`scalePxPerUnit`, image pixels per millimetre, and the reference line it was drawn from), and:
+  - `tables`, each `{id, sectionId, number, tableTypeId, xMm, yMm, rotation}`, `xMm` and `yMm` its centre, `sectionId` and `number` null on a table in no section; numbers run 1 to N in each section, so `table_code_for(section.name, number)` names the same table everywhere
+  - `zones`, the no-table zones, each `{id, label, xMm, yMm, widthMm, depthMm}` from its top-left corner
+  - `sectionStyles`, each `{sectionId, color, labelAt}`, `color` an index 1 to 8 of the section palette and `labelAt` null where the drawing places the label
+  - `startingCounts`, each `{sectionId, count}`, what Section Setup had when the layout began
+- `setupObject.tableTypes`: the market's table types, each `{id, name, widthMm, depthMm}`, with no colour, since the section colours a table; the form and the solver do not read them yet ([essential fields](../modules/essential-fields.md))
+
+The model reads leniently, as stored models do: every new field has a default, and the floorplan beta's fields (`walls`, `obstacles`, `placedTables`, `sections`, a floorplan's own `tableTypes`, `scaleUnit`) are dropped as a stored one parses, so a floorplan the beta saved reads as one of no location (`locationId` null), shown nowhere and counted by no section.
+The market read serves the stored document, so such a floorplan's stored keys, and a stored row with no id, reach the front end as stored until a write or the migration rewrites them.
+A laid-out location's sections store the count of their layout's tables, derived on every write, and only the layout's own writes change `floorplans` and `tableTypes`; how is [floorplan placement](../modules/floorplan-placement.md#sharp-edges).
 
 <a id="the-discord-connection-is-discord"></a>
 **The Discord connection is `discord`**; absent is not connected.
@@ -230,6 +255,8 @@ The other market migrations carry no boot marker, because what they repair fails
   Every repair is a conditioned `$set` whose filter Mongo re-checks as it writes, so a market the live app moves mid-run is not written back to its old state.
 - [`migrate_publishing_to_market_days.py`](../../../back-end/migrations/migrate_publishing_to_market_days.py) moves markets published by the old `draft -> archived` path on to `market_days`, telling published from abandoned by whether an assignment is stored; run it after `migrate_phase.py`.
 - `migrate_table_code_separator.py`, `migrate_roles.py` and `migrate_to_uuid.py` brought older documents to today's table codes, roles map and UUID ids.
+- [`migrate_layouts.py`](../../../back-end/migrations/migrate_layouts.py) brings every plan to [the layout's shape](#a-locations-layout) (T257): every section and location without an id given the one `fill_plan_ids` derives, the one every read already serves, every floorplan with no `locationId` (each the beta saved) removed, and every file in the `floorplan_images` bucket no remaining floorplan names deleted, but one uploaded after the run began; each market is written conditional on the plan it read, `--dry-run` writes and deletes nothing, and a run with no market changed under it records `layouts_v1` in `schema_migrations`.
+  It runs after the deploy, since the build reads an unmigrated market without failing, so the marker is not a boot refusal.
 
 ## The database client's bounds
 

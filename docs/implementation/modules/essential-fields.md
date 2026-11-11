@@ -10,7 +10,7 @@ describes:
   - back-end/guards.py#FormHasFieldsGuard
   - front-end/src/utils/applicationForm.ts#applicationFormError
   - front-end/src/utils/applicationForm.ts#applicationFormRefusal
-verified: 2026-10-31
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/02
   - wayfinding/v0-1-0/map

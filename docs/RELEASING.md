@@ -12,7 +12,7 @@ describes:
   - back-end/app.py#healthz
   - front-end/vite.config.ts#buildCommit
   - scripts/deploy_proof.py
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T74
   - T254
@@ -310,6 +310,7 @@ python migrations/create_applications_collection.py   # creates the applications
 python migrations/migrate_user_emails.py              # stores every account address lowercased; stops and names (by id) accounts that share one
 python migrations/migrate_placement_history.py        # AFTER the deploy, whenever: moves the placement history into the market's history
 python migrations/migrate_to_one_stage.py             # AFTER the deploy, whenever: moves the three old stage phases into `applications`
+python migrations/migrate_layouts.py                  # AFTER the deploy, whenever: ids on every section and location, the beta's floorplans and their images removed
 ```
 
 `migrate_placement_history.py` runs **after** its deploy, not before (E40/F01/S01): it moves every `placement_history` entry into `history` with its fields unchanged and drops the old collection, and a run before the deploy leaves behind whatever the old build writes meanwhile.
@@ -322,6 +323,12 @@ It moves every market in `applications_open`, `applications_closed` or `review` 
 Production held 2 markets when it was written: 1 in an old phase (a market whose vendors apply on its page, in `review`, which comes out not taking applications) and 1 in `market_days`, whose phase history alone is renamed.
 Run `--dry-run` first and read it, then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says.
 It is idempotent: a second run says "Nothing to change".
+
+`migrate_layouts.py` runs **after** the deploy that makes a floorplan a location's layout (T257), whenever the operator likes; a database `init_database.py` started needs it too, since production holds floorplans the beta saved.
+That build reads an unmigrated market without failing: a section or location with no id reads with the id the script would store (`fill_plan_ids` in `back-end/datatypes.py`), and a floorplan the beta saved reads as one of no location and is ignored, so nothing refuses to boot and the deploy can be rolled back until it has run.
+It gives every section and location without one that id, removes every floorplan with no `locationId` (every one the beta saved; none is kept), and deletes every file in the `floorplan_images` GridFS bucket that no remaining floorplan names, but one uploaded after the run began, printing each market it changes and the counts ([the market document](implementation/data/market-document.md#the-boot-refusal-and-the-migration)).
+Run `--dry-run` first and read it, then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says; take a `mongodump` first (below), since the images it deletes are gone.
+It is idempotent: a second run changes nothing, and a run that found a market changed under it says so and records no `layouts_v1` marker, so run it again.
 
 `migrate_user_emails.py` **must** be run before the code that holds one account per address (E32/F03/S04).
 The back end builds a UNIQUE index on the stored, lowercased address at boot (`api.users.ensure_user_indexes`) and refuses to boot while any address is stored with capitals, naming this script, or while two accounts share an address, naming them by id.

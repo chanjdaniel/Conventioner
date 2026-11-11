@@ -9,7 +9,7 @@ describes:
   - back-end/guards.py#SetupHasALocationGuard
   - back-end/guards.py#EveryTierHasTablesGuard
   - back-end/guards.py#_earliest_calendar_day
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/the-order-of-the-work/03
   - wayfinding/the-order-of-the-work/map
@@ -22,11 +22,12 @@ sources:
   - E18
   - E43/F01/S01
   - T263
+  - T257
 ---
 
 # The setup settles on leaving draft
 
-Everything on Market Setup (the dates, the locations, the tiers, the sections and their tables, the floorplans, the prices, and how vendors reach the market) is settled once the market leaves draft, and may change again only if it goes back.
+Everything on Market Setup (the dates, the locations, the tiers, the sections and their tables, each location layout's seats and the market's table types, the prices, and how vendors reach the market) is settled once the market leaves draft, and may change again only if it goes back.
 So leaving draft requires a complete setup: dates none of which has passed, a location, and tables at every tier, each its own blocker line.
 
 **Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
@@ -59,6 +60,7 @@ A Google Form market settles when its first import is written, which is when it 
 
 - `setup_lock_reason` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) says the lock, served on the market as `setupLockReason` so Market Setup reads as settled.
   The plan write (`prepared_plan`) and the floorplan save (`back-end/api/floorplans_save.py`, [floorplan placement](../../implementation/modules/floorplan-placement.md)) refuse a change after draft; restating the stored setup is not a change (`setup_part` compares the two), because the plan saves itself in every phase.
+  Of a layout, `setup_part` compares its seats (each table's id, section, number and type) and the market's table types (`layout.settled_part`, T257), never where a table stands; the plan write keeps the stored layouts whatever it carries, and the floorplan save is still refused whole after draft.
   The intake mode is refused separately by the same write, and the assignment rules that ride in the same plan keep [their own lock](the-assignment-rules-close-with-the-assignment.md).
 - The three guards (`SetupHasDatesGuard`, `SetupHasALocationGuard`, `EveryTierHasTablesGuard`) are in [`back-end/guards.py`](../../../back-end/guards.py), on `draft -> applications`, kept by [the guards](../../implementation/modules/guards.md).
   Beside them, a price group with a condition the form no longer has is its own line (`PriceGroupsStandGuard`, [a price follows the table](a-price-follows-the-table.md#price-groups)): the prices and the form settle together, so draft is where it is fixed.

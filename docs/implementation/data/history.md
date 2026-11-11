@@ -13,7 +13,7 @@ describes:
   - back-end/api/organizations.py#get_history
   - back-end/tests/test_the_organizations_history.py
   - back-end/api/organizations.py#get_default_permission_history
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
@@ -92,16 +92,20 @@ One block per action, in the order of [the actions table](../modules/market-acti
 - `renamed`: renaming a draft
   - Detail: `name`
 - `plan`: a Market Setup card, or the intake mode (`PUT /markets/:id/plan`)
-  - Detail: whichever of `market_dates`, `tiers`, `locations`, `sections`, `floorplans` and `intake_mode` changed
+  - Detail: whichever of `market_dates`, `tiers`, `locations`, `sections` and `intake_mode` changed; never the layouts or the table types, which the plan write keeps as stored and their own writes record (an entry written before T257 may name `floorplans`)
 - `pricing`: the Pricing card, in the same plan write ([a price follows the table](../../business/rules/a-price-follows-the-table.md))
   - Subject: `currency`, the market's, so the prices can be written in it
   - Detail: whichever of `currency`, `half_table_percent`, `groups` (each `{name, conditions, prices}`, the whole list) and `everyone_else` (each tier's `{tier, cents}`) changed; a market never priced is the card's defaults before (CAD, 50, no group, no price), so its first price records only the prices typed
 - `floorplan`: saving a floorplan to the market
   - Subject: `floorplan_id`
-  - Detail: whichever of `sections`, `locations` and `floorplan_ids` changed, and of the saved floorplan's summary: `tables`, `walls`, `no_go_zones` and `table_types` counted, and `layout_digest`, a digest of all but its id and sections, so a moved table changes it; each null on the side where the market held no floorplan of that id, and never the floorplan itself
+  - Detail: whichever of `sections`, `locations` and `floorplan_ids` changed, and of the saved floorplan's summary: `tables` and `no_go_zones` (its no-table zones) counted, and `layout_digest`, a digest of all but its id and revision, so a moved table changes it; each null on the side where the market held no floorplan of that id, and never the floorplan itself; an entry written before T257 may also count `walls` and `table_types`
 - `floorplan_image_deleted`: deleting a floorplan image
   - Subject: `image_id`
   - Detail: `image_id`, then null
+- `floorplan_removed`: a location's layout taken with its location by a plan write or the CSV start, its image deleted with it (T257)
+  - Subject: `floorplan_id`, and `location`, its name as the market last held it
+  - Detail: `tables`, the layout's table count, then null
+- `table_types`: the market's table types replaced (T257); no write records it yet
 
 **`change-form`**
 

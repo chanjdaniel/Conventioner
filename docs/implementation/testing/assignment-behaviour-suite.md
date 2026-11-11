@@ -5,7 +5,7 @@ describes:
   - back-end/tests/test_assignment_behaviour.py
   - back-end/tests/test_solver_vendor_input.py
   - back-end/tests/test_assignment_invariants.py
-verified: 2026-11-09
+verified: 2026-11-11
 sources:
   - wayfinding/november-2026-dry-run/07
   - E02/F01/S02
@@ -30,7 +30,7 @@ The glossary concepts: [Assignment](../../business/concepts/assignment.md) and [
 
 ## What it pins
 
-Each class is one rule, named as a sentence: a vendor gets only what they asked for; tier is a filter only when asked; the ceiling on dates, the organizer's and the vendor's own, and no personal limit; how a table is occupied; table-share requests; capacity; the statistics and the satisfaction score; assigning from the market's own approved applications, a placement dated by the market date; no vendor stranded behind a table they could not take; an incomplete application stops the run; the organizer's priority rules, first come first served, most constrained first among equals, ordering by magnitude; section preference; the same market assigns the same way twice; the solver works around pins; a seat held by hand; describing what is stored.
+Each class is one rule, named as a sentence: a vendor gets only what they asked for; tier is a filter only when asked; the ceiling on dates, the organizer's and the vendor's own, and no personal limit; how a table is occupied; table-share requests; capacity; a laid-out market seats its layout's tables, the counts `layout.derive_counts` gives, not the counts typed (T257); the statistics and the satisfaction score; assigning from the market's own approved applications, a placement dated by the market date; no vendor stranded behind a table they could not take; an incomplete application stops the run; the organizer's priority rules, first come first served, most constrained first among equals, ordering by magnitude; section preference; the same market assigns the same way twice; the solver works around pins; a seat held by hand; describing what is stored.
 
 How a table is occupied also pins that a vendor given a whole table holds both seats, so a Half chooser nobody may share with sits alone and no stranger is put on the other half.
 
