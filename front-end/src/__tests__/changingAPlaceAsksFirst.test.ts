@@ -19,7 +19,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import ManageOrgOverlay from '@/views/ManageOrgOverlay.vue';
 import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes';
 import { ORGANIZATION_CHANGED_CODE } from '@/utils/api';
-import { organizationPlaceChange } from '@/utils/organizations';
+import { organizationPlaceChange, type OrganizationPlace } from '@/utils/organizations';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 
@@ -175,6 +175,31 @@ describe('Manage organization changes a place from its row', () => {
 
       expect(allByTestId('manage-org-make-member-button')).toEqual([]);
       expect(allByTestId('manage-org-make-admin-button')).toEqual([]);
+      wrapper.unmount();
+    },
+  );
+
+  it.each<[string, OrganizationPlace]>([
+    ['manage-org-make-member-button', 'member'],
+    ['manage-org-make-admin-button', 'admin'],
+  ])(
+    'draws the address in the title of %s so it breaks only before its "@" or a dot',
+    async (button, to) => {
+      const wrapper = mountDialog({
+        adminPeople: [{ userId: 'u-admin', email: 'e2e-change-place-admin@example.com' }],
+        memberPeople: [{ userId: 'u-member', email: 'e2e-change-place-member@example.com' }],
+      });
+      await flushPromises();
+
+      await ask(allByTestId(button)[0]!);
+      const email = `e2e-change-place-${to === 'member' ? 'admin' : 'member'}@example.com`;
+      const { title } = organizationPlaceChange(served, email, to);
+      const heading = byTestId('manage-org-place-change-window')!.querySelector('.dialog-title')!;
+      expect(heading.textContent).toBe(title);
+      expect(
+        [...heading.querySelectorAll('.email-address')].map((part) => part.textContent),
+      ).toEqual([email.split('@')[0], `@${email.split('@')[1]}`]);
+      expect(byTestId('manage-org-place-change-window')!.getAttribute('aria-label')).toBe(title);
       wrapper.unmount();
     },
   );

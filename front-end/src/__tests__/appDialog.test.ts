@@ -23,6 +23,7 @@ const Host = defineComponent({
     dialog: { type: Object as PropType<DialogProps>, default: () => ({}) },
     tray: { type: Boolean, default: false },
     actions: { type: Boolean, default: false },
+    heading: { type: Boolean, default: false },
   },
   setup(props, { expose }) {
     const open = ref(false);
@@ -60,6 +61,12 @@ const Host = defineComponent({
             ...(props.actions
               ? { actions: () => h('button', { 'data-testid': 'people-reset' }, 'Reset') }
               : {}),
+            ...(props.heading
+              ? {
+                  title: () =>
+                    h('span', { 'data-testid': 'people-heading' }, ['Choose ', h('em', 'people')]),
+                }
+              : {}),
           },
         ),
       ]);
@@ -84,8 +91,13 @@ interface HostState {
 }
 
 /** Opens the dialog as a user does: focus on the opener, then a click on it. */
-async function openFromTheButton(dialog: DialogProps = {}, tray = false, actions = false) {
-  wrapper = mount(Host, { attachTo: document.body, props: { dialog, tray, actions } });
+async function openFromTheButton(
+  dialog: DialogProps = {},
+  tray = false,
+  actions = false,
+  heading = false,
+) {
+  wrapper = mount(Host, { attachTo: document.body, props: { dialog, tray, actions, heading } });
   const opener = byTestId('opener')!;
   opener.focus();
   opener.click();
@@ -227,6 +239,22 @@ describe('with `closeDisabled`', () => {
     await flushPromises();
 
     expect(document.activeElement).toBe(byTestId('people-find'));
+  });
+});
+
+describe('its title', () => {
+  it('is the `title` string, which also names the dialog', async () => {
+    await openFromTheButton();
+    expect(document.querySelector('.dialog-title')?.textContent).toBe('Choose people');
+    expect(byTestId('people-window')?.getAttribute('aria-label')).toBe('Choose people');
+  });
+
+  it('draws a `title` slot when given, the string still naming the dialog', async () => {
+    await openFromTheButton({}, false, false, true);
+    const title = document.querySelector('.dialog-title')!;
+    expect(title.querySelector('[data-testid="people-heading"] em')?.textContent).toBe('people');
+    expect(title.textContent).toBe('Choose people');
+    expect(byTestId('people-window')?.getAttribute('aria-label')).toBe('Choose people');
   });
 });
 
