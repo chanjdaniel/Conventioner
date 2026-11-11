@@ -315,8 +315,8 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `ChoiceField` (a control, a select or a field by how many choices it has)
 - `CsvImportPage`
 - `EmailVerificationPage` (the page a verification link opens)
-- `FloorplanWorkflowPage`
 - `FollowUpDialog` (marking a follow-up, from One by one's card or the All view's drawer)
+- `LayoutPage` (a location's layout page: its upload, calibration, map and tools)
 - `LoginPage`
 - `ManageMarketPage`
 - `MarketSetupPage`
