@@ -33,7 +33,8 @@ import { fileURLToPath } from 'node:url';
 export type Timings = Readonly<Record<string, number>>;
 
 /** The committed timings, beside this script; resolved when used, so a unit test can import it. */
-const timingsFile = () => fileURLToPath(new URL('./e2e-shard-timings.json', import.meta.url));
+export const timingsFile = () =>
+  fileURLToPath(new URL('./e2e-shard-timings.json', import.meta.url));
 
 /** The weight of a file with no timing: the median of the files measured, or 1 when none are. */
 export function defaultSeconds(files: readonly string[], seconds: Timings): number {
@@ -161,7 +162,7 @@ export function timingsFromReports(
 }
 
 /** Playwright's list of the suite, or of the files the filters name, as a JSON report. */
-function list(filters: readonly string[] = []): Report {
+export function list(filters: readonly string[] = []): Report {
   const listed = spawnSync('npx', ['playwright', 'test', '--list', '--reporter=json', ...filters], {
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
