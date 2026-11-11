@@ -43,6 +43,11 @@ import { useModalRoot } from '@/utils/useModalRoot';
 const props = withDefaults(
   defineProps<{
     open: boolean;
+    /**
+     * The heading, and the dialog's accessible name. A `title` slot, when given, draws the heading
+     * instead, as words with an address in them drawn through `EmailAddress` (T283); the string
+     * still names the dialog, so the slot must draw the same words.
+     */
     title: string;
     /** Test id prefix, so each dialog keeps stable ids: `<testid>-window`, `-close-button`, … */
     testid: string;
@@ -267,7 +272,9 @@ watch(
 
       <component :is="pinned ? Unwrapped : ScrollBox" v-bind="whole">
         <div class="dialog-parts">
-          <h2 class="dialog-title">{{ title }}</h2>
+          <h2 class="dialog-title">
+            <slot name="title">{{ title }}</slot>
+          </h2>
 
           <!--
             The form, when this dialog is one action. `@submit.prevent` and a `type="submit"` confirm

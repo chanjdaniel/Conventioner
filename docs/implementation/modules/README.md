@@ -32,5 +32,6 @@ One line per node, sorted by file name.
 - [The plan's autosave](plan-autosave.md) - `useAutosave` and Market Setup on it: one save out at a time, the newest copy when it answers, "Plan saved" only once the server holds the last edit, the hold, the flush
 - [The phase rail](phase-rail.md) - the lifecycle band: no before the click, the derived spine, the menu, where a move lands
 - [The phase record](phase-record.md) - `phaseHistory`: every phase a market entered, `phases_reached()`, and what an older market can prove
+- [The organization's people](organization-people.md) - `organization_people.py`: the one writer of an organization's people map, its table, one conditional write holding the places it judged, the lists as its mirror, the 409
 - [Placements](placements.md) - the one writer of `assignmentObject`: four EDITOR doors, pins, the held seat, orphans, what a read shows
 - [Vendor notes](vendor-notes.md) - `vendor_notes.py`: the organizer's note, the sheet's line and the handled mark, in a collection no applicant endpoint reads

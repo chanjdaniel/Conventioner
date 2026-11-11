@@ -19,6 +19,8 @@ import pytest
 
 from conftest import (
     FakeMarketsCollection,
+    FakeOrganizations,
+    install_organizations,
     mongo_matches,
     reject_malformed_update,
     sessions_load_through_get_user,
@@ -30,7 +32,6 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.markets as MarketsApi
-import api.organizations as OrgsApi
 import api.users as UsersApi
 import history as History
 import market_write as MarketWrite
@@ -50,35 +51,6 @@ PEOPLE = (OWNER, ADMIN, MEMBER, GONE, EDITOR, VIEWER, STRANGER)
 
 NO_LONGER_IN_THE_ORGANIZATION = {"error": "They are no longer in this organization."}
 NO_LONGER_ON_THE_MARKET = {"error": "They no longer have a role on this market."}
-
-
-class Organizations:
-    """The ``organizations`` collection: one document, written by Mongo's operators. ``gone_under``
-    names a person another organizer removes between this removal's read and its write."""
-
-    def __init__(self, doc):
-        self.doc = doc
-        self.writes = []
-        self.gone_under = None
-
-    def find_one(self, query, projection=None):
-        if self.doc is None or not mongo_matches(self.doc, query):
-            return None
-        return {key: list(value) if isinstance(value, list) else value
-                for key, value in self.doc.items()}
-
-    def update_one(self, _query, update):
-        self.writes.append(update)
-        if self.gone_under:
-            for key in ("admins", "members"):
-                if self.gone_under in self.doc.get(key, []):
-                    self.doc[key].remove(self.gone_under)
-        modified = 0
-        for key, value in (update.get("$pull") or {}).items():
-            if value in self.doc.get(key, []):
-                self.doc[key].remove(value)
-                modified = 1
-        return SimpleNamespace(matched_count=1, modified_count=modified)
 
 
 class Markets(FakeMarketsCollection):
@@ -125,16 +97,10 @@ def people(monkeypatch):
 
 @pytest.fixture
 def organization(monkeypatch, people, history):
-    organizations = Organizations({
+    return install_organizations(monkeypatch, FakeOrganizations({
         "id": ORG_ID, "name": "Ember Markets", "owner": OWNER.id, "admins": [ADMIN.id],
         "members": [MEMBER.id], "markets": [], "theme": None,
-    })
-    monkeypatch.setattr(OrgsApi, "organizations_collection", organizations)
-    users = SimpleNamespace(writes=[])
-    users.update_one = lambda *args, **_kwargs: users.writes.append(args)
-    monkeypatch.setattr(OrgsApi, "users_collection", users)
-    organizations.users = users
-    return organizations
+    }))
 
 
 @pytest.fixture
@@ -179,7 +145,7 @@ class TestTheOrganization:
         assert response.status_code == 404
         assert response.get_json() == NO_LONGER_IN_THE_ORGANIZATION
         assert organization.writes == []
-        assert organization.users.writes == [], "nothing is written before the refusal"
+        assert organization.accounts.writes == [], "nothing is written before the refusal"
         assert organization_entries(history) == []
 
     def test_removing_a_member_twice_answers_the_second_as_gone(self, organization, history):
@@ -192,7 +158,8 @@ class TestTheOrganization:
         assert len(organization_entries(history)) == 1, "only the first removal is recorded"
 
     def test_someone_removed_under_the_removal_is_not_found(self, organization, history):
-        organization.gone_under = MEMBER.id
+        # Another organizer removes them between this removal's read and its write.
+        organization.before_write = lambda: organization.doc["members"].remove(MEMBER.id)
 
         response = signed_in_as(OWNER).delete(f"/organizations/{ORG_ID}/users/{MEMBER.id}")
 

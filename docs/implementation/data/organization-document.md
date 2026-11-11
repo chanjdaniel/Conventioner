@@ -32,6 +32,14 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
+  - back-end/datatypes.py#people_from_lists
+  - back-end/datatypes.py#organization_people_of
+  - back-end/organization_people.py#of_person
+  - back-end/migrations/migrate_organization_people.py
+  - back-end/tests/test_migrate_organization_people.py
+  - back-end/tests/test_a_roll_forward_rebuilds_the_people_from_the_lists.py
+  - back-end/tests/test_a_persons_organizations_in_either_shape.py
+  - back-end/api/organizations.py#change_org_place
 verified: 2026-11-11
 sources:
   - E20/F04/S01
@@ -51,6 +59,7 @@ sources:
   - T217
   - T263
   - T274
+  - T283
 ---
 
 # The organization document, and roles
@@ -63,33 +72,55 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 ## The organization
 
-| Field                 | What it is                                                                                                                                                       |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                  | a UUID, the primary key; the name is a display field                                                                                                             |
-| `name`                | creating one with a name another organization has is refused ("Organization already exists"); a rename is not checked, and no index holds the name unique        |
-| `owner`               | the user id of its one owner                                                                                                                                     |
-| `admins`, `members`   | user ids; the owner is in neither (`validate_owner_not_in_other_roles`); an admin cannot be added as a member, but a member made an admin stays in `members` too |
-| `markets`             | the ids of its markets, added when a market is created and pulled when one is deleted                                                                            |
-| `theme`               | carried, never applied                                                                                                                                           |
-| `default_permissions` | the rows of the table it sets for the markets it will hold: row id to `{role}`, absent when it sets none ([its default table](#its-default-table))               |
+| Field                 | What it is                                                                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                  | a UUID, the primary key; the name is a display field                                                                                                      |
+| `name`                | creating one with a name another organization has is refused ("Organization already exists"); a rename is not checked, and no index holds the name unique |
+| `people`              | its people, user id to `owner`, `admin` or `member`, exactly one `owner`, so a person has one place ([one map of people](#one-map-of-people))             |
+| `owner`               | the user id of its one owner, kept beside `people` for one release                                                                                        |
+| `admins`, `members`   | user ids, kept beside `people` for one release; an organization stored before `people` is read from them, folded                                          |
+| `markets`             | the ids of its markets, added when a market is created and pulled when one is deleted                                                                     |
+| `theme`               | carried, never applied                                                                                                                                    |
+| `default_permissions` | the rows of the table it sets for the markets it will hold: row id to `{role}`, absent when it sets none ([its default table](#its-default-table))        |
 
 Every key is one word but `default_permissions`, which no other spelling of has ever been written, so the spelling question the market document has does not arise.
 Membership is recorded on both sides: each user's `organizations` lists the ids of the organizations they are in, kept in step by every membership write ([users and email](users-and-email.md)).
-`organization_documents_of` finds a person's organizations with an `$or` over `owner`, `admins` and `members`, each a [lookup index](lookup-indexes.md), and answers the stored documents; the Markets list reads them so, since it needs no person's address and no count of what removing someone takes (`get_markets_for_user` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)), and `test_the_list_reads_its_readers_organizations_without_their_people_or_removals` in [`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) fails when it reads either.
+`organization_documents_of` finds a person's organizations with `organization_people.of_person`'s filter ([one map of people](#one-map-of-people)) and answers the stored documents; the Markets list reads them so, since it needs no person's address and no count of what removing someone takes (`get_markets_for_user` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)), and `test_the_list_reads_its_readers_organizations_without_their_people_or_removals` in [`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) fails when it reads either.
 `get_organizations_for_user` makes the same find, then reads every owner, admin and member of all of them in one `get_users_by_ids` ([users and email](users-and-email.md#lookups)), never one account at a time, so an organization of 150 members costs the Organizations page and Manage organization one read of them (T204).
-It serves each organization's admins and members as `{userId, email}` pairs, `adminPeople` and `memberPeople`, in the stored order, an account that is gone left out, and the owner's address as `ownerEmail`.
+It serves each organization's `owner`, `admins` and `members` as its people map gives them, in the map's order, whatever its stored lists hold, and its admins and members as `{userId, email}` pairs, `adminPeople` and `memberPeople`, in the same order, an account that is gone left out, and the owner's address as `ownerEmail`.
 Manage organization draws its rows from the pairs, each section a [list frame](../../design-system.md) over them, and each row keyed and removed by its own `userId`: it paired the address list with `admins` by position, so one deleted account shifted every later row onto the next person's id, and Remove could name one person and remove another.
 `adminEmails` and `memberEmails`, with their snake-case twins, are the same people by address alone, deprecated and kept only for a tab still on the old bundle; the next release removes them.
-[`test_the_organizations_read_names_everyone_at_once.py`](../../../back-end/tests/test_the_organizations_read_names_everyone_at_once.py) pins the one read and the pairs, a deleted admin among them.
+[`test_the_organizations_read_names_everyone_at_once.py`](../../../back-end/tests/test_the_organizations_read_names_everyone_at_once.py) pins the one read and the pairs, a deleted admin among them, an organization with a map served from it and one stored before it served folded.
 It serves each with what removing someone from it takes (E38/F15/S01): `marketCount`, its markets counted from the markets themselves by their indexed `organizationId`, since `markets` is kept in step only at best effort, and `marketsWithOwnRole`, each admin's and member's count of those markets whose own `roles` name them, since removing them from the organization leaves those roles; Manage organization's Remove says both ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)), and the organization's card says `marketCount`; the front end reads no organization's `markets` list.
 
-**Who changes an organization**: only the owner renames it, adds an admin or transfers ownership; the owner or an admin adds a member or changes its default table; the owner removes anyone but themselves, an admin only members.
+**Who changes an organization**: only the owner renames it, adds an admin, changes someone's place between admin and member, or transfers ownership; the owner or an admin adds a member or changes its default table; the owner removes anyone but themselves, an admin only members.
+A person's place changes only through [the organization's people](../modules/organization-people.md), whose table says each of these and refuses the rest: "Add admin" of a member makes them an admin, the owner's `PUT /organizations/<org_id>/users/<user_id>` with `{"place": "admin" | "member"}` makes a member an admin or an admin a member (the place they hold already answers 200 and writes nothing, the owner's place is refused), "Add admin" of an admin and "Add member" of a member say they already are, 400, and adding the owner or an admin as a member is refused as before.
 Renaming is all an update does: it reads the body's `name`, a string that is not blank, and nothing else, so the owner, the admins, the members and the markets change only through the writes above, which keep each user's `organizations` in step.
-Transferring ownership makes the old owner an admin; transferring it to its own owner is refused before anything is written.
+Transferring ownership hands the organization to one of its admins or members and makes the old owner an admin; transferring it to its own owner, or to someone outside it ("Hand the organization only to one of its admins or members."), is refused before anything is written.
 The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
-Removing someone who is neither an admin nor a member, another organizer having removed them first, answers 404 "They are no longer in this organization." before any write, as does a removal whose `$pull` finds them gone under it; nothing is recorded, and Manage organization reads that 404 as done ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)); a market role taken twice answers alike ([roles on a market](#roles-on-a-market)).
+Removing someone who is neither an admin nor a member, another organizer having removed them first, answers 404 "They are no longer in this organization." before any write, as does a removal whose write finds them gone under it; nothing is recorded, and Manage organization reads that 404 as done ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)); a market role taken twice answers alike ([roles on a market](#roles-on-a-market)).
 Deleting an organization is the owner's, deletes the drafts and archived markets it holds, and is refused while it holds a market mid-lifecycle ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md), through [market deletion](../modules/market-deletion.md)).
 What the owner and the admins do with these, screen by screen, is [the organizations flows](../../business/flows/organizations.md).
+
+## One map of people
+
+**An organization's people are one map, `people`, from user id to place** (T283, [ADR 0025](../../adr/0025-an-organizations-people-are-one-map.md)), the shape a market's `roles` has, so a person stands in one place by construction.
+`Organization` holds it and derives `owner`, `admins` and `members` from it, in the map's order, whatever lists its input held; it refuses a map with no owner or two, "An organization has exactly one owner", and one whose places are not the three.
+
+**An organization stored before the map is read folded** by `people_from_lists` in [`back-end/datatypes.py`](../../../back-end/datatypes.py): the owner gets `owner`, then each id in `admins` not yet placed gets `admin`, then each in `members` not yet placed gets `member`, in list order, and a value that is not a list reads as an empty one.
+So the owner wins over any list they also stand in: an organization whose owner was also in `admins` or `members` failed the model, so the market read treated it as absent and its admins and members lost every role through it with nothing said, and it parses and grants again.
+`organization_people_of(document)` is the one rule every reader of a raw document reads its people by, the stored map when there is one, else the fold: `_role_in`, `_what_removing_takes` and `get_organizations_for_user` here, the membership and owner checks in [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py), `organization_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), and `delete_user`'s owner check in [`back-end/api/users.py`](../../../back-end/api/users.py); a `people` that is not a map reads as nobody there, and fails the model.
+Readers holding an `Organization`, the permissions, the market read and the Markets list, read its derived `owner`, `admins` and `members`.
+
+**"The organizations this person is in" is one filter**, `of_person(user_id)` in [`back-end/organization_people.py`](../../../back-end/organization_people.py): an `$or` of their key in `people`, `{"people.<id>": {"$exists": true}}`, served by the wildcard index `people.$**` as `roles.$**` serves a market's, and, on an organization with no `people`, its `owner`, `admins` or `members`, each a [lookup index](lookup-indexes.md).
+An organization with a map is never found by a stale list.
+`organization_documents_of`, `get_user_organizations` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py) and the account deletion use it, and [`test_a_persons_organizations_in_either_shape.py`](../../../back-end/tests/test_a_persons_organizations_in_either_shape.py) pins it finding both shapes alike, with its server twin in [the real-MongoDB suite](../testing/real-mongo-suite.md).
+It refuses, as a `RuntimeError`, an id that is not a non-empty string or that holds a `.` or starts with `$`, since the id becomes a dotted path; an id reaches it only from a stored account.
+
+**One writer keeps the map, and the lists as its mirror**: `create_organization` inserts `people: {<owner id>: "owner"}` beside the lists, and adding an admin or a member, changing someone's place, removing someone, transferring ownership and an account's deletion go through [the organization's people](../modules/organization-people.md), each one conditional write holding the places it judged.
+On an organization with a map the write holds the requester's and the target's keys as read and moves one key, keeping `admins` and `members` in step with `$addToSet` and `$pull`; on one stored before the map it holds `owner`, `admins` and `members` as read and sets `people` whole beside the three lists as its mirror, so the first change to such an organization folds it.
+A write that met another change answers 404 when the organization or the person being removed is gone, else `OrganizationChanged`, 409, and Manage organization says its sentence where that control's refusal shows and reads the organization again.
+Transferring ownership is one such write, filtered on the giver being owner: it sets both keys and `owner`, keeps the lists in step, and, handed to an admin, sets `admins` whole and holds it as read, so the organization never stands with two owners, none, or an owner in a list, whatever is cut or read in between ([the transfer's write](../modules/organization-people.md#every-write-holds-what-it-judged)).
 
 ## Its default table
 
@@ -109,7 +140,7 @@ Manage organization's "Default permissions for new markets" ([`OrganizationPermi
 ## The organization's history
 
 **Every change to the organization is recorded in [the history](history.md#what-an-organization-records)**, keyed by `organization_id` where a market's entry holds `market_id`: renaming it, an admin or a member added, a member made an admin, either removed, ownership handed on, a market created in it or deleted from it, a floorplan template filed under it added, changed, removed, or moved out of it or into it, and a row of its default table set or reset, or every row reset.
-Each is recorded once its change has landed, never fails it, and records nothing when nothing changed: an admin added again, a rename to the name it has.
+Each is recorded once its change has landed, never fails it, and records nothing when nothing changed: a rename to the name it has; an admin added again is refused, 400, and records nothing either.
 An organization has no table of who may do what, so its actions are the history's own verbs, one per kind of change; a change with an admin on either side of it is `manage-organization-admins`, a member added or removed `manage-organization-members`, as a market's role changes go under the row their check asked, and ownership handed on is `transfer-organization`.
 Creating the organization and deleting it record nothing here: its history starts empty, and the deletion takes the history with it after the [deletion trail](../../business/rules/when-an-organization-may-be-deleted.md) is written.
 
@@ -160,7 +191,7 @@ The Markets list (`get_markets_for_user`) is every market with the person's role
 It reads each document as the read does (`_readable_market`), resolves the person's role by the read's rule (`_summary_role`, through `market_role_of`, with the organization parsed as the read parses it, from the list's memo, so an organization whose document fails validation grants nothing through it here either) and asks the read's question of that role (`read_refused`).
 A document the model refuses is logged by `_log_unreadable_market` and left out with the rest still listed, and a market whose read row refuses the person is left out too, so no card opens onto "not found".
 The entry's `actionRefusals` are asked of the same role, and of whether the reader is a chosen reviewer (`is_chosen`, by their address, as the read asks it), so each control the card and Manage market offer is offered to exactly the people the market lets take it.
-[`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client: every listed market opens for its reader, and an unknown role in a roles map or an organization that does not parse leaves the market out of the list as it leaves it out of the read, and a chosen Viewer's entry answers every row as their read does.
+[`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client: every listed market opens for its reader, and an unknown role in a roles map or an organization that does not parse (its people name no owner) leaves the market out of the list as it leaves it out of the read, an organization stored with its owner also in `admins` grants its admins Admin and its members Viewer in both, and a chosen Viewer's entry answers every row as their read does.
 
 ## A market's organization
 
@@ -173,3 +204,11 @@ Its people see the market, its owner and admins run it, and deleting the organiz
 
 [`migrations/migrate_roles.py`](../../../back-end/migrations/migrate_roles.py) turned the old `owner`/`editors`/`viewers` lists into the `roles` map and the old flat `users` list into `owner`, `admins` and `members`.
 [`migrations/migrate_to_uuid.py`](../../../back-end/migrations/migrate_to_uuid.py) gave users, organizations and markets UUID ids and moved every reference (an organization's people and markets, a market's organization and its role keys) from names and emails to ids.
+[`migrations/migrate_organization_people.py`](../../../back-end/migrations/migrate_organization_people.py) folds every organization stored before the map into its `people` (T283, [ADR 0025](../../adr/0025-an-organizations-people-are-one-map.md)), in the write a change makes on such an organization (`organization_people.folding_write`): held on `people` absent and the three lists as read, it sets the fold and the lists as its mirror.
+It skips and lists an organization with no owner, one holding an id that cannot be a key of the map, and one that changed between its read and its write, which a second run folds.
+Its `--dry-run` writes nothing and prints each organization it would fold, what it holds, and whether it does not parse on the release before (its owner also an admin or a member) or lists an admin also as a member, then the counts.
+Nothing waits on it, since every reader reads both shapes: it runs after the deploy, whenever ([RELEASING.md](../../RELEASING.md#pre-deploy-database-migrations)).
+[`test_migrate_organization_people.py`](../../../back-end/tests/test_migrate_organization_people.py) folds each stored shape, and pins the dry run, a second run and a change landing during the run; [`test_an_organizations_people_on_the_server.py`](../../../back-end/tests/real_mongo/test_an_organizations_people_on_the_server.py) runs the same on a server.
+Its `--reconcile` is for a roll forward over a rollback past the map's release, and only then: the release before writes only the lists, so the maps it left are stale, and every reader prefers the map ([Rolling back](../../RELEASING.md#rolling-back)).
+It folds as above, and rebuilds each folded organization's map from its lists wherever the two disagree, each person still in it keeping their position, in one write held on the map and the three lists as read (`organization_people.reconciling_write`) that sets the lists as the new map's mirror.
+[`test_a_roll_forward_rebuilds_the_people_from_the_lists.py`](../../../back-end/tests/test_a_roll_forward_rebuilds_the_people_from_the_lists.py) replays each change the release before makes by its own writes and reads the organization as the market read does once reconciled, and pins an organization in step never written, the dry run, a second run and a change landing during the run, and that the reconcile keeps a transfer judged on the stale map before it ran; the real-MongoDB file above runs the rebuild and the change landing during the run on a server.

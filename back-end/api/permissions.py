@@ -5,6 +5,7 @@ from typing import Any, Callable, Iterable, List, NamedTuple, Optional
 from datatypes import Market, MarketRole, Organization
 from db_config import get_database
 import api.users as UsersApi
+import organization_people as OrganizationPeople
 
 db = get_database()
 organizations_collection = db["organizations"]
@@ -218,13 +219,7 @@ def get_user_organizations(user_email: str) -> List[Organization]:
     if not user:
         return []
     user_id = user.id
-    org_dicts = organizations_collection.find({
-        "$or": [
-            {"owner": user_id},
-            {"admins": user_id},
-            {"members": user_id}
-        ]
-    })
+    org_dicts = organizations_collection.find(OrganizationPeople.of_person(user_id))
     
     organizations = []
     for org_dict in org_dicts:
