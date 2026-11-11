@@ -102,7 +102,9 @@ def upload_floorplan():
         # ── PDF path ───────────────────────────────────────────────────
         if is_pdf(content_type) or filename.lower().endswith(".pdf"):
             try:
-                page_images = pdf_to_images(file_bytes, max_pages=Limits.MAX_PDF_PAGES)
+                page_images = pdf_to_images(
+                    file_bytes, max_pages=Limits.MAX_PDF_PAGES,
+                    max_side_px=Limits.MAX_PDF_PAGE_SIDE_PX)
             except TooManyPages:
                 return jsonify({"error": Limits.TOO_MANY_PDF_PAGES}), 400
             except UnreadablePdf as exc:

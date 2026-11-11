@@ -110,7 +110,7 @@ def _one_page_pdf() -> bytes:
     return _pdf(pages=1)
 
 
-def _pdf(*, pages: int) -> bytes:
+def _pdf(*, pages: int, media_box: bytes = b"0 0 595 842") -> bytes:
     """A real PDF of ``pages`` pages, each a plan's outline drawn as one rectangle. Its
     cross-reference table is written with each object's true offset, so a strict reader takes it
     as it is."""
@@ -121,7 +121,8 @@ def _pdf(*, pages: int) -> bytes:
         b"<< /Type /Pages /Kids [%s] /Count %d >>" % (kids, pages),
         b"<< /Length %d >>\nstream\n%s\nendstream" % (len(content), content),
     ] + [
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 3 0 R /Resources << >> >>"
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [%s] /Contents 3 0 R /Resources << >> >>"
+        % media_box
     ] * pages
     pdf = b"%PDF-1.4\n"
     offsets = []
@@ -321,6 +322,39 @@ class TestAnUploadIsHeldToItsLimits:
         assert images.files == {}
 
 
+    def test_a_pdf_that_opens_but_will_not_draw_is_refused_naming_the_file(
+        self, sign_in, market, images, monkeypatch,
+    ):
+        def will_not_draw(_page, **_kwargs):
+            raise PdfConverter.pdfium.PdfiumError("Failed to render page")
+
+        monkeypatch.setattr(PdfConverter.pdfium.PdfPage, "render", will_not_draw)
+
+        response = _upload(
+            sign_in("owner@example.com"),
+            file=(io.BytesIO(_one_page_pdf()), "Venue plan.pdf", "application/pdf"),
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Venue plan.pdf could not be read as a PDF."}
+        assert images.files == {}
+
+    def test_a_page_of_any_size_is_drawn_no_larger_than_the_bound(
+        self, sign_in, market, images, monkeypatch,
+    ):
+        monkeypatch.setattr(Limits, "MAX_PDF_PAGE_SIDE_PX", 400)
+
+        response = _upload(
+            sign_in("owner@example.com"),
+            file=(io.BytesIO(_pdf(pages=1, media_box=b"0 0 14400 7200")), "hall.pdf",
+                  "application/pdf"),
+        )
+
+        assert response.status_code == 201, response.get_json()
+        page = response.get_json()["pages"][0]
+        assert (page["width"], page["height"]) == (400, 200)
+
+
 class TestThePdfConverter:
     """The converter says why a PDF gave no pages rather than answering an empty list, which the
     route could only read as a server error."""
@@ -339,6 +373,22 @@ class TestThePdfConverter:
 
     def test_each_page_is_drawn(self):
         assert len(PdfConverter.pdf_to_images(_pdf(pages=2), max_pages=2)) == 2
+
+    def test_a_page_is_drawn_at_its_dpi_while_under_the_bound(self):
+        from PIL import Image
+
+        [png] = PdfConverter.pdf_to_images(_pdf(pages=1, media_box=b"0 0 72 36"), dpi=200,
+                                           max_side_px=1000)
+
+        assert Image.open(io.BytesIO(png)).size == (200, 100)
+
+    def test_a_page_larger_than_the_bound_is_drawn_to_it(self):
+        from PIL import Image
+
+        [png] = PdfConverter.pdf_to_images(_pdf(pages=1, media_box=b"0 0 14400 7200"),
+                                           max_side_px=300)
+
+        assert Image.open(io.BytesIO(png)).size == (300, 150)
 
 
 class TestAnImagesMarket:

@@ -44,6 +44,10 @@ MAX_MAGNITUDE = 10_000_000
 MAX_UPLOAD_BYTES = 4_000_000
 UPLOAD_FORM_ALLOWANCE_BYTES = 64_000
 MAX_PDF_PAGES = 20
+#: The longest side, in pixels, a PDF's page is drawn at: a page larger than this at 200 dpi is drawn
+#: smaller, so a page of any size asks for a bounded bitmap; the browser shrinks an image to the
+#: same side (``shrinkImage.ts``).
+MAX_PDF_PAGE_SIDE_PX = 8_000
 
 MAX_TABLES_TO_PLACE = 500
 MIN_TABLE_SIDE_MM = 100
