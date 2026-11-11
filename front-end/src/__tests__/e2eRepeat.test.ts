@@ -4,9 +4,6 @@
  * spec files the PR changed, never a helper or a deleted file, and run them as often as fits a
  * budget of time without dropping below two runs.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -114,12 +111,10 @@ describe('repeatsAfter', () => {
 });
 
 describe('the first run', () => {
-  const timings = JSON.parse(
-    readFileSync(resolve(process.cwd(), 'scripts', 'e2e-shard-timings.json'), 'utf8'),
-  ) as Timings;
-  const heaviest = Object.entries(timings)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10);
+  // Ten heavy files and a light rest, so the case stays what it is whatever the real timings become.
+  const heaviest = Array.from({ length: 10 }, (_, i) => [`heavy-${i}.spec.ts`, 400] as const);
+  const lightest = Array.from({ length: 30 }, (_, i) => [`light-${i}.spec.ts`, 10] as const);
+  const timings: Timings = Object.fromEntries([...heaviest, ...lightest]);
 
   it('is estimated by the timings, a renamed file weighing the median, so moved heavy files pass the check', () => {
     const fallback = defaultSeconds(Object.keys(timings), timings);
