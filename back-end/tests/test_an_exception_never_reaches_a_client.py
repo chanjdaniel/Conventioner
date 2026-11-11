@@ -1989,6 +1989,64 @@ class TestTheCopyIsOurs:
         assert "markets (list_type)" in caplog.text
         assert "unreadable-markets" not in caplog.text
 
+
+# A library's message quoting what it was given: the stranger's address, and a word of theirs.
+STRANGERS_ADDRESS = "stranger.vendor@example.com"
+LIBRARY_MESSAGE = f"550 mailbox {STRANGERS_ADDRESS} refused: 'Ember & Ash'"
+
+
+class TestAFailureARouteSurvivesIsLoggedWithoutItsMessage:
+    """A failure a route goes on past, and answers as a success, is logged once by its type and its
+    frames, naming the market, the way a 500 is: never by its message, and never with ``exc_info``,
+    whose formatter would print the message under the frames."""
+
+    def test_a_code_that_could_not_be_sent(self, monkeypatch, caplog):
+        from test_applicant_auth import FakeDatabase, _published_market_doc
+
+        database = FakeDatabase(markets=[_published_market_doc()])
+        monkeypatch.setattr(ApplicantAuthApi, "db", database)
+        monkeypatch.setattr(
+            ApplicantAuthApi, "challenges_collection", database["applicant_login_challenges"],
+        )
+        monkeypatch.setattr(
+            ApplicantAuthApi, "_send_code_email", fail_with(RuntimeError(LIBRARY_MESSAGE)),
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            response = app_module.app.test_client().post(
+                f"/public/markets/{SLUG}/applicant-login/request-code",
+                json={"email": STRANGERS_ADDRESS},
+            )
+
+        assert response.status_code == 200
+        [record] = [r for r in caplog.records if r.name == "api.applicant_auth"]
+        assert record.levelno == logging.ERROR
+        assert_logged_without_message(record, RuntimeError, LIBRARY_MESSAGE)
+        assert SLUG in record.getMessage()
+        assert STRANGERS_ADDRESS not in caplog.text
+        assert "Ember" not in caplog.text
+
+    def test_an_offers_sweep_that_failed(self, client, monkeypatch, caplog):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.OFFERS, setupObject=COMPLETE_PLAN))
+        monkeypatch.setattr(MarketsApi, "evaluate_transition", lambda *_args: [])
+        monkeypatch.setattr(
+            ApplicationsApi, "sweep_unanswered_offers", fail_with(RuntimeError(LIBRARY_MESSAGE)),
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            response = client.post(
+                "/markets/market-123/transition", json={"toPhase": MarketPhase.MARKET_DAYS.value},
+            )
+
+        assert response.status_code == 200
+        [record] = [r for r in caplog.records if r.name == "api.markets"]
+        assert record.levelno == logging.ERROR
+        assert_logged_without_message(record, RuntimeError, LIBRARY_MESSAGE)
+        assert "market-123" in record.getMessage()
+        assert STRANGERS_ADDRESS not in caplog.text
+        assert "Ember" not in caplog.text
+
+
 class TestFlasksOwnAnswers:
     def test_an_unknown_url_is_still_flasks_404(self, client):
         response = client.get("/no-such-route")

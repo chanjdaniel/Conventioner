@@ -14,9 +14,10 @@ scripts/tests/test_deploy_proof.py runs them against stubs as its dry run. Two c
 
     prove --project backend|frontend --url <address> --commit <sha> (--own | --domain)
         Whether one address serves this commit, read from `/healthz` (whose `status` must also be
-        `ok`) or `/version.json`, then the project's checks, once: the back end's security
-        headers on that same answer, the front end's deep link `/markets` and the headers it
-        sends. These lists are the only copy the workflow has.
+        `ok`) or `/version.json`, then the project's checks, once: the back end's `localDev`
+        (exactly `false`) and `deployed` (exactly `true`) and its security headers on that same
+        answer, the front end's deep link `/markets` and the headers it sends. These lists are the
+        only copy the workflow has.
 
         --own is a staged deployment's generated `https://<name>.vercel.app` address, which never
         changes what it serves, so another commit, no commit or a 4xx is refused at once, and only
@@ -102,6 +103,28 @@ class Project:
     headers: Tuple[Tuple[str, ...], ...]
     # The path whose answer must hold the app, and whose headers are checked; None checks the commit's answer.
     page: Optional[str] = None
+    # What the commit's answer must say of itself: each failure as a sentence after the host.
+    says: Callable[[dict], List[str]] = lambda data: []
+
+
+def said(data: dict, key: str) -> str:
+    """A reported value as a refusal shows it: JSON, cut to the excerpt's length, or `absent`."""
+    return " ".join(json.dumps(data[key]).split())[:EXCERPT] if key in data else "absent"
+
+
+def deployed_with_the_hatch_off(data: dict) -> List[str]:
+    """The back end's boot refuses local switches only where it sees a platform variable
+    (back-end/utils/deployment.py), so both what it sees and its hatch are read."""
+    failures = []
+    if data.get("localDev", None) is not False:
+        failures.append(f"runs with ALLOW_INSECURE_LOCAL_DEV on (/healthz says localDev is {said(data, 'localDev')}).")
+    if data.get("deployed", None) is not True:
+        failures.append(
+            f"does not see that it is deployed (/healthz says deployed is {said(data, 'deployed')}), so its refusal of "
+            'local-development switches is not armed. Tick "Enable access to System Environment Variables" in the '
+            "back-end project's Environment Variables settings on Vercel, then deploy again."
+        )
+    return failures
 
 
 PROJECTS = {
@@ -111,6 +134,7 @@ PROJECTS = {
         path="/healthz",
         serving=lambda data: data.get("status") == "ok",
         headers=(("x-content-type-options",), ("referrer-policy",)),
+        says=deployed_with_the_hatch_off,
     ),
     # The headers front-end/vercel.json declares; the policy may be report-only or enforcing.
     "frontend": Project(
@@ -272,7 +296,7 @@ def prove_domain(project: Project, address: str, host: str, sha: str, fetch, tim
 
 def check(project: Project, address: str, host: str, answer: Answer, fetch) -> List[str]:
     """What the build that reports the commit fails of its project's checks, each run once."""
-    failures = []
+    failures = [f"{host} {sentence}" for sentence in project.says(answer.json())]
     if project.page is not None:
         answer = fetch(address + project.page)
         if answer.status != 200 or b'<div id="app">' not in answer.body:

@@ -138,6 +138,7 @@ const handleSubmit = async () => {
         v-model="marketName"
         type="text"
         class="field"
+        maxlength="100"
         placeholder="Winter Market 2026"
         data-testid="new-market-name-input"
         @input="errorMessage = ''"
