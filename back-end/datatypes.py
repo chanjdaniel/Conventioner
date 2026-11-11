@@ -378,6 +378,7 @@ def fill_plan_ids(setup: Dict[str, Any]) -> Dict[str, Any]:
         return {**row, "id": _derived_id(*names, str(place))}
 
     location_ids: Dict[str, str] = {}
+    known_ids: set = set()
     if isinstance(setup.get("locations"), list):
         filled["locations"] = [
             _with_id(location, "location", location.get("name") if isinstance(location, dict) else None)
@@ -386,6 +387,8 @@ def fill_plan_ids(setup: Dict[str, Any]) -> Dict[str, Any]:
         for location in filled["locations"]:
             if isinstance(location, dict) and isinstance(location.get("name"), str):
                 location_ids.setdefault(location["name"], location.get("id"))
+            if isinstance(location, dict) and _has_id(location):
+                known_ids.add(location["id"])
     if isinstance(setup.get("sections"), list):
         sections = []
         for section in setup["sections"]:
@@ -398,9 +401,14 @@ def fill_plan_ids(setup: Dict[str, Any]) -> Dict[str, Any]:
                 section, "section", location_name if isinstance(location_name, str) else "",
                 section.get("name"))
             if isinstance(location_name, str):
-                location_id = location_ids.get(location_name) or (
-                    location.get("id") if _has_id(location) else _derived_id(
-                        "location", location_name, "0"))
+                # A copy naming a location by its id keeps it, whatever name it still carries (two
+                # locations' names swapped); one of no such id is matched by its name.
+                if _has_id(location) and location["id"] in known_ids:
+                    location_id = location["id"]
+                else:
+                    location_id = location_ids.get(location_name) or (
+                        location.get("id") if _has_id(location) else _derived_id(
+                            "location", location_name, "0"))
                 section = {**section, "location": {**location, "id": location_id}}
             sections.append(section)
         filled["sections"] = sections

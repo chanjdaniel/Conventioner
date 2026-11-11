@@ -195,6 +195,92 @@ class TestEverySectionAndLocationHasAnId:
         assert len(set(ids)) == 3
 
 
+class TestAPageFromBeforeIds:
+    """A tab still on the bundle before ids sends its locations and sections without them, which
+    read with ids derived from their names: where the stored ids are not those, the write would
+    drop a layout and delete its image, so it is refused whole; where they are, it lands."""
+
+    def _laid_out_with_minted_ids(self, market):
+        plan = _plan()
+        plan["floorplans"] = [_layout(tables=2)]
+        market.doc["setupObject"] = plan
+
+    def test_it_is_refused_where_a_location_has_an_id_its_name_does_not_give(
+            self, client, market, market_records):
+        self._laid_out_with_minted_ids(market)
+        before = copy.deepcopy(_stored(market))
+
+        response = _put(client, _without_ids(_plan()))
+
+        assert response.status_code == 409, response.get_json()
+        assert response.get_json()["error"] == MarketsApi.PAGE_FROM_BEFORE_IDS
+        assert _stored(market) == before
+        assert _entries(market_records, History.FLOORPLAN_REMOVED) == []
+
+    def test_it_lands_where_every_stored_id_is_the_one_its_name_gives(self, client, market):
+        _put(client, _without_ids(_plan()))
+        derived = copy.deepcopy(_stored(market))
+
+        response = _put(client, _without_ids(_plan(tiers=[{"id": 0, "name": "Silver"}])))
+
+        assert response.status_code == 200, response.get_json()
+        assert _stored(market)["locations"] == derived["locations"]
+
+    def test_this_page_on_a_market_before_ids_writes_on_after_adding_a_location(
+            self, client, market):
+        """A page of this bundle reads a market stored before ids as stored, its rows with none,
+        and mints an id only for a row it adds: its writes after the first carry both."""
+        read = _without_ids(_plan())
+        added = {"id": "loc-minted", "name": "Annex"}
+        first = copy.deepcopy(read)
+        first["locations"].append(added)
+
+        assert _put(client, first).status_code == 200
+        second = copy.deepcopy(first)
+        second["tiers"] = [{"id": 0, "name": "Silver"}]
+        response = _put(client, second)
+
+        assert response.status_code == 200, response.get_json()
+
+    def test_a_location_renamed_by_it_on_a_laid_out_market_is_refused(self, client, market):
+        _put(client, _without_ids(_plan()))
+        derived = copy.deepcopy(_stored(market))
+        derived["floorplans"] = [_layout(tables=2, location=derived["locations"][0]["id"])]
+        market.doc["setupObject"] = derived
+        renamed = _without_ids(_plan())
+        renamed["locations"][0]["name"] = "Great Hall"
+        renamed["sections"][0]["location"]["name"] = "Great Hall"
+
+        response = _put(client, renamed)
+
+        assert response.status_code == 409, response.get_json()
+        assert len(_stored(market)["floorplans"]) == 1
+
+
+class TestASectionsLocationCopy:
+
+    def test_a_copy_whose_stored_id_is_a_locations_keeps_it_whatever_its_name(self):
+        from datatypes import fill_plan_ids
+
+        filled = fill_plan_ids({
+            "locations": [{"id": "L1", "name": "B"}, {"id": "L2", "name": "A"}],
+            "sections": [{"id": "s", "name": "Gold row", "count": 1,
+                          "location": {"id": "L1", "name": "A"}}],
+        })
+
+        assert filled["sections"][0]["location"]["id"] == "L1"
+
+    def test_a_copy_of_no_id_takes_the_id_of_the_location_of_its_name(self):
+        from datatypes import fill_plan_ids
+
+        filled = fill_plan_ids({
+            "locations": [{"id": "L1", "name": "B"}, {"id": "L2", "name": "A"}],
+            "sections": [{"id": "s", "name": "Gold row", "count": 1, "location": {"name": "A"}}],
+        })
+
+        assert filled["sections"][0]["location"]["id"] == "L2"
+
+
 class TestThePlanWriteKeepsTheStoredLayouts:
 
     def test_a_changed_floorplans_or_table_types_in_the_body_is_ignored(self, client, market):

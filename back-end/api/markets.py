@@ -2723,6 +2723,37 @@ def _floorplans_refusal(market: Market, proposed: List[FloorplanObject]) -> Opti
     return None
 
 
+#: Why a plan write from a page opened before every location and section had an id is refused
+#: where a row it sends with none would read as another row than the market's, on a market with a
+#: layout (T257): it would drop the layout and delete its image, or take tables out of a section.
+PAGE_FROM_BEFORE_IDS = (
+    "This page was opened before an update, so this change was not saved. "
+    "Reload the page, then make the change again."
+)
+
+
+def _an_id_missing(row: Any) -> bool:
+    return isinstance(row, dict) and not (isinstance(row.get("id"), str) and row["id"].strip())
+
+
+def _from_a_page_before_ids(body_plan: Any, plan: SetupObject, stored: Optional[SetupObject]) -> bool:
+    """Whether a row ``body_plan`` sends with no id is given one (``plan``, as it parsed) that none
+    of the stored rows of its kind has, while the market holds a layout: a page of the bundle
+    before ids, whose location a later page minted or which it renamed, would write that layout's
+    location or a table's section away. A row the market reads with the id its name gives, as a
+    market stored before ids does, is no such row."""
+    if not isinstance(body_plan, dict) or stored is None or not Layout.laid_out(stored):
+        return False
+    for key, rows, stored_rows in (("locations", plan.locations, stored.locations),
+                                   ("sections", plan.sections, stored.sections)):
+        sent = body_plan.get(key) if isinstance(body_plan.get(key), list) else []
+        known = {row.id for row in stored_rows}
+        if any(_an_id_missing(row) and index < len(rows) and rows[index].id not in known
+               for index, row in enumerate(sent)):
+            return True
+    return False
+
+
 class PreparedPlan(NamedTuple):
     """A plan write judged and not yet written: the plan as parsed, the ``$set`` that writes it,
     and the layouts it drops because their location is gone, whose images and history entries
@@ -2822,6 +2853,8 @@ def prepared_plan(
     except ValidationError as e:
         logger.warning("Refused a plan for market %s: %s", market.id, parse_failure_detail(e))
         raise BadRequestError(field_named_copy("Invalid plan", e)) from e
+    if _from_a_page_before_ids(body["setupObject"], plan, market.setup_object):
+        raise ConflictError(PAGE_FROM_BEFORE_IDS)
     if table_types is not None:
         types_refused = FloorplanLimits.table_types_refusal(table_types)
         if types_refused:
