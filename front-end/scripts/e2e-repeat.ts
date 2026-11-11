@@ -41,6 +41,11 @@ export const MAX_REPEATS = 5;
  */
 export const REPEAT_LIMIT_SECONDS = 15 * 60;
 
+/** Seconds as a person reads them: whole seconds under a minute, else minutes to a tenth. */
+export function duration(seconds: number): string {
+  return seconds < 59.5 ? `${Math.round(seconds)} seconds` : `${(seconds / 60).toFixed(1)} minutes`;
+}
+
 /** How many times to run files measured at `seconds` a run, all together; 0 past the limit. */
 export function repeatsFor(seconds: number): number {
   if (seconds > REPEAT_LIMIT_SECONDS) return 0;
@@ -95,15 +100,15 @@ function run(base: string, playwrightArgs: readonly string[]): number {
   const repeats = repeatsFor(seconds);
   if (repeats === 0) {
     console.log(
-      `::warning title=e2e repeat::${files.length} spec files changed, about ` +
-        `${(seconds / 60).toFixed(1)} minutes a run by the timings, past the repeat's limit of ` +
-        `${REPEAT_LIMIT_SECONDS / 60}; none is repeated, and the shards ran each once.`,
+      `::warning title=e2e repeat::${files.length} spec ${files.length === 1 ? 'file' : 'files'} changed, about ` +
+        `${duration(seconds)} a run by the timings, past the repeat's limit of ` +
+        `${duration(REPEAT_LIMIT_SECONDS)}; none is repeated, and the shards ran each once.`,
     );
     return 0;
   }
   console.log(
-    `e2e repeat: ${files.length} spec files changed since ${base}, about ` +
-      `${(seconds / 60).toFixed(1)} minutes a run by the timings, each run ${repeats} times:`,
+    `e2e repeat: ${files.length} spec ${files.length === 1 ? 'file' : 'files'} changed since ${base}, about ` +
+      `${duration(seconds)} a run by the timings, each run ${repeats} times:`,
   );
   for (const file of files) console.log(`  ${file}${file in timings ? '' : ' (no timing yet)'}`);
 
