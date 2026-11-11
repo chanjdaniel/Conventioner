@@ -1,12 +1,13 @@
 import type { APIRequestContext } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, MarketSetupPage } from './fixtures';
 import { LayoutPage } from './pages/LayoutPage';
 import { seedLayout, storedLayoutTables } from './helpers/seeds';
 
 /**
  * A layout saves itself, and no save erases another (T257 ticket 04): a change still waiting its
  * 600 ms is not lost to a reload; a tab holding an older layout is told so, keeps what it shows
- * and reloads to the latest; and Market Setup's autosave beside the editor never erases a table.
+ * and reloads to the latest; and Market Setup's autosave from a copy read before a layout save is
+ * refused in the one sentence (ADR 0024), never erasing a table, and lands once made again.
  */
 const GOLD_1 = 'Gold row 1, Standard 6 ft';
 const GOLD_2 = 'Gold row 2, Standard 6 ft';
@@ -65,7 +66,7 @@ test.describe('A layout saves once', () => {
     expect(await storedTables(request, market.marketId)).toHaveLength(2);
   });
 
-  test("Market Setup's autosave beside the editor never erases a table", async ({
+  test("Market Setup's autosave from before a layout edit is refused, never erasing a table, and lands made again", async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -73,6 +74,8 @@ test.describe('A layout saves once', () => {
     // Market Setup is open first, holding the plan with the layout of one table.
     await page.goto(`/markets/${encodeURIComponent(market.marketId)}/setup`);
     await expect(page.getByTestId('setup-section-count-0')).toHaveText('1');
+    const lowerCount = page.getByTestId('setup-section-count-input-2');
+    const countAsRead = await lowerCount.inputValue();
 
     // In another tab the editor places two more tables.
     const layout = new LayoutPage(await page.context().newPage());
@@ -84,15 +87,31 @@ test.describe('A layout saves once', () => {
     });
     expect(await storedTables(request, market.marketId)).toHaveLength(3);
 
-    // Market Setup, still holding the older plan, saves an edit of its own: Lower Hall's count.
-    const planSaved = page.waitForResponse(
-      (response) =>
-        response.url().includes(`/markets/${market.marketId}/plan`) &&
-        response.request().method() === 'PUT',
-    );
+    // Market Setup, still holding the plan from before the layout's save, saves an edit of its
+    // own: Lower Hall's count. Every write of the plan counts its revision (ADR 0024), so the save
+    // from the older copy is refused in the one sentence, and the page shows the plan as stored.
+    const planPut = () =>
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${market.marketId}/plan`) &&
+          response.request().method() === 'PUT',
+      );
+    const refused = planPut();
     await page.bringToFront();
-    await page.getByTestId('setup-section-count-input-2').fill('9');
-    expect((await planSaved).ok()).toBe(true);
+    await lowerCount.fill('9');
+    expect((await refused).status()).toBe(409);
+    const setup = new MarketSetupPage(page);
+    await expect(setup.planRefused).toContainText(
+      'This market changed while you were working on it, so your change was not saved. ' +
+        'Reload to see the latest, then make your change again.',
+    );
+    await expect(lowerCount).toHaveValue(countAsRead);
+    expect(await storedTables(request, market.marketId)).toHaveLength(3);
+
+    // Made again on the plan as now read, the edit lands.
+    const saved = planPut();
+    await lowerCount.fill('9');
+    expect((await saved).ok()).toBe(true);
 
     // The layout's three tables stand, and the plan's own edit landed.
     const tables = await storedTables(request, market.marketId);
