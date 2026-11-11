@@ -29,6 +29,9 @@ const settled = computed(
   () => !mayTake(market.value, MarketAction.ChangeSetup) || Boolean(market.value?.setupLockReason),
 );
 
+/** The floorplan the wizard saves over: the market's last saved, so a later visit replaces it. */
+const storedFloorplanId = computed(() => market.value?.setupObject?.floorplans?.at(-1)?.id ?? null);
+
 function backToSetup() {
   if (market.value) router.push(marketPath(market.value.id, 'setup'));
 }
@@ -53,6 +56,7 @@ function handleSaved(payload: { market_id: string }) {
       v-else-if="market"
       class="floorplan-flow"
       :marketId="market.id"
+      :storedFloorplanId="storedFloorplanId"
       @saved="handleSaved"
     />
   </MarketFrame>

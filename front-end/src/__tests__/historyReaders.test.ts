@@ -139,6 +139,7 @@ const ROWS = [
   'assign/owed_taken_back',
   'assign/placed',
   'change-owed/*',
+  'change-setup/floorplan',
   'change-setup/pricing',
   'change-the-default/permission_table_reset',
   'change-the-table/permission_table_copied',

@@ -437,7 +437,7 @@ def vendor_door(world):
 
 
 class TestTheFloorplanTools:
-    """Two floorplan writes name what they act on by an id in the body."""
+    """Two floorplan tools name what they act on by an id in the body."""
 
     @pytest.fixture(autouse=True)
     def a_market(self, monkeypatch):
@@ -456,9 +456,9 @@ class TestTheFloorplanTools:
         assert response.status_code == 400
 
     @pytest.mark.parametrize("gridfs_id", NOT_STRINGS)
-    def test_analysing_an_image_named_by_anything_but_a_string_is_refused(
+    def test_calibrating_an_image_named_by_anything_but_a_string_is_refused(
         self, signed_in, gridfs_id,
     ):
-        response = signed_in.post("/floorplans/analyze", json={"gridfs_id": gridfs_id})
+        response = signed_in.post("/floorplans/calibrate", json={"gridfs_id": gridfs_id})
 
         assert response.status_code == 400
