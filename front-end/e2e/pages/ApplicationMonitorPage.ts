@@ -15,6 +15,13 @@ import { PersonChooser } from './PersonChooser';
  * (`ApplicationsAllPage`); here, acting on a named applicant means moving the queue on until their
  * card is up.
  */
+
+/**
+ * The word a progress count ends in: the queue counted by what it holds (open, needing a
+ * follow-up, or both), or a chosen reviewer's share.
+ */
+const COUNTED = '(?:open|needing a follow-up|in your share)';
+
 export class ApplicationMonitorPage {
   readonly page: Page;
 
@@ -167,7 +174,7 @@ export class ApplicationMonitorPage {
    */
   async remaining(): Promise<number> {
     const text = (await this.progress.textContent()) ?? '';
-    return Number(text.match(/of (\d+) (?:open|in your share)/)?.[1] ?? 0);
+    return Number(text.match(new RegExp(`of (\\d+) ${COUNTED}`))?.[1] ?? 0);
   }
 
   /**
@@ -238,9 +245,7 @@ export class ApplicationMonitorPage {
     before: number,
   ): Promise<void> {
     if (before > 1) {
-      await expect(this.progress).toContainText(
-        new RegExp(`of ${before - 1} (?:open|in your share)`),
-      );
+      await expect(this.progress).toContainText(new RegExp(`of ${before - 1} ${COUNTED}`));
     } else {
       // The last of the queue, or of a chosen reviewer's share while others' are left.
       await expect(this.done.or(this.shareDone)).toBeVisible();

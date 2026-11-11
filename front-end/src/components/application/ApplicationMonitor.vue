@@ -31,6 +31,7 @@ import { getApiErrorMessage } from '@/utils/api';
 import {
   asksNothingDistinguishing,
   followUps,
+  queueCountWord,
   reviewAnswers,
   reviewQueue,
   reviewed,
@@ -328,18 +329,22 @@ const walked = computed(() => (mineOnly.value ? share.value : undecided.value));
 const shareDone = computed(
   () => mineOnly.value && handedNothing.value && !share.value.length && others.value.length > 0,
 );
-/** Where the card up is in what the reviewer walks, or how many are left with none up. */
+/**
+ * Where the card up is in what the reviewer walks, or how many are left with none up. Outside a
+ * share, a count takes its word from what it counts (`queueCountWord`), as the follow-ups ticked in
+ * are not open.
+ */
 const progress = computed(() => {
   const card = current.value;
   if (!undecided.value.length) return null;
   if (!card && mineOnly.value && share.value.length) return `${share.value.length} in your share`;
-  if (!card) return `${undecided.value.length} open`;
+  if (!card) return `${undecided.value.length} ${queueCountWord(undecided.value)}`;
   const inShare = share.value.findIndex((app) => app.id === card.id);
   if (inShare >= 0) return `${inShare + 1} of ${share.value.length} in your share`;
   const inRest = others.value.findIndex((app) => app.id === card.id);
   return inRest >= 0
-    ? `${inRest + 1} of ${others.value.length} open`
-    : `${cursor.value + 1} of ${undecided.value.length} open`;
+    ? `${inRest + 1} of ${others.value.length} ${queueCountWord(others.value)}`
+    : `${cursor.value + 1} of ${undecided.value.length} ${queueCountWord(undecided.value)}`;
 });
 
 /**
