@@ -434,3 +434,50 @@ test('every control of a vendor notes panel has a name, wherever it opens', asyn
     expect(await namelessControls(page), `a vendor's panel, ${tab}`).toEqual([]);
   }
 });
+
+test("every control of a layout's types, zones and floorplan cards, and the types' dialogs, has a name", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    metresAcross: 30,
+    tables: UPPER_HALL_TABLES,
+    zones: UPPER_HALL_ZONES,
+  });
+  const layout = new LayoutPage(page);
+
+  await layout.goto(seeded.marketId, seeded.upper.id);
+  await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+  await layout.toolZone.click();
+  await expect(layout.toolZone).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    layout.typesCard.getByRole('button', { name: 'Edit or remove Standard 6 ft' }),
+  ).toBeVisible();
+  await expect(layout.zoneLabels.first()).toHaveAccessibleName('Name of zone 1');
+  await expect(layout.showImage).toHaveAccessibleName('Show the floorplan');
+  await expect(layout.replaceImage).toHaveAccessibleName('Replace the image');
+  expect(await namelessControls(page), 'the cards').toEqual([]);
+
+  await layout.typesAdd.click();
+  await expect(layout.typeDialog).toBeVisible();
+  await expect(layout.typeName).toHaveAccessibleName('Name');
+  await expect(layout.typeWidth).toHaveAccessibleName('Width');
+  await expect(layout.typeDepth).toHaveAccessibleName('Depth');
+  await expect(layout.typeUnit).toHaveAccessibleName('Unit');
+  expect(await namelessControls(page), 'the type dialog').toEqual([]);
+  await layout.typeCancel.click();
+
+  await layout.typesSave.click();
+  await expect(layout.saveTypesName).toHaveAccessibleName('Name');
+  expect(await namelessControls(page), 'the save dialog').toEqual([]);
+  await page.keyboard.press('Escape');
+
+  await layout.typesUseSaved.click();
+  await expect(layout.savedTypesDialog).toBeVisible();
+  await expect(
+    layout.savedTypesDialog
+      .getByText(/Listing the saved types|Saved types|No table types are saved/)
+      .first(),
+  ).toBeVisible();
+  expect(await namelessControls(page), 'the saved types dialog').toEqual([]);
+});

@@ -610,3 +610,124 @@ test.describe("Fill an area's dialog is the dialog idiom", () => {
     await expect(layout.fillView).toBeFocused();
   });
 });
+
+test.describe("A layout's table type dialogs are the dialog idiom", () => {
+  /** Upper Hall, calibrated and empty, with its Table types card. */
+  async function openTheLayout(
+    page: import('@playwright/test').Page,
+    request: import('@playwright/test').APIRequestContext,
+  ): Promise<LayoutPage> {
+    const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      metresAcross: 30,
+    });
+    const layout = new LayoutPage(page);
+    await layout.goto(seeded.marketId, seeded.upper.id);
+    await expect(layout.typesCard).toBeVisible();
+    return layout;
+  }
+
+  test('a type is added in a narrow dialog that opens on its name and holds the page behind it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const layout = await openTheLayout(page, request);
+    await layout.typesAdd.click();
+
+    await expect(layout.typeDialog).toHaveAccessibleName('Add a table type');
+    await expect(layout.typeName).toBeFocused();
+    expect((await layout.typeDialog.boundingBox())!.width).toBeCloseTo(416, 0);
+    expect(await layout.typesAdd.evaluate((el) => el.closest('[inert]') !== null)).toBe(true);
+  });
+
+  test('Enter in a field adds the type, and a type refused stays in the dialog, saying why under its field', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const layout = await openTheLayout(page, request);
+    await layout.typesAdd.click();
+
+    await layout.typeName.fill('Standard 6 ft');
+    await layout.typeWidth.fill('100');
+    await layout.typeDepth.press('Enter');
+    await expect(layout.typeDialog).toBeVisible();
+    await expect(page.getByTestId('layout-type-name-error')).toHaveText(
+      'There is a type named Standard 6 ft already.',
+    );
+    await expect(page.getByTestId('layout-type-depth-error')).toHaveText(
+      'Type the depth as a number of cm.',
+    );
+    await expect(layout.typeName).toHaveAttribute('aria-invalid', 'true');
+
+    await layout.typeName.fill('Round 5 ft');
+    await layout.typeWidth.fill('152');
+    await layout.typeDepth.fill('152');
+    const written = page.waitForResponse(
+      (response) =>
+        response.url().includes('/table-types') && response.request().method() === 'PUT',
+    );
+    await layout.typeDepth.press('Enter');
+    expect((await written).ok()).toBe(true);
+    await expect(layout.typeDialog).toBeHidden();
+    await expect(layout.typeRow('Round 5 ft')).toContainText('152 x 152 cm');
+  });
+
+  test('Cancel, the close control, Escape and the backdrop each close it, add nothing, and give the focus back', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const layout = await openTheLayout(page, request);
+    const reopen = async () => {
+      await layout.typesAdd.click();
+      await expect(layout.typeDialog).toBeVisible();
+      await layout.typeName.fill('Not kept');
+    };
+
+    await reopen();
+    await layout.typeCancel.click();
+    await expect(layout.typeDialog).toBeHidden();
+    await expect(layout.typesAdd).toBeFocused();
+    await reopen();
+    await page.getByTestId('layout-type-close-button').click();
+    await expect(layout.typeDialog).toBeHidden();
+    await reopen();
+    await page.keyboard.press('Escape');
+    await expect(layout.typeDialog).toBeHidden();
+    await expect(layout.typesAdd).toBeFocused();
+    await reopen();
+    await page.getByTestId('layout-type-background').click({ position: { x: 8, y: 8 } });
+    await expect(layout.typeDialog).toBeHidden();
+    await expect(layout.typeRows).toHaveCount(1);
+  });
+
+  test('"Save these types" is a narrow dialog Enter saves from; "Use saved types" a wide one listing them', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const layout = await openTheLayout(page, request);
+    const venue = `Dialog Hall ${Date.now()}`;
+
+    await layout.typesSave.click();
+    await expect(layout.saveTypesDialog).toHaveAccessibleName('Save these types');
+    await expect(layout.saveTypesName).toBeFocused();
+    expect((await layout.saveTypesDialog.boundingBox())!.width).toBeCloseTo(416, 0);
+    await layout.saveTypesName.press('Enter');
+    await expect(page.getByTestId('layout-save-types-name-error')).toHaveText(
+      'Name the saved types, such as the venue.',
+    );
+    await layout.saveTypesName.fill(venue);
+    await layout.saveTypesName.press('Enter');
+    await expect(layout.saveTypesDialog).toBeHidden();
+    await expect(layout.typesSave).toBeFocused();
+
+    await layout.typesUseSaved.click();
+    await expect(layout.savedTypesDialog).toHaveAccessibleName('Use saved types');
+    // 38rem, the wide step, for a list.
+    expect((await layout.savedTypesDialog.boundingBox())!.width).toBeCloseTo(608, 0);
+    await expect(
+      layout.savedTypesDialog.getByRole('radio', { name: new RegExp(`^${venue}`) }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(layout.savedTypesDialog).toBeHidden();
+    await expect(layout.typesUseSaved).toBeFocused();
+  });
+});

@@ -57,9 +57,12 @@ defineExpose({ focusZone });
         class="zones-row"
         data-testid="layout-panel-zone"
       >
-        <label class="zones-field">
-          <span class="visually-hidden">Name of zone {{ index + 1 }}</span>
+        <div class="zones-field">
+          <label :for="`${titleId}-${zone.id}`" class="visually-hidden">
+            Name of zone {{ index + 1 }}
+          </label>
           <input
+            :id="`${titleId}-${zone.id}`"
             :value="zone.label"
             class="field"
             type="text"
@@ -74,7 +77,7 @@ defineExpose({ focusZone });
           <span class="zones-size" data-testid="layout-zone-size">
             {{ metres(zone.widthMm) }} by {{ metres(zone.depthMm) }}
           </span>
-        </label>
+        </div>
         <button
           type="button"
           class="btn btn--secondary btn--compact"

@@ -158,8 +158,8 @@ test.describe('A calibrated layout draws as a map', () => {
     const imageBox = (await image.boundingBox())!;
     expect(imageBox.width).toBeCloseTo(HALL_MM.width * hall.scale, 0);
     expect(imageBox.height).toBeCloseTo(HALL_MM.height * hall.scale, 0);
-    // Hiding it comes with the editor's panel; the page offers no such tick yet.
-    await expect(page.getByRole('checkbox', { name: 'Show the floorplan' })).toHaveCount(0);
+    // Shown unless the Floorplan card's tick is taken off (rows-and-areas-fill-a-hall.spec.ts).
+    await expect(page.getByRole('checkbox', { name: 'Show the floorplan' })).toBeChecked();
 
     await expect(layout.zones).toHaveCount(2);
     const stage = layout.zone('No-table zone: Stage');

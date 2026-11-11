@@ -240,7 +240,8 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * on a phone, then, at a desk, with a table selected, with every table selected, with a section's
  * colours open, with Add table's options open, with a table picked up by keyboard, with the
  * panel's list of keys open, with a row being drawn by the crosshair, with an L-shaped area's
- * corners clicked for Fill an area, and with that area closed and its dialog open. Nothing is
+ * corners clicked for Fill an area, with that area closed and its dialog open, with a table type's
+ * dialog open, and with the image being replaced. Nothing is
  * saved, so each walk finds them as seeded.
  */
 function layoutAt(
@@ -256,7 +257,9 @@ function layoutAt(
     | 'keys'
     | 'row'
     | 'fillShape'
-    | 'fillDialog',
+    | 'fillDialog'
+    | 'typeDialog'
+    | 'replacing',
 ) {
   return async (page: Page, seed: TheScreensSeed) => {
     const layout = new LayoutPage(page);
@@ -335,6 +338,18 @@ function layoutAt(
           await expect(layout.fillDialog).toBeVisible();
           await expect(layout.fillSection).toBeFocused();
         }
+      }
+      if (stage === 'typeDialog') {
+        // Standard 6 ft's dialog, opened from its row's menu of the Table types card.
+        await layout.chooseForType('Standard 6 ft', 'Edit');
+        await expect(layout.typeDialog).toBeVisible();
+        await expect(layout.typeName).toBeFocused();
+      }
+      if (stage === 'replacing') {
+        // "Replace the image": the upload's drop zone in the map's place, and the way back.
+        await layout.replaceImage.click();
+        await expect(layout.uploadDropzone).toBeVisible();
+        await expect(layout.replaceCancel).toBeVisible();
       }
       if (stage === 'keys') {
         await layout.keyboardSummary.click();
@@ -1380,6 +1395,20 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     deskOnly: true,
     open: layoutAt('fillDialog'),
+  },
+  {
+    name: "the layout, a table type's dialog",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('typeDialog'),
+  },
+  {
+    name: 'the layout, its image being replaced',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('replacing'),
   },
   {
     name: 'market days, the plan',

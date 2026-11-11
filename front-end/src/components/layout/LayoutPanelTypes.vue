@@ -175,7 +175,7 @@ function onMenu(type: TableTypeObject, item: string) {
         </span>
         <RowMenu
           v-if="editable"
-          :label="type.name"
+          :label="`Edit or remove ${type.name}`"
           :items="MENU"
           :testid="`layout-type-menu-${type.id}`"
           @select="onMenu(type, $event)"

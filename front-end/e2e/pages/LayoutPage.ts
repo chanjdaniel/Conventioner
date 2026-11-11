@@ -112,6 +112,35 @@ export class LayoutPage {
   readonly announcement: Locator;
   readonly keyboard: Locator;
   readonly keyboardSummary: Locator;
+  readonly toolZone: Locator;
+  readonly zoneBox: Locator;
+  readonly zonesCard: Locator;
+  readonly zoneRows: Locator;
+  readonly zoneLabels: Locator;
+  readonly noZones: Locator;
+  readonly typesCard: Locator;
+  readonly typeRows: Locator;
+  readonly typesSaid: Locator;
+  readonly typesAdd: Locator;
+  readonly typesUseSaved: Locator;
+  readonly typesSave: Locator;
+  readonly typeDialog: Locator;
+  readonly typeName: Locator;
+  readonly typeWidth: Locator;
+  readonly typeDepth: Locator;
+  readonly typeUnit: Locator;
+  readonly typeSubmit: Locator;
+  readonly typeCancel: Locator;
+  readonly typeError: Locator;
+  readonly savedTypesDialog: Locator;
+  readonly savedTypesSubmit: Locator;
+  readonly saveTypesDialog: Locator;
+  readonly saveTypesName: Locator;
+  readonly saveTypesSubmit: Locator;
+  readonly showImage: Locator;
+  readonly replaceImage: Locator;
+  readonly replaceCancel: Locator;
+  readonly calibrationCancel: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -214,6 +243,65 @@ export class LayoutPage {
     this.announcement = page.getByTestId('layout-announcement');
     this.keyboard = page.getByTestId('layout-panel-keyboard');
     this.keyboardSummary = page.getByTestId('layout-keyboard-summary');
+    this.toolZone = this.toolbar.getByRole('button', { name: 'No-table zone', exact: true });
+    this.zoneBox = this.map.getByTestId('layout-zone-box');
+    this.zonesCard = page.getByTestId('layout-panel-zones');
+    this.zoneRows = page.getByTestId('layout-panel-zone');
+    this.zoneLabels = page.getByTestId('layout-zone-label');
+    this.noZones = page.getByTestId('layout-panel-no-zones');
+    this.typesCard = page.getByTestId('layout-panel-types');
+    this.typeRows = page.getByTestId('layout-type-row');
+    this.typesSaid = page.getByTestId('layout-types-said');
+    this.typesAdd = page.getByTestId('layout-types-add');
+    this.typesUseSaved = page.getByTestId('layout-types-use-saved');
+    this.typesSave = page.getByTestId('layout-types-save');
+    this.typeDialog = page.getByTestId('layout-type-window');
+    this.typeName = page.getByTestId('layout-type-name');
+    this.typeWidth = page.getByTestId('layout-type-width');
+    this.typeDepth = page.getByTestId('layout-type-depth');
+    this.typeUnit = page.getByTestId('layout-type-unit');
+    this.typeSubmit = page.getByTestId('layout-type-submit-button');
+    this.typeCancel = page.getByTestId('layout-type-cancel-button');
+    this.typeError = page.getByTestId('layout-type-error');
+    this.savedTypesDialog = page.getByTestId('layout-saved-types-window');
+    this.savedTypesSubmit = page.getByTestId('layout-saved-types-submit-button');
+    this.saveTypesDialog = page.getByTestId('layout-save-types-window');
+    this.saveTypesName = page.getByTestId('layout-save-types-name');
+    this.saveTypesSubmit = page.getByTestId('layout-save-types-submit-button');
+    this.showImage = page.getByTestId('layout-show-image');
+    this.replaceImage = page.getByTestId('layout-replace-image');
+    this.replaceCancel = page.getByTestId('layout-replace-cancel');
+    this.calibrationCancel = page.getByTestId('layout-calibration-cancel');
+  }
+
+  /** A table type's row of the Table types card, by its name. */
+  typeRow(name: string): Locator {
+    return this.typeRows.filter({ hasText: name });
+  }
+
+  /** Choose an item of a table type's menu, "Edit" or "Remove". */
+  async chooseForType(name: string, item: 'Edit' | 'Remove'): Promise<void> {
+    await this.typeRow(name)
+      .getByRole('button', { name: `Edit or remove ${name}` })
+      .click();
+    await this.page.getByRole('menuitem', { name: item, exact: true }).click();
+  }
+
+  /**
+   * Add or edit a table type in its dialog, sides in cm, and wait for the market's types to be
+   * written and the market read again.
+   */
+  async typeTheType(name: string, width: string, depth: string): Promise<void> {
+    await this.typeName.fill(name);
+    await this.typeWidth.fill(width);
+    await this.typeDepth.fill(depth);
+    const written = this.page.waitForResponse(
+      (response) =>
+        response.url().includes('/table-types') && response.request().method() === 'PUT',
+    );
+    await this.typeSubmit.click();
+    expect((await written).ok()).toBe(true);
+    await expect(this.typeDialog).toBeHidden();
   }
 
   async goto(marketId: string, locationId?: string): Promise<void> {

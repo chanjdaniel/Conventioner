@@ -2,7 +2,9 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { LayoutPage } from './pages/LayoutPage';
 import {
+  LAYOUT_FLOORPLAN_PATH,
   seedLayout,
+  seedRow,
   storedLayoutTables,
   type SeedTable,
   type SeedZone,
@@ -1160,5 +1162,229 @@ test.describe('Areas fill a hall', () => {
       expect(box.right).toBeLessThanOrEqual(30_000 + 0.05);
       expect(box.bottom).toBeLessThanOrEqual(22_500 + 0.05);
     }
+  });
+});
+
+/** The market as the server holds it: its types and its layouts, whole. */
+async function storedPlan(request: APIRequestContext, marketId: string) {
+  const read = await request.get(`${BACKEND_URL}/markets/${marketId}`);
+  expect(read.ok()).toBe(true);
+  const { market } = (await read.json()) as {
+    market: {
+      setupObject: {
+        tableTypes: { id: string; name: string; widthMm: number; depthMm: number }[];
+        floorplans: {
+          imageGridfsId: string;
+          imageWidth: number;
+          scalePxPerUnit: number;
+          zones: { label: string; xMm: number; yMm: number; widthMm: number; depthMm: number }[];
+          tables: StoredLayoutTable[];
+        }[];
+      };
+    };
+  };
+  return market.setupObject;
+}
+
+test.describe('Types and zones shape a hall', () => {
+  test('a type added is offered for new tables and the selection, sizes its tables, and is kept while 12 tables are of it; types saved in one market are used in another', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      metresAcross: 30,
+      tables: seedRow('sec-gold', [3000, 4000], 12),
+    });
+    const layout = new LayoutPage(page);
+    await layout.goto(seeded.marketId, seeded.upper.id);
+    await expect(layout.tables).toHaveCount(12);
+    await expect(layout.typeRow('Standard 6 ft')).toContainText('183 x 76 cm');
+    await expect(layout.typeRow('Standard 6 ft')).toContainText('12 tables');
+
+    await layout.typesAdd.click();
+    await expect(layout.typeDialog).toHaveAccessibleName('Add a table type');
+    await expect(layout.typeUnit).toHaveValue('cm');
+    await layout.typeTheType('Square 4 ft', '122', '122');
+    await expect(layout.typeRow('Square 4 ft')).toContainText('122 x 122 cm');
+    await expect(layout.typeRow('Square 4 ft')).toContainText('0 tables');
+    await expect(layout.typesSaid).toHaveText('Added Square 4 ft.');
+
+    // Offered in the options strip and in the selection card.
+    await layout.toolAdd.click();
+    await expect(layout.addType.locator('option', { hasText: 'Square 4 ft' })).toHaveCount(1);
+    await layout.toolSelect.click();
+    await layout.stage.click({ position: { x: 4, y: 4 } });
+    await page.keyboard.press('Control+a');
+    await expect(layout.selectionType.locator('option', { hasText: 'Square 4 ft' })).toHaveCount(1);
+    await layout.saved(async () => {
+      await layout.selectionType.selectOption({ label: 'Square 4 ft' });
+    });
+    await expect(layout.table('Gold row 1, Square 4 ft')).toBeVisible();
+    await expect(layout.typeRow('Square 4 ft')).toContainText('12 tables');
+    expect(await layout.tableTop('Gold row 1, Square 4 ft').getAttribute('width')).toBe('1220');
+
+    // A type resized redraws its tables at the new size.
+    await layout.chooseForType('Square 4 ft', 'Edit');
+    await expect(layout.typeWidth).toHaveValue('122');
+    await layout.typeTheType('Square 4 ft', '150', '150');
+    await expect(layout.typeRow('Square 4 ft')).toContainText('150 x 150 cm');
+    await expect
+      .poll(() => layout.tableTop('Gold row 1, Square 4 ft').getAttribute('width'))
+      .toBe('1500');
+
+    // Kept while tables are of it, with their count; one no table is of goes.
+    await layout.chooseForType('Square 4 ft', 'Remove');
+    await expect(layout.typesSaid).toHaveText('12 tables are Square 4 ft. Change them first.');
+    await expect(layout.typeRows).toHaveCount(2);
+    await layout.chooseForType('Standard 6 ft', 'Remove');
+    await expect(layout.typesSaid).toHaveText('Removed Standard 6 ft.');
+    await expect(layout.typeRows).toHaveCount(1);
+    await expect(layout.typesAdd).toBeFocused();
+    expect((await storedPlan(request, seeded.marketId)).tableTypes.map((t) => t.name)).toEqual([
+      'Square 4 ft',
+    ]);
+
+    // Saved under a name...
+    const venue = `Riverside Hall ${Date.now()}`;
+    await layout.typesSave.click();
+    await expect(layout.saveTypesDialog).toHaveAccessibleName('Save these types');
+    await layout.saveTypesName.fill(venue);
+    await layout.saveTypesSubmit.click();
+    await expect(layout.saveTypesDialog).toBeHidden();
+    await expect(layout.typesSaid).toHaveText(`Saved these types as ${venue}.`);
+
+    // ...and used in another market, which gains the type it lacks by name.
+    const other = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      metresAcross: 30,
+    });
+    await layout.goto(other.marketId, other.upper.id);
+    await expect(layout.typeRows).toHaveCount(1);
+    await layout.typesUseSaved.click();
+    await expect(layout.savedTypesDialog).toHaveAccessibleName('Use saved types');
+    const choice = layout.savedTypesDialog.getByRole('radio', { name: new RegExp(`^${venue}`) });
+    await choice.check();
+    const written = page.waitForResponse(
+      (response) =>
+        response.url().includes('/table-types') && response.request().method() === 'PUT',
+    );
+    await layout.savedTypesSubmit.click();
+    expect((await written).ok()).toBe(true);
+    await expect(layout.savedTypesDialog).toBeHidden();
+    await expect(layout.typesSaid).toHaveText(`Added 1 type from ${venue}.`);
+    await expect(layout.typeRow('Square 4 ft')).toContainText('150 x 150 cm');
+    expect((await storedPlan(request, other.marketId)).tableTypes.map((t) => t.name)).toEqual([
+      'Standard 6 ft',
+      'Square 4 ft',
+    ]);
+  });
+
+  test('a no-table zone dragged and named "Stage" is drawn hatched with its name, stays after a reload, and a table dropped on it is pushed off it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      metresAcross: 30,
+      tables: [{ section: 'sec-gold', at: [4000, 4000] }],
+    });
+    const layout = new LayoutPage(page);
+    await layout.goto(seeded.marketId, seeded.upper.id);
+    await expect(layout.tables).toHaveCount(1);
+    await expect(layout.noZones).toBeVisible();
+
+    await layout.toolZone.click();
+    await expect(layout.toolZone).toHaveAttribute('aria-pressed', 'true');
+    await layout.saved(() =>
+      layout.drag([10_000, 8000], [16_000, 12_000], {
+        hold: async () => expect(layout.zoneBox).toBeVisible(),
+      }),
+    );
+    // The zone just drawn is named where it is listed.
+    await expect(layout.zoneLabels.first()).toBeFocused();
+    await expect(layout.announcement).toHaveText(/^Added a no-table zone 6\.\d m by 4\.\d m\./);
+    await layout.saved(async () => {
+      await page.keyboard.type('Stage');
+      await page.keyboard.press('Enter');
+    });
+    const zone = layout.zone('No-table zone: Stage');
+    await expect(zone).toBeVisible();
+    await expect(zone.getByTestId('layout-map-zone-box')).toHaveAttribute('fill', /^url\(#/);
+    await expect(zone.getByTestId('layout-map-zone-label')).toHaveText('Stage');
+
+    await page.reload();
+    await expect(layout.zone('No-table zone: Stage')).toBeVisible();
+    await expect(layout.zoneLabels.first()).toHaveValue('Stage');
+    let [stored] = (await storedPlan(request, seeded.marketId)).floorplans[0].zones;
+    expect(stored.label).toBe('Stage');
+    expect(Math.abs(stored.xMm - 10_000)).toBeLessThan(A_PIXEL_MM);
+    expect(Math.abs(stored.widthMm - 6000)).toBeLessThan(2 * A_PIXEL_MM);
+
+    // Dragged onto the middle of the stage, the table is pushed to its nearest edge, off it.
+    await layout.saved(() => layout.drag([4000, 4000], [13_000, 9_000]));
+    const [table] = await storedLayoutTables(request, BACKEND_URL, seeded.marketId);
+    [stored] = (await storedPlan(request, seeded.marketId)).floorplans[0].zones;
+    const corners = tableCorners(table, SIX_FOOT);
+    const stage = { left: stored.xMm, top: stored.yMm };
+    const overStage = corners.some(
+      (corner) =>
+        corner.xMm > stage.left + 0.1 &&
+        corner.xMm < stage.left + stored.widthMm - 0.1 &&
+        corner.yMm > stage.top + 0.1 &&
+        corner.yMm < stage.top + stored.depthMm - 0.1,
+    );
+    expect(overStage).toBe(false);
+    // The nearest way off from 1 m inside its top edge is up, just past that edge.
+    expect(Math.abs(table.yMm + 380 - stored.yMm)).toBeLessThan(1);
+    expect(Math.abs(table.xMm - 13_000)).toBeLessThan(A_PIXEL_MM);
+
+    // Removed, from its row, and the table may stand there again.
+    await layout.saved(() =>
+      layout.zonesCard.getByRole('button', { name: 'Remove Stage', exact: true }).click(),
+    );
+    await expect(layout.zones).toHaveCount(0);
+    await expect(layout.announcement).toHaveText('Removed the no-table zone Stage');
+  });
+
+  test('"Show the floorplan" hides and shows the image; a replaced image keeps every table where it was in metres and its old file is deleted', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      metresAcross: 30,
+      tables: seedRow('sec-gold', [3000, 4000], 4),
+    });
+    const layout = new LayoutPage(page);
+    await layout.goto(seeded.marketId, seeded.upper.id);
+    await expect(layout.mapImage).toBeVisible();
+    await layout.showImage.uncheck();
+    await expect(layout.mapImage).toHaveCount(0);
+    await layout.showImage.check();
+    await expect(layout.mapImage).toBeVisible();
+
+    const before = (await storedPlan(request, seeded.marketId)).floorplans[0];
+    // Given up after its upload, the new image is deleted and the layout keeps the old one.
+    await layout.replaceImage.click();
+    await expect(layout.editor).toHaveCount(0);
+    await layout.replaceCancel.click();
+    await expect(layout.stage).toBeVisible();
+
+    await layout.replaceImage.click();
+    await layout.uploadFileInput.setInputFiles(LAYOUT_FLOORPLAN_PATH);
+    await expect(layout.calibration).toBeVisible();
+    // The old line, on the new image: "Set the scale" alone keeps the hall 30 m across.
+    await expect(layout.length).toHaveValue('30');
+    await expect(layout.calibrationCancel).toHaveText('Keep the current image');
+    await layout.saved(() => layout.setScale.click());
+    await expect(layout.stage).toBeVisible();
+    await expect(layout.scale).toHaveText('30.0 m across');
+
+    const after = (await storedPlan(request, seeded.marketId)).floorplans[0];
+    expect(after.imageGridfsId).not.toBe(before.imageGridfsId);
+    expect(after.tables.map(({ id, xMm, yMm }) => [id, xMm, yMm])).toEqual(
+      before.tables.map(({ id, xMm, yMm }) => [id, xMm, yMm]),
+    );
+    const old = await request.get(`${BACKEND_URL}/floorplans/${before.imageGridfsId}`);
+    expect(old.status()).toBe(404);
+    const current = await request.get(`${BACKEND_URL}/floorplans/${after.imageGridfsId}`);
+    expect(current.ok()).toBe(true);
   });
 });
