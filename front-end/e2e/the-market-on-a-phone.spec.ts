@@ -15,6 +15,7 @@ import { savePlan } from './helpers/savePlan';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import {
+  publishResults,
   SEED_MARKET_DATE,
   seedMarketWithVendors,
   seedPublishedMarketWithAssignments,
@@ -35,8 +36,8 @@ import {
  * to a chosen reviewer who then decides their share, and results are published, each at the
  * phone's own width.
  *
- * Stats tells how the day stands, its headlines each a link to the page that shows the figure, for
- * the organizer and for a Viewer who only reads the market.
+ * Stats tells how the day stands, its strip's tiles each a link to the page that shows the figure,
+ * for the organizer and for a Viewer who only reads the market.
  */
 
 const OWES = 'alice@example.com';
@@ -182,6 +183,36 @@ async function aMarketThatIsOwed(request: APIRequestContext): Promise<string> {
   });
   return marketId;
 }
+
+/**
+ * The owed market on its first market day (T201): results published, in Market Days, and Bob
+ * checked in at the door, so Stats draws every section, the money and the check-in among them.
+ */
+async function aMarketAtTheDoor(request: APIRequestContext): Promise<string> {
+  const marketId = await aMarketThatIsOwed(request);
+  askWhatTheySell(marketId);
+  await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
+  await call(request, 'post', `/markets/${marketId}/transition`, { toPhase: 'market_days' });
+  await call(request, 'post', `/markets/${marketId}/attendance`, {
+    vendorEmail: PAID,
+    date: SEED_MARKET_DATE,
+  });
+  return marketId;
+}
+
+/** Stats' sections, in the page's order, each drawn once the market has something to say. */
+const STATS_SECTIONS = [
+  'stats-over-time',
+  'stats-by-status',
+  'stats-room',
+  'stats-fill',
+  'stats-money',
+  'stats-check-in',
+  'stats-answers',
+];
+
+/** The market on its day, as its strip tells it. */
+const AT_THE_DOOR_TILES = ['1 of 2 checked in, May 1, 2099', '1 not yet in', '$35.00 still owed'];
 
 /**
  * The owed market's form asks a choice question too, answered by both vendors, so Stats has a
@@ -710,28 +741,52 @@ for (const size of PHONE_AND_DESK) {
       request,
       browser,
     }) => {
-      const marketId = await aMarketThatIsOwed(request);
-      askWhatTheySell(marketId);
+      const marketId = await aMarketAtTheDoor(request);
       ensureVerifiedUser(VIEWER.email, VIEWER.password);
       await grantMarketRole(request, marketId, VIEWER, 'viewer');
 
       await page.goto(marketScreenPath(marketId, 'stats'));
-      const headlines = page.getByTestId('stats-headlines');
-      await expect(headlines.getByTestId('stats-headline-stillOwed')).toHaveText(
-        '$35.00 still owed',
-        {
-          timeout: 15000,
-        },
-      );
+      const strip = page.getByTestId('stats-headlines');
+      await expect(strip.getByTestId('stats-headline-stillOwed')).toHaveText('$35.00 still owed', {
+        timeout: 15000,
+      });
+      for (const section of STATS_SECTIONS) {
+        await expect(page.getByTestId(section), `${section} is drawn`).toBeVisible();
+      }
       await expectFits(page, 'Stats');
 
-      // The headlines wrap in the window, each link a thumb's target on its own line.
-      await expectAcross(headlines, 'the headlines');
-      await expect(headlines.getByRole('listitem')).toHaveCount(6);
-      for (const headline of await headlines.getByRole('listitem').all()) {
-        await expectAcross(headline, `the headline "${await headline.innerText()}"`);
+      // The strip's tiles stand inside the window, two to a row on a phone and one row at a desk,
+      // each tile a link a thumb can hit.
+      const tiles = strip.getByRole('listitem');
+      expect((await tiles.allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim())).toEqual(
+        AT_THE_DOOR_TILES,
+      );
+      const boxes = await tiles.evaluateAll((items) =>
+        items.map((item) => item.getBoundingClientRect().toJSON()),
+      );
+      if (size.phone) {
+        expect(boxes[1].top, 'the second tile stands beside the first').toBe(boxes[0].top);
+        expect(boxes[2].top, 'the third tile starts the next row').toBeGreaterThan(boxes[0].bottom);
+        expect(boxes[2].left, 'the third tile stands under the first').toBe(boxes[0].left);
+      } else {
+        for (const box of boxes.slice(1)) {
+          expect(box.top, 'every tile stands in one row').toBe(boxes[0].top);
+        }
       }
-      await expectTargets(headlines.getByRole('link'), "a headline's link");
+      for (const tile of await tiles.all()) {
+        await expectAcross(tile, `the tile "${await tile.innerText()}"`);
+      }
+      await expectTargets(strip.getByRole('link'), "a tile's link");
+
+      // Every section reads inside the window, and still owed and who is not yet in are targets.
+      for (const section of STATS_SECTIONS) {
+        await expectAcross(page.getByTestId(section), section);
+      }
+      await expectTargets(page.getByTestId('stats-money').getByRole('link'), 'still owed');
+      await expectTargets(
+        page.getByTestId('stats-check-in').getByRole('link'),
+        'who is not yet in',
+      );
 
       // The answer groups' switch is a row of targets, and the charts read inside the window: the
       // column a day, the review's split bar, whose legend lines are each a target, and the ledgers.
@@ -752,14 +807,14 @@ for (const size of PHONE_AND_DESK) {
       await expect(among.filter({ hasText: 'Assigned' })).toHaveAttribute('aria-pressed', 'true');
       await expectFits(page, 'Stats, counting the assigned');
 
-      // A headline's link lands on the page it names, at the window's width.
-      await press(headlines.getByTestId('stats-headline-stillOwed').getByRole('link'));
+      // A tile's link lands on the page it names, at the window's width.
+      await press(strip.getByTestId('stats-headline-stillOwed').getByRole('link'));
       await page.waitForURL(/\/payments\?show=owes$/);
       await expect(page.getByTestId('payments-show-owes')).toHaveAttribute('aria-pressed', 'true', {
         timeout: 15000,
       });
       await expect(page.getByTestId('payments-row')).toHaveCount(1);
-      await expectFits(page, 'Payments, from a headline');
+      await expectFits(page, 'Payments, from a tile');
 
       // A Viewer reads the same figures at the window.
       await withUser(
@@ -837,29 +892,52 @@ test.describe('between a phone and a desk', () => {
 /**
  * The narrowest phone (T180 review): 320px is WCAG 1.4.10's reflow width. Stats' cards kept an
  * 18rem floor there, so in a 256px column they ran past the frame's card to the window's edge,
- * which no sideways scroll showed.
+ * which no sideways scroll showed. With every section drawn (T201), the strip's two tiles a row and
+ * each section stay inside the frame, an amount whole on its line.
  */
-test('Stats keeps its headlines and cards inside the frame at 320', async ({
+test('Stats keeps its strip and every section inside the frame at 320', async ({
   authenticatedPage: page,
   request,
 }) => {
   await page.setViewportSize({ width: 320, height: 640 });
-  const marketId = await aMarketThatIsOwed(request);
-  askWhatTheySell(marketId);
+  const marketId = await aMarketAtTheDoor(request);
   await page.goto(marketScreenPath(marketId, 'stats'));
   await expect(page.getByTestId('stats-headline-stillOwed')).toBeVisible({ timeout: 15000 });
   await expect(page.getByTestId('stats-question')).toHaveCount(1);
+  for (const section of STATS_SECTIONS) {
+    await expect(page.getByTestId(section), `${section} is drawn`).toBeVisible();
+  }
   expect((await widths(page)).sideways, 'Stats scrolls sideways').toBe(0);
   const frame = (await page.getByTestId('market-frame-card').boundingBox())!;
+  const tiles = page.getByTestId('stats-headlines').getByRole('listitem');
   const parts = [
-    page.getByTestId('stats-headlines'),
-    ...(await page.getByTestId(/^stats-(by-status|by-day|question)$/).all()),
+    ...(await tiles.all()),
+    ...STATS_SECTIONS.map((section) => page.getByTestId(section)),
+    ...(await page.getByTestId('stats-question').all()),
   ];
   for (const part of parts) {
     const box = (await part.boundingBox())!;
+    expect(
+      box.x,
+      `${await part.getAttribute('data-testid')} starts inside the frame`,
+    ).toBeGreaterThanOrEqual(frame.x);
     expect(
       box.x + box.width,
       `${await part.getAttribute('data-testid')} ends inside the frame`,
     ).toBeLessThanOrEqual(frame.x + frame.width);
   }
+  // Two tiles a row, and an amount kept whole on one line in its half of the window.
+  const boxes = await tiles.evaluateAll((items) =>
+    items.map((item) => item.getBoundingClientRect().toJSON()),
+  );
+  expect(boxes[1].top, 'the second tile stands beside the first').toBe(boxes[0].top);
+  const figure = page.getByTestId('stats-headline-stillOwed').getByTestId('stats-headline-figure');
+  expect(
+    await figure.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return range.getClientRects().length;
+    }),
+    'the amount keeps one line',
+  ).toBe(1);
 });

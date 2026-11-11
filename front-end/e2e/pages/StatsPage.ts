@@ -6,11 +6,13 @@ import type { Locator, Page } from '@playwright/test';
  * week) and the review as one split bar (E45/F01/S01, T201), and a chart per choice question,
  * narrowed to the approved or the assigned (E45/F01/S02); between them the room, the tables asked
  * against the plan's per day and per tier (T201), how full each section is each day (T201), where the
- * money stands and who has come each day (T201); above them the placement and money headlines
- * (E45/F01/S03).
+ * money stands and who has come each day (T201); above them the strip of tiles the phase chooses
+ * (T201).
  */
 export class StatsPage {
   readonly page: Page;
+  /** The strip of tiles at the top, chosen by the phase; absent in draft. */
+  readonly strip: Locator;
   readonly total: Locator;
   readonly none: Locator;
   /** The chart of applications over time: its image, columns, axis, top mark and numbers. */
@@ -40,6 +42,7 @@ export class StatsPage {
 
   constructor(page: Page) {
     this.page = page;
+    this.strip = page.getByTestId('stats-headlines');
     this.total = page.getByTestId('stats-applicants-total');
     this.none = page.getByTestId('stats-applicants-none');
     this.overTimePlot = page.getByTestId('stats-over-time-plot');
@@ -65,12 +68,15 @@ export class StatsPage {
     await this.page.goto(marketScreenPath(marketId, 'stats'));
   }
 
-  /** A headline at the top of the page: `used`, `free`, `unassigned`, `owed`, `paid`, `stillOwed`. */
+  /**
+   * A tile of the strip: `applied`, `open`, `asked`, `used`, `unassigned`, `stillOwed`,
+   * `checkedIn`, `notYet`, `came` or `paid`.
+   */
   headline(id: string): Locator {
     return this.page.getByTestId(`stats-headline-${id}`);
   }
 
-  /** A headline's figure: "4", "$117.50". */
+  /** A tile's figure: "4", "$117.50". */
   headlineFigure(id: string): Locator {
     return this.headline(id).getByTestId('stats-headline-figure');
   }

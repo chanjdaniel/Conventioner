@@ -3,7 +3,8 @@
  * `back-end/market_stats.py`): who applied (`applicantStats.ts`), what they answered
  * (`answerCounts.ts`), the room for those asking (`roomRows.ts`), how full each section is each day
  * (`fillGrid.ts`), who has come each day (`checkInRows.ts`), and the placement and money
- * headlines (`statsHeadlines.ts`, the money's card `moneyCard.ts`). Counted there, so the page
+ * headlines (the money's card `moneyCard.ts`); the strip's tiles are chosen from the whole answer
+ * (`statsHeadlines.ts`). Counted there, so the page
  * reads one small answer however many applied and never downloads the applications to count them.
  */
 import { api } from '@/utils/api';

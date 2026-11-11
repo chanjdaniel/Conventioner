@@ -3,10 +3,11 @@
  * The Stats tab (E45/F01/S01): the market's figures, from its first application to its archive,
  * open in every phase and to anyone who reads the market.
  *
- * Its top line is the market's state in headlines (E45/F01/S03, `utils/statsHeadlines.ts`): the
- * table-days used and free and the vendors unassigned, once an assignment is stored, and the amounts
- * owed, paid and still owed, where the market sets prices and the Payments page counts someone;
- * each the figure the page it links to shows, and the link opens that page with its filter.
+ * Its top line is a strip of three or four tiles chosen by the market's phase (T201,
+ * `utils/statsHeadlines.ts`), none in draft: each a figure drawn large over its words, the whole
+ * tile a link to where that figure is worked on, with that page's filter, or to the Room section
+ * below; a zero whose link would list nothing is told but not linked. A row at a desk, two to a row
+ * on a phone.
  *
  * Every figure is counted on the server and read in one small answer (`utils/marketStats.ts`),
  * so the page never downloads the applications to count them. It starts with who applied: how many,
@@ -103,9 +104,23 @@ const checkIn = computed(() =>
     : null,
 );
 const answers = computed(() => figures.value?.answers ?? null);
+/** The strip's tiles, chosen by the phase; none in draft or before the market is read. */
 const headlines = computed(() =>
-  figures.value ? statsHeadlines(figures.value.headlines, marketId.value) : [],
+  figures.value && market.value
+    ? statsHeadlines(market.value.phase ?? '', figures.value, marketId.value)
+    : [],
 );
+
+/** The tiles whose figure is an amount, which a phone gives a row of its own. */
+const AMOUNTS = new Set(['stillOwed', 'paid']);
+
+/** A tile that leads to a section of this page brings it under the pinned bar, and reads from it. */
+function toSection(id: string): void {
+  const section = document.getElementById(id);
+  if (!section) return;
+  section.scrollIntoView({ block: 'start' });
+  section.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
+}
 
 /** Who the charts count, in the address beside the page. */
 const among = computed(() => answerGroup(route.query.among));
@@ -129,32 +144,46 @@ const NOBODY: Record<string, string> = {
 <template>
   <MarketFrame :market="market" @retry="load">
     <div class="stats">
-      <!-- Nothing stored and no prices: there is no state to headline, and noughts say nothing. -->
+      <!-- A draft, or a phase whose figures are not counted yet: there is nothing to headline. -->
       <ul
         v-if="headlines.length"
-        class="stats-headlines"
+        class="stats-strip"
         aria-label="The market at a glance"
         data-testid="stats-headlines"
       >
         <li
-          v-for="headline in headlines"
-          :key="headline.id"
-          class="stats-headline"
-          :class="{ 'stats-headline--money': headline.id === 'owed' }"
-          :data-testid="`stats-headline-${headline.id}`"
+          v-for="tile in headlines"
+          :key="tile.id"
+          :class="{ 'stats-strip-amount': AMOUNTS.has(tile.id) }"
+          :data-testid="`stats-headline-${tile.id}`"
         >
-          <RouterLink v-if="headline.to" :to="headline.to" class="stats-headline-link">
-            <!-- One run of text, so the target can stand taller than its line without parting the
-                 figure from its words. -->
-            <span>
-              <strong data-testid="stats-headline-figure">{{ headline.figure }}</strong>
-              {{ headline.words }}
-            </span>
+          <RouterLink
+            v-if="tile.link && 'route' in tile.link"
+            :to="tile.link.route"
+            class="stats-tile stats-tile--link"
+          >
+            <strong class="stats-tile-figure" data-testid="stats-headline-figure">{{
+              tile.figure
+            }}</strong>
+            {{ ' ' }}<span class="stats-tile-words">{{ tile.words }}</span>
           </RouterLink>
-          <span v-else>
-            <strong data-testid="stats-headline-figure">{{ headline.figure }}</strong>
-            {{ headline.words }}
-          </span>
+          <a
+            v-else-if="tile.link"
+            :href="`#${tile.link.section}`"
+            class="stats-tile stats-tile--link"
+            @click.prevent="toSection(tile.link.section)"
+          >
+            <strong class="stats-tile-figure" data-testid="stats-headline-figure">{{
+              tile.figure
+            }}</strong>
+            {{ ' ' }}<span class="stats-tile-words">{{ tile.words }}</span>
+          </a>
+          <div v-else class="stats-tile">
+            <strong class="stats-tile-figure" data-testid="stats-headline-figure">{{
+              tile.figure
+            }}</strong>
+            {{ ' ' }}<span class="stats-tile-words">{{ tile.words }}</span>
+          </div>
         </li>
       </ul>
       <section class="stats-section" aria-labelledby="stats-applicants-title">
@@ -198,11 +227,12 @@ const NOBODY: Record<string, string> = {
       </section>
       <section
         v-if="room.length"
+        id="stats-room"
         class="stats-section"
         aria-labelledby="stats-room-title"
         data-testid="stats-room"
       >
-        <h2 id="stats-room-title" class="stats-title">Room</h2>
+        <h2 id="stats-room-title" class="stats-title" tabindex="-1">Room</h2>
         <div class="stats-ledgers">
           <div
             v-for="card in room"
@@ -382,45 +412,66 @@ const NOBODY: Record<string, string> = {
   color: var(--mm-black);
 }
 
-/* The Assignments page's strip, in its look: figures on beige, each worked on where it links. */
-.stats-headlines {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-6);
+/* The strip (T201): a row of tiles at a desk, each one equal share of it, and two to a row on a
+   phone, so three or four figures take two rows rather than a line each. */
+.stats-strip {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--space-3);
   margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-card);
-  background: var(--mm-beige);
+  padding: 0;
   list-style: none;
+}
+
+/* A figure drawn large over the words that say what it counts, in the charts' card; the whole tile
+   is the link, so it fills its cell and the row's tiles stand as tall as the tallest. */
+.stats-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  height: 100%;
+  min-height: var(--target-min);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-card);
+  background: white;
+  color: var(--mm-black);
+}
+
+.stats-tile-figure {
+  font-family: 'Merge One', sans-serif;
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.stats-tile-words {
   font-size: var(--text-sm);
 }
 
-.stats-headline strong {
-  font-size: var(--text-lg);
-  font-variant-numeric: tabular-nums;
+/* A tile that leads somewhere: its figure in the link ink, no underline, the tile a step darker
+   under the pointer, as a secondary button is. */
+.stats-tile--link {
+  text-decoration: none;
 }
 
-/* The money starts a group of its own, set apart from the placements by a rule. */
-.stats-headline--money:not(:first-child) {
-  padding-left: var(--space-6);
-  border-left: 1px solid var(--mm-border);
+.stats-tile--link .stats-tile-figure {
+  color: var(--mm-text-link);
 }
 
-/* A link on a line of its own, so a target (the design language): its words stay centred in it. */
-.stats-headline-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--target-min);
-  color: var(--mm-black);
-  text-decoration: underline;
-  text-underline-offset: var(--space-hairline);
+.stats-tile--link:hover {
+  background: var(--mm-white-hover);
 }
 
 .stats-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  /* A tile that leads here brings the section in under the pinned bar, not behind it. */
+  scroll-margin-top: calc(var(--banner-h) + var(--market-frame-h) + var(--space-3));
 }
 
 .stats-title {
@@ -602,32 +653,33 @@ const NOBODY: Record<string, string> = {
 
 /*
  * A phone (T180): how the day stands is read at the market, so the page fits the phone it is read
- * on (`meta.fitsAPhone`). The gutter is the door's, and the headlines stand one to a line, each a
- * thumb's height, the money set apart by a rule above it rather than beside it.
+ * on (`meta.fitsAPhone`). The gutter is the door's, and the strip's tiles stand two to a row, each
+ * figure a step smaller (T201). An amount takes a row of its own, since "$3,565.00" broke over two
+ * lines in half a 320px window, and so does a tile it would leave alone on its row.
  */
 @media (width <= 640px) {
   .stats {
     padding: var(--space-4);
   }
 
-  .stats-headlines {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
+  .stats-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+    gap: var(--space-2);
   }
 
-  .stats-headline {
-    display: flex;
-    align-items: center;
-    min-height: var(--target-min);
+  .stats-tile {
+    padding: var(--space-2) var(--space-3);
   }
 
-  .stats-headline--money:not(:first-child) {
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
-    padding-left: 0;
-    border-top: 1px solid var(--mm-border);
-    border-left: none;
+  .stats-tile-figure {
+    font-size: var(--text-xl);
+  }
+
+  .stats-strip-amount,
+  .stats-strip > li:last-child:nth-child(odd),
+  .stats-strip > li:nth-child(odd):has(+ .stats-strip-amount) {
+    grid-column: 1 / -1;
   }
 }
 </style>

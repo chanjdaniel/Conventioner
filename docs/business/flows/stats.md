@@ -34,26 +34,30 @@ Before anyone applies it says "Nobody has applied yet." and shows the room alone
 Every figure is counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
 Its sections keep one order, the market's life's: who applied, the room, how full, the money, check-in, then what they answered (T201).
 Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width; the chart over time and the review's split bar, each one line of a whole, and the How full table span the row.
-The page fits a phone, so how the day stands is read at the market (T180): its headlines stand one to a line, each link a thumb's target, and the switch and the cards stay inside the window ([the design language](../../design-system.md#layout)).
+The page fits a phone, so how the day stands is read at the market (T180): its strip's tiles stand two to a row, each link a thumb's target, and the switch and the cards stay inside the window ([the design language](../../design-system.md#layout)).
 
 ## N1. See the market's state at a glance
 
-**Status:** Works (read from the code as of E45/F01/S03: `the-stats-headlines.spec.ts`, `test_the_stats_headlines.py`).
+**Status:** Works (read from the code as of T201 ticket 06: `the-stats-headlines.spec.ts`, `statsHeadlines.test.ts`).
 
-1. The page's top line is a strip of headlines ([`statsHeadlines.ts`](../../../front-end/src/utils/statsHeadlines.ts)), each the figure the page it links to shows, counted on the server by that page's own code, and each link opening that page with its filter:
-   - "4 of 8 table-days used", the Assignments page's strip, opening Assignments;
-   - "4 table-days free", the Assignments grid's "Empty" count, opening Assignments on it (`?status=empty`); half a table held is used, not free;
-   - "1 vendor unassigned", the Assignments strip's "N unassigned", opening [Vendors](vendors.md) on "Unassigned only" (`?show=unassigned`);
-   - "$117.50 owed", "$90.00 paid" and "$35.00 still owed", the [Payments](payments.md) page's Owed, Paid and Still owed, the first two opening Payments and the third Payments on "Owes" (`?show=owes`).
-2. The placements are told once an assignment is stored, as the Assignments page's strip is, from the one count of the stored assignment they share ([placements](../../implementation/modules/placements.md#what-a-read-shows)); the money only where the market sets prices and the Payments page has someone to count.
-   With neither, there is no strip.
-3. A zero whose filter would list nothing, "0 table-days free", "0 vendors unassigned" or "$0.00 still owed", is told but not linked, as the Assignments page's counts cannot be chosen at zero.
+1. The page's top line is a strip of tiles chosen by the market's phase ([`statsHeadlines.ts`](../../../front-end/src/utils/statsHeadlines.ts)), each a figure drawn large over the words that say what it counts, the whole tile one link to where the figure is worked on, opening that page with its filter:
+   - Draft: none, so no strip.
+   - Applications (Review on a Google Form market): "36 applied", every application, opening the Applications tab's All view; "12 open to review", its Open filter on every reviewer's share, as the review's split bar counts it; and "84 of 60 table-days asked", every market day's tables asked and its tables summed, bringing the Room section below into view and reading on from its heading.
+   - Assignment: "84 of 120 table-days used", the Assignments page's strip, opening Assignments; "3 unassigned", the Assignments strip's "N unassigned", opening [Vendors](vendors.md) on "Unassigned only" (`?show=unassigned`); and "$1,450.00 still owed", the [Payments](payments.md) page's Still owed, opening Payments on "Owes" (`?show=owes`).
+   - Market Days: "18 of 24 checked in, Nov 14, 2026" and "6 not yet in", the door's count of the day ([N6](#n6-see-who-has-come)), each opening Attendance on that day (`?date=`); and what is still owed.
+   - Archived: "31 vendors came", each vendor checked in on any day counted once, opening Attendance; the table-days used; and "$1,450.00 paid", the Payments page's Paid, opening Payments.
+2. In Market Days the day counted is today when today is a market date, else the next market date ahead, else the last, in the reader's calendar, and the tile names it in a market date's short form; once that day is over, its missing "did not come", in the door's words.
+3. Each figure is counted on the server by the page it links to, and a tile whose figure is absent is left out: the placements before an assignment is stored, from the one count of the stored assignment the Assignments page's strip reads ([placements](../../implementation/modules/placements.md#what-a-read-shows)); the money where the market sets no prices or the Payments page has nobody to count; who came in an archived market that never reached Market Days; the room in a plan of no date.
+   With no tile to tell, there is no strip.
+4. A zero whose link would list nothing, "0 applied", "0 open to review", "0 unassigned", "$0.00 still owed" or "0 not yet in", is told but not linked, as the Assignments page's counts cannot be chosen at zero; so is the day's check-in on a day nobody is assigned to.
+5. At a desk the tiles stand in one row, each an equal share of it; on a phone two to a row, an amount and a tile it would leave alone on its row each taking a row of their own ([the design language](../../design-system.md#layout)).
 
 Covered by:
 
+- `statsHeadlines.test.ts` (every phase, the day counted, an archive that never ran, a zero not linked)
 - `test_the_stats_headlines.py`
-- `the-market-on-a-phone.spec.ts` ("Stats", on a phone and at a desk: the headlines, the switch and the cards inside the window, a headline's link landing on Payments at the window's width, and a Viewer's page; "Stats keeps its headlines and cards inside the frame at 320")
-- `the-stats-headlines.spec.ts` ("each headline is the figure of the page it links to, opened on its filter", "placements are told once an assignment is stored, and money only with prices")
+- `the-market-on-a-phone.spec.ts` ("Stats", on a phone and at a desk, on a market at the door with every section drawn: the strip two to a row and in one row, every section inside the window, a tile's link landing on Payments at the window's width, and a Viewer's page; "Stats keeps its strip and every section inside the frame at 320")
+- `the-stats-headlines.spec.ts` ("the strip has no tile in draft, and in applications tells who applied, who is open and the table-days asked", "from assignment to the archive, each tile is the figure of the page it links to, opened on its filter", "a zero whose link would list nothing is told, not linked, and an archive that never ran tells no one came")
 
 ## N2. See who applied
 
@@ -104,9 +108,9 @@ Covered by:
 
 **Status:** Works (read from the code as of T201 ticket 04: `the-stats-tab.spec.ts`, `test_the_stats_fill.py`).
 
-1. "How full" shows once an assignment is stored, in any phase, as the placements headlines do: a table with a row per section, its tier under its name, a column per market date and a row "All sections" totalling each day.
-2. Each cell reads "28/30", the section's tables used that day of its tables, a table with anyone at it used, half held included, so the cells add up to the "table-days used" headline and their tables left to the "table-days free" one.
-   The server counts it from the same stored rows as those headlines, the Assignments page's tables grid's ([placements](../../implementation/modules/placements.md#what-a-read-shows)), and sections and dates stand in the plan's order.
+1. "How full" shows once an assignment is stored, in any phase, as the strip's table-days used does: a table with a row per section, its tier under its name, a column per market date and a row "All sections" totalling each day.
+2. Each cell reads "28/30", the section's tables used that day of its tables, a table with anyone at it used, half held included, so the cells add up to the strip's table-days used, and their tables left to the Assignments grid's "Empty" count.
+   The server counts it from the same stored rows as the strip's table-days used, the Assignments page's tables grid's ([placements](../../implementation/modules/placements.md#what-a-read-shows)), and sections and dates stand in the plan's order.
 3. A cell is shaded by how full it is, in five steps: empty, the card's white with its edge drawn; up to a third; up to two thirds; past that but short of full; and full, each a step darker green ([the design language](../../design-system.md#the-contrast-contract)).
    The shade is never the only carrier: the figures are hidden from a screen reader, which hears each cell as "28 of 30 used, more than two thirds full".
 4. A table wider than its card, more days than a phone holds, scrolls sideways in its own box with the section names held at the left, the one sideways scroll on the page; the page itself stays inside the window.
@@ -122,7 +126,7 @@ Covered by:
 
 **Status:** Works (read from the code as of T201 ticket 05: `the-stats-headlines.spec.ts`, `test_the_stats_headlines.py`).
 
-1. "Money" shows where the market sets prices and the [Payments](payments.md) page has someone to count, as the money headlines do, in any phase.
+1. "Money" shows where the market sets prices and the [Payments](payments.md) page has someone to count, in any phase.
 2. "Owed and paid" tells "Owed", "Paid" and "Still owed", each to the cent ([an amount reads to the cent](../rules/an-amount-reads-to-the-cent.md)), the Payments page's own figures, counted on the server by that page's code (`count_money`, by `market_money`: [payments, and what a vendor owes](../../implementation/data/payments.md)).
    "Still owed" opens Payments on "Owes" (`?show=owes`); at "$0.00" it is told but not linked, as nobody owes.
 3. Under them one meter bar, "Collected", reads "$900.00 of $1,450.00 paid": paid drawn against a black line at what is owed, so a payment beyond it is drawn past the line in the attention fill; a refund beyond what was paid leaves the bar empty, its words still saying it.

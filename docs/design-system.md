@@ -45,7 +45,8 @@ describes:
   - front-end/src/components/PagedList.vue
   - front-end/src/utils/useGroupFolds.ts
   - front-end/src/components/AuthCard.vue
-verified: 2026-11-11
+  - front-end/src/components/charts/
+verified: 2026-11-12
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -251,7 +252,7 @@ Its Discord row stacks as [the Vendors flow](business/flows/vendors.md) lays it 
 The Applications page on a phone narrows its gutter to 16px too: the All view's row is one column, read down, the applicant's name and address, the leading answers, then the status chip and its lines, each the row's width; each row's tick stands in a 44px square beside it, and "Mine" is its label's 44px row; the views switch's and the status filters' buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
 One by one's card is the page's width, its verdict buttons wrapping inside it; "Show N reviewed" opens its list in a dialog, which leaves the card where it is; "Include the N follow-ups", "Show N reviewed", "Choose what leads the card" and each tick in the dialog it opens are 44px targets, and a reviewer's label in the reviewers picker is a 44px row.
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
-Stats on a phone narrows its gutter to 16px too: its headlines stand one to a line, each a 44px row and each link a 44px target, the money set apart from the placements by a rule above it rather than beside it; the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
+Stats on a phone narrows its gutter to 16px too: its strip's tiles stand two to a row, a tile that is a link a target a thumb can hit, an amount and a tile it would leave alone taking a row of their own, since "$3,565.00" broke over two lines in half a 320px window (T201); the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
 Its cards stand two to a row while the page's content is 48rem wide or more and one below it, by a container query on the content, so a lone card stays half the page at a desk and no bar runs the frame's width; a phone, 320px included, has one column (T201).
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
@@ -659,6 +660,32 @@ The [Vendors page](business/flows/vendors.md)'s open vendor takes the same pair 
 The tint is a chip's own ground, so inside a selected row a chip keeps its ink on white, and its muted lines, the address under a name and the date count, take `--mm-text-muted-on-beige`, since `--mm-text-muted` is 4.27:1 on the tint; `contrast.test.ts` holds the row's text, its muted lines and its 3.75:1 border to the tint.
 
 They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Setup, so they had a real consumer rather than a layout about to be replaced. **Nothing migrated onto them in that feature**: `E16/F05`-`F08` move one surface at a time.
+
+## Charts
+
+The Stats tab draws its figures as charts of the app's own, in HTML and CSS from these tokens, with no chart library ([ADR 0015](adr/0015-the-app-owns-its-components.md)), each in [`front-end/src/components/charts/`](../front-end/src/components/charts/) and drawn on the [component library](implementation/modules/component-library.md)'s `charts` entry at a desk and on a phone (T201).
+They load with the Stats page's chunk, never the entry's.
+
+| Component     | What it draws                                                                                         | Its text equivalent                                                                                                                                                         |
+| ------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ColumnChart` | a column a bucket, a day or a week, from a baseline, an empty bucket a gap, a top line at the largest | one `role="img"` named by a sentence ("36 applications from Oct 1 to Nov 11, 2026, most on Oct 3: 12"), and a disclosure, "Numbers by day", opening a table of every bucket |
+| `SplitBar`    | one bar of a whole split into parts in a fixed order, each its own fill, set apart by 2px white gaps  | the bar is hidden; its legend is the text, a line a part with its count and share, a link where the part has one and a count                                                |
+| `MeterBar`    | one row, a label, a value against a mark, a bar with a black line at the mark                         | the bar is hidden; the row's words are the text ("42 asking, 30 tables"), and what the caller puts after them is heard after a comma                                        |
+| `FillGrid`    | a `<table>` of sections against days, each cell "28/30" shaded by how full it is                      | a real table with a caption and row and column headers; the figures are hidden and each cell says itself in words ("28 of 30 used, more than two thirds full")              |
+
+The answers' cards are [`BarLedger`](#the-primitive-layer)s, a row an answer with its count, share and bar, folded past 8.
+
+**One scale a card.**
+Every bar in a card is drawn against one figure, the card's largest value or mark, so its rows compare: a `MeterBar` row is given the card's scale, a `BarLedger` draws against its largest answer, and a `ColumnChart` against its largest bucket, which its top line marks.
+Two cards are not on one scale, and nothing on the page compares them by length.
+
+**A mark is 3:1 on white, a fill under figures is legible under them.**
+A mark that carries no text, a column, a part of the split bar, a meter's value, is held to 3:1 on the white card, so the chart's yellow is `--mm-chart-yellow` rather than the button's `--mm-yellow`, and a value past its mark is drawn in it as the charts' attention fill; the How full table's shades carry figures, so each is a fill legible under `--mm-black` ([the contrast contract](#the-contrast-contract) gives every token and its measure).
+Neighbouring fills are set apart by a 2px white gap, so they need no contrast with each other.
+
+**The shade is never the only carrier.**
+Every chart's figures are text a screen reader hears, as the table above says, and a sighted reader can read them too: a meter's words, the legend's counts, the table's cells, and the numbers behind a column chart.
+A figure is in `tabular-nums`, so a column of them lines up.
 
 ## What keeps this true
 
