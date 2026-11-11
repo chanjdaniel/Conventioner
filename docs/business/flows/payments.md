@@ -6,11 +6,12 @@ describes:
   - front-end/src/utils/paymentsPage.ts
   - back-end/api/payments.py#market_payments
   - back-end/payments.py#market_summary
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T92
   - E44/F02/S01
   - T263
+  - T284
 ---
 
 # Payments
@@ -32,6 +33,8 @@ The server counts all of it in one answer (`GET /markets/<id>/payments`, `market
    A payment is a vendor's, not a day's, so what each vendor paid is shared across their table-days by what each owes (evenly where they owe nothing), to the cent; what a vendor holding no table paid stands on a row of its own, "No table".
    Each breakdown adds up to the four figures, and the page says how a payment is shared under them.
 3. "Vendors" lists every vendor with a table-day line or a payment, a vendor whose table was freed included, by name with their address beneath: Owed, Paid, and the Difference in the Payment tab's words, "Owes $35.00", "Paid in full", "Paid $7.50 more than owed" or "Nothing owed".
+   The list is drawn once the vendors' names are read, saying "Loading vendors…" until then, so it is drawn in its order by name and never re-sorts under the reader; the figures above it do not wait, since none reads a name (T284).
+   A failed read of the names leaves it drawn by address.
 4. "Owes", "Paid in full" and "Paid more than owed" each narrow the list to the vendors in that state, with how many there are; "Paid in full" is every vendor who is square and owed something, so a vendor who owes nothing and paid nothing, "Nothing owed", is in none of the three, and is listed only unfiltered; pressed again, a filter is cleared.
    The states are the server's, the ones the export's "Payment" filter reads ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), so the page's "Owes" and an export of "Owes" list the same vendors.
    "Search vendors" finds a vendor by name or address within it, a name being the one they chose or the one on their identification, and "N of M vendors shown" counts what is left.
@@ -65,7 +68,7 @@ Covered by:
 - `exporting-a-payment-reminder.spec.ts` (the page's "Owes" against the export's)
 - `front-end/src/__tests__/paymentsPage.test.ts` (the filters, the sort, the search and when the caption is drawn)
 - `front-end/src/__tests__/thePaymentsPageAtScale.test.ts` (the cap, what folds back and what holds, and every figure counting all 120)
-- `lists-at-scale.spec.ts` (120 vendors who paid, at 1280 and 390)
+- `lists-at-scale.spec.ts` (120 vendors who paid, at 1280 and 390, and, with the names read held, the list waiting for them and row 50 keeping the focus after "Show 50 more")
 - `the-market-on-a-phone.spec.ts` (the page, its tables' headings and cells as a screen reader reads them, and the drawer of a vendor who owes, on a phone and at a desk)
 - `the-payments-page.spec.ts` (the totals against the sum of the vendors' Payment tabs, each filter and a reload, a vendor freed with the seat taken off what they owe in no filter, the sort in the address, a Viewer, a market with no prices and no filter, its payments reading "Paid $35.00" on the page and the Payment tab and its export offering no payment filter, then an amount set by hand reading "Paid $15.00 more than owed" with the filters back on the page and the export, and the market's money drawn with Paid more than owed $15.00 alone and the caption, which goes once every vendor who paid owes)
 

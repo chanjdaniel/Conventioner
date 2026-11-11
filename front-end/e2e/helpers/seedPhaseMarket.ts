@@ -4,6 +4,7 @@ import { completePlan, loginViaApi, ensureTestOrgAuthenticated } from './seeds';
 import { decideReviewSetup } from './decideReviewSetup';
 import { mongoEval } from './mongo';
 import { uniqueMarketName } from './uniqueName';
+import { saveApplicationForm } from './saveApplicationForm';
 
 export interface PhaseMarketSeed {
   marketId: string;
@@ -55,13 +56,7 @@ export async function seedPhaseMarket(
   }
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-  const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
-    headers: { 'Content-Type': 'application/json' },
-    data: { fields: TWO_FIELDS },
-  });
-  if (!formRes.ok()) {
-    throw new Error(`Form save failed: ${formRes.status()} ${await formRes.text()}`);
-  }
+  await saveApplicationForm(request, baseURL, marketId, { fields: TWO_FIELDS });
   if (!options.reviewSetupUndecided) await decideReviewSetup(request, baseURL, marketId);
 
   return { marketId, marketName, orgId, userId };

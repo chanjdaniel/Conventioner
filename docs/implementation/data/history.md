@@ -360,6 +360,7 @@ That test sends every write route as the screen sends it and asserts its one ent
 
 **Writing an entry never fails the change it records.**
 Every write records after its change has landed (the placement writes in `api/placements.py`, [placements](../modules/placements.md), after the seat is taken), and `record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.
+So a write refused because the market changed under it ([the market write](../modules/market-write.md)) stored nothing and records nothing.
 A subject or a detail that reads or computes anything is given to `record` as a builder, a callable it runs inside the same guard as the insert, since one that raised before it got there would answer the change with a 500 just the same.
 The failure is logged by the error's type, the kind and the market's id only, never its message: a driver's message can quote the document it refused, and an entry holds answers and addresses.
 

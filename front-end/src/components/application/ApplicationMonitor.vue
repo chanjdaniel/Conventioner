@@ -31,6 +31,7 @@ import { getApiErrorMessage } from '@/utils/api';
 import {
   asksNothingDistinguishing,
   followUps,
+  queueCountWord,
   reviewAnswers,
   reviewQueue,
   reviewed,
@@ -94,9 +95,10 @@ const saving = ref(false);
 /** The application whose verdict or follow-up is being written, until the next card has answered. */
 let deciding: string | null = null;
 /**
- * A key pressed while `saving`, on a card other than the one being written: the next card shows as
- * soon as the verdict is answered, before the server has handed it over, so a reviewer can press on
- * it in that moment. It is played as `saving` ends, and a verdict only on the card it was pressed on.
+ * A key pressed while `saving`, on a card other than the one being written, or a verdict key pressed
+ * while a hand-out is still out: the next card shows as soon as the verdict is answered, before the
+ * server has handed it over, so a reviewer can press on it in that moment. It is played once both
+ * have ended (`waiting`), and a verdict only on the card it was pressed on.
  */
 let heldKey: { undo: true } | { status: ApplicationStatus; on: string } | null = null;
 /** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
@@ -320,22 +322,29 @@ const helping = ref(false);
 const mineOnly = computed(() => sharing.value && !helping.value);
 /** What the reviewer walks now: their share, or the whole queue. */
 const walked = computed(() => (mineOnly.value ? share.value : undecided.value));
-/** Their share has nothing left to decide and others' do: said so, with the offer to help. */
+/**
+ * Their share has nothing left to decide and the rest of the queue, outside their share, has: said
+ * so, with the offer to help.
+ */
 const shareDone = computed(
   () => mineOnly.value && handedNothing.value && !share.value.length && others.value.length > 0,
 );
-/** Where the card up is in what the reviewer walks, or how many are left with none up. */
+/**
+ * Where the card up is in what the reviewer walks, or how many are left with none up. Outside a
+ * share, a count takes its word from what it counts (`queueCountWord`), as the follow-ups ticked in
+ * are not open.
+ */
 const progress = computed(() => {
   const card = current.value;
   if (!undecided.value.length) return null;
   if (!card && mineOnly.value && share.value.length) return `${share.value.length} in your share`;
-  if (!card) return `${undecided.value.length} to review`;
+  if (!card) return `${undecided.value.length} ${queueCountWord(undecided.value)}`;
   const inShare = share.value.findIndex((app) => app.id === card.id);
   if (inShare >= 0) return `${inShare + 1} of ${share.value.length} in your share`;
   const inRest = others.value.findIndex((app) => app.id === card.id);
   return inRest >= 0
-    ? `${inRest + 1} of ${others.value.length} to review`
-    : `${cursor.value + 1} of ${undecided.value.length} to review`;
+    ? `${inRest + 1} of ${others.value.length} ${queueCountWord(others.value)}`
+    : `${cursor.value + 1} of ${undecided.value.length} ${queueCountWord(undecided.value)}`;
 });
 
 /**
@@ -409,6 +418,10 @@ let handing = 0;
 
 /** What the newest hand-out was asked, until it has put its card up; null with none out. */
 let asking: { after: string | null; want: string | null } | null = null;
+/** Whether a hand-out is out (`asking` is set), for the held key to wait on. */
+const handingOut = ref(false);
+/** A write or a hand-out is still out: a key pressed now waits for both to answer. */
+const waiting = computed(() => saving.value || handingOut.value);
 
 /** Bumped by every load, so a load overtaken by a later one (leaving and coming back) stops. */
 let loads = 0;
@@ -457,6 +470,7 @@ async function takeNext(after: string | null, want: string | null = null) {
   }
   const mine = ++handing;
   asking = { after, want };
+  handingOut.value = true;
   try {
     const app = await claims.next(after, includeFollowUps.value, want, mineOnly.value);
     // Overtaken by a later hand-out, or the review was left: its card is not the one to put up.
@@ -485,7 +499,10 @@ async function takeNext(after: string | null, want: string | null = null) {
     if (mine !== handing) return;
     errorMessage.value = getApiErrorMessage(err, 'Could not open the next application.');
   } finally {
-    if (mine === handing) asking = null;
+    if (mine === handing) {
+      asking = null;
+      handingOut.value = false;
+    }
   }
 }
 
@@ -688,15 +705,18 @@ function decideCurrent(status: ApplicationStatus) {
 }
 
 /**
- * Keep a key pressed while `saving`, the last one winning. A key on the card still being written is
+ * Keep a key pressed while `waiting`, the last one winning. A key on the card still being written is
  * not kept: that card is already being answered, so the key has nothing to wait for and needs no word.
  */
 function holdKey(key: NonNullable<typeof heldKey>) {
   if (current.value?.id !== deciding) heldKey = key;
 }
 
-/** The server has answered: do what the held key asked, or say it did not count. */
-watch(saving, (busy) => {
+/**
+ * The server has answered the write and the newest hand-out: do what the held key asked, or say it
+ * did not count.
+ */
+watch(waiting, (busy) => {
   const key = heldKey;
   if (busy || !key) return;
   heldKey = null;
@@ -707,8 +727,8 @@ watch(saving, (busy) => {
     return;
   }
   const app = current.value;
-  // Held for the reviewer is what makes it handed over: a hand-out overtaken ends `saving` with the
-  // newer one still out, and the card up then is only the queue's guess, which may be someone else's.
+  // Held for the reviewer is what makes it handed over: the card up before the newest hand-out lands
+  // is only the queue's guess, which may be someone else's.
   const handedOver = app?.id === key.on && claims.held.value === key.on;
   if (!errorMessage.value && handedOver && decidesCurrent.value && !dialogOverCard.value) {
     void decide(app, key.status);
@@ -811,7 +831,11 @@ function onKey(event: KeyboardEvent) {
   if (key === 'z' && undoOffered.value && !undoRefusal.value) {
     event.preventDefault();
     if (saving.value) holdKey({ undo: true });
-    else void undoLast();
+    else {
+      // The last key wins: a verdict held for a hand-out still out gives way to the undo.
+      heldKey = null;
+      void undoLast();
+    }
     return;
   }
   if (!current.value) return;
@@ -825,7 +849,7 @@ function onKey(event: KeyboardEvent) {
   if (key === 'a' || key === 'r') {
     const status =
       key === 'a' ? ApplicationStatus.ReviewerApproved : ApplicationStatus.ReviewerRejected;
-    if (saving.value) holdKey({ status, on: current.value.id });
+    if (waiting.value) holdKey({ status, on: current.value.id });
     else decideCurrent(status);
   }
   // S was Skip; it marks the follow-up now, the dialog asking who and what (E34/F02/S01).
@@ -898,7 +922,12 @@ function submittedOn(app: Application): string {
       :message="loadError"
       @retry="loadApplications"
     />
-    <p v-if="errorMessage && !refusedOn" class="error-state" data-testid="app-monitor-error">
+    <p
+      v-if="errorMessage && !refusedOn"
+      class="error-state"
+      data-testid="app-monitor-error"
+      role="alert"
+    >
       <EmailAddress :words="errorMessage" />
     </p>
 
@@ -986,7 +1015,7 @@ function submittedOn(app: Application): string {
             class="app-email"
             data-testid="app-monitor-email"
           >
-            {{ current.applicantEmail }}
+            <EmailAddress :words="current.applicantEmail" />
           </component>
           <span :class="statusChip(current.status)" data-testid="app-monitor-status">
             {{ statusLabel(current.status) }}
@@ -998,14 +1027,18 @@ function submittedOn(app: Application): string {
         </p>
         <!-- Another reviewer has it open: a reader sees it is being decided (E34/F03/S02). -->
         <p v-if="heldByOther" class="held-by" data-testid="app-monitor-held-by">
-          {{ heldByOther }} is looking at this.
+          <EmailAddress :words="`${heldByOther} is looking at this.`" />
         </p>
         <!-- Someone decided it first: said here, on what they decided (E34/F03/S01). -->
         <p v-if="refusedOn" class="changed-since" data-testid="app-monitor-changed" role="alert">
           <!-- One item of the band's flex: an address's pieces would each be one of their own. -->
           <span><EmailAddress :words="errorMessage" /></span>
-          <span v-if="verdictGiverLine(current)" class="verdict-giver">
-            {{ verdictGiverLine(current) }}.
+          <span
+            v-if="verdictGiverLine(current)"
+            class="verdict-giver"
+            data-testid="app-monitor-changed-giver"
+          >
+            <EmailAddress :words="`${verdictGiverLine(current)}.`" />
           </span>
         </p>
         <!-- Who is reaching out, and who can be handed it (E34/F02/S01). A Viewer reads the recorded
@@ -1142,7 +1175,8 @@ function submittedOn(app: Application): string {
         </div>
       </div>
 
-      <!-- The reviewer's share is decided: the rest are others', theirs to help with (E38/F07/S04). -->
+      <!-- The reviewer's share is decided: the rest of the queue, outside their share, is theirs to
+           help with (E38/F07/S04). -->
       <div v-else-if="shareDone" class="done-state" data-testid="app-monitor-share-done">
         <p class="share-done">Your share is done.</p>
         <p data-testid="app-monitor-share-done-others">{{ othersLeftLine(others.length) }}</p>
@@ -1406,10 +1440,10 @@ function submittedOn(app: Application): string {
   margin-bottom: var(--space-3);
 }
 
+/* The address breaks before its "@" or a dot (EmailAddress), never mid-word as break-all would. */
 .app-email {
   font-size: var(--text-sm);
   color: var(--mm-black);
-  word-break: break-all;
 }
 
 /* The card's heading keeps its line's type: no heading margin, and an address stays regular. */
@@ -1433,7 +1467,7 @@ function submittedOn(app: Application): string {
   flex-wrap: wrap;
   gap: var(--space-2);
   overflow-wrap: anywhere;
-  margin: var(--space-2) 0 0;
+  margin: var(--space-2) 0 var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-yellow);
   border-radius: var(--radius-control);
@@ -1659,12 +1693,6 @@ function submittedOn(app: Application): string {
 .decided-row.named {
   border-color: var(--mm-green);
   outline: 1px solid var(--mm-green);
-}
-
-/* The address breaks before its "@" or a dot (EmailAddress), never mid-word as break-all would. */
-.decided-row .app-email {
-  font-size: var(--text-sm);
-  word-break: normal;
 }
 
 .decided-row .chip {

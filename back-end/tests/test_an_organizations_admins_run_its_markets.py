@@ -8,11 +8,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import stored_market
+from conftest import FakeMarketsCollection, stored_market
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
 import api.users as UsersApi
+import market_write as MarketWrite
 from client_errors import BadRequestError, ForbiddenError
 from datatypes import MarketPhase, MarketRole, Organization
 
@@ -197,19 +198,19 @@ def roles_on_the_market(monkeypatch):
         roles={MARKET_OWNER: "owner", MARKET_ADMIN: "admin", EDITOR: "editor", VIEWER: "viewer"},
     )
 
+    markets = FakeMarketsCollection(doc)
+
     def load(_market_id):
+        stored = markets.find_one({"id": doc["id"]})
         return MarketsApi.MarketContext(
-            doc, MarketsApi.market_from_document(doc), organization(), organization().model_dump(),
+            stored, MarketsApi.market_from_document(stored), organization(),
+            organization().model_dump(),
         )
 
-    class Markets:
-        def update_one(self, _query, update):
-            doc["roles"] = dict(update["$set"]["roles"])
-            return SimpleNamespace(modified_count=1)
-
     monkeypatch.setattr(MarketsApi, "load_market_context", load)
-    monkeypatch.setattr(MarketsApi, "markets_collection", Markets())
-    return lambda: dict(doc["roles"])
+    monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
+    return lambda: dict(markets.doc["roles"])
 
 
 @pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN, MARKET_ADMIN])

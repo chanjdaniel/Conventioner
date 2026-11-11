@@ -5,6 +5,7 @@ import { SEED_MARKET_DATE, completePlan, loginViaApi, publishResults } from './h
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 import { decideReviewSetup } from './helpers/decideReviewSetup';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * Deleting an organization is safe (E20/F04/S01).
@@ -67,9 +68,8 @@ async function transition(request: APIRequestContext, marketId: string, toPhase:
  * one straight from draft is abandoning it, and leaves no page to lose.
  */
 async function runThenArchive(request: APIRequestContext, marketId: string) {
-  await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    headers: { 'Content-Type': 'application/json' },
-    data: { fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }] },
+  await saveApplicationForm(request, BACKEND_URL, marketId, {
+    fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }],
   });
   seedApprovedVendor(marketId, 'ran-vendor@example.com', {
     dates: [SEED_MARKET_DATE],
@@ -111,9 +111,8 @@ test.describe('Deleting an organization', () => {
     // Vendors apply on its page, so opening applications puts it under way (E38/F04/S01).
     const live = await makeMarket(request, orgId, liveName, 'form');
     // A form of essential questions alone is a form, so a plan with dates opens applications.
-    await request.put(`${BACKEND_URL}/markets/${live}/application-form`, {
-      headers: { 'Content-Type': 'application/json' },
-      data: { fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }] },
+    await saveApplicationForm(request, BACKEND_URL, live, {
+      fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }],
     });
     await savePlan(request, BACKEND_URL, TEST_USER.email, live, completePlan());
     await decideReviewSetup(request, BACKEND_URL, live);

@@ -1,4 +1,4 @@
-import { type APIRequestContext, type Page, type Request } from '@playwright/test';
+import { type APIRequestContext, type Page, type Request, type Response } from '@playwright/test';
 import { BACKEND_URL, TEST_USER, expect } from '../fixtures';
 import { ManageMarketPage } from '../pages/ManageMarketPage';
 import { OrganizationsPage } from '../pages/OrganizationsPage';
@@ -95,9 +95,18 @@ export async function requestsWhile(
   const done = (request: Request) => {
     out.delete(request);
   };
+  // A new document in the page (a reload, a `goto`) drops the requests the old one still had out,
+  // and Playwright then reports neither their end nor their failure, so the wait would hold them
+  // open for good (T284). They leave the wait as the new document's answer arrives, before it
+  // sends a request of its own.
+  const arrived = (response: Response) => {
+    const request = response.request();
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) out.clear();
+  };
   page.on('request', sent);
   page.on('requestfinished', done);
   page.on('requestfailed', done);
+  page.on('response', arrived);
   try {
     await open();
     await quiet(out);
@@ -105,6 +114,7 @@ export async function requestsWhile(
     page.off('request', sent);
     page.off('requestfinished', done);
     page.off('requestfailed', done);
+    page.off('response', arrived);
   }
   return made.sort();
 }

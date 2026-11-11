@@ -12,6 +12,7 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import { EXPORT_HEADERS, EXPORT_MAPPING, RESPONSES, exportOf } from './helpers/googleFormExport';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * The organizer sets the automatic rejections (E33/F03/S01).
@@ -79,10 +80,7 @@ test.describe('Automatic rejections', () => {
       TEST_USER.password,
       { intakeMode: 'form' },
     );
-    const form = await page.request.put(`${APP_API}/markets/${marketId}/application-form`, {
-      data: { fields: FIELDS },
-    });
-    expect(form.ok(), await form.text()).toBeTruthy();
+    await saveApplicationForm(page.request, APP_API, marketId, { fields: FIELDS });
 
     await openReviewSetup(page, marketId);
     // Free text is not a choice, so it is never offered; the server refuses it outright.
@@ -234,10 +232,7 @@ test.describe('A draft decides the automatic rejections', () => {
       TEST_USER.password,
       { intakeMode: 'form', reviewSetupUndecided: true },
     );
-    const form = await page.request.put(`${APP_API}/markets/${marketId}/application-form`, {
-      data: { fields: FIELDS },
-    });
-    expect(form.ok(), await form.text()).toBeTruthy();
+    await saveApplicationForm(page.request, APP_API, marketId, { fields: FIELDS });
     // What a reviewer reads first decided, so this is all the move waits on.
     const highlights = await page.request.put(`${APP_API}/markets/${marketId}/review-highlights`, {
       data: { keys: [], nothingLeadsTheCard: true },

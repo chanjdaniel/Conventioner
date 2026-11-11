@@ -59,6 +59,7 @@ sources:
   - T217
   - T263
   - T283
+  - T274
 ---
 
 # The organization document, and roles
@@ -163,6 +164,9 @@ An account that owns a market is not deleted: `delete_user` reads `{"roles.<user
 An owner manages every other role; an admin manages editors and viewers: the table's two rows for roles, Give and take Admin roles (Owner, fixed) and Give and take Editor and Viewer roles (Admin), which `roles_row` picks by the role given or taken ([the market's actions](../modules/market-actions.md)).
 Roles change on an archived market too: they are not a change to its record.
 Taking a role nobody holds, another organizer having taken it first, answers 404 "They no longer have a role on this market.", as does a removal whose write finds it gone under it, and records nothing; `remove_market_role` asks both roles rows before it looks at the person, so someone who may take no role there is refused in one sentence whoever the person is, the only owner, an Admin, anyone else or nobody, and Manage market reads the 404 as done ([`test_removing_someone_already_gone.py`](../../../back-end/tests/test_removing_someone_already_gone.py), with its organization twin [above](#the-organization)).
+
+**Each role write sets or takes one person's key, never the whole map** (T274): giving and changing `$set` `roles.<user id>`, taking `$unset`s it, through [the market write](../modules/market-write.md), holding the phase, as every market write does, and that person's role and the requester's as read, so two admins changing roles at the same moment never undo each other, and a role taken never comes back.
+A write that met roles changed since its read stores nothing and answers the market write's 409; a take whose person is already gone answers the 404 above instead.
 
 **"Markets this person has a role on" is a query on the map's key**, `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
 

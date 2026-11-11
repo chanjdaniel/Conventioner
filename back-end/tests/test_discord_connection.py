@@ -27,6 +27,7 @@ import api.permissions as PermissionsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
 import discord_client as Discord  # noqa: E402
 import history as History  # noqa: E402
+import market_write as MarketWrite  # noqa: E402
 from datatypes import MarketPhase, MarketRole  # noqa: E402
 from test_discord_client import FakeDiscord  # noqa: E402
 from test_every_write_records import LiveMarkets  # noqa: E402
@@ -37,6 +38,7 @@ LIST_MEMBERS = Discord.server_members
 ROLE_GRANTS = Discord.RoleGrants
 
 MARKET = "market-123"
+CHANGED = {"error": MarketWrite.MARKET_CHANGED, "code": "market_changed"}
 ADMIN = "admin@example.com"
 FIRST_SUBMITTED = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 GUILD = "2909267986263572999"
@@ -57,6 +59,7 @@ def _account(email):
 def world(monkeypatch, market_records, applications):
     markets = LiveMarkets()
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
     monkeypatch.setattr(UsersApi, "get_user", _account)
     monkeypatch.setattr(UsersApi, "get_user_by_id", lambda _uid: None)
     monkeypatch.setattr(OrgsApi, "get_organization", lambda _oid: None)
@@ -775,7 +778,7 @@ class TestCheckingWhoIsInTheServer:
         response = _check(client)
 
         assert response.status_code == 409, response.get_json()
-        assert response.get_json()["error"] == DiscordConnection.CHANGED_WHILE_CHECKING
+        assert response.get_json() == CHANGED
         assert _stored(world) == connection
         assert world.history.documents == []
 
@@ -1512,7 +1515,8 @@ class TestGivingTheRole:
         response = _give(client)
 
         assert response.status_code == 409, response.get_json()
-        assert response.get_json()["error"] == DiscordConnection.CHANGED_WHILE_GIVING
+        assert response.get_json() == {"error": DiscordConnection.CHANGED_WHILE_GIVING,
+                                       "code": "market_changed"}
         assert _stored(world) == changed
         [entry] = world.history.documents
         assert entry["detail"]["given"] == [ana]
@@ -1732,7 +1736,7 @@ class TestACheckAndARunTogether:
 
         assert runs[0].status_code == 200, runs[0].get_json()
         assert response.status_code == 409, response.get_json()
-        assert response.get_json()["error"] == DiscordConnection.CHANGED_WHILE_CHECKING
+        assert response.get_json() == CHANGED
         assert _states(world) == {ana: "has_role"}
         assert [entry["kind"] for entry in world.history.documents] == [
             History.DISCORD_ROLES_GIVEN]
@@ -2118,7 +2122,7 @@ class TestPossibleMatches:
         response = _decline(client, fern, "fern_studio_42")
 
         assert response.status_code == 409, response.get_json()
-        assert response.get_json()["error"] == DiscordConnection.CHANGED_WHILE_DECLINING
+        assert response.get_json() == CHANGED
         assert "declinedMatches" not in _stored(world)
         assert not [e for e in world.history.documents
                     if e["kind"] == History.DISCORD_MATCH_DECLINED]

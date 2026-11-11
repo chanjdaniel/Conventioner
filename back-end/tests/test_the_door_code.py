@@ -16,6 +16,7 @@ from test_every_write_records import LiveMarkets
 import app as app_module
 import api.door as DoorApi
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.permissions as PermissionsApi
 import api.users as UsersApi
 import history as History
@@ -47,6 +48,7 @@ def world(monkeypatch, market_records):
         _id="mongo-market-123"))
     held = {"role": MarketRole.EDITOR}
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
     monkeypatch.setattr(
         PermissionsApi, "get_user_market_role", lambda *_a, **_k: held["role"])
     account = SimpleNamespace(

@@ -17,8 +17,8 @@ export type VerdictOutcome =
  * Giving verdicts, as both review views do it (E34): the one-by-one card and the All view's drawer.
  *
  * Each verdict is written only on what the reviewer saw (F03/S01) - a refusal comes back as the
- * application as it stands and who changed it - and is followed by the store re-reading the market,
- * so the rail's count moves (E21/F02/S02). A follow-up is marked with its owner and, when the
+ * application as it stands and who changed it - and either is followed by the store re-reading the
+ * market, so the rail's count moves (E21/F02/S02). A follow-up is marked with its owner and, when the
  * reviewer wrote one, what is needed, kept in the vendor's notes (F02/S01).
  */
 export function useVerdictActions(
@@ -70,6 +70,8 @@ export function useVerdictActions(
       const changed = changedSinceSeen(err);
       if (changed) {
         adopt(changed.application);
+        // The refusal is news too: someone else decided it, which the rail's count must hear of.
+        void marketStore.refresh();
         return { kind: 'changed', application: changed.application, message: changed.message };
       }
       return { kind: 'failed', message: getApiErrorMessage(err, 'The verdict was not saved.') };

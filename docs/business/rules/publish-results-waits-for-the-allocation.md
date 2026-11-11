@@ -8,7 +8,7 @@ describes:
   - back-end/guards.py#ResultsPublishedGuard
   - back-end/app.py#publish_market_results
   - back-end/guards.py#AssignmentNotBeforeReviewGuard
-verified: 2026-11-04
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/01
   - wayfinding/rejection-visibility/02
@@ -20,6 +20,7 @@ sources:
   - E38/F05
   - T202
   - T207
+  - T274
 ---
 
 # Publish results waits for the allocation
@@ -59,7 +60,7 @@ An ADMIN or the owner, as with every action that tells people outside the market
 ## Where it is kept
 
 - `publish_results_refusal` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py) says the rule, on either path: refused once already published, outside `assignment`, with nothing stored, or with the stored run [out of date](an-assignment-knows-when-it-is-out-of-date.md).
-  `publish_results` asks it and sets `resultsPublished` on [the market document](../../implementation/data/market-document.md#the-fields-that-matter), in a write that holds the phase it read and no results yet published, so a Back to review or a second publish in flight with it answers 409 and writes nothing ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)); `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks the table's Publish results row ([the market's actions](../../implementation/modules/market-actions.md)), ADMIN by default, and the archived rule first.
+  `publish_results` asks it and sets `resultsPublished` on [the market document](../../implementation/data/market-document.md#the-fields-that-matter), in a write that holds the phase, `resultsPublished` and the allocation's revision (`assignmentObject.revision`) as it read them ([the market write](../../implementation/modules/market-write.md)), so a Back to review, a second publish, or an Allocate tables run that stored another allocation after Publish judged the one it read, in flight with it, refuses it with the one 409 and it writes nothing ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)); `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks the table's Publish results row ([the market's actions](../../implementation/modules/market-actions.md)), ADMIN by default, and the archived rule first.
 - The market read serves who may, the table's Publish results answer in `actionRefusals`, and this rule apart, as `publishWaitsReason`, and the counts as `publishOutcomes` only while neither refuses.
   The Applications page ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)) draws the button on both paths, from `assignment` on only, for whoever may publish, and disables it with the rule's words while it refuses, so it is offered exactly when the endpoint would take it.
 - [`back-end/result_outcome.py`](../../../back-end/result_outcome.py) is the one reading of who has a table, for the confirmation and for the applicant's page.

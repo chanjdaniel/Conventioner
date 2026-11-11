@@ -10,6 +10,7 @@ and recorded in the market's history with the list.
 import pytest
 
 import api.markets as MarketsApi
+import market_write as MarketWrite
 from conftest import FakeMarketsCollection, client_market
 from datatypes import MarketPhase
 from test_every_write_records import FORM_WITH_A_FIELD, MARKET, STUDENT, client, world  # noqa: F401
@@ -185,6 +186,7 @@ class TestOnlyTheirOwnWritesSetThem:
     def test_a_new_market_starts_with_neither_whatever_its_body_says(self, monkeypatch):
         markets = FakeMarketsCollection(None)
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+        monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
         market = client_market(nothing_leads_the_card=True, no_automatic_rejections=True)
 
         MarketsApi.create_market(market, "owner@example.com")
