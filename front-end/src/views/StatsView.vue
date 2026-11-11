@@ -64,16 +64,30 @@ const { market } = useOpenMarket(marketId);
 const figures = ref<MarketStats | null>(null);
 const errorMessage = ref('');
 
+/** Reads the figures of the market on screen; an earlier market's answer, landing late, is dropped. */
 async function load(): Promise<void> {
-  if (!marketId.value) return;
+  const id = marketId.value;
+  if (!id) return;
   errorMessage.value = '';
   try {
-    figures.value = await fetchMarketStats(marketId.value);
+    const read = await fetchMarketStats(id);
+    if (marketId.value === id) figures.value = read;
   } catch (err: unknown) {
-    errorMessage.value = getApiErrorMessage(err, 'The figures could not be counted.');
+    if (marketId.value === id) {
+      errorMessage.value = getApiErrorMessage(err, 'The figures could not be counted.');
+    }
   }
 }
-watch(marketId, load, { immediate: true });
+// A jump through history to another market's Stats keeps this page: the last market's figures go
+// at once, so none of them is drawn under the next market's name while it counts, or if it fails.
+watch(
+  marketId,
+  () => {
+    figures.value = null;
+    void load();
+  },
+  { immediate: true },
+);
 
 const stats = computed(() =>
   figures.value ? applicantStats(figures.value.applicants, marketId.value) : null,
@@ -188,8 +202,10 @@ const NOBODY: Record<string, string> = {
       </ul>
       <section class="stats-section" aria-labelledby="stats-applicants-title">
         <h2 id="stats-applicants-title" class="stats-title">Who applied</h2>
-        <p v-if="errorMessage" class="stats-error" role="alert">{{ errorMessage }}</p>
-        <p v-else-if="!stats" class="stats-note">Counting…</p>
+        <p v-if="errorMessage" class="stats-error" role="alert" data-testid="stats-error">
+          {{ errorMessage }}
+        </p>
+        <p v-else-if="!stats" class="stats-note" data-testid="stats-counting">Counting…</p>
         <p v-else-if="!stats.total" class="stats-note" data-testid="stats-applicants-none">
           Nobody has applied yet.
         </p>

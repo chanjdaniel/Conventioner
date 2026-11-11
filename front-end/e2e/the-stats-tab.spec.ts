@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Route } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
 import {
@@ -15,6 +16,7 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { rowLayout } from './helpers/barLedger';
 import { withUser } from './helpers/withUser';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
+import { MarketsPage } from './pages/MarketsPage';
 import { StatsPage } from './pages/StatsPage';
 import { saveApplicationForm } from './helpers/saveApplicationForm';
 
@@ -216,6 +218,69 @@ test('a market nobody has applied to says so, in draft', async ({
   await expect(stats.roomRows('days')).toHaveText(['Friday, May 1, 2099: 5 tables']);
   await expect(stats.roomCard('days').getByTestId('stats-room-row-bar')).toHaveCount(0);
   await expect(stats.roomCard('tiers')).toHaveCount(0);
+});
+
+test("a history jump to another market's Stats draws none of the first market's figures, while it counts or once it fails", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seedOpen = async (applicants: number) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'applications');
+    for (let at = 0; at < applicants; at += 1) {
+      seedApplied(
+        seed.marketId,
+        `jump-${at}-${seed.marketId}@example.com`,
+        'open',
+        new Date().toISOString(),
+      );
+    }
+    return seed;
+  };
+  const jumpedTo = await seedOpen(1);
+  const here = await seedOpen(3);
+  const stats = new StatsPage(page);
+  const position = () => page.evaluate(() => (history.state as { position: number }).position);
+
+  // The market jumped to first, then, in the same page, the market jumped from.
+  await stats.goto(jumpedTo.marketId);
+  await expect(stats.total).toContainText('1 application', { timeout: 15000 });
+  const jumpedToAt = await position();
+  await page.getByTestId('app-bar-logo').click();
+  const markets = new MarketsPage(page);
+  await markets.narrowTo(here.marketName);
+  await markets.card(here.marketName).getByTestId('market-card-name').getByRole('button').click();
+  await expect(page).toHaveURL(new RegExp(`/markets/${here.marketId}/`));
+  await page.getByTestId('market-bar-tab-stats').click();
+  await expect(stats.total).toContainText('3 applications', { timeout: 15000 });
+  await expect(stats.headline('applied')).toHaveText('3 applied');
+  await expect(stats.room).toBeVisible();
+  const hereAt = await position();
+
+  // Back over several entries at once, as a long press on Back offers: the router keeps the page.
+  const held: Route[] = [];
+  await page.route(new RegExp(`/markets/${jumpedTo.marketId}/stats$`), (route) => {
+    held.push(route);
+  });
+  await page.evaluate((delta) => history.go(delta), jumpedToAt - hereAt);
+  await expect(page).toHaveURL(new RegExp(`${marketScreenPath(jumpedTo.marketId, 'stats')}$`));
+  await expect.poll(() => held.length).toBe(1);
+  await expect(page.getByTestId('market-bar-title')).toHaveText(jumpedTo.marketName);
+  // While it counts, nothing of the market left is drawn.
+  await expect(stats.counting).toBeVisible();
+  await expect(stats.strip).toHaveCount(0);
+  await expect(stats.total).toHaveCount(0);
+  await expect(stats.room).toHaveCount(0);
+
+  // And once it fails, the failure alone.
+  await held[0]!.fulfill({ status: 500, json: { error: 'Something went wrong.' } });
+  await expect(stats.error).toBeVisible();
+  await expect(stats.strip).toHaveCount(0);
+  await expect(stats.total).toHaveCount(0);
+  await expect(stats.room).toHaveCount(0);
+  await expect(stats.answers).toHaveCount(0);
 });
 
 /** Two days, and two tiers of sections: 3 Gold tables and 4 Silver ones, every day. */

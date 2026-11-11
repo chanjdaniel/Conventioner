@@ -15,6 +15,10 @@ export class StatsPage {
   readonly strip: Locator;
   readonly total: Locator;
   readonly none: Locator;
+  /** "Counting…", while the figures are read. */
+  readonly counting: Locator;
+  /** The failure line, when the figures could not be read. */
+  readonly error: Locator;
   /** The chart of applications over time: its image, columns, axis, top mark and numbers. */
   readonly overTimePlot: Locator;
   readonly overTimeColumns: Locator;
@@ -45,6 +49,8 @@ export class StatsPage {
     this.strip = page.getByTestId('stats-headlines');
     this.total = page.getByTestId('stats-applicants-total');
     this.none = page.getByTestId('stats-applicants-none');
+    this.counting = page.getByTestId('stats-counting');
+    this.error = page.getByTestId('stats-error');
     this.overTimePlot = page.getByTestId('stats-over-time-plot');
     this.overTimeColumns = page.getByTestId('stats-over-time-column');
     this.overTimeAxis = page.getByTestId('stats-over-time-axis');
