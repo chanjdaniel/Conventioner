@@ -44,6 +44,7 @@ sources:
   - T181
   - T217
   - T263
+  - T274
 ---
 
 # What each role may do
@@ -177,6 +178,8 @@ See [the organization document](../../implementation/data/organization-document.
   [`back-end/tests/test_session_is_the_identity.py`](../../../back-end/tests/test_session_is_the_identity.py) walks the header attack that once read and rejected another organizer's applications, and refuses any server source that reads an identity header again (E07).
 - **Adding a person never changes a role.**
   `add_market_role` refuses an address that already has a role on the market, so a role changes only through `update_market_role`, which refuses any change to the owner and lets only the owner change an Admin; adding once overwrote the role, so any Admin, and with T15 any organization admin, could demote the owner and leave the market with nobody to delete or hand it over.
+- **Two role changes at once never undo each other** (T274).
+  Each gives, changes or takes the one person it names, and is refused, with "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again.", when that person's role or the requester's own moved since it was read, or the market moved to another phase; so an admin taking someone's access while another gives a third person access both land, and the history's "access taken" stays true.
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's read-only line and its answer for moving the phase; `every-screen-asks-the-table.spec.ts` walks a Viewer, an Editor and an Admin through Market Setup, Applications (the vendor drawer's "Update info" among them), the Assignment tab and Attendance.
 - [`back-end/tests/test_an_organizations_admins_run_its_markets.py`](../../../back-end/tests/test_an_organizations_admins_run_its_markets.py) pins the role each place in an organization gives, the higher of two roles, that the Markets list names the same role, and that an organization admin adds and changes only Editors and Viewers; `screens-match-roles.spec.ts` walks an organization admin swapping two seats on market day.
 - **The Markets list shows a market only where its own page opens for the reader** (T181): the list asks the market read's question of each market, the read row for the role the read resolves, so a market the read answers as absent (its document unreadable, its organization's unreadable and so granting nothing, or no role of the reader's on it) is never a card that opens onto "not found" ([the organization document](../../implementation/data/organization-document.md#what-a-person-may-do-on-a-market)).

@@ -14,7 +14,7 @@ describes:
   - front-end/e2e/changing-a-role-asks-first.spec.ts
   - front-end/src/utils/openInsteadOfStepping.ts
   - front-end/e2e/people-at-scale-market.spec.ts
-verified: 2026-11-08
+verified: 2026-11-11
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -42,6 +42,7 @@ sources:
   - T204
   - T224
   - T263
+  - T274
 ---
 
 # Ending and managing a market
@@ -120,10 +121,12 @@ Covered by:
    It asks first, in a destructive confirmation that opens on Cancel (E38/F15/S01): "Remove walk390@example.com from Spring Market?", then "They lose their Editor role on it." and, for someone in the organization, "They can still view it as a member of <organization>." ("run it as an admin of" for an admin).
    Cancel and Escape change nothing and give focus back to that Remove; "Remove" takes the market role, the list re-reads in place with the dialog open, and focus goes to the list; a refusal is said in the confirmation, whose Remove may be pressed again.
    A role another organizer took meanwhile is taken all the same: the server answers "They no longer have a role on this market.", a 404, and the dialog reads it as done, closing the confirmation and re-reading the list without them (T181).
+   A role another organizer changed meanwhile, or the requester's own, is not taken, nor one whose market moved to another phase: the server answers "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again.", which the confirmation says, and the list behind it is re-read (T274).
    Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
 5. Under the list, when a row comes through the organization: "Organization admins and members are managed in Manage organization.", "Manage organization" a link to `/organizations?manage=<id>`, which opens that organization's dialog, for a reader who belongs to it, and plain words for anyone else.
 6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
    An address that already has a role on the market is refused beneath the row, brought into view as the row may be the last in the body, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
+   When the roles the add stood on changed meanwhile (the requester's own, or the person's, given by another organizer), or the market moved to another phase, the add is refused with "This market changed while you were working on it, so your change was not saved. Reload to see the latest, then make your change again." beneath the row, the address kept, and the list is re-read (T274).
    On a list with a find field, or words in it, the field then takes the added address, so their row is the one shown and their role reads at once; clearing the field shows the whole list.
 7. A refused change of role closes the confirmation, re-reads the list and is said beneath that person's row, which states the role the server holds, since someone else may have moved it first.
    When that moved the row past those shown, the find field takes their address, so the refusal is still read.

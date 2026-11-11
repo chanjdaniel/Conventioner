@@ -77,6 +77,7 @@ The server is `REAL_MONGODB_URI`, a full connection string.
 | `race(n, fn)`                   | `fn(i)` on `n` threads released together by a barrier, each result or the exception it raised returned in order; a thread that makes a request makes its own test client                                                                                                                                                                                                                                                                                                                                                   |
 
 `interleave` replaces one attribute, so name the one the reader calls through: a module that imported the function by name holds its own reference, and the wrap does not reach it.
+A request `then()` makes through another signed-in test client runs as the outer request's account, not its own: inside a request Flask reuses the app context, so Flask-Login's user in `g` is the outer one; land another organizer's change through its module function with their address, as `test_roles_written_per_person.py` does, or by a client signed in as the same account.
 
 ## The differential cases
 

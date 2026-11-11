@@ -11,6 +11,9 @@ describes:
   - back-end/api/markets.py#reset_permission
   - back-end/api/markets.py#reset_permissions
   - back-end/api/markets.py#copy_organization_default
+  - back-end/api/markets.py#add_market_role
+  - back-end/api/markets.py#remove_market_role
+  - back-end/api/markets.py#update_market_role
   - back-end/api/applicants.py#publish_results
   - back-end/api/applicants.py#set_applications_stopped
   - back-end/api/door.py#make_door_code
@@ -22,11 +25,13 @@ describes:
   - back-end/tests/real_mongo/test_the_market_write.py
   - back-end/tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py
   - back-end/tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py
+  - back-end/tests/real_mongo/test_roles_written_per_person.py
   - front-end/src/utils/api.ts#isMarketChanged
   - front-end/src/utils/api.ts#onMarketChanged
   - front-end/src/stores/market.ts#installMarketChanged
   - front-end/src/utils/savedOnTheMarket.ts#useSavedOnTheMarket
   - front-end/src/__tests__/aMarketThatChangedUnderAWrite.test.ts
+  - front-end/src/__tests__/manageMarketMeetsAChangedMarket.test.ts
 verified: 2026-11-11
 sources:
   - T244
@@ -98,6 +103,9 @@ In [`back-end/api/markets.py`](../../../back-end/api/markets.py):
   A rules save refused stores no rules and judges no application again.
 - The four writes to the market's permission table (`set_permission`, `reset_permission`, `reset_permissions`, `copy_organization_default`), each holding every row it changes, `permissions.<row id>`, as read, so a row the owner changed in another tab meanwhile is not overwritten and the history's "before" is the row that stood.
   Where the stored `permissions` is not a map (null, a string), a set or a copy replaces it whole, so it is held whole; the market as read answers which, with no read of its own.
+- The three role writes (`add_market_role`, `update_market_role`, `remove_market_role`), each setting or unsetting one person's key, `roles.<user id>`, never the whole map, and holding, beside the phase, that person's role and the requester's as read (absent when the requester's right comes through the organization), so an admin taking someone's access while another gives a third person access both land, and a role taken never comes back.
+  A decision that counted the owners (giving or changing to Owner, taking an Owner) holds `roles` whole; no route reaches such a write today, since the market model refuses a market with no owner or two, and the Admin row and "Market already has an owner" refuse every give of Owner.
+  A take refused because the person's role is already gone answers the 404 "They no longer have a role on this market.", which Manage market reads as done.
 
 Elsewhere:
 
@@ -137,6 +145,8 @@ A migration that reaches the markets collection by a name the walk does not read
 `onMarketChanged(handler)` is a response interceptor beside `onSessionEnded`: the request still fails, so the screen's own catch runs and shows the server's sentence through `getApiErrorMessage`.
 `installMarketChanged()` in [`front-end/src/stores/market.ts`](../../../front-end/src/stores/market.ts), installed from `main.ts` beside the session's interceptor, re-reads the open market through the store's `refresh`, so every screen reading [the market store](market-store.md) follows.
 
+Manage market keeps a copy of the market of its own, so on that refusal from adding, changing or taking a role it re-reads that copy, and the sentence stands where that action's refusal always has: under the add form, in the removal's confirmation, under the person's row.
+
 A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-end/src/utils/savedOnTheMarket.ts`](../../../front-end/src/utils/savedOnTheMarket.ts), the highlights and the automatic rejections) takes the store's list back on that refusal, not the list from before the click: the re-read may land before the refusal reaches the screen, while the write still counts as in flight and the list's watch skips it.
 
 ## How it is tested
@@ -144,8 +154,10 @@ A list saved on the market a click at a time (`useSavedOnTheMarket` in [`front-e
 - [`tests/real_mongo/test_the_market_write.py`](../../../back-end/tests/real_mongo/test_the_market_write.py), on the server: the phase held always, a key held at its value, absent or null, a held sub-document and a dotted part of one, a revision held at 0 on a market with none and at a stored one, counts, and a market deleted in between.
 - [`tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py`](../../../back-end/tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py), through the routes on the server: a rename crossing Open applications, a rules save crossing the review's close and a highlights save crossing an archive, each landed between the read and the write by `interleave`, answer the 409 with the sentence, store nothing and record nothing.
 - [`tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py`](../../../back-end/tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py), the same way for Publish results crossing a new allocation, Stop and the door code crossing an archive, each Discord write, the import crossing another import, the start crossing another start, and each permission-row write crossing the same row set in another tab: each refused write leaves the market as the other change left it, with only that change's history; a card save and a row set beside another field or row changed meanwhile still land.
+- [`tests/real_mongo/test_roles_written_per_person.py`](../../../back-end/tests/real_mongo/test_roles_written_per_person.py): a take, an add and a change each landing after another role change it did not read, through the routes: both land, the person taken stays without access, the one added keeps it, and the history replayed over the starting roles gives the roles stored; a second take of one person answers the 404, and a change after a take, or an add after the requester's own role changed, is refused.
 - [`tests/test_the_market_write.py`](../../../back-end/tests/test_the_market_write.py), without a server: the stored document a `Market` keeps and `model_copy` carries, the `RuntimeError`s, and the 409's body.
 - [`src/__tests__/aMarketThatChangedUnderAWrite.test.ts`](../../../front-end/src/__tests__/aMarketThatChangedUnderAWrite.test.ts): `isMarketChanged`, the interceptor, the store's re-read, and a refused rules save putting the server's rules on screen with the sentence, the re-read landing before the refusal and after it.
+- [`src/__tests__/manageMarketMeetsAChangedMarket.test.ts`](../../../front-end/src/__tests__/manageMarketMeetsAChangedMarket.test.ts): Manage market re-reading its own copy of the market after a refused add, take and change, each with the sentence where that action's refusal stands, and reading nothing again after an add refused for another reason.
 
 ## Why
 
