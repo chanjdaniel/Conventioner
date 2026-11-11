@@ -3,8 +3,9 @@
 ``POST /markets`` reads the fields a person chooses when they create a market - its name, its
 creation date, its organization, how vendors reach it, its plan and its form - and starts every
 other field of ``Market`` at its default or writes it itself (its id, its owner, its first phase
-entry and its permissions), as the plan write reads only the plan (``PLAN_WRITE_FIELDS``). A key outside the list is dropped, not refused: an open tab of the build
-before sends the whole new-market object, and nothing else in it is the creator's to decide.
+entry and its permissions), as the plan write reads only the plan (``PLAN_WRITE_FIELDS``). A key
+outside the list is dropped, not refused: an open tab of the build before sends the whole
+new-market object, and nothing else in it is the creator's to decide.
 
 The tests below post a value for every stored field of ``Market``, so a field added to it later
 fails here until it is given a sample, and lands at its default until someone lists it.
@@ -17,8 +18,10 @@ from test_the_organizations_default import world  # noqa: F401 - a fixture, used
 
 import app as app_module
 import api.markets as MarketsApi
+import floorplan_limits as FloorplanLimits
+import pricing as Pricing
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
-from datatypes import AssignmentObject, Market, MarketPhase
+from datatypes import AssignmentObject, Market, MarketPhase, SetupObject
 
 #: A value, unlike its default, for every stored field of ``Market``, as the body spells it.
 EVERY_FIELD = {
@@ -123,3 +126,88 @@ def test_what_the_server_writes_is_its_own(created):
 
 def test_the_allow_list_names_only_fields_of_a_market():
     assert set(MarketsApi.MARKET_CREATE_FIELDS) <= set(Market.model_fields)
+
+
+#: A floorplan as the wizard sends it, camelCase, with one table in one section.
+FLOORPLAN = {
+    "id": "fp-1", "scalePxPerUnit": 0.1, "scaleUnit": "mm",
+    "tableTypes": [{"id": "tt-1", "name": "6ft Table", "widthMm": 1800, "heightMm": 900,
+                    "maxCapacity": 2}],
+    "walls": [], "obstacles": [],
+    "placedTables": [{"id": "t-1", "tableTypeId": "tt-1", "x": 40, "y": 40, "widthMm": 1800,
+                      "heightMm": 900}],
+    "sections": [{"id": "s-1", "name": "Main Hall", "locationName": "Main Hall",
+                  "tableIds": ["t-1"]}],
+}
+
+
+@pytest.fixture
+def post_plan(monkeypatch, world):  # noqa: F811 - the fixture imported above
+    """Post a new market with ``plan`` as its plan, as its owner, and return the answer."""
+    monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    sessions_load_through_get_user(monkeypatch)
+    client = app_module.app.test_client()
+    with client.session_transaction() as session:
+        session["_user_id"] = OWNER
+        session["_fresh"] = True
+
+    def post(plan):
+        return client.post("/markets", json={
+            "name": "Spring Fair", "creationDate": "2026-11-01T00:00:00Z",
+            "organizationId": ORG_ID, "setupObject": plan,
+        })
+
+    return post
+
+
+def _refused_and_unstored(response, world, sentence):  # noqa: F811
+    assert response.status_code == 400, response.get_json()
+    assert response.get_json() == {"error": sentence}
+    assert [doc["id"] for doc in world.markets.docs] == ["market-123"]
+
+
+class TestThePlanIsJudgedAsThePlanWriteJudgesIt:
+    def test_a_floorplan_image_of_another_market_is_refused(
+        self, post_plan, world, monkeypatch,  # noqa: F811
+    ):
+        monkeypatch.setattr(
+            MarketsApi.GridfsService, "get_image_market_id", lambda _image: "market-9")
+
+        response = post_plan({**COMPLETE_PLAN, "floorplans": [
+            {**FLOORPLAN, "imageGridfsId": "an-image-of-market-9"}]})
+
+        _refused_and_unstored(response, world, MarketsApi.UNTIED_FLOORPLAN_IMAGE)
+
+    def test_a_half_table_share_over_100_is_refused(self, post_plan, world):  # noqa: F811
+        response = post_plan({**COMPLETE_PLAN, "assignmentOptions": {
+            "maxHalfTableProportionPerSection": 150}})
+
+        _refused_and_unstored(response, world, (
+            "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
+            "default."))
+
+    def test_a_price_the_pricing_card_refuses_is_refused(self, post_plan, world):  # noqa: F811
+        response = post_plan({**COMPLETE_PLAN, "pricing": {
+            "currency": "CAD", "halfTablePercent": 50,
+            "everyoneElse": [{"tier": "Bronze", "cents": 100}]}})
+
+        assert response.status_code == 400, response.get_json()
+        plan = SetupObject.model_validate(convert_keys_to_snake_case(
+            {**COMPLETE_PLAN, "pricing": {"currency": "CAD", "halfTablePercent": 50,
+                                          "everyoneElse": [{"tier": "Bronze", "cents": 100}]}}))
+        _refused_and_unstored(response, world, Pricing.pricing_refusal(plan))
+
+    def test_more_floorplans_than_a_market_holds_are_refused(self, post_plan, world):  # noqa: F811
+        floorplans = [{**FLOORPLAN, "id": f"fp-{i}"}
+                      for i in range(FloorplanLimits.MAX_FLOORPLANS_PER_MARKET + 1)]
+
+        response = post_plan({**COMPLETE_PLAN, "floorplans": floorplans})
+
+        _refused_and_unstored(response, world, FloorplanLimits.TOO_MANY_FLOORPLANS)
+
+    def test_a_plan_the_plan_write_takes_is_stored(self, post_plan, world):  # noqa: F811
+        response = post_plan({**COMPLETE_PLAN, "floorplans": [FLOORPLAN]})
+
+        assert response.status_code == 201, response.get_json()
+        [stored] = [doc for doc in world.markets.docs if doc["id"] != "market-123"]
+        assert [floorplan["id"] for floorplan in stored["setupObject"]["floorplans"]] == ["fp-1"]

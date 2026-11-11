@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 import unicodedata
-import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
@@ -1306,6 +1305,14 @@ def create_market(market: Market, owner_email: str) -> tuple:
     normalization as ``save_application_form``: one contract for every writer of the form.
     """
     market = new_market(market.model_dump(), market.roles)
+    # Its plan is held to what the plan write holds every plan to, judged against the market as it
+    # stands before it holds one: every floorplan is new, and none names an image uploaded for it.
+    refusal = (
+        _plan_refusal(market.model_copy(update={"setup_object": None}), market.setup_object)
+        if market.setup_object else None
+    )
+    if refusal:
+        raise BadRequestError(refusal)
     market_dict = market.model_dump()
     # Server-owned: the one entry every market starts with (E26/F06/S03).
     market_dict["phase_history"] = [
@@ -1329,8 +1336,7 @@ def create_market(market: Market, owner_email: str) -> tuple:
         # A builtin: ``create_owned_market`` sets the one owner, so this escaping is a bug, a 500.
         raise ValueError("Market must have exactly one owner in roles dict")
     
-    market_id = str(uuid.uuid4())
-    market_dict["id"] = market_id
+    market_id = market.id
     market_dict = convert_keys_to_camel_case(market_dict)
     
     refusal = market_name_refusal(market.name) or public_address_refusal(market.name)
@@ -2708,6 +2714,22 @@ def _floorplans_refusal(market: Market, plan: SetupObject) -> Optional[str]:
     return None
 
 
+def _plan_refusal(market: Market, plan: SetupObject) -> Optional[str]:
+    """Why ``plan`` may not be ``market``'s, whatever phase it is in, or None: the bounds of the
+    half-table share, the prices (``Pricing.pricing_refusal``) and the floorplans
+    (``_floorplans_refusal``).
+
+    Asked by every writer of a plan, the plan write and the create alike.
+    """
+    share = plan.assignment_options.max_half_table_proportion_per_section
+    if share is not None and not 0 <= share <= 100:
+        return (
+            "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
+            "default."
+        )
+    return Pricing.pricing_refusal(plan) or _floorplans_refusal(market, plan)
+
+
 class PreparedPlan(NamedTuple):
     """A plan write judged and not yet written: the plan as parsed, and the ``$set`` that writes it."""
     plan: SetupObject
@@ -2726,18 +2748,9 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> PreparedPlan:
     except ValidationError as e:
         logger.warning("Refused a plan for market %s: %s", market.id, parse_failure_detail(e))
         raise BadRequestError(field_named_copy("Invalid plan", e)) from e
-    share = plan.assignment_options.max_half_table_proportion_per_section
-    if share is not None and not 0 <= share <= 100:
-        raise BadRequestError(
-            "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
-            "default."
-        )
-    priced = Pricing.pricing_refusal(plan)
-    if priced:
-        raise BadRequestError(priced)
-    floorplan_refused = _floorplans_refusal(market, plan)
-    if floorplan_refused:
-        raise BadRequestError(floorplan_refused)
+    refused = _plan_refusal(market, plan)
+    if refused:
+        raise BadRequestError(refused)
     update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
 
     if body.get("intakeMode") is not None:
