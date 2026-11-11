@@ -25,15 +25,21 @@ def _set_path(doc, key, value):
 class FakeMarkets:
     """Markets as Mongo holds them; ``update_one`` matches the ``_id`` and the plan as read.
 
-    ``between`` runs once, just before the first write, as another request's write would land."""
+    ``between`` runs once, just before the first write, as another request's write would land;
+    ``after_scan`` runs once, when the first read of every market has passed the last."""
 
     def __init__(self, docs):
         self.docs = docs
         self.writes = 0
         self.between = None
+        self.after_scan = None
 
-    def find(self, _query):
-        return [copy.deepcopy(doc) for doc in self.docs]
+    def find(self, _query, _projection=None):
+        for doc in [copy.deepcopy(doc) for doc in self.docs]:
+            yield doc
+        if self.after_scan:
+            after_scan, self.after_scan = self.after_scan, None
+            after_scan(self.docs)
 
     def update_one(self, query, update):
         if self.between:
@@ -270,3 +276,32 @@ class TestTheRun:
         assert world.images.holds(world.beta_image)
         assert counts["raced"] == 1
         assert world.db.schema.markers == {}
+
+    def test_no_image_is_deleted_while_a_market_changed_under_the_run(self):
+        world = _world()
+
+        def a_save_lands(docs):
+            next(doc for doc in docs if doc["id"] == "m1")["setupObject"]["tiers"] = [
+                {"id": 0, "name": "Gold"}]
+
+        world.db.markets.between = a_save_lands
+
+        counts = _run(world)
+
+        assert world.images.holds(world.stray_image)
+        assert counts["images_deleted"] == 0
+
+    def test_an_image_a_layout_names_once_its_market_was_read_is_kept(self):
+        world = _world()
+
+        def a_layout_is_saved(docs):
+            market = next(doc for doc in docs if doc["id"] == "m2")
+            market["setupObject"]["floorplans"] = [_layout(world.stray_image, "loc-lower")]
+
+        world.db.markets.after_scan = a_layout_is_saved
+
+        counts = _run(world)
+
+        assert world.images.holds(world.stray_image)
+        assert not world.images.holds(world.beta_image)
+        assert counts["images_deleted"] == 1

@@ -12,8 +12,10 @@ What it writes:
   of an unmigrated market already serves, so a Market Setup tab open across the run keeps writing
   the ids it read;
 - every floorplan with no ``locationId`` (every one the beta saved) removed from its market;
-- every file in the ``floorplan_images`` GridFS bucket that no remaining floorplan names deleted,
-  but one uploaded after the run began, which a layout being started may be about to name;
+- every file in the ``floorplan_images`` GridFS bucket that no floorplan names deleted, read again
+  from every market just before the sweep, but one uploaded after the run began, which a layout
+  being started may be about to name; no file is deleted on a run that met a market changed
+  under it, which leaves the sweep to the next run;
 - ``layouts_v1`` recorded in ``schema_migrations``.
 
 Each market is written in one update conditional on the plan it read, so a market written while
@@ -122,12 +124,22 @@ def migrate(db, images, dry_run: bool = False, started: Optional[datetime] = Non
         counts["markets"] += 1
         counts["floorplans_removed"] += removed
 
-    for grid_out in list(images.find({})):
-        if str(grid_out._id) in named or not _uploaded_before(grid_out, started):
-            continue
-        counts["images_deleted"] += 1
+    if not dry_run and counts["raced"]:
+        # A market that changed under the run may name any image now; the next run sweeps.
+        print("No floorplan image is deleted while a market changed under this run.")
+    else:
         if not dry_run:
-            images.delete(grid_out._id)
+            # Read again what every market names now, just before deleting: a layout saved after
+            # its market was read may name an image uploaded before the run began.
+            for doc in db.markets.find({}, {"setupObject.floorplans": 1}):
+                setup = doc.get("setupObject")
+                named |= _images_named(_floorplans_after(setup, {}))
+        for grid_out in list(images.find({})):
+            if str(grid_out._id) in named or not _uploaded_before(grid_out, started):
+                continue
+            counts["images_deleted"] += 1
+            if not dry_run:
+                images.delete(grid_out._id)
 
     print(f"\n{verb} bring {counts['markets']} market(s) to the layout's shape, removing "
           f"{counts['floorplans_removed']} beta floorplan(s).")
