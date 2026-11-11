@@ -198,10 +198,21 @@ const carriedLine = computed(() => {
   return { start: on(old.referenceLineStart), end: on(old.referenceLineEnd) };
 });
 
+/** What the last try to take the new image said, where it was refused or failed. */
+const replaceError = ref('');
+
 function startReplacing() {
   recalibrating.value = false;
-  replacement.value = null;
+  dropReplacement();
   replacing.value = true;
+}
+
+/** The new image, uploaded and named by nothing, is deleted. */
+function dropReplacement() {
+  const unused = replacement.value?.gridfs_id;
+  replacement.value = null;
+  replaceError.value = '';
+  if (unused) void api.delete(`/floorplans/${encodeURIComponent(unused)}`).catch(() => {});
 }
 
 function onReplacement(image: UploadedFloorplan) {
@@ -210,11 +221,11 @@ function onReplacement(image: UploadedFloorplan) {
 
 /** Give up the replacement: the new image, uploaded and named by nothing, is deleted. */
 function stopReplacing() {
-  const unused = replacement.value?.gridfs_id;
   replacing.value = false;
-  replacement.value = null;
-  if (unused) void api.delete(`/floorplans/${encodeURIComponent(unused)}`).catch(() => {});
+  dropReplacement();
 }
+// Left with a replacement in hand, the page gives it up too.
+onUnmounted(dropReplacement);
 
 async function onReplacementCalibrated(line: { start: Point; end: Point; lengthMm: number }) {
   const current = floorplan.value;
@@ -222,20 +233,26 @@ async function onReplacementCalibrated(line: { start: Point; end: Point; lengthM
   const scale = pxPerMm(line.start, line.end, line.lengthMm);
   if (!current || !image || scale === null) return;
   const round = (n: number) => Math.round(n * 10) / 10;
-  const saved = await editor.write({
-    ...current,
-    imageGridfsId: image.gridfs_id,
-    imageWidth: image.width,
-    imageHeight: image.height,
-    pdfPage: image.page ?? null,
-    scalePxPerUnit: scale,
-    referenceLineStart: [round(line.start[0]), round(line.start[1])],
-    referenceLineEnd: [round(line.end[0]), round(line.end[1])],
-    referenceLineLengthMm: line.lengthMm,
-  });
+  replaceError.value = '';
+  const saved = await editor.write(
+    {
+      ...current,
+      imageGridfsId: image.gridfs_id,
+      imageWidth: image.width,
+      imageHeight: image.height,
+      pdfPage: image.page ?? null,
+      scalePxPerUnit: scale,
+      referenceLineStart: [round(line.start[0]), round(line.start[1])],
+      referenceLineEnd: [round(line.end[0]), round(line.end[1])],
+      referenceLineLengthMm: line.lengthMm,
+    },
+    // Not taken, the layout stays on its old image, so giving the new one up deletes nothing in use.
+    { rollBack: true, onRefused: (sentence) => (replaceError.value = sentence) },
+  );
   if (!saved) return;
-  replacing.value = false;
+  // Taken: the layout names it now, so it is no longer the replacement's to delete.
   replacement.value = null;
+  replacing.value = false;
 }
 
 /** The location's sections as the map draws them, for the panel's list. */
@@ -445,12 +462,17 @@ async function writeTableTypes(types: TableTypeObject[]) {
   const refused = await editor.flush();
   if (refused) throw new LayoutNotSaved(refused);
   await saveTableTypes(marketId.value, types);
-  await refresh();
+  // Written: a re-read that fails leaves the old types shown until the next, but is no failure of
+  // the write.
+  await refresh().catch(() => {});
 }
 
-const listSaved = () => listSavedTypes(market.value?.organizationId);
-const saveTheseTypes = (name: string) =>
-  saveTypes(name, tableTypes.value, market.value?.organizationId);
+/** The market's organization, for its saved types, when this person is in it: an editor of this
+ *  market alone may not list or file an organization's templates. */
+const typesOrganization = () =>
+  market.value?.inOrganization ? (market.value.organizationId ?? null) : null;
+const listSaved = () => listSavedTypes(typesOrganization());
+const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, typesOrganization());
 </script>
 
 <template>
@@ -546,13 +568,41 @@ const saveTheseTypes = (name: string) =>
             </p>
           </template>
           <template v-else-if="editable && replacing">
-            <template v-if="!replacement">
+            <p
+              v-if="replaceError"
+              class="layout-replace-error"
+              role="alert"
+              data-testid="layout-replace-error"
+            >
+              {{ replaceError }}
+            </p>
+            <template v-if="!replacement || !replacementUrl">
               <FloorplanUploader
+                v-if="!replacement"
                 :marketId="market.id"
                 :busy="saveState === 'saving'"
                 @uploaded="onReplacement"
               />
-              <div>
+              <p
+                v-else-if="replacementFailed"
+                class="layout-empty"
+                data-testid="layout-image-failed"
+              >
+                The new image could not be shown. Choose it again, or keep the current one.
+              </p>
+              <p v-else class="layout-empty" data-testid="layout-replace-loading">
+                Showing the new image…
+              </p>
+              <div class="layout-card-actions">
+                <button
+                  v-if="replacementFailed"
+                  type="button"
+                  class="btn btn--secondary"
+                  data-testid="layout-replace-again"
+                  @click="startReplacing"
+                >
+                  Choose another image
+                </button>
                 <button
                   type="button"
                   class="btn btn--secondary"
@@ -563,11 +613,8 @@ const saveTheseTypes = (name: string) =>
                 </button>
               </div>
             </template>
-            <p v-else-if="replacementFailed" class="layout-empty" data-testid="layout-image-failed">
-              The new image could not be shown. Reload the page to try again.
-            </p>
             <LayoutCalibration
-              v-else-if="replacementUrl"
+              v-else
               :key="replacement.gridfs_id"
               :imageUrl="replacementUrl"
               :imageWidth="replacement.width"
@@ -925,6 +972,12 @@ const saveTheseTypes = (name: string) =>
   min-height: var(--target-min);
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+.layout-replace-error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-text-red-on-tint);
 }
 
 .layout-card-text {

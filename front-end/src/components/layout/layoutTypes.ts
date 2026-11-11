@@ -143,14 +143,19 @@ function templateOf(raw: unknown): SavedTypes | null {
   return { id: template.id, name: template.name, tableTypes: savedTypesOf(template.tableTypes) };
 }
 
-/** The saved types the person may use here: their own, and those of the market's organization,
- * each once, by name. */
+/** The saved types the person may use here: their own, and those of the market's organization
+ * when they are in it (null when not), each once, by name. */
 export async function listSavedTypes(organizationId?: string | null): Promise<SavedTypes[]> {
   const asks = [api.get('/floorplans/templates')];
   if (organizationId) {
     asks.push(api.get('/floorplans/templates', { params: { organizationId } }));
   }
-  const answers = await Promise.all(asks);
+  // The person's own must answer; the organization's may be refused without hiding them.
+  const [own, ...more] = await Promise.allSettled(asks);
+  if (own.status === 'rejected') throw own.reason;
+  const answers = [own, ...more].flatMap((answer) =>
+    answer.status === 'fulfilled' ? [answer.value] : [],
+  );
   const seen = new Set<string>();
   const templates: SavedTypes[] = [];
   for (const { data } of answers) {
@@ -164,8 +169,8 @@ export async function listSavedTypes(organizationId?: string | null): Promise<Sa
   return templates.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Save the market's types under a name, in the market's organization, so its people can use
- * them in another market. */
+/** Save the market's types under a name, in the market's organization when the person is in it
+ * (null when not, their own alone), so its people can use them in another market. */
 export async function saveTypes(
   name: string,
   tableTypes: readonly TableTypeObject[],

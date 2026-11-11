@@ -15,6 +15,7 @@ const emit = defineEmits<{ label: [id: string, label: string]; remove: [id: stri
 
 const titleId = useId();
 const list = ref<HTMLElement | null>(null);
+const card = ref<HTMLElement | null>(null);
 
 /** The name a zone is called by in its controls: its own, or its place in the list. */
 const nameOf = (zone: FloorplanZone, index: number) => zone.label.trim() || `Zone ${index + 1}`;
@@ -35,8 +36,9 @@ async function remove(zone: FloorplanZone, index: number, zones: readonly Floorp
   emit('remove', zone.id);
   if (next) await focusZone(next.id);
   else {
+    // The last one gone takes the list with it: the card itself has the focus.
     await nextTick();
-    list.value?.closest<HTMLElement>('section')?.focus();
+    card.value?.focus();
   }
 }
 
@@ -44,7 +46,13 @@ defineExpose({ focusZone });
 </script>
 
 <template>
-  <section :aria-labelledby="titleId" tabindex="-1" class="zones" data-testid="layout-panel-zones">
+  <section
+    ref="card"
+    :aria-labelledby="titleId"
+    tabindex="-1"
+    class="zones"
+    data-testid="layout-panel-zones"
+  >
     <h2 :id="titleId" class="zones-title">No-table zones</h2>
     <p v-if="!zones.length" class="zones-none" data-testid="layout-panel-no-zones">
       None yet. Draw one with No-table zone over a stage, a pillar or an exit, and no table is put

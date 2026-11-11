@@ -2175,13 +2175,18 @@ export function zoneBounds(
 const PAST_THE_EDGE_MM = 0.05;
 /** How many places are tried before a push gives up, leaving the tables where they are. */
 const PUSH_TRIES = 400;
+/** How many table-and-zone pairs a push may look at before it gives up: a drag asks it every
+ *  frame, so a thousand tables over a hall of pillars must not take more than a few milliseconds. */
+const PUSH_PAIRS = 60_000;
 
 /**
  * The move that takes tables off every no-table zone they stand on, together, to the nearest place
  * clear of all of them with every centre inside the hall; no move when they stand clear, or when
  * no such place is found. Tried nearest first: from where they stand, each zone a table meets
  * offers four ways off it (past each of its edges), and a way that lands on another zone offers
- * that zone's ways in turn. Touching a zone is clear of it.
+ * that zone's ways in turn. Touching a zone is clear of it. It looks at no more than `PUSH_PAIRS`
+ * table and zone pairs, only the zones the tables' whole box meets at each place tried, and gives up
+ * past that.
  */
 export function offZones(
   shapes: readonly (readonly PointMm[])[],
@@ -2191,7 +2196,9 @@ export function offZones(
   const still: MoveMm = { dxMm: 0, dyMm: 0 };
   if (!shapes.length || !zones.length) return still;
   const boxes = shapes.map(boxOfPoints);
+  const all = unionOf(boxes)!;
   const zoneShapes = zones.map(cornersOf);
+  let pairs = 0;
   const centres = shapes.map((shape) => ({
     xMm: shape.reduce((sum, corner) => sum + corner.xMm, 0) / shape.length,
     yMm: shape.reduce((sum, corner) => sum + corner.yMm, 0) / shape.length,
@@ -2205,11 +2212,23 @@ export function offZones(
         centre.yMm + by.dyMm >= 0 &&
         centre.yMm + by.dyMm <= hall.heightMm,
     );
-  /** Each table and zone that meet with the tables moved so. */
-  const meeting = (by: MoveMm) => {
+  /** Each table and zone that meet with the tables moved so; null once the pairs are spent. */
+  const meeting = (by: MoveMm): [number, number][] | null => {
     const met: [number, number][] = [];
+    // Only the zones the tables' whole box meets there can meet a table.
+    const near = zones.flatMap((zone, j) =>
+      all.right + by.dxMm <= zone.left ||
+      all.left + by.dxMm >= zone.right ||
+      all.bottom + by.dyMm <= zone.top ||
+      all.top + by.dyMm >= zone.bottom
+        ? []
+        : [j],
+    );
+    pairs += near.length * boxes.length;
+    if (pairs > PUSH_PAIRS) return null;
     boxes.forEach((box, i) => {
-      zones.forEach((zone, j) => {
+      near.forEach((j) => {
+        const zone = zones[j];
         if (
           box.right + by.dxMm <= zone.left ||
           box.left + by.dxMm >= zone.right ||
@@ -2238,6 +2257,7 @@ export function offZones(
     seen.add(key);
     if (!inside(by)) continue;
     const met = meeting(by);
+    if (met === null) return still;
     if (!met.length) return by;
     for (const [i, j] of met) {
       const box = boxes[i];

@@ -6,6 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+import { defineComponent, h, ref } from 'vue';
 import type { FloorplanObject, FloorplanTable, FloorplanZone } from '@/assets/types/datatypes';
 import LayoutPanelZones from '@/components/layout/LayoutPanelZones.vue';
 import { saidZoneAdded, saidZoneRemoved } from '@/components/layout/layoutAnnouncements';
@@ -128,6 +129,25 @@ describe('the way off the no-table zones', () => {
     const moved = shapeAt(25_000 + by.dxMm, 10_300 + by.dyMm);
     expect([zones[0], pillar].some((zone) => shapesOverlap(moved, cornersOf(zone)))).toBe(false);
     expect(Math.hypot(by.dxMm, by.dyMm)).toBeLessThan(2000);
+  });
+
+  it('gives up quickly where a thousand tables cannot be cleared of a hundred zones', () => {
+    // A select-all drag over a hall of pillars: 1,000 tables 25 to a row, 100 pillars among them.
+    const many = Array.from({ length: 1000 }, (_, n) =>
+      shapeAt(2000 + (n % 25) * 2200, 2000 + Math.floor(n / 25) * 1500),
+    );
+    const pillars = Array.from({ length: 100 }, (_, n) => {
+      const x = 2500 + (n % 10) * 5000;
+      const y = 2300 + Math.floor(n / 10) * 3000;
+      return { left: x, top: y, right: x + 800, bottom: y + 800 };
+    });
+    const tall = { widthMm: 60_000, heightMm: 64_000 };
+    // The clock the suite fakes would read no time at all.
+    vi.useRealTimers();
+    const started = performance.now();
+    expect(offZones(many, pillars, tall)).toEqual({ dxMm: 0, dyMm: 0 });
+    // A drag asks it every frame: it must stay well inside one.
+    expect(performance.now() - started).toBeLessThan(20);
   });
 
   it('never takes a centre out of the hall', () => {
@@ -296,6 +316,27 @@ describe('the No-table zones card', () => {
     await wrapper.findAll('[data-testid="layout-zone-remove"]')[0].trigger('click');
     expect(wrapper.emitted('remove')).toEqual([['zone-stage']]);
     expect((document.activeElement as HTMLElement).dataset.zoneId).toBe('zone-pillar');
+    wrapper.unmount();
+  });
+
+  it('keeps the focus in the card when the last zone is removed', async () => {
+    const zones = ref<FloorplanZone[]>([STAGE]);
+    const Host = defineComponent({
+      setup: () => () =>
+        h(LayoutPanelZones, {
+          zones: zones.value,
+          onRemove: (id: string) => {
+            zones.value = zones.value.filter((zone) => zone.id !== id);
+          },
+        }),
+    });
+    const wrapper = mount(Host, { attachTo: document.body });
+    const remove = wrapper.get('[data-testid="layout-zone-remove"]');
+    (remove.element as HTMLElement).focus();
+    await remove.trigger('click');
+    await flushPromises();
+
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('layout-panel-zones');
     wrapper.unmount();
   });
 

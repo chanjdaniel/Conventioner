@@ -106,6 +106,15 @@ const roundedPoint = (point: PointMm): PointMm => ({
   yMm: roundMm(point.yMm),
 });
 
+/** How `write` takes a write that does not land. */
+export interface WriteOptions {
+  /** Put the layout back as it was and keep nothing unsaved, as for a replaced image, which the
+   *  page deletes when it is given up; unsaid, the working copy keeps the change for Retry. */
+  rollBack?: boolean;
+  /** Told the sentence of a write rolled back, which the save state then no longer says. */
+  onRefused?: (sentence: string) => void;
+}
+
 export interface LayoutEditorOptions {
   /** The write: the layout and the revision it was read at, answered with the layout as stored. */
   save: (layout: FloorplanObject, revision: number) => Promise<SavedLayout>;
@@ -153,7 +162,7 @@ export interface LayoutEditor {
   /** Drop the working copy for the server's, as Reload does after a stale save. */
   reload(stored: FloorplanObject | null): void;
   /** Write the layout's own fields (its start, its image, its scale) at once, outside undo. */
-  write(next: FloorplanObject): Promise<boolean>;
+  write(next: FloorplanObject, options?: WriteOptions): Promise<boolean>;
   addTables(tables: readonly NewTable[]): string[];
   moveTables(ids: readonly string[], dxMm: number, dyMm: number): void;
   turnTables(ids: readonly string[], degrees: number, about?: PointMm): void;
@@ -313,9 +322,11 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     if (stored && stored.revision > revision && !autosave.unsaved.value && !gesture) take(stored);
   }
 
-  async function write(next: FloorplanObject): Promise<boolean> {
+  async function write(next: FloorplanObject, how: WriteOptions = {}): Promise<boolean> {
     await autosave.flush();
     if (stale.value) return false;
+    // What a roll back may forget: nothing, when an earlier change is still unsaved.
+    const alreadyUnsaved = autosave.unsaved.value;
     if (!layout.value || layout.value.id !== next.id) {
       take(null);
       revision = 0;
@@ -323,10 +334,17 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     const before = layout.value;
     layout.value = { ...next, ...(before ? stepOf(before) : {}) };
     touch();
-    const landed = (await autosave.flush()) === null;
+    const refused = await autosave.flush();
+    const landed = refused === null;
     // A write refused as stale never can land, so the page shows the layout as it read it, with
-    // Reload; one that failed otherwise stays in the working copy for Retry to send.
+    // Reload; one that failed otherwise stays in the working copy for Retry to send, unless it is
+    // to be rolled back.
     if (!landed && stale.value) layout.value = before;
+    else if (!landed && how.rollBack) {
+      how.onRefused?.(refused);
+      layout.value = before;
+      if (!alreadyUnsaved) autosave.forget();
+    }
     return landed;
   }
 

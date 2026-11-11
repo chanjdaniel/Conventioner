@@ -8,8 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import type { FloorplanObject, TableTypeObject } from '@/assets/types/datatypes';
 import LayoutPanelTypes from '@/components/layout/LayoutPanelTypes.vue';
+import { api } from '@/utils/api';
 import {
   LayoutNotSaved,
+  listSavedTypes,
   sideIn,
   sizeInWords,
   tablesOfEachType,
@@ -136,6 +138,27 @@ describe('a saved set of types', () => {
       SIX_FOOT,
       { id: 'new-1', name: 'Round 5 ft', widthMm: 1520, depthMm: 1520 },
     ]);
+  });
+});
+
+describe('the saved sets listed', () => {
+  it("are the person's own alone where they are not in the market's organization", async () => {
+    const get = vi.spyOn(api, 'get').mockResolvedValue({
+      data: { templates: [{ id: 't1', name: 'Mine', tableTypes: [] }] },
+    });
+    const listed = await listSavedTypes(null);
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(listed.map((one) => one.name)).toEqual(['Mine']);
+    get.mockRestore();
+  });
+
+  it("are the organization's too, each once, the own kept when the organization's fail", async () => {
+    const get = vi
+      .spyOn(api, 'get')
+      .mockResolvedValueOnce({ data: { templates: [{ id: 't1', name: 'Mine', tableTypes: [] }] } })
+      .mockRejectedValueOnce(new Error('403'));
+    expect((await listSavedTypes('org-1')).map((one) => one.name)).toEqual(['Mine']);
+    get.mockRestore();
   });
 });
 

@@ -1367,6 +1367,39 @@ test.describe('Types and zones shape a hall', () => {
     await layout.replaceCancel.click();
     await expect(layout.stage).toBeVisible();
 
+    // Refused as it is taken, the layout stays on its old image and says why; given up then, the
+    // new image is deleted and nothing is left unsaved.
+    await layout.replaceImage.click();
+    const refusedUpload = page.waitForResponse((r) => r.url().includes('/floorplans/upload'));
+    await layout.uploadFileInput.setInputFiles(LAYOUT_FLOORPLAN_PATH);
+    const { gridfs_id: refusedImage } = (await (await refusedUpload).json()) as {
+      gridfs_id: string;
+    };
+    await expect(layout.calibration).toBeVisible();
+    await page.route('**/floorplans/save-to-market', (route) =>
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Every table must stand inside the floorplan.' }),
+      }),
+    );
+    await layout.setScale.click();
+    await expect(page.getByTestId('layout-replace-error')).toHaveText(
+      'Every table must stand inside the floorplan.',
+    );
+    await expect(layout.calibration).toBeVisible();
+    await page.unroute('**/floorplans/save-to-market');
+    await layout.calibrationCancel.click();
+    await expect(layout.stage).toBeVisible();
+    await expect(layout.saveState).toHaveText('Saved');
+    await expect(layout.mapImage).toHaveAttribute('href', /^blob:/);
+    await expect
+      .poll(async () => (await request.get(`${BACKEND_URL}/floorplans/${refusedImage}`)).status())
+      .toBe(404);
+    expect((await storedPlan(request, seeded.marketId)).floorplans[0].imageGridfsId).toBe(
+      before.imageGridfsId,
+    );
+
     await layout.replaceImage.click();
     await layout.uploadFileInput.setInputFiles(LAYOUT_FLOORPLAN_PATH);
     await expect(layout.calibration).toBeVisible();
