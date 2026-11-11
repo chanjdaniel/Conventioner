@@ -27,7 +27,7 @@ import { marketPath } from '@/utils/market';
 import { calendarToday } from '@/utils/marketGuide';
 import type { MarketStats } from '@/utils/marketStats';
 import { money } from '@/utils/payments';
-import { getShortDate } from '@/utils/utils';
+import { getShortDate, plural } from '@/utils/utils';
 
 /** The Assignments page's figures, as the server counts them. */
 export interface PlacementHeadlines {
@@ -73,10 +73,6 @@ export interface Tile {
   link: TileLink | null;
 }
 
-function plural(count: number, one: string, many: string): string {
-  return count === 1 ? one : many;
-}
-
 /** A link to `route`, or none for a zero. */
 function unlessZero(count: number, route: RouteLocationRaw): TileLink | null {
   return count ? { route } : null;
@@ -110,7 +106,7 @@ export function statsHeadlines(
           {
             id: 'used',
             figure: String(placements.tableDaysUsed),
-            words: `of ${placements.tableDays} ${plural(placements.tableDays, 'table-day', 'table-days')} used`,
+            words: `of ${plural(placements.tableDays, 'table-day', 'table-days')} used`,
             link: { route: marketPath(marketId, 'assignments') },
           },
         ]
@@ -154,7 +150,7 @@ export function statsHeadlines(
         tiles.push({
           id: 'asked',
           figure: String(asked),
-          words: `of ${tables} ${plural(tables, 'table-day', 'table-days')} asked`,
+          words: `of ${plural(tables, 'table-day', 'table-days')} asked`,
           link: { section: 'stats-room' },
         });
       }
@@ -207,7 +203,7 @@ export function statsHeadlines(
               {
                 id: 'came' as const,
                 figure: String(stats.checkIn.came),
-                words: `${plural(stats.checkIn.came, 'vendor', 'vendors')} came`,
+                words: stats.checkIn.came === 1 ? 'vendor came' : 'vendors came',
                 link: { route: attendance },
               },
             ]

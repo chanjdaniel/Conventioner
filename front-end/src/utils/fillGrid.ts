@@ -8,6 +8,7 @@
  * a total row, and each cell's step, the shade it is drawn in and the words a screen reader hears
  * in its place, so the shade is never the only carrier.
  */
+import { figure } from '@/utils/roomRows';
 import { getShortDate } from '@/utils/utils';
 
 export interface FillCell {
@@ -39,7 +40,7 @@ export interface FillCounts {
 export type FillStep = 'none' | 'third' | 'two-thirds' | 'nearly' | 'full';
 
 /** Each step in words, said in the cell for a screen reader. */
-export const FILL_STEP_WORDS: Record<FillStep, string> = {
+const FILL_STEP_WORDS: Record<FillStep, string> = {
   none: 'empty',
   third: 'a third full or less',
   'two-thirds': 'two thirds full or less',
@@ -133,9 +134,4 @@ export function fillGrid(fill: FillCounts | null): FillGridModel | null {
 
 function sum(values: number[]): number {
   return values.reduce((a, b) => a + b, 0);
-}
-
-/** A count of tables: "1,250". */
-function figure(n: number): string {
-  return n.toLocaleString('en-US');
 }

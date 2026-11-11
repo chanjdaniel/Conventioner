@@ -84,6 +84,11 @@ export function getDateRange(dates: readonly string[] | undefined | null): strin
   return pair(first, last, '-', ' - ') + extra;
 }
 
+/** A count and its noun, singular for one: "1 row", "3 table-days". */
+export function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
 /** A day's milliseconds, for UTC day arithmetic. */
 export const DAY_MS = 24 * 60 * 60 * 1000;
 

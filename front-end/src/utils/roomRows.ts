@@ -123,6 +123,6 @@ function card(
 }
 
 /** A count of tables, a half included: "12.5", "1,250". */
-function figure(n: number): string {
+export function figure(n: number): string {
   return n.toLocaleString('en-US');
 }

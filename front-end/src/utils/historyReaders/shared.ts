@@ -29,6 +29,8 @@ import type {
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { getShortDate } from '@/utils/utils';
+
+export { plural } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 
 export type Detail = Record<string, unknown>;
@@ -110,10 +112,6 @@ export function asDetail(value: unknown): Detail {
 
 export function str(value: unknown): string {
   return value === null || value === undefined ? '' : String(value);
-}
-
-export function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
 }
 
 export function day(value: unknown): string {
