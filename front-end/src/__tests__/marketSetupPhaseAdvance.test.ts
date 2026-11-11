@@ -7,8 +7,9 @@ import PhaseRail from '@/components/PhaseRail.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 import { marketRoute, marketRouter, serveMarket } from './support/marketScreen';
 import { useMarketStore } from '@/stores/market';
+import OpenApplicationsDialog from '@/components/market/OpenApplicationsDialog.vue';
 
-const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
+const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), post: vi.fn() }));
 
 vi.mock('vue-router', () => ({
   useRouter: () => marketRouter(),
@@ -60,7 +61,9 @@ beforeEach(() => {
   setActivePinia(createPinia());
   api.get.mockReset();
   api.put.mockReset();
+  api.post.mockReset();
   api.put.mockResolvedValue({ data: {} });
+  api.post.mockResolvedValue({ data: {} });
   serveMarket(api.get, SAVED_DRAFT);
 });
 
@@ -68,7 +71,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function mountThePlan() {
+async function mountThePlan(stubs: Record<string, boolean> = {}) {
   vi.useFakeTimers();
   // The plan tab owns the cards since E18/F02/S01, and the setting container renders the slot
   // each editor lives in - both have to be real or there is nothing to emit an edit from.
@@ -82,6 +85,7 @@ async function mountThePlan() {
         ElementSettingContainer: {
           template: '<div><slot name="setting-title" /><slot name="setting-content" /></div>',
         },
+        ...stubs,
       },
     },
   });
@@ -137,5 +141,46 @@ describe('advancing a phase does not discard the organizer\u2019s unsaved plan',
     await vi.advanceTimersByTimeAsync(0);
 
     expect(wrapper.findComponent(PhaseRail).props('market')?.phase).toBe('applications');
+  });
+});
+
+describe('a move over a plan that did not save', () => {
+  /** Edit the plan, have its save fail on the wire, and open applications from the rail. */
+  async function openOverAFailedSave() {
+    serveMarket(api.get, { ...SAVED_DRAFT, intakeMode: 'form' });
+    api.put.mockRejectedValue({ isAxiosError: true, response: undefined });
+    const wrapper = await mountThePlan({ PhaseRail: false, teleport: true });
+
+    wrapper.findComponent(ElementMarketDates).vm.$emit('update:setupObject', PLANNED_SETUP);
+    await wrapper.vm.$nextTick();
+    // The reviewers are as ticked, so the rail makes the move.
+    wrapper.findComponent(OpenApplicationsDialog).vm.$emit('chosen', false);
+    await vi.advanceTimersByTimeAsync(0);
+    return wrapper;
+  }
+
+  it('posts no transition, and the rail says why', async () => {
+    const wrapper = await openOverAFailedSave();
+
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.post).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="phase-rail-error"]').text()).toBe(
+      'The market did not move, because the plan did not save. ' +
+        'You seem to be offline. Check the connection and try again.',
+    );
+  });
+
+  it('posts the transition once the plan saves', async () => {
+    serveMarket(api.get, { ...SAVED_DRAFT, intakeMode: 'form' });
+    const wrapper = await mountThePlan({ PhaseRail: false, teleport: true });
+
+    wrapper.findComponent(ElementMarketDates).vm.$emit('update:setupObject', PLANNED_SETUP);
+    await wrapper.vm.$nextTick();
+    wrapper.findComponent(OpenApplicationsDialog).vm.$emit('chosen', false);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(api.post).toHaveBeenCalledWith('/markets/market-1/transition', {
+      toPhase: 'applications',
+    });
   });
 });

@@ -36,7 +36,17 @@ describe('a refusal', () => {
 
   it.each([
     ['the Discord card', 'components/market/MarketDiscordCard.vue', '.discord-error'],
-    ["Market Setup's plan", 'views/MarketSetupView.vue', '.plan-save-status--error'],
+    // The plan's status line (T271) draws a save that failed on the way and one the server refused.
+    [
+      "Market Setup's failed plan save",
+      'components/market/PlanSaveStatus.vue',
+      '.plan-save-status--failed',
+    ],
+    [
+      "Market Setup's refused plan save",
+      'components/market/PlanSaveStatus.vue',
+      '.plan-save-status--refused',
+    ],
   ])('reads in the same red on %s', (_where, file, selector) => {
     expect(colourOf(file, selector)).toBe(red);
   });

@@ -40,8 +40,13 @@ import { MARKET_PAGES, pageOfRoute, tabOf, type MarketPage } from '@/utils/marke
 
 const props = defineProps<{
   market: Market | null;
-  /** Awaited before any transition is posted: the plan flushes its pending edits here. */
-  beforeTransition?: () => Promise<void> | void;
+  /**
+   * Awaited before any transition is posted: the plan flushes its pending edits here, and a
+   * sentence answered stops the move (`PhaseRail`'s prop of the same name).
+   */
+  beforeTransition?: () => Promise<string | null | void> | string | null | void;
+  /** Asked when a move is pressed, before any dialog: a sentence refuses it (`PhaseRail`'s prop). */
+  refuseMove?: () => string | null;
 }>();
 
 /** After the market is asked for again: a screen that loads data of its own asks for that too. */
@@ -133,7 +138,11 @@ onBeforeUnmount(() => observer?.disconnect());
           :market="market"
         />
         <template v-if="market">
-          <PhaseRail :market="market" :beforeTransition="beforeTransition" />
+          <PhaseRail
+            :market="market"
+            :beforeTransition="beforeTransition"
+            :refuseMove="refuseMove"
+          />
           <!-- The open tab's pages, when it has more than one: Settings, Assignments, Vendors and
                Payments (E22/F04/S03; E44/F02/S01). -->
           <MarketPages :market="market" />
