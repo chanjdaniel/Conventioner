@@ -117,8 +117,6 @@ test.describe('Market pipeline E2E', () => {
       getFormattedDate(MARKET_DATE) as string,
     );
 
-    await setupPage.selectManualPath();
-
     // Tiers are no longer pre-filled from an uploaded spreadsheet's cell values, so the
     // organizer names the one this market runs.
     await setupPage.addTier('Gold', 0);

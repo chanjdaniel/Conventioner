@@ -6,18 +6,9 @@ import type {
   PlaywrightWorkerOptions,
   TestType,
 } from '@playwright/test';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import {
-  expect,
-  TEST_USER,
-  NO_ORG_USER,
-  BACKEND_URL,
-  APP_API,
-  CsvImportPage,
-  FloorplanWorkflowPage,
-} from '../fixtures';
+import { expect, TEST_USER, NO_ORG_USER, BACKEND_URL, APP_API, CsvImportPage } from '../fixtures';
 import { EmailVerificationPage } from '../pages/EmailVerificationPage';
+import { LayoutPage } from '../pages/LayoutPage';
 import { MarketsPage } from '../pages/MarketsPage';
 import { OrganizationsPage } from '../pages/OrganizationsPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
@@ -241,57 +232,21 @@ const changingAMarketRole = async (page: Page, seed: TheScreensSeed) => {
 
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
 
-/** The floor plan the floorplan specs upload: an 800x600 hall, fixture data. */
-const FLOORPLAN = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-  'fixtures',
-  'test-floorplan.png',
-);
-
 /**
- * The draft's floorplan wizard with its plan uploaded, at one of its steps (E38/F01/S01). The
- * market-days market's wizard is settled and draws no field, so these walk the draft's; nothing is
- * saved, so the draft's plan is the seed's.
+ * A location's layout (T257) at one of its steps: the draft's first location, whose layout has not
+ * begun, on its upload's drop zone; and the layout seed's Upper Hall, its floorplan uploaded and its
+ * scale not yet set, calibrating. Nothing is saved, so each walk finds them as seeded.
  */
-function floorplanAt(stage: 'calibrating' | 'table types' | 'sections' | 'ready' | 'saving') {
+function layoutAt(stage: 'upload' | 'calibrating') {
   return async (page: Page, seed: TheScreensSeed) => {
-    const wizard = new FloorplanWorkflowPage(page);
-    await wizard.goto(seed.draft.marketId);
-    if (stage === 'calibrating') {
-      await wizard.waitForWizard();
-      await wizard.uploadFloorplanImage(FLOORPLAN);
-      await wizard.waitForUploadComplete();
-      await wizard.clickNext();
-      await wizard.calibrateStage.waitFor({ state: 'visible', timeout: 10000 });
-      await wizard.drawCalibrationLine();
-      await visible(page, 'scale-calibration-length-input');
+    const layout = new LayoutPage(page);
+    if (stage === 'upload') {
+      await layout.goto(seed.draft.marketId);
+      await expect(layout.uploadDropzone).toBeVisible();
       return;
     }
-    if (stage === 'table types') {
-      await wizard.reachTableTypes(FLOORPLAN);
-      await wizard.tableTypeAddBtn.click();
-      await expect(wizard.tableTypeNameInput).toBeVisible();
-      return;
-    }
-    if (stage === 'sections') {
-      await wizard.reachTableTypes(FLOORPLAN);
-      await wizard.addTableType('6ft Table', '1800', '900');
-      await wizard.setAutoPlaceCount(4);
-      await wizard.autoPlaceTables();
-      await wizard.waitForNextEnabled();
-      await wizard.clickNext();
-      await wizard.sectionGroupToggle.waitFor({ state: 'visible', timeout: 10000 });
-      await wizard.groupAllTablesIntoSection('Main', 'Main Hall');
-      await page.getByRole('button', { name: /^Sections/ }).click();
-      await expect(page.getByRole('button', { name: /^Sections/ })).toHaveAttribute(
-        'aria-expanded',
-        'true',
-      );
-      return;
-    }
-    await wizard.reachSaveStep(FLOORPLAN);
-    if (stage === 'saving') await wizard.openSaveDialog();
+    await layout.goto(seed.layout.marketId, seed.layout.upper.id);
+    await expect(layout.calibrationMap.locator('image')).toHaveAttribute('href', /^blob:/);
   };
 }
 
@@ -1233,58 +1188,25 @@ export const SCREENS: Screen[] = [
     // Before publishing the door is a note, so the rail is what the state waits on.
     open: at(screen(market, 'attendance'), 'phase-rail-current'),
   })),
+  // A layout past draft, with no floorplan: read, with nothing to upload.
   {
-    name: 'the floorplan',
+    name: 'the layout, past draft',
     who: 'organizer',
-    sizes: ORGANIZER,
-    open: at(screen('big', 'floorplan'), 'market-bar-title'),
+    sizes: FITS_A_PHONE,
+    open: at(screen('big', 'layout'), 'layout-no-floorplan'),
   },
-  // Its upload step is the app's one drop zone (T205), so it is walked at a phone's width too.
+  // Its upload step is the app's one drop zone (T205), and the page fits a phone (T257).
   {
-    name: 'the floorplan, its upload step',
+    name: 'the layout, its upload step',
     who: 'organizer',
-    sizes: ORGANIZER,
-    open: async (page, seed) => {
-      await new FloorplanWorkflowPage(page).goto(seed.draft.marketId);
-      await visible(page, 'floorplan-upload-dropzone');
-    },
-  },
-  // The floorplan beta's wizard is laid out for a desk: at a phone's width its calibration field
-  // is off the screen, so its steps cannot be walked there.
-  {
-    name: 'the floorplan, calibrating',
-    who: 'organizer',
-    sizes: ORGANIZER,
-    deskOnly: true,
-    open: floorplanAt('calibrating'),
+    sizes: FITS_A_PHONE,
+    open: layoutAt('upload'),
   },
   {
-    name: 'the floorplan, adding a table type',
+    name: 'the layout, calibrating',
     who: 'organizer',
-    sizes: ORGANIZER,
-    deskOnly: true,
-    open: floorplanAt('table types'),
-  },
-  {
-    name: 'the floorplan, its sections listed',
-    who: 'organizer',
-    sizes: ORGANIZER,
-    deskOnly: true,
-    open: floorplanAt('sections'),
-  },
-  {
-    name: 'the floorplan, ready to save',
-    who: 'organizer',
-    sizes: ORGANIZER,
-    deskOnly: true,
-    open: floorplanAt('ready'),
-  },
-  {
-    name: 'the floorplan, saving',
-    who: 'organizer',
-    sizes: ORGANIZER,
-    deskOnly: true,
-    open: floorplanAt('saving'),
+    sizes: FITS_A_PHONE,
+    open: layoutAt('calibrating'),
   },
   {
     name: 'market days, the plan',

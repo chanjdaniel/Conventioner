@@ -1,5 +1,3 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import { eachWindow, openEntry } from './helpers/componentLibrary';
@@ -15,10 +13,11 @@ import {
   PLAN_SECTIONS,
 } from './helpers/seedApplicantMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { seedLayout } from './helpers/seeds';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { ApplicationFormPage } from './pages/ApplicationFormPage';
-import { FloorplanWorkflowPage } from './pages/FloorplanWorkflowPage';
+import { LayoutPage } from './pages/LayoutPage';
 import { UpdateInfoDialog } from './pages/UpdateInfoDialog';
 
 /**
@@ -345,13 +344,8 @@ for (const size of WINDOWS) {
   });
 }
 
-const FLOORPLAN_PATH = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  'fixtures',
-  'test-floorplan.png',
-);
-
-/** The form builder and the floorplan are desk pages: on a phone they lay out at the app's floor. */
+/** The form builder and a layout's calibration are edited at a desk (the layout is read on a
+ * phone, T257), so they are walked at a desk's width. */
 test.describe('the editors, at a desk', () => {
   test.use(WINDOWS[0].use);
 
@@ -396,29 +390,18 @@ test.describe('the editors, at a desk', () => {
     expect((await preview.boundingBox())!.height).toBeCloseTo(32, 1);
   });
 
-  test('its Unit and the fields around it are one kind of field', async ({
+  test("a layout calibration's Unit and its Length are one kind of field", async ({
     authenticatedPage: page,
     request,
   }) => {
-    const { marketId } = await seedDraftMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
-    const floorplan = new FloorplanWorkflowPage(page);
-    await floorplan.goto(marketId);
-    await floorplan.reachTableTypes(FLOORPLAN_PATH);
-    await floorplan.tableTypeAddBtn.click();
+    const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      layout: true,
+    });
+    const layout = new LayoutPage(page);
+    await layout.goto(seeded.marketId, seeded.upper.id);
+    await expect(layout.calibrationMap).toBeVisible();
 
-    const fields = [
-      floorplan.tableTypeNameInput,
-      floorplan.tableTypeWidthInput,
-      floorplan.tableTypeHeightInput,
-    ];
-    const unit = page.locator('#tt-unit');
-    await expectTheChevron(unit);
-
+    await expectTheChevron(layout.unit);
     const drawn = (control: Locator) =>
       control.evaluate((element) => {
         const style = getComputedStyle(element);
@@ -432,18 +415,6 @@ test.describe('the editors, at a desk', () => {
           paddingLeft: style.paddingLeft,
         };
       });
-    const look = await drawn(unit);
-    for (const field of fields) expect(await drawn(field)).toEqual(look);
-
-    // A refused size marks the three fields red, and the Unit stays as it was.
-    await floorplan.tableTypeNameInput.fill('Six-foot');
-    await floorplan.tableTypeWidthInput.fill('-1');
-    await floorplan.tableTypeHeightInput.fill('1');
-    await floorplan.tableTypeSaveBtn.click();
-    const error = page.locator('.tt-error');
-    await expect(error).toHaveText('Width must be a positive number.');
-    const red = await error.evaluate((element) => getComputedStyle(element).color);
-    for (const field of fields) expect((await drawn(field)).color).toBe(red);
-    expect((await drawn(unit)).color).toBe(look.color);
+    expect(await drawn(layout.length)).toEqual(await drawn(layout.unit));
   });
 });

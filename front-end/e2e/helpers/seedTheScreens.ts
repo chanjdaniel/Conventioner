@@ -15,7 +15,9 @@ import {
   ensureTestOrgAuthenticated,
   loginViaApi,
   marketNameToSlug,
+  seedLayout,
   seedPublishedMarketWithAssignments,
+  type SeededLayout,
 } from './seeds';
 import { uniqueMarketName } from './uniqueName';
 import { ensureVerifiedUser } from './verifiedUser';
@@ -43,6 +45,8 @@ export interface SeededMarket {
 export interface TheScreensSeed {
   /** A draft with a 70-character name, a four-date, three-section plan and a long form. */
   draft: SeededMarket;
+  /** A draft whose Upper Hall layout has its floorplan and no scale yet (T257, `seedLayout`). */
+  layout: SeededLayout;
   /** Taking applications on its own page: 40 applications in every review state. */
   open: SeededMarket;
   /** Its own page no longer taking applications (E38/F04/S02), the same applications. */
@@ -757,8 +761,11 @@ export async function seedTheScreens(
   const { id: organizationId, ...organization } = await organizationWithPeople(api, backend);
   const ofTheOrganization = await organizationMarket(api, backend, email, organizationId);
 
+  const layout = await seedLayout(api, backend, email, password, { layout: true });
+
   return {
     draft,
+    layout,
     open,
     closed,
     review,

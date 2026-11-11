@@ -218,7 +218,7 @@ test.describe('Every market page has its own address', () => {
   test('the flows carry the bar with their tab active', async ({ authenticatedPage: page }) => {
     await page.goto(at(assigned, 'import'));
     await activeTab(page, 'applications');
-    await page.goto(at(assigned, 'floorplan'));
+    await page.goto(at(assigned, 'layout'));
     await activeTab(page, 'setup');
   });
 

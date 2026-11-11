@@ -60,7 +60,7 @@ test.describe('One market, from the server', () => {
   test('a market that does not exist reads as one this organizer cannot reach', async ({
     authenticatedPage: page,
   }) => {
-    for (const screen of ['assignments', 'floorplan'] as const) {
+    for (const screen of ['assignments', 'layout'] as const) {
       await page.goto(marketScreenPath('no-such-market', screen));
 
       await expect(page.getByTestId('market-arrival-missing')).toHaveText(

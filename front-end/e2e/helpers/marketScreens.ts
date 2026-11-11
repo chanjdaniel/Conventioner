@@ -35,7 +35,7 @@ export function marketScreenPath(
     | 'tools'
     | 'stats'
     | 'import'
-    | 'floorplan',
+    | 'layout',
 ): string {
   return `/markets/${encodeURIComponent(marketId)}/${screen}`;
 }

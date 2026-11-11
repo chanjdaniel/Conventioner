@@ -28,10 +28,6 @@ export class MarketSetupPage {
   // Wizard navigation
   readonly assignButton: Locator;
 
-  // Page 1: Path choice overlay
-  readonly choosePathButton: Locator;
-  readonly choosePathManualCard: Locator;
-
   // Page 1: Locations
   readonly locationAddButton: Locator;
 
@@ -72,9 +68,6 @@ export class MarketSetupPage {
     this.page = page;
 
     this.assignButton = page.getByTestId('market-setup-assign-button');
-
-    this.choosePathButton = page.getByTestId('market-setup-choose-path-button');
-    this.choosePathManualCard = page.getByTestId('choose-path-manual');
 
     this.locationAddButton = page.getByTestId('setup-location-add-button');
 
@@ -306,23 +299,6 @@ export class MarketSetupPage {
   }
 
   // --- Page 1: Path choice ---
-
-  /** Select the Manual Setup path from the ChoosePathOverlay. */
-  /**
-   * Say that this market's sections are described by hand.
-   *
-   * The overlay used to open by itself on the wizard's sections page. On the one-page plan
-   * editor (E10/F02/S01) it is offered from the Section Setup card instead, because an overlay
-   * that opens by itself covers the dates the organizer is in the middle of typing. Describing
-   * them by hand is what happens if nobody opens it at all, so this is a no-op when the offer is
-   * already gone.
-   */
-  async selectManualPath(): Promise<void> {
-    if (!(await this.choosePathButton.isVisible().catch(() => false))) return;
-    await this.choosePathButton.click();
-    await this.choosePathManualCard.click();
-    await this.choosePathManualCard.waitFor({ state: 'hidden' }).catch(() => {});
-  }
 
   // --- Page 1: Locations ---
 

@@ -124,7 +124,6 @@ test.describe('The MVP journey', () => {
 
     // One page, no paging (E10/F02/S01): dates, then tiers and sections, then the options, all in
     // view at once.
-    await setup.selectManualPath();
     await setup.addTier(TIER, 0);
     await setup.addLocation(LOCATION, 0);
     await setup.addSection(SECTIONS[0], LOCATION, TIER, 2, 0);
@@ -247,7 +246,6 @@ test.describe('The MVP journey', () => {
     const marketId = await newMarket.waitForSetupRedirect();
     await setup.waitForWizard();
     await setup.addMarketDate(MARKET_DATES[0]);
-    await setup.selectManualPath();
     await setup.addTier(TIER, 0);
     await setup.addLocation(LOCATION, 0);
     await setup.addSection(SECTIONS[0], LOCATION, TIER, 2, 0);

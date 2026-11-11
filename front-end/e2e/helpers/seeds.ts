@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 import type { APIRequestContext } from '@playwright/test';
 import { decideReviewSetup } from './decideReviewSetup';
 import { savePlan } from './savePlan';
@@ -481,4 +483,111 @@ export async function seedPublishedMarketWithAssignments(
   await transitionTo('market_days');
 
   return { marketId, userId, marketName, orgId, marketSlug };
+}
+
+/** The floor plan the layout specs upload: an 800 x 600 px hall, fixture data. */
+export const LAYOUT_FLOORPLAN_PATH = fileURLToPath(
+  new URL('../fixtures/test-floorplan.png', import.meta.url),
+);
+
+/** The two halls `seedLayout` gives its market, and their sections. */
+export const UPPER_HALL = { id: 'loc-upper-hall', name: 'Upper Hall' };
+export const LOWER_HALL = { id: 'loc-lower-hall', name: 'Lower Hall' };
+
+export interface SeededLayout {
+  marketId: string;
+  marketName: string;
+  upper: typeof UPPER_HALL;
+  lower: typeof LOWER_HALL;
+  /** Upper Hall's layout, when it was asked for: its id and the revision stored. */
+  layout: { id: string; revision: number } | null;
+}
+
+/**
+ * A draft market with two locations laid out for (T257): Upper Hall with Gold row (13 tables) and
+ * Silver aisle (6), Lower Hall with Bronze corner (4), and a third location with no name, which
+ * offers no layout. Upper Hall's layout is started when asked: its floorplan
+ * `fixtures/test-floorplan.png` uploaded and saved, and calibrated to `metresAcross` when given.
+ * Tables are placed by later tickets' specs.
+ */
+export async function seedLayout(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  password: string,
+  options: { name?: string; layout?: boolean; metresAcross?: number } = {},
+): Promise<SeededLayout> {
+  await loginViaApi(request, baseURL, email, password);
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL);
+  const marketName = options.name ?? uniqueMarketName('Layout Market');
+  const gold = { id: 1, name: 'Gold' };
+  const silver = { id: 2, name: 'Silver' };
+  const created = await request.post(`${baseURL}/markets`, {
+    headers: { 'Content-Type': 'application/json' },
+    data: {
+      name: marketName,
+      creationDate: new Date().toISOString(),
+      organizationId: orgId,
+      roles: { [email]: 'owner' },
+      modificationList: [],
+      assignmentObject: {},
+      setupObject: {
+        ...completePlan(),
+        tiers: [gold, silver],
+        locations: [UPPER_HALL, LOWER_HALL, { id: 'loc-unnamed', name: '' }],
+        sections: [
+          { id: 'sec-gold', name: 'Gold row', location: UPPER_HALL, tier: gold, count: 13 },
+          { id: 'sec-silver', name: 'Silver aisle', location: UPPER_HALL, tier: silver, count: 6 },
+          { id: 'sec-bronze', name: 'Bronze corner', location: LOWER_HALL, tier: silver, count: 4 },
+        ],
+      },
+    },
+  });
+  if (!created.ok())
+    throw new Error(`Market creation failed: ${created.status()} ${await created.text()}`);
+  const { market_id: marketId } = (await created.json()) as { market_id: string };
+
+  let layout: SeededLayout['layout'] = null;
+  if (options.layout || options.metresAcross) {
+    const uploaded = await request.post(`${baseURL}/floorplans/upload`, {
+      multipart: {
+        market_id: marketId,
+        file: {
+          name: 'hall.png',
+          mimeType: 'image/png',
+          buffer: readFileSync(LAYOUT_FLOORPLAN_PATH),
+        },
+      },
+    });
+    if (!uploaded.ok())
+      throw new Error(`Upload failed: ${uploaded.status()} ${await uploaded.text()}`);
+    const image = (await uploaded.json()) as { gridfs_id: string; width: number; height: number };
+    const floorplan = {
+      id: `fp-${marketId}`,
+      locationId: UPPER_HALL.id,
+      revision: 0,
+      imageGridfsId: image.gridfs_id,
+      imageWidth: image.width,
+      imageHeight: image.height,
+      tables: [],
+      zones: [],
+      sectionStyles: [],
+      startingCounts: [],
+      ...(options.metresAcross
+        ? {
+            scalePxPerUnit: image.width / (options.metresAcross * 1000),
+            referenceLineStart: [0, image.height / 2],
+            referenceLineEnd: [image.width, image.height / 2],
+            referenceLineLengthMm: options.metresAcross * 1000,
+          }
+        : {}),
+    };
+    const saved = await request.post(`${baseURL}/floorplans/save-to-market`, {
+      data: { market_id: marketId, floorplan, revision: 0 },
+    });
+    if (!saved.ok()) throw new Error(`Layout save failed: ${saved.status()} ${await saved.text()}`);
+    const answer = (await saved.json()) as { floorplan: { id: string; revision: number } };
+    layout = { id: answer.floorplan.id, revision: answer.floorplan.revision };
+  }
+  return { marketId, marketName, upper: UPPER_HALL, lower: LOWER_HALL, layout };
 }
