@@ -203,6 +203,17 @@ FILTER_CASES = (
     FilterCase("$exists false holds through an empty list", {"a": []},
                {"a.b": {"$exists": False}}, True),
     FilterCase("$exists true on an index", {"a": [1, 2]}, {"a.1": {"$exists": True}}, True),
+    # A layout's writes hold a list as read by its places and the place after it (T257).
+    FilterCase("$exists false on the index past a list's end", {"a": [{"b": 1}]},
+               {"a.1": {"$exists": False}}, True),
+    FilterCase("$exists false on an index the list reaches", {"a": [{"b": 1}, {"b": 2}]},
+               {"a.1": {"$exists": False}}, False),
+    FilterCase("$exists false on an index through a null field", {"a": None},
+               {"a.0": {"$exists": False}}, True),
+    FilterCase("$exists false on an index through a missing field", {},
+               {"a.0": {"$exists": False}}, True),
+    FilterCase("an index then a field equals a float as an integer", {"a": [{"w": 1830}]},
+               {"a.0.w": 1830.0}, True),
 
     # $exists.
     FilterCase("$exists true finds a field", {"a": 5}, {"a": {"$exists": True}}, True),

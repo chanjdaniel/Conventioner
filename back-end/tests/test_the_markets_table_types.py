@@ -212,13 +212,58 @@ class TestTheTypesAreReplaced:
         assert response.get_json() == {"error": LAYOUTS_CHANGED}
         assert market.doc["setupObject"]["tableTypes"][1]["name"] == "Square 4 ft"
 
-    def test_a_market_whose_plan_was_never_saved_takes_types(self, client, market, market_records):
-        market.doc.pop("setupObject")
+    @pytest.mark.parametrize("unsaved", ["absent", "null"])
+    def test_a_market_whose_plan_was_never_saved_takes_types(
+            self, client, market, market_records, unsaved):
+        # A new market stores its plan as null (`create_market`); an older one may have none.
+        if unsaved == "absent":
+            market.doc.pop("setupObject")
+        else:
+            market.doc["setupObject"] = None
 
         response = _put(client, [SIX_FOOT])
 
         assert response.status_code == 200, response.get_json()
         assert [t.name for t in _saved_plan(market).table_types] == ["Standard 6 ft"]
+
+
+class TestAWriteLandingBetweenTheReadAndTheWrite:
+    """The types write holds the layouts as it read them: a layout saved or started between its
+    read and its write refuses it (review of ticket 10)."""
+
+    def _after_the_read(self, market, monkeypatch, land):
+        read = MarketsApi.markets_collection.find_one
+
+        def read_then_land(query, projection=None):
+            found = read(query, projection)
+            land(market.doc["setupObject"])
+            return found
+
+        monkeypatch.setattr(market, "find_one", read_then_land)
+
+    def test_a_locations_first_layout_started_in_between_refuses_it(
+            self, client, market, market_records, monkeypatch):
+        market.doc["setupObject"] = _plan(floorplans=[
+            _layout("fp-upper", "loc-upper", [_table("t-1", 1, "tt-six")])])
+        self._after_the_read(market, monkeypatch, lambda plan: plan["floorplans"].append(
+            _layout("fp-lower", "loc-lower",
+                    [_table("t-2", 1, "tt-square", section="sec-silver")])))
+
+        response = _put(client, [SIX_FOOT])
+
+        assert response.status_code == 409
+        assert [t["id"] for t in market.doc["setupObject"]["tableTypes"]] == [
+            "tt-six", "tt-square"]
+
+    def test_the_first_layout_of_all_started_in_between_refuses_it(
+            self, client, market, market_records, monkeypatch):
+        self._after_the_read(market, monkeypatch, lambda plan: plan["floorplans"].append(
+            _layout("fp-lower", "loc-lower",
+                    [_table("t-2", 1, "tt-square", section="sec-silver")])))
+
+        response = _put(client, [SIX_FOOT])
+
+        assert response.status_code == 409
 
 
 class TestATypeInUseIsNotRemoved:

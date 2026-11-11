@@ -445,6 +445,30 @@ class TestARevisionGuardsEachSave:
         assert market.last_update is None
 
 
+class TestTypesWrittenBetweenTheReadAndTheWrite:
+    """A layout's save writes the plan whole, the table types with it: types written by their own
+    write between its read and its write refuse it rather than being put back (review of ticket
+    10)."""
+
+    def test_the_save_is_refused_and_the_types_kept(self, client, market, market_records,
+                                                     monkeypatch):
+        _with_plan(market, floorplans=[_floorplan(revision=1)])
+        read = market.find_one
+
+        def read_then_types_land(query, projection=None):
+            found = read(query, projection)
+            market.doc["setupObject"]["tableTypes"].append(
+                {"id": "tt-2", "name": "Square 4 ft", "widthMm": 1220, "depthMm": 1220})
+            return found
+
+        monkeypatch.setattr(market, "find_one", read_then_types_land)
+
+        response = _save(client, _floorplan(revision=1), revision=1)
+
+        assert response.status_code == 409
+        assert [t["id"] for t in market.doc["setupObject"]["tableTypes"]] == ["tt-1", "tt-2"]
+
+
 class TestALocationHasOneLayout:
 
     def test_a_second_layout_for_a_location_is_refused(self, client, market, market_records):

@@ -175,7 +175,8 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
          with the sentence for each); then the layout's own rules (``layout.layout_refusal``: its
          location one of the plan's, each section's tables numbered 1 to N, every type the
          market's, every table inside the floorplan; 400 with the sentence). The write holds what
-         step 4 read, so a save landing in between makes it 409 ``STALE_LAYOUT`` too. An image the
+         step 4 read, and the market's table types as it read them, so a save or a write of the
+         types landing in between makes it 409 ``STALE_LAYOUT`` too. An image the
          layout no longer names is deleted.
 
     **Returns** the layout and the plan's sections as stored, so the editor adopts the revision and
@@ -251,7 +252,8 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
     if refused:
         raise BadRequestError(refused)
     written = MarketsApi.markets_collection.update_one(
-        {**market_doc_filter("id", market_id), **_still_as_read(index, held, floorplan)},
+        {**market_doc_filter("id", market_id), **_still_as_read(index, held, floorplan),
+         **prepared.held},
         {"$set": prepared.update})
     if written.matched_count == 0:
         return jsonify({"error": STALE_LAYOUT}), 409

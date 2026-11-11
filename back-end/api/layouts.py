@@ -142,14 +142,17 @@ def _empty_plan() -> SetupObject:
 
 def _layouts_as_read(plan: Optional[SetupObject]) -> Dict[str, Any]:
     """The filter holding the market's layouts as the write read them: each at its place, of its
-    id and its revision, so a layout saved in between makes the write match nothing."""
+    id and its revision, and none after them, so a layout saved or started in between makes the
+    write match nothing."""
     floorplans = f"{market_doc_key('setup_object')}.floorplans"
     held: Dict[str, Any] = {}
-    for index, floorplan in enumerate((plan.floorplans if plan else None) or []):
+    read = (plan.floorplans if plan else None) or []
+    for index, floorplan in enumerate(read):
         held[f"{floorplans}.{index}.id"] = floorplan.id
         # A layout stored before revisions were written has none, which reads as 0.
         held[f"{floorplans}.{index}.revision"] = (
             {"$in": [0, None]} if floorplan.revision == 0 else floorplan.revision)
+    held[f"{floorplans}.{len(read)}"] = {"$exists": False}
     return held
 
 
@@ -195,10 +198,12 @@ def save_table_types(market_id: str, body: Dict[str, Any], requesting_user: str)
     if stored is None:
         # A market whose plan was never saved gains the whole plan, which reads.
         update = {plan_key: written_plan}
-        held = {plan_key: {"$exists": False}}
+        # Null, as a new market stores it, or absent: equality with null matches both.
+        held = {plan_key: None}
     else:
         update = {f"{plan_key}.tableTypes": written_plan["tableTypes"]}
-        held = _layouts_as_read(stored)
+        # The layouts as read, and the types as read, so two writes of the types never cross.
+        held = {**_layouts_as_read(stored), **prepared.held}
     written = MarketsApi.markets_collection.update_one(
         {**market_doc_filter("id", market_id), **held}, {"$set": update})
     if written.matched_count == 0:

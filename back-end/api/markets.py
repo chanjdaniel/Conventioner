@@ -2624,6 +2624,10 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
 
 
 PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
+#: How many times a plan write is made from a fresh read while the table types keep changing under
+#: it, before it is refused with ``PLAN_RACED``.
+PLAN_WRITE_TRIES = 3
+PLAN_RACED = "The market changed while the plan was saved. Try again in a moment."
 
 
 def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> None:
@@ -2649,12 +2653,21 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     if "setupObject" not in body:
         raise BadRequestError("setupObject is required.")
 
-    market, organization = _load_market_and_organization_to_change(
-        market_id, requesting_user, Actions.CHANGE_SETUP)
-    prepared = prepared_plan(market, body)
-    plan, update = prepared.plan, prepared.update
-    Actions.ask_assign_if_the_rules_change(market, plan, requesting_user, organization)
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
+    # The write keeps the stored table types, which have a write of their own: one landing between
+    # this read and this write would be put back, so the write holds them as read, and is made
+    # again from a fresh read when they changed (T257).
+    for _ in range(PLAN_WRITE_TRIES):
+        market, organization = _load_market_and_organization_to_change(
+            market_id, requesting_user, Actions.CHANGE_SETUP)
+        prepared = prepared_plan(market, body)
+        plan, update = prepared.plan, prepared.update
+        Actions.ask_assign_if_the_rules_change(market, plan, requesting_user, organization)
+        written = markets_collection.update_one(
+            {**market_doc_filter("id", market_id), **prepared.held}, {"$set": update})
+        if written.matched_count:
+            break
+    else:
+        raise ConflictError(PLAN_RACED)
     _record_plan(market, plan, update, requesting_user)
     release_removed_floorplans(market, prepared.removed_floorplans, requesting_user)
 
@@ -2722,6 +2735,25 @@ class PreparedPlan(NamedTuple):
     plan: SetupObject
     update: Dict[str, Any]
     removed_floorplans: List[FloorplanObject] = []
+    #: The filter holding the market's table types as this write read them (`table_types_as_read`):
+    #: a write of the whole plan puts in its filter, so types written in between are never put back.
+    held: Dict[str, Any] = {}
+
+
+def table_types_as_read(stored: Optional[SetupObject]) -> Dict[str, Any]:
+    """The filter that matches only while the market holds the table types ``stored`` holds, each
+    at its place by its id, name and sides, and none after them; by value, never by a stored
+    document's key order."""
+    key = f"{market_doc_key('setup_object')}.tableTypes"
+    types = stored.table_types if stored else []
+    held: Dict[str, Any] = {}
+    for index, table_type in enumerate(types):
+        held[f"{key}.{index}.id"] = table_type.id
+        held[f"{key}.{index}.name"] = table_type.name
+        held[f"{key}.{index}.widthMm"] = table_type.width_mm
+        held[f"{key}.{index}.depthMm"] = table_type.depth_mm
+    held[f"{key}.{len(types)}"] = {"$exists": False}
+    return held
 
 
 def _with_the_layouts(
@@ -2838,7 +2870,7 @@ def prepared_plan(
     settled = assignment_rules_lock_reason(market)
     if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
         raise BadRequestError(settled)
-    return PreparedPlan(plan, update, removed_floorplans)
+    return PreparedPlan(plan, update, removed_floorplans, table_types_as_read(market.setup_object))
 
 
 #: Why "Nothing leads the card" is refused beside a marked answer (T206): it would read as decided

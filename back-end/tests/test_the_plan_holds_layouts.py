@@ -236,6 +236,53 @@ class TestThePlanWriteKeepsTheStoredLayouts:
         assert "floorplans" not in entry["detail"]["after"]
 
 
+class TestTypesWrittenBetweenTheReadAndTheWrite:
+    """The plan write ignores the body's table types and keeps the stored ones, so types written
+    by their own write between its read and its write must be the ones it keeps: it reads the
+    market again and writes once more (review of ticket 10)."""
+
+    def test_types_changed_in_between_are_kept_and_the_plan_lands(
+            self, client, market, market_records, monkeypatch):
+        market.doc["setupObject"] = _plan(tableTypes=[SIX_FOOT])
+        square = {"id": "tt-square", "name": "Square 4 ft", "widthMm": 1220, "depthMm": 1220}
+        read = market.find_one
+        landed = []
+
+        def read_then_types_land(query, projection=None):
+            found = read(query, projection)
+            if not landed:
+                landed.append(True)
+                market.doc["setupObject"]["tableTypes"] = [dict(SIX_FOOT), dict(square)]
+            return found
+
+        monkeypatch.setattr(market, "find_one", read_then_types_land)
+
+        response = _put(client, _plan(marketDates=[{"date": "2099-08-09"}]))
+
+        assert response.status_code == 200, response.get_json()
+        assert [t["id"] for t in _stored(market)["tableTypes"]] == ["tt-six", "tt-square"]
+        assert _stored(market)["marketDates"] == [{"date": "2099-08-09"}]
+
+    def test_types_changing_at_every_try_refuse_it(
+            self, client, market, market_records, monkeypatch):
+        market.doc["setupObject"] = _plan(tableTypes=[SIX_FOOT])
+        read = market.find_one
+        widths = iter(range(2000, 2100))
+
+        def read_then_types_land(query, projection=None):
+            found = read(query, projection)
+            market.doc["setupObject"]["tableTypes"] = [{**SIX_FOOT, "widthMm": next(widths)}]
+            return found
+
+        monkeypatch.setattr(market, "find_one", read_then_types_land)
+
+        response = _put(client, _plan(marketDates=[{"date": "2099-08-09"}]))
+
+        assert response.status_code == 409
+        assert response.get_json() == {"error": MarketsApi.PLAN_RACED}
+        assert _stored(market)["marketDates"] == [{"date": "2099-08-01"}]
+
+
 class TestALaidOutSectionCountsItsTables:
 
     def test_the_stored_count_is_the_layouts_whatever_the_write_sent(self, client, market):
