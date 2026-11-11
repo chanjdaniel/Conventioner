@@ -15,6 +15,9 @@
  * on the screen and never past the edge, so focus moves nothing; and in the deep green
  * (`--focus-border-on-fill`), since the edge it lies over is a section's colour, which the plain
  * green shows on only by chance. The focus sweep reads it by its `data-focus-border`.
+ *
+ * A table picked up by keyboard (`carried`) is drawn lifted: a shadow 3 px under it, straight down
+ * the screen however the table is turned, and its selection's outline dashed.
  */
 import { computed } from 'vue';
 import { readsUpsideDown } from './layoutGeometry';
@@ -35,6 +38,8 @@ const props = defineProps<{
   /** The number's size, in millimetres at the map's scale; 0 leaves it out. */
   numberSizeMm: number;
   selected: boolean;
+  /** Picked up by keyboard, in the editor: drawn lifted off the floor. */
+  carried?: boolean;
   /** Whether it is pressed, where a press selects it (the editor); unsaid where it does not. */
   pressed?: boolean;
   /** A button a keyboard reaches, in the read and edit modes; a shape alone in print. */
@@ -72,6 +77,15 @@ const top = computed(() => grown(0));
 const outline = computed(() => grown(0.75 + 3 + 1.25));
 /** The focus border: 2 px over the table's 1.5 px edge, their outer sides together. */
 const focusBorder = computed(() => grown(-0.25));
+
+/** How far under a carried table its shadow lies, in screen pixels. */
+const LIFT_PX = 3;
+/** The shadow's place: down the screen, which in the turned table's own axes is turned back. */
+const shadow = computed(() => {
+  const turn = (-props.rotation * Math.PI) / 180;
+  const by = LIFT_PX * props.mmPerPx;
+  return { ...top.value, transform: `translate(${-by * Math.sin(turn)} ${by * Math.cos(turn)})` };
+});
 </script>
 
 <template>
@@ -85,9 +99,19 @@ const focusBorder = computed(() => grown(-0.25));
     :aria-pressed="interactive ? pressed : undefined"
     :data-table-id="id"
     :data-selected="selected ? '' : undefined"
+    :data-carried="carried ? '' : undefined"
     data-testid="layout-table"
     @focus="emit('focused', id)"
   >
+    <rect
+      v-if="carried"
+      class="layout-table__shadow"
+      data-testid="layout-table-shadow"
+      v-bind="shadow"
+      fill="var(--mm-black)"
+      fill-opacity="0.3"
+      aria-hidden="true"
+    />
     <rect
       class="layout-table__top"
       data-testid="layout-table-top"
@@ -115,6 +139,7 @@ const focusBorder = computed(() => grown(-0.25));
       fill="none"
       stroke="var(--mm-black)"
       stroke-width="2.5"
+      :stroke-dasharray="carried ? '6 4' : undefined"
       vector-effect="non-scaling-stroke"
     />
     <text

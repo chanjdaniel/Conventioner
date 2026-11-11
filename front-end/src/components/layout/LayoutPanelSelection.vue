@@ -12,7 +12,7 @@ import type { FloorplanTable, TableTypeObject } from '@/assets/types/datatypes';
 import RowMenu from '@/components/RowMenu.vue';
 import IconExpandDown from '@/components/icons/IconExpandDown.vue';
 import { plural } from '@/utils/historyReaders/shared';
-import { tableCode, type LayoutSection } from './layoutDrawing';
+import { placeInMetres, tableCode, type LayoutSection } from './layoutDrawing';
 import type { Alignment } from './layoutGeometry';
 
 /** What the Align menu offers: an edge or a centre to line up by, or an even spacing. */
@@ -57,15 +57,13 @@ const codes = computed(() => {
   return more > 0 ? `${all.slice(0, CODES_SHOWN).join(', ')} and ${more} more` : all.join(', ');
 });
 
-const metres = (mm: number) => `${(mm / 1000).toFixed(1)} m`;
-
 /** The one selected table, as the card reads it. */
 const one = computed(() => {
   if (props.tables.length !== 1) return null;
   const table = props.tables[0];
   return {
     code: tableCode(table, sectionOf(table)) ?? NO_SECTION,
-    position: `${metres(table.xMm)}, ${metres(table.yMm)}`,
+    position: placeInMetres(table),
   };
 });
 

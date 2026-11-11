@@ -19,21 +19,49 @@
  * 10% to 800%; Space and a drag, or the middle button, pan; the buttons step the zoom and Fit shows
  * the whole floorplan. Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y undo and redo from anywhere on the page but
  * a field.
+ *
+ * By keyboard: the map is one Tab stop, the arrow keys moving the focus between its tables
+ * (`LayoutMap.vue`), and the view follows the table the keys are on. Enter or Space picks the
+ * focused table up, or the selection when it is one of it (Shift+Enter adds it to the selection or
+ * takes it out instead); picked up, the arrow keys move it 10 cm, or 1 m with Shift, R turns it a
+ * quarter and Shift+R 15°, Enter or Space drops it, as one change, and Escape puts it back. It is
+ * dropped too when the focus leaves the map or a pointer is pressed. With the focus on the map,
+ * Delete or Backspace removes the selection, Ctrl+D duplicates it, + and - zoom and 0 fits the
+ * floorplan; R, Delete and Ctrl+D act on the focused table where nothing is selected. With Add
+ * table on, Enter places a table at the middle of the view, beside what stands there. No key is
+ * taken from a field or a select. Each move, turn, placement and removal is said (`announce`) for
+ * the page's live region.
  */
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue';
 import type { FloorplanTable, SectionObject, TableTypeObject } from '@/assets/types/datatypes';
 import LayoutMap, { type MapView } from './LayoutMap.vue';
+import {
+  AT_THE_EDGE,
+  saidAdded,
+  saidDropped,
+  saidMoved,
+  saidPickedUp,
+  saidPutBack,
+  saidRemoved,
+  saidTurned,
+} from './layoutAnnouncements';
+import { plural } from '@/utils/historyReaders/shared';
 import { layoutSections } from './layoutDrawing';
 import {
   STANDARD_TABLE,
   angleFrom,
   boxBetween,
+  cameraShowing,
+  clearPlace,
+  cornersOf,
   fitCamera,
   hallOf,
+  nearestTo,
   snapAngle,
   snapMove,
   steppedZoom,
   tableBounds,
+  tableCorners,
   tablesInBox,
   unionOf,
   zoomPercent,
@@ -58,21 +86,37 @@ const props = withDefaults(
   { imageUrl: '' },
 );
 
+const emit = defineEmits<{
+  /** What a change did, in words for the page's live region. */
+  announce: [words: string];
+}>();
+const say = (words: string) => emit('announce', words);
+
 const layout = computed(() => props.editor.layout.value!);
 const selection = computed(() => props.editor.selection.value);
+/** The ids of the tables picked up by keyboard. */
+const pickedUp = computed(() => props.editor.pickedUp.value);
 const hall = computed(() => hallOf(layout.value));
 const typeById = computed(() => new Map(props.tableTypes.map((type) => [type.id, type])));
-const boundsOf = (table: FloorplanTable): Bounds =>
-  tableBounds(table, typeById.value.get(table.tableTypeId) ?? STANDARD_TABLE);
+const sizeOf = (table: FloorplanTable) => typeById.value.get(table.tableTypeId) ?? STANDARD_TABLE;
+const boundsOf = (table: FloorplanTable): Bounds => tableBounds(table, sizeOf(table));
+
+/** The layout's tables of the ids named, as they stand now. */
+function tablesOf(ids: readonly string[]): FloorplanTable[] {
+  const named = new Set(ids);
+  return layout.value.tables.filter((table) => named.has(table.id));
+}
+const tableOf = (id: string | null) =>
+  (id && layout.value.tables.find((table) => table.id === id)) || null;
 
 // ── The tools ────────────────────────────────────────────────────────────────
 
 type Tool = 'select' | 'add';
 const tool = ref<Tool>('select');
 
-const ownSections = computed(() =>
-  layoutSections(layout.value, props.sections).map(({ section }) => section),
-);
+/** The location's sections as the map draws them, by which a table is named when it is said. */
+const drawnSections = computed(() => layoutSections(layout.value, props.sections));
+const ownSections = computed(() => drawnSections.value.map(({ section }) => section));
 /** The section and the type a new table takes: the first of each until another is chosen. */
 /** '' is "No section", a choice like another; null is no choice made yet. */
 const addSectionId = ref<string | null>(null);
@@ -89,11 +133,38 @@ watch(
   { immediate: true },
 );
 
-const hint = computed(() =>
-  tool.value === 'add'
+/** Whether the keys are on the map: the focus is in it, and came by keyboard. */
+const keysOnMap = ref(false);
+
+/** The hint under the map: what the keys do while they are on it, else what the pointer does. */
+const hint = computed(() => {
+  if (pickedUp.value.length) {
+    const it = pickedUp.value.length === 1 ? 'it' : 'them';
+    return (
+      `Picked up: the arrow keys move ${it} 10 cm, or 1 m with Shift. ` +
+      `R turns ${it}, Enter drops ${it} and Escape puts ${it} back.`
+    );
+  }
+  if (keysOnMap.value) {
+    return tool.value === 'add'
+      ? 'Enter places a table at the middle of the view. The arrow keys move between tables.'
+      : 'The arrow keys move between tables. Enter picks a table up to move it, ' +
+          'Shift and Enter selects it, and Delete removes the selection.';
+  }
+  return tool.value === 'add'
     ? 'Click the floor to place a table. Ctrl and the wheel zoom, and Space and a drag move the view.'
     : 'Drag a table to move it; Alt places it freely. Drag on the floor, or Shift and click, ' +
-      'to select several. Drag the handle over the selection, or press R, to turn it.',
+        'to select several. Drag the handle over the selection, or press R, to turn it.';
+});
+
+/** The map's description, for a screen reader that reads a group's: its keys, as the tool on has
+ *  them. */
+const keysId = useId();
+const mapKeys = computed(() =>
+  tool.value === 'add'
+    ? 'The arrow keys move between tables. Enter places a table at the middle of the view.'
+    : 'The arrow keys move between tables. Enter picks a table up; then the arrow keys move it, ' +
+      'R turns it, Enter drops it and Escape puts it back.',
 );
 
 // ── The stage and its camera ─────────────────────────────────────────────────
@@ -157,6 +228,17 @@ function toMm(event: { clientX: number; clientY: number }): PointMm {
 function stepZoom(direction: 1 | -1) {
   const cam = camera.value;
   if (cam) camera.value = zoomedAbout(cam, steppedZoom(cam.pxPerMm, direction) / cam.pxPerMm);
+}
+
+/** How clear of the stage's edge a table the keys are on is kept, in pixels. */
+const SHOWN_MARGIN_PX = 24;
+
+/** Bring tables into view, moving the view no further than shows them; nothing when they are. */
+function show(tables: readonly FloorplanTable[]) {
+  const box = unionOf(tables.map(boundsOf));
+  const cam = camera.value;
+  if (!box || !cam || !size.value) return;
+  camera.value = cameraShowing(cam, size.value.width, size.value.height, box, SHOWN_MARGIN_PX);
 }
 
 /** The most one wheel event zooms by, in the pixels it says it scrolled. */
@@ -225,7 +307,15 @@ type Gesture =
       /** A press on a table already selected with others narrows to it if it was no drag. */
       narrowTo: string | null;
     }
-  | { kind: 'turn'; ids: string[]; centre: PointMm; fromAngle: number; begun: boolean }
+  | {
+      kind: 'turn';
+      ids: string[];
+      centre: PointMm;
+      fromAngle: number;
+      begun: boolean;
+      /** How far the handle has turned them, in degrees. */
+      by: number;
+    }
   | { kind: 'pinch'; distance: number; middle: { xPx: number; yPx: number }; camera: Camera };
 
 let gesture: Gesture | null = null;
@@ -316,6 +406,7 @@ function onPointerDown(event: PointerEvent) {
       centre,
       fromAngle: angleFrom(centre, toMm(event)),
       begun: false,
+      by: 0,
     };
   } else if (tool.value === 'add') {
     gesture = { kind: 'add', from };
@@ -446,6 +537,7 @@ function onPointerMove(event: PointerEvent) {
       dragging.value = true;
       props.editor.begin();
     }
+    gesture.by = ((by % 360) + 360) % 360;
     props.editor.turnTables(gesture.ids, by, gesture.centre);
   }
 }
@@ -471,8 +563,18 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
       }
       return;
     }
-    if (cancelled) props.editor.cancel();
-    else props.editor.end();
+    if (cancelled) {
+      props.editor.cancel();
+      return;
+    }
+    // A drag that ended where it began, or that a wall stopped whole, moved nothing: nothing is said.
+    if (!props.editor.end()) return;
+    const moved = tablesOf(done.kind === 'label' ? [] : done.ids);
+    if (done.kind === 'move' && moved.length) {
+      say(saidMoved(moved, tableOf(focusedTable()) ?? moved[0], drawnSections.value));
+    } else if (done.kind === 'turn' && moved.length) {
+      say(saidTurned(moved, done.by, drawnSections.value));
+    }
     return;
   }
   if (done.kind === 'floor') {
@@ -487,16 +589,23 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
     done.kind === 'add' &&
     Math.hypot(event.clientX - done.from.x, event.clientY - done.from.y) < DRAG_PX
   ) {
-    const at = toMm(event);
-    const ids = props.editor.addTables([
-      {
-        sectionId: addSectionId.value || null,
-        tableTypeId: addTypeId.value || (props.tableTypes[0]?.id ?? ''),
-        ...at,
-      },
-    ]);
-    props.editor.select(ids);
+    place(toMm(event));
   }
+}
+
+/** Add a table of the options strip's section and type at a point, selected, and say so. */
+function place(at: PointMm): string | null {
+  const ids = props.editor.addTables([
+    {
+      sectionId: addSectionId.value || null,
+      tableTypeId: addTypeId.value || (props.tableTypes[0]?.id ?? ''),
+      ...at,
+    },
+  ]);
+  if (!ids.length) return null;
+  props.editor.select(ids);
+  say(saidAdded(tablesOf(ids), drawnSections.value));
+  return ids[0];
 }
 
 /** Put back a drag, a turn or a box that Escape, or the browser, ended early. */
@@ -529,34 +638,121 @@ function mapHasTheKeys(): boolean {
   return hovering.value && (!focused || focused === document.body);
 }
 
+/** The table of the map that has the focus, by its id. */
+function focusedTable(): string | null {
+  const focused = document.activeElement;
+  if (!focused || !stage.value?.contains(focused)) return null;
+  return focused.closest('[data-table-id]')?.getAttribute('data-table-id') ?? null;
+}
+
+/** Give a table of the map the focus, once it is drawn. */
+async function focusTable(id: string) {
+  await nextTick();
+  [...(stage.value?.querySelectorAll<SVGElement>('[data-table-id]') ?? [])]
+    .find((table) => table.getAttribute('data-table-id') === id)
+    ?.focus();
+}
+
+/** What a key acts on: the selection, or with nothing selected the table that has the focus. */
+function targets(): string[] {
+  if (selection.value.length) return [...selection.value];
+  const focused = focusedTable();
+  return focused ? [focused] : [];
+}
+
+function removeByKey() {
+  const ids = targets();
+  const going = tablesOf(ids);
+  if (!going.length) return;
+  props.editor.removeTables(ids);
+  say(saidRemoved(going, drawnSections.value));
+}
+
+/** Duplicate what the keys act on; the copies are selected, and the focus goes with them. */
+function duplicateByKey() {
+  const hadFocus = focusedTable() !== null;
+  const copies = props.editor.duplicate(targets());
+  if (!copies.length) return;
+  props.editor.select(copies);
+  const made = tablesOf(copies);
+  say(saidAdded(made, drawnSections.value));
+  if (hadFocus) void focusTable(copies[0]);
+  show(made);
+}
+
+function turnByKey(degrees: number) {
+  const ids = targets();
+  if (!ids.length) return;
+  if (!selection.value.length) props.editor.select(ids);
+  turnSelection(props.editor, props.tableTypes, degrees);
+  say(saidTurned(tablesOf(ids), degrees, drawnSections.value));
+}
+
 function onWindowKeydown(event: KeyboardEvent) {
   if (event.defaultPrevented || inAField(event)) return;
   // A dialog over the page has the keys.
   if (document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
   const command = event.ctrlKey || event.metaKey;
+  const plain = !command && !event.altKey;
   const key = event.key.toLowerCase();
+  // What is picked up has the keys, on the stage: no shortcut changes the layout under it, and
+  // those the editor takes are not the browser's meanwhile either (its bookmark, its select all).
+  if (pickedUp.value.length) {
+    if (command && !event.altKey && ['a', 'd', 'z', 'y'].includes(key)) event.preventDefault();
+    return;
+  }
   if (event.key === 'Escape' && gesture) {
     event.preventDefault();
     abandon();
   } else if (event.key === 'Escape' && selection.value.length && mapHasTheKeys()) {
     event.preventDefault();
     props.editor.select([]);
+    say('Nothing selected');
   } else if (command && !event.altKey && !event.shiftKey && key === 'a' && mapHasTheKeys()) {
     // Every table, in place of the page's words.
     event.preventDefault();
     props.editor.select(layout.value.tables.map((table) => table.id));
+    say(`${plural(layout.value.tables.length, 'table', 'tables')} selected`);
   } else if (command && !event.altKey && key === 'z') {
     event.preventDefault();
-    if (event.shiftKey) props.editor.redo();
+    const redo = event.shiftKey;
+    // The model undoes nothing under a drag in hand.
+    if (gesture || (redo ? !canRedo.value : !canUndo.value)) return;
+    if (redo) props.editor.redo();
     else props.editor.undo();
+    say(redo ? 'Redid the change' : 'Undid the last change');
   } else if (command && !event.altKey && !event.shiftKey && key === 'y') {
     event.preventDefault();
+    if (gesture || !canRedo.value) return;
     props.editor.redo();
-  } else if (!command && !event.altKey && !event.shiftKey && key === 'r' && !event.repeat) {
-    // Not under a drag or a turn in hand, whose next frame would draw over it.
-    if (!selection.value.length || gesture) return;
+    say('Redid the change');
+  } else if (command && !event.altKey && !event.shiftKey && key === 'd' && mapHasTheKeys()) {
+    // The selection's copy, in place of the browser's bookmark.
     event.preventDefault();
-    turnSelection(props.editor, props.tableTypes, 90);
+    if (!gesture && !event.repeat) duplicateByKey();
+  } else if (plain && key === 'r' && !event.repeat) {
+    // Not under a drag or a turn in hand, whose next frame would draw over it.
+    if (!targets().length || gesture) return;
+    event.preventDefault();
+    turnByKey(event.shiftKey ? TURN_STEP : 90);
+  } else if (
+    plain &&
+    !event.shiftKey &&
+    (event.key === 'Delete' || event.key === 'Backspace') &&
+    mapHasTheKeys()
+  ) {
+    if (!targets().length || gesture) return;
+    event.preventDefault();
+    if (!event.repeat) removeByKey();
+  } else if (plain && (event.key === '+' || event.key === '=') && mapHasTheKeys()) {
+    event.preventDefault();
+    zoomByKey(1);
+  } else if (plain && (event.key === '-' || event.key === '_') && mapHasTheKeys()) {
+    event.preventDefault();
+    zoomByKey(-1);
+  } else if (plain && !event.shiftKey && event.key === '0' && mapHasTheKeys()) {
+    event.preventDefault();
+    fit();
   } else if (event.key === ' ' && hovering.value) {
     // Space held over the map is the hand that pans it, not a press of what has the focus: a
     // table of the map included, which a press on it leaves the focus on.
@@ -565,6 +761,13 @@ function onWindowKeydown(event: KeyboardEvent) {
     event.preventDefault();
     spaceHeld.value = true;
   }
+}
+
+/** Zoom a step about the middle of the view, keeping the table the keys are on in it. */
+function zoomByKey(direction: 1 | -1) {
+  stepZoom(direction);
+  const focused = tableOf(focusedTable());
+  if (focused) show([focused]);
 }
 
 function onWindowKeyup(event: KeyboardEvent) {
@@ -576,21 +779,188 @@ function onWindowBlur() {
   spaceHeld.value = false;
 }
 
+/** How far an arrow key moves what is picked up, in millimetres: 10 cm, and 1 m with Shift. */
+const NUDGE_MM = 100;
+const LONG_NUDGE_MM = 1000;
+const NUDGES: Record<string, readonly [number, number]> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
+
 /**
- * Enter or Space on a focused table selects it, as a press does: alone, unless it is one of
- * several selected already, and Shift adds it or takes it out. Space with the pointer over the
- * map is the panning hand instead.
+ * The keys on the map, heard before the map hears them. With tables picked up they are the
+ * carried tables' (`carriedKey`). Otherwise Enter or Space on a focused table picks it up, with
+ * the selection when it is one of several selected, and alone, selected, when it is not;
+ * Shift+Enter adds it to the selection or takes it out. With Add table on, Enter or Space places a
+ * table at the middle of the view instead. Space with the pointer over the map is the panning
+ * hand, unless the focus came to the map by keyboard.
  */
 function onStageKeydown(event: KeyboardEvent) {
+  const id = tableAt(event);
+  if (pickedUp.value.length) {
+    carriedKey(event, id);
+    return;
+  }
   if (event.key !== 'Enter' && event.key !== ' ') return;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
-  if (event.key === ' ' && hovering.value) return;
-  const id = tableAt(event);
-  if (!id) return;
+  // Space with the pointer over the map is the panning hand, unless the focus came to the map by
+  // keyboard: then the keys are the map's, wherever the pointer was left.
+  if (event.key === ' ' && hovering.value && !keysOnMap.value) return;
+  // On a table, or on the map itself, which has the focus while it has no table.
+  const onTheMap = event.target instanceof Element && event.target.matches('.layout-map');
+  if (!id && !onTheMap) return;
   event.preventDefault();
-  if (event.repeat) return;
-  select(id, event.shiftKey);
+  // Not under a press, a drag or a turn in hand, whose frames reckon from where it began.
+  if (event.repeat || gesture) return;
+  if (id && event.shiftKey) {
+    select(id, true);
+    return;
+  }
+  if (tool.value === 'add') {
+    if (!event.shiftKey) placeAtTheMiddle();
+    return;
+  }
+  if (!id) return;
+  if (!selection.value.includes(id)) props.editor.select([id]);
+  if (props.editor.pickUp(selection.value)) {
+    say(saidPickedUp(tablesOf(pickedUp.value), drawnSections.value));
+  }
 }
+
+/** A key while tables are picked up: an arrow moves them, R turns them, Enter or Space drops them
+ *  and Escape puts them back. Tab is left alone: the focus leaves, and they are dropped as it goes. */
+function carriedKey(event: KeyboardEvent, focused: string | null) {
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  const ids = pickedUp.value;
+  const sections = drawnSections.value;
+  /** The table the keys are on, whose place is said. */
+  const lead = () => tableOf(focused) ?? tablesOf(ids)[0];
+  const nudge = NUDGES[event.key];
+  if (nudge) {
+    event.preventDefault();
+    const step = event.shiftKey ? LONG_NUDGE_MM : NUDGE_MM;
+    const before = lead();
+    props.editor.moveTables(ids, nudge[0] * step, nudge[1] * step);
+    const after = lead();
+    const stayed = before && after && before.xMm === after.xMm && before.yMm === after.yMm;
+    // A key held down says where the tables are once, when it is let go (`onStageKeyup`).
+    if (event.repeat) unsaidMove = true;
+    else say(stayed ? AT_THE_EDGE : saidMoved(tablesOf(ids), after, sections));
+    show(tablesOf(ids));
+  } else if (event.key.toLowerCase() === 'r') {
+    event.preventDefault();
+    if (event.repeat) return;
+    const by = event.shiftKey ? TURN_STEP : 90;
+    turnSelection(props.editor, props.tableTypes, by);
+    say(saidTurned(tablesOf(ids), by, sections));
+    show(tablesOf(ids));
+  } else if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    if (!event.repeat) dropWhatIsPickedUp(focused);
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    props.editor.putBack();
+    say(saidPutBack(tablesOf(ids), lead(), sections));
+    show(tablesOf(ids));
+  }
+}
+
+/** Whether an arrow key held down has moved what is picked up since its place was last said. */
+let unsaidMove = false;
+
+function onStageKeyup(event: KeyboardEvent) {
+  if (!unsaidMove || !NUDGES[event.key]) return;
+  unsaidMove = false;
+  const tables = tablesOf(pickedUp.value);
+  const lead = tableOf(tableAt(event)) ?? tables[0];
+  if (lead) say(saidMoved(tables, lead, drawnSections.value));
+}
+
+/** Put down what is picked up, where the keys left it, and say where. */
+function dropWhatIsPickedUp(focused: string | null = focusedTable()) {
+  const ids = pickedUp.value;
+  if (!ids.length) return;
+  props.editor.drop();
+  const tables = tablesOf(ids);
+  const lead = tableOf(focused) ?? tables[0];
+  if (lead) say(saidDropped(tables, lead, drawnSections.value));
+}
+
+/** A pointer pressed anywhere puts down what the keys picked up, before it does anything else. */
+function onWindowPointerDown() {
+  dropWhatIsPickedUp();
+}
+
+/** So does the focus arriving anywhere but the map: a window that lost the keys with tables in
+ *  hand may give the focus back to another control, with no word to the stage that it left. */
+function onDocumentFocusIn(event: FocusEvent) {
+  if (!pickedUp.value.length) return;
+  if (event.target instanceof Node && stage.value?.contains(event.target)) return;
+  keysOnMap.value = false;
+  dropWhatIsPickedUp(null);
+}
+
+/** With Add table on, Enter places a table at the middle of the view, or beside what stands
+ *  there, and the focus goes to it. */
+function placeAtTheMiddle() {
+  const cam = camera.value;
+  if (!cam) return;
+  const size = typeById.value.get(addTypeId.value) ?? STANDARD_TABLE;
+  const taken = [
+    ...layout.value.tables.map((table) => tableCorners(table, sizeOf(table))),
+    ...layout.value.zones.map((zone) =>
+      cornersOf({
+        left: zone.xMm,
+        top: zone.yMm,
+        right: zone.xMm + zone.widthMm,
+        bottom: zone.yMm + zone.depthMm,
+      }),
+    ),
+  ];
+  const id = place(clearPlace({ xMm: cam.xMm, yMm: cam.yMm }, size, taken, hall.value));
+  if (!id) return;
+  void focusTable(id);
+  show(tablesOf([id]));
+}
+
+/** The focus came into the map: by keyboard, the hint says the keys, and the view shows the table
+ *  it came to. */
+function onStageFocusIn(event: FocusEvent) {
+  const target = event.target instanceof Element ? event.target : null;
+  keysOnMap.value = Boolean(target?.matches(':focus-visible'));
+  const table = keysOnMap.value ? tableOf(tableAt(event)) : null;
+  if (table) show([table]);
+}
+
+/** The focus left the map, for another control of the page: what is picked up is dropped. A
+ *  window that lost the keys altogether gives them back to the same table. */
+function onStageFocusOut(event: FocusEvent) {
+  const to = event.relatedTarget;
+  if (to instanceof Node && stage.value?.contains(to)) return;
+  if (!document.hasFocus()) return;
+  keysOnMap.value = false;
+  dropWhatIsPickedUp(tableAt(event));
+}
+
+/**
+ * A table that had the focus is gone, removed by a key or taken back by an undo: the focus goes to
+ * the nearest table left, or to the map itself when none is, rather than being lost with it.
+ */
+watch(
+  () => layout.value.tables,
+  async (now, before) => {
+    const id = focusedTable();
+    if (!id || now.some((table) => table.id === id)) return;
+    const was = before.find((table) => table.id === id);
+    const next = was ? nearestTo(was, now) : (now[0] ?? null);
+    await nextTick();
+    if (document.activeElement && document.activeElement !== document.body) return;
+    if (next) await focusTable(next.id);
+    else stage.value?.querySelector<SVGElement>('.layout-map')?.focus();
+  },
+);
 
 // ── The toolbar: one Tab stop, the arrow keys between its buttons ────────────
 
@@ -678,6 +1048,8 @@ onMounted(() => {
   window.addEventListener('keydown', onWindowKeydown);
   window.addEventListener('keyup', onWindowKeyup);
   window.addEventListener('blur', onWindowBlur);
+  window.addEventListener('pointerdown', onWindowPointerDown, true);
+  document.addEventListener('focusin', onDocumentFocusIn);
 });
 
 onBeforeUnmount(() => {
@@ -686,6 +1058,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onWindowKeydown);
   window.removeEventListener('keyup', onWindowKeyup);
   window.removeEventListener('blur', onWindowBlur);
+  window.removeEventListener('pointerdown', onWindowPointerDown, true);
+  document.removeEventListener('focusin', onDocumentFocusIn);
+  props.editor.putBack();
   abandon();
 });
 
@@ -693,6 +1068,7 @@ onBeforeUnmount(() => {
 watch(
   () => layout.value.id,
   () => {
+    props.editor.putBack();
     abandon();
     fit();
   },
@@ -835,7 +1211,10 @@ watch(
       @pointercancel="endGesture($event, true)"
       @pointerenter="hovering = true"
       @pointerleave="hovering = false"
-      @keydown="onStageKeydown"
+      @keydown.capture="onStageKeydown"
+      @keyup="onStageKeyup"
+      @focusin="onStageFocusIn"
+      @focusout="onStageFocusOut"
     >
       <LayoutMap
         :layout="layout"
@@ -846,6 +1225,8 @@ watch(
         :view="view"
         :selection="selection"
         :guides="guides"
+        :carried="pickedUp"
+        :aria-describedby="keysId"
         mode="edit"
       >
         <template #default="{ mmPerPx }">
@@ -904,6 +1285,7 @@ watch(
     </div>
 
     <p class="layout-hint" data-testid="layout-hint">{{ hint }}</p>
+    <p :id="keysId" class="visually-hidden" data-testid="layout-map-keys">{{ mapKeys }}</p>
   </div>
 </template>
 
@@ -985,6 +1367,18 @@ watch(
 
 .layout-stage :deep(.layout-map) {
   background: var(--mm-beige);
+}
+
+/* While the keys are on the map the stage wears the halo, round the whole map: on one of its
+   tables, which draws its own border too, or on the map itself while it has no table. The map
+   draws none of its own, which the stage would cut off at its edge. */
+.layout-stage:has(:focus-visible) {
+  box-shadow: var(--focus-halo);
+}
+
+.layout-stage :deep(.layout-map:focus-visible) {
+  outline: none;
+  box-shadow: none;
 }
 
 .layout-stage :deep(.layout-table--button) {

@@ -422,6 +422,8 @@ A table in no section is grey, `--layout-no-section-fill` and `-edge` (12.36:1, 
 - a section's name is `--text-xs` at 600 in a white pill 22px tall, edged 1.5px in the section's edge, 6px from its tables;
 - a no-table zone is hatched at 45°, 10px apart, inside a 1.5px dashed edge with a 4px corner, its label at 14px where it fits;
 - a selected table is outlined 2.5px in `--mm-black`, 3px outside its edge, and an alignment guide is 1px of `--mm-blue`, dashed;
+- a table picked up by keyboard is drawn lifted: its outline dashed, 6px on and 4px off, and a shadow of `--mm-black` at 30%, 3px under it, straight down the screen however it is turned;
+- while the keys are on the editor's map, the stage round it wears the halo, and the focused table its own border;
 - every one of those pixel sizes holds at any zoom, and a table's millimetres are what zoom: 100% is 1px to 25 mm, at which a 6 ft table is 73 by 30px.
 
 ### The brand green is `--mm-green` (`#36826f`)

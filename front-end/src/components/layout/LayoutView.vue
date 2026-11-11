@@ -21,6 +21,8 @@
  * one another tab saved says so with Reload, and the market is re-read through the one store
  * after every answer. A change still waiting is saved before the page is left; when that save did
  * not land, a move in the app asks before it drops the change, and a reload is asked by the browser.
+ * While the layout is edited the page holds one polite live region, which says each move, turn,
+ * placement and removal the editor or the selection's card made (`layoutAnnouncements.ts`).
  *
  * With no location in the address it opens the market's first named one. A location with no id
  * (a market stored before ids, until its next write) or no name offers no layout.
@@ -37,9 +39,11 @@ import FloorplanUploader from './FloorplanUploader.vue';
 import LayoutCalibration from './LayoutCalibration.vue';
 import LayoutEditor from './LayoutEditor.vue';
 import LayoutMap from './LayoutMap.vue';
+import LayoutPanelKeyboard from './LayoutPanelKeyboard.vue';
 import LayoutPanelSections from './LayoutPanelSections.vue';
 import LayoutPanelSelection, { type Arrangement } from './LayoutPanelSelection.vue';
 import { metresAcross, pxPerMm, type Point } from './calibration';
+import { saidAdded, saidRemoved, saidTurned, useAnnouncements } from './layoutAnnouncements';
 import { layoutSections } from './layoutDrawing';
 import { saveLayout, saveLayoutOnUnload, type UploadedFloorplan } from './layoutSave';
 import { turnSelection } from './layoutSelection';
@@ -149,10 +153,26 @@ const unsectioned = computed(() => {
   return (floorplan.value?.tables ?? []).filter((table) => !placed.has(table.id));
 });
 
+/** What the editor's changes did, in words, for the page's live region. */
+const { said, say } = useAnnouncements();
+
+/** The layout's tables of the ids named, as they stand now. */
+function tablesOf(ids: readonly string[]) {
+  const named = new Set(ids);
+  return (floorplan.value?.tables ?? []).filter((table) => named.has(table.id));
+}
+
 /** Duplicate the selection, and select the copies, which the next change is most likely for. */
 function duplicateSelection() {
   const copies = editor.duplicate(editor.selection.value);
-  if (copies.length) editor.select(copies);
+  if (!copies.length) return;
+  editor.select(copies);
+  say(saidAdded(tablesOf(copies), sections.value));
+}
+
+function turnTheSelection() {
+  turnSelection(editor, tableTypes.value, 90);
+  say(saidTurned(tablesOf(editor.selection.value), 90, sections.value));
 }
 
 function arrangeSelection(how: Arrangement) {
@@ -161,7 +181,9 @@ function arrangeSelection(how: Arrangement) {
 }
 
 function removeSelection() {
+  const going = tablesOf(editor.selection.value);
   editor.removeTables(editor.selection.value);
+  if (going.length) say(saidRemoved(going, sections.value));
 }
 
 /**
@@ -363,6 +385,7 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
               :sections="market.setupObject?.sections ?? []"
               :tableTypes="tableTypes"
               :imageUrl="imageUrl"
+              @announce="say"
             />
             <div
               v-else
@@ -431,7 +454,7 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
               :tables="selectedTables"
               :sections="sections"
               :tableTypes="tableTypes"
-              @turn="turnSelection(editor, tableTypes, 90)"
+              @turn="turnTheSelection"
               @remove="removeSelection"
               @duplicate="duplicateSelection"
               @arrange="arrangeSelection"
@@ -462,9 +485,19 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
                 Recalibrate
               </button>
             </section>
+            <LayoutPanelKeyboard v-if="editing" class="layout-card" />
           </template>
         </aside>
       </div>
+      <p
+        v-if="editing"
+        class="visually-hidden"
+        role="status"
+        aria-live="polite"
+        data-testid="layout-announcement"
+      >
+        {{ said }}
+      </p>
     </div>
   </MarketFrame>
 </template>

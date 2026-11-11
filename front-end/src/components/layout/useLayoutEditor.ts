@@ -21,6 +21,10 @@
  *
  * A gesture (a drag, a turn by the handle) is one change: between `begin` and `end` a command
  * replaces the gesture's last one, drawn at once, and only `end` makes the step and the save.
+ *
+ * Tables picked up by keyboard are one change too, from `pickUp` to `drop`, but each key's move or
+ * turn goes on from where the last left them; `putBack` leaves them where they were picked up, and
+ * a drop that leaves every table where it was is no change.
  */
 import { computed, shallowRef, type ComputedRef, type ShallowRef } from 'vue';
 import { useAutosave } from '@/utils/useAutosave';
@@ -121,6 +125,15 @@ export interface LayoutEditor {
   selection: Readonly<ShallowRef<string[]>>;
   /** Select the tables named, and no other. */
   select(ids: readonly string[]): void;
+  /** The ids of the tables picked up by keyboard; none while nothing is in hand. */
+  pickedUp: Readonly<ShallowRef<string[]>>;
+  /** Pick tables up: until `drop` or `putBack`, each move and turn goes on from the last, and
+   *  nothing is saved or undone. False when none of them is the layout's, or a gesture is in hand. */
+  pickUp(ids: readonly string[]): boolean;
+  /** Put down what was picked up, as one change; false when it stands as it was picked up. */
+  drop(): boolean;
+  /** Put what was picked up back where it was. */
+  putBack(): void;
   saveState: ComputedRef<LayoutSaveState>;
   /** What a failed or stale save said. */
   saveMessage: ComputedRef<string>;
@@ -153,7 +166,8 @@ export interface LayoutEditor {
    *  where the drawing puts it). */
   setSectionStyle(sectionId: string, style: { color?: number; labelAt?: PointMm | null }): void;
   begin(): void;
-  end(): void;
+  /** End the gesture in hand: true when it changed the layout, so made a step and a save. */
+  end(): boolean;
   cancel(): void;
   undo(): void;
   redo(): void;
@@ -182,7 +196,9 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   const stale = shallowRef(false);
   /** The layout as a gesture found it, and with every table of a section that is gone put in no
    *  section, which the gesture's frames are made from; reckoned once, at the first frame. */
-  let gesture: { found: Step; from: Step | null } | null = null;
+  let gesture: { found: Step; from: Step | null; carried?: true } | null = null;
+  /** The tables picked up by keyboard: a gesture whose frames each go on from the last. */
+  const pickedUp = shallowRef<string[]>([]);
   /** Whether a write is out. */
   let writeOut = false;
 
@@ -243,12 +259,14 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   /**
    * The last try as the page goes. With a write out, this one names the revision that write will
    * leave: it was sent first and most likely lands first, and naming the revision read would have
-   * this one refused as stale behind it.
+   * this one refused as stale behind it. What is in hand, by a drag or picked up, is no change
+   * yet, here as in `send`: the layout goes as the gesture found it.
    */
   function sendOnUnload(): boolean {
     const now = layout.value;
     if (!now || stale.value) return false;
-    return Boolean(options.saveOnUnload?.(now, revision + (writeOut ? 1 : 0)));
+    const sent = gesture ? { ...now, ...gesture.found } : now;
+    return Boolean(options.saveOnUnload?.(sent, revision + (writeOut ? 1 : 0)));
   }
 
   function touch() {
@@ -263,6 +281,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     layout.value = stored;
     revision = stored?.revision ?? 0;
     gesture = null;
+    pickedUp.value = [];
     undone.value = [];
     redone.value = [];
     const ids = new Set((stored?.tables ?? []).map((table) => table.id));
@@ -312,8 +331,10 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     const now = layout.value;
     if (!now) return;
     const found = gesture?.found ?? stepOf(now);
-    const from = gesture?.from ?? normal(found);
-    if (gesture) gesture.from = from;
+    // What is picked up goes on from where the last key left it; a drag's frame starts over from
+    // where the drag began.
+    const from = gesture?.carried ? normal(stepOf(now)) : (gesture?.from ?? normal(found));
+    if (gesture && !gesture.carried) gesture.from = from;
     const made = { ...from, ...make(from, now) };
     if (gesture) {
       // A frame that comes back to where the gesture began is drawn like any other.
@@ -606,20 +627,63 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   function end() {
     const held = gesture;
     gesture = null;
+    pickedUp.value = [];
     const now = layout.value;
-    if (!held || !now) return;
+    if (!held || !now) return false;
     // A gesture that ends where it began is no change, whether its frames drew the layout as it
     // was found or with its lost tables in no section.
     const same =
       sameStep(stepOf(now), held.found) || (held.from !== null && sameStep(stepOf(now), held.from));
     if (same) layout.value = { ...now, ...held.found };
     else step(held.found);
+    return !same;
   }
 
   function cancel() {
     const held = gesture;
     gesture = null;
+    pickedUp.value = [];
     if (held && layout.value) layout.value = { ...layout.value, ...held.found };
+  }
+
+  // ── Picked up by keyboard ──────────────────────────────────────────────────
+
+  function pickUp(ids: readonly string[]): boolean {
+    const now = layout.value;
+    if (!now || gesture) return false;
+    const named = new Set(ids);
+    const own = now.tables.filter((table) => named.has(table.id)).map((table) => table.id);
+    if (!own.length) return false;
+    gesture = { found: stepOf(now), from: null, carried: true };
+    pickedUp.value = own;
+    return true;
+  }
+
+  function drop(): boolean {
+    const held = gesture;
+    const now = layout.value;
+    if (!held?.carried || !now) return false;
+    // Moved out and back, or turned all the way round, the tables stand as they were picked up:
+    // no step and no save, and the layout is again the one that was read.
+    const before = new Map(held.found.tables.map((table) => [table.id, table]));
+    const carried = new Set(pickedUp.value);
+    const moved = now.tables.some((table) => {
+      const was = before.get(table.id);
+      return (
+        carried.has(table.id) &&
+        (!was || was.xMm !== table.xMm || was.yMm !== table.yMm || was.rotation !== table.rotation)
+      );
+    });
+    if (!moved) {
+      cancel();
+      return false;
+    }
+    end();
+    return true;
+  }
+
+  function putBack() {
+    if (gesture?.carried) cancel();
   }
 
   function undo() {
@@ -654,6 +718,10 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     select: (ids) => {
       selection.value = [...ids];
     },
+    pickedUp,
+    pickUp,
+    drop,
+    putBack,
     adopt,
     reload: take,
     write,

@@ -78,6 +78,14 @@ export function tableCode(
   return section && table.number !== null ? `${section.name} ${table.number}` : null;
 }
 
+/** A length in metres to one decimal, "12.4 m". */
+export const metres = (mm: number) => `${(mm / 1000).toFixed(1)} m`;
+
+/** Where a table's centre stands, in metres from the floorplan's top-left corner: "12.4 m, 6.1 m". */
+export function placeInMetres(table: Pick<FloorplanTable, 'xMm' | 'yMm'>): string {
+  return `${metres(table.xMm)}, ${metres(table.yMm)}`;
+}
+
 /** What a table is called on the map: "Gold row 5, Standard 6 ft", or "Table in no section,
  *  Standard 6 ft". A type that is not the market's is left unsaid. */
 export function tableName(

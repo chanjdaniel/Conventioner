@@ -849,3 +849,65 @@ export function inNoSection<T extends Numbered>(
   if (!tables.some(lost)) return tables;
   return tables.map((table) => (lost(table) ? { ...table, sectionId: null, number: null } : table));
 }
+
+// ── By keyboard ──────────────────────────────────────────────────────────────
+
+/**
+ * Where a table added by keyboard goes: `at` (the middle of the view) held inside the hall, or,
+ * where a table or a no-table zone stands there (`taken`, as turned shapes), the nearest clear
+ * place a duplicate would find (`duplicateOffset`), so one Enter after another lays tables beside
+ * each other, never one on another.
+ */
+export function clearPlace(
+  at: PointMm,
+  size: SizeMm,
+  taken: readonly (readonly PointMm[])[],
+  hall: Hall | null,
+): PointMm {
+  const held = clampToHall(at, hall);
+  const shape = tableCorners({ ...held, rotation: 0 }, size);
+  if (!taken.some((other) => shapesOverlap(shape, other))) return held;
+  const by = duplicateOffset([shape], taken, size.depthMm, hall);
+  return { xMm: held.xMm + by.dxMm, yMm: held.yMm + by.dyMm };
+}
+
+/**
+ * The camera moved the least that brings a box of the hall into a stage of `width` by `height`
+ * pixels with `marginPx` clear round it, at the same zoom; the same camera when the box is in view
+ * already. Of a box too long for the stage one way, with its margins, the top or the left end is
+ * shown, with the margin, wherever the view stood, so the view holds still from one key to the
+ * next.
+ */
+export function cameraShowing(
+  camera: Camera,
+  width: number,
+  height: number,
+  box: Bounds,
+  marginPx = 0,
+): Camera {
+  const along = (middle: number, sidePx: number, least: number, most: number) => {
+    const half = sidePx / 2 / camera.pxPerMm;
+    const margin = marginPx / camera.pxPerMm;
+    if (most - least + margin * 2 > half * 2) return least - margin + half;
+    if (least - margin < middle - half) return least - margin + half;
+    if (most + margin > middle + half) return most + margin - half;
+    return middle;
+  };
+  const xMm = along(camera.xMm, width, box.left, box.right);
+  const yMm = along(camera.yMm, height, box.top, box.bottom);
+  return xMm === camera.xMm && yMm === camera.yMm ? camera : { ...camera, xMm, yMm };
+}
+
+/** The table whose centre is nearest a point, the earlier in the list of two as near; null of none. */
+export function nearestTo<T extends PointMm>(point: PointMm, tables: readonly T[]): T | null {
+  let best: T | null = null;
+  let least = Infinity;
+  for (const table of tables) {
+    const distance = Math.hypot(table.xMm - point.xMm, table.yMm - point.yMm);
+    if (distance < least) {
+      best = table;
+      least = distance;
+    }
+  }
+  return best;
+}

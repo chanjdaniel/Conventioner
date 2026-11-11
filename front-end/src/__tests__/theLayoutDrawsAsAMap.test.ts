@@ -419,6 +419,64 @@ describe('a press, by mode', () => {
     expect(guide.attributes('stroke-dasharray')).toBe('4 4');
   });
 
+  it('draws a table picked up by keyboard lifted in edit mode: a shadow straight down the screen, its outline dashed', () => {
+    // s1 is turned a quarter, so 3 px down the screen (75 mm at this scale) is along its own
+    // width, toward its left end.
+    const map = draw({ mode: 'edit', selection: ['g2', 's1'], carried: ['g2', 's1'] });
+    expect(map.findAll('[data-carried]').map((t) => t.attributes('data-table-id'))).toEqual([
+      'g2',
+      's1',
+    ]);
+    const shift = (id: string) =>
+      /translate\((\S+) (\S+)\)/
+        .exec(
+          tableById(map, id).get('[data-testid="layout-table-shadow"]').attributes('transform')!,
+        )!
+        .slice(1)
+        .map(Number);
+    const [flatX, flatY] = shift('g2');
+    expect(flatX).toBeCloseTo(0);
+    expect(flatY).toBeCloseTo(75);
+    const [turnedX, turnedY] = shift('s1');
+    expect(turnedX).toBeCloseTo(75);
+    expect(turnedY).toBeCloseTo(0);
+    expect(
+      tableById(map, 'g2')
+        .get('[data-testid="layout-table-selected"]')
+        .attributes('stroke-dasharray'),
+    ).toBe('6 4');
+    // A table selected and not carried keeps its whole outline and has no shadow.
+    const still = draw({ mode: 'edit', selection: ['g2'], carried: [] });
+    expect(still.find('[data-testid="layout-table-shadow"]').exists()).toBe(false);
+    expect(
+      tableById(still, 'g2')
+        .get('[data-testid="layout-table-selected"]')
+        .attributes('stroke-dasharray'),
+    ).toBeUndefined();
+    still.unmount();
+    // Read, nothing is carried.
+    expect(
+      draw({ carried: ['g2'] })
+        .find('[data-carried]')
+        .exists(),
+    ).toBe(false);
+  });
+
+  it('is the Tab stop itself in edit mode while it has no table', () => {
+    const empty = layout({ tables: [] });
+    expect(
+      draw({ mode: 'edit' }, empty).get('[data-testid="layout-map"]').attributes('tabindex'),
+    ).toBe('0');
+    wrapper?.unmount();
+    expect(
+      draw({ mode: 'read' }, empty).get('[data-testid="layout-map"]').attributes('tabindex'),
+    ).toBeUndefined();
+    wrapper?.unmount();
+    expect(
+      draw({ mode: 'edit' }).get('[data-testid="layout-map"]').attributes('tabindex'),
+    ).toBeUndefined();
+  });
+
   it('draws no selection and no guide outside edit mode', () => {
     const map = draw({
       selection: ['g2'],

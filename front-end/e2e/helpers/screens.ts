@@ -238,11 +238,20 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * scale not yet set, calibrating; and the laid-out seed's Upper Hall, drawn as its map, 20 tables
  * over the faded floorplan with the panel's list of sections: the editor at a desk and the map read
  * on a phone, then, at a desk, with a table selected, with every table selected, with a section's
- * colours open and with Add table's options open. Nothing is saved, so each walk finds them as
- * seeded.
+ * colours open, with Add table's options open, with a table picked up by keyboard and with the
+ * panel's list of keys open. Nothing is saved, so each walk finds them as seeded.
  */
 function layoutAt(
-  stage: 'upload' | 'calibrating' | 'map' | 'selected' | 'several' | 'colours' | 'adding',
+  stage:
+    | 'upload'
+    | 'calibrating'
+    | 'map'
+    | 'selected'
+    | 'several'
+    | 'colours'
+    | 'adding'
+    | 'pickedUp'
+    | 'keys',
 ) {
   return async (page: Page, seed: TheScreensSeed) => {
     const layout = new LayoutPage(page);
@@ -279,6 +288,17 @@ function layoutAt(
       if (stage === 'adding') {
         await layout.toolAdd.click();
         await expect(layout.addSection).toBeVisible();
+      }
+      if (stage === 'pickedUp') {
+        // Gold row's first table, reached by Tab and picked up by Enter: drawn lifted, the map
+        // wearing the halo, and the hint saying the keys that move it.
+        await layout.tabToTheMap();
+        await page.keyboard.press('Enter');
+        await expect(layout.hint).toContainText('Picked up');
+      }
+      if (stage === 'keys') {
+        await layout.keyboardSummary.click();
+        await expect(layout.keyboard.getByText('Put them back')).toBeVisible();
       }
       return;
     }
@@ -1282,6 +1302,21 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     deskOnly: true,
     open: layoutAt('adding'),
+  },
+  // By keyboard (T257): a table picked up, and the panel's list of the editor's keys.
+  {
+    name: 'the layout, a table picked up',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('pickedUp'),
+  },
+  {
+    name: 'the layout, its keys listed',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('keys'),
   },
   {
     name: 'market days, the plan',

@@ -64,6 +64,9 @@ export class LayoutPage {
   readonly startingCounts: Locator;
   readonly saveRetry: Locator;
   readonly saveReload: Locator;
+  readonly announcement: Locator;
+  readonly keyboard: Locator;
+  readonly keyboardSummary: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -124,6 +127,9 @@ export class LayoutPage {
     this.startingCounts = page.getByTestId('layout-panel-starting');
     this.saveRetry = page.getByTestId('layout-save-retry');
     this.saveReload = page.getByTestId('layout-save-reload');
+    this.announcement = page.getByTestId('layout-announcement');
+    this.keyboard = page.getByTestId('layout-panel-keyboard');
+    this.keyboardSummary = page.getByTestId('layout-keyboard-summary');
   }
 
   async goto(marketId: string, locationId?: string): Promise<void> {
@@ -163,6 +169,17 @@ export class LayoutPage {
   /** A table of the map, by the name it is a button under ("Gold row 5, Standard 6 ft"). */
   table(name: string): Locator {
     return this.map.getByRole('button', { name, exact: true });
+  }
+
+  /**
+   * Put the focus on the map by keyboard, as a person does from the toolbar: on the table Tab
+   * stops on, or on the map itself while it has no table. With Add table on, the options strip's
+   * two fields stand between the toolbar and the map.
+   */
+  async tabToTheMap(): Promise<void> {
+    const fields = (await this.addSection.isVisible()) ? 2 : 0;
+    await this.toolbar.locator('[tabindex="0"]').focus();
+    for (let press = 0; press <= fields; press += 1) await this.page.keyboard.press('Tab');
   }
 
   /** A table's top, the shape drawn at its size and turn, and its number. */

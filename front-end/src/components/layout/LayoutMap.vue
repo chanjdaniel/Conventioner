@@ -16,8 +16,10 @@
  * last, else the first selected, else the first), the arrow keys moving the focus to the nearest
  * table that way. In `read` a table pressed, by pointer, Enter or Space, emits `activate` with
  * its id. `edit` draws the selection's outline and the guides it is given, says each table pressed
- * or not as it is selected or not, and leaves what a press does to the editor round it, which may
- * draw over the map in its slot, and move a section's name, which carries its section's id for it.
+ * or not as it is selected or not, draws the tables picked up by keyboard lifted, and leaves what
+ * a press does to the editor round it, which may draw over the map in its slot, and move a
+ * section's name, which carries its section's id for it. In `edit` a map with no table is itself
+ * the Tab stop, so the keys have somewhere to place the first table from.
  * `print` is a picture: no button, no stop. The map owns no editing
  * state: its only state is which table has the focus.
  */
@@ -74,10 +76,19 @@ const props = withDefaults(
     selection?: readonly string[];
     /** Alignment guides, drawn in `edit`. */
     guides?: readonly MapGuide[];
+    /** The ids of the tables picked up by keyboard, drawn lifted in `edit`. */
+    carried?: readonly string[];
     /** Screen pixels per millimetre, where the map cannot measure itself (print). */
     pxPerMm?: number;
   }>(),
-  { imageUrl: '', showImage: undefined, view: null, selection: () => [], guides: () => [] },
+  {
+    imageUrl: '',
+    showImage: undefined,
+    view: null,
+    selection: () => [],
+    guides: () => [],
+    carried: () => [],
+  },
 );
 
 const emit = defineEmits<{
@@ -201,6 +212,7 @@ const tables = computed<DrawnTable[]>(() => {
 });
 
 const selected = computed(() => new Set(props.mode === 'edit' ? props.selection : []));
+const carriedIds = computed(() => new Set(props.mode === 'edit' ? props.carried : []));
 
 // ── The sections' names ──────────────────────────────────────────────────────
 
@@ -371,6 +383,7 @@ function onKeydown(event: KeyboardEvent) {
     preserveAspectRatio="xMidYMid meet"
     :role="interactive ? 'group' : 'img'"
     :aria-label="mapName(locationName, tables.length)"
+    :tabindex="mode === 'edit' && !tables.length ? 0 : undefined"
     data-testid="layout-map"
     @click="onClick"
     @keydown="onKeydown"
@@ -490,6 +503,7 @@ function onKeydown(event: KeyboardEvent) {
       :number="table.number"
       :numberSizeMm="table.numberSizeMm"
       :selected="selected.has(table.id)"
+      :carried="carriedIds.has(table.id)"
       :pressed="mode === 'edit' ? selected.has(table.id) : undefined"
       :interactive="interactive"
       :tabStop="table.id === tabStopId"
