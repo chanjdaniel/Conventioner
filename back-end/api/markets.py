@@ -65,7 +65,7 @@ from market_documents import (
     market_from_document,
     leave_out_what_no_read_serves,
 )
-from market_write import MarketNotFoundError, document_as_read, write_market
+from market_write import MarketChanged, MarketNotFoundError, document_as_read, write_market
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
@@ -2150,48 +2150,47 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
     return []
 
 
-def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> bool:
-    """Add a user role to a market. Asks the row that gives the role (``Actions.roles_row``)."""
+def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> None:
+    """Add a user role to a market. Asks the row that gives the role (``Actions.roles_row``).
+
+    Sets that person's key alone, holding it absent and the requester's role as read
+    (``_write_role``), so an add never undoes another organizer's change to someone else.
+
+    Raises:
+        MarketChanged: the person was given a role, or the requester's changed, since the read.
+    """
     context = load_market_context(market_id)
     if context is None:
         raise MarketNotFoundError("Market not found")
     if context.market is None:
         raise BadRequestError("Invalid market data")
 
-    market_dict = context.document
     market = context.market
+    roles = context.document.get('roles') or {}
 
     refused = Actions.refusal(Actions.roles_row(role), requesting_user, market, context.organization)
     if refused:
         raise ForbiddenError(refused)
 
     if role == MarketRole.OWNER:
-        current_roles = market_dict.get('roles', {})
-        for uid, existing_role in current_roles.items():
+        for uid, existing_role in roles.items():
             if existing_role == MarketRole.OWNER.value:
                 raise BadRequestError("Market already has an owner. Transfer ownership first.")
-    
+
     user = UsersApi.get_user(user_email)
     if not user:
         raise BadRequestError("User not found")
 
-    roles = market_dict.get('roles', {})
     # Adding never changes a role: overwriting one here would skip update_market_role's guards and
     # let an Admin demote the Owner.
     if user.id in roles:
         raise BadRequestError(
             f"{user.email} already has a role on this market. Change it in their row under Users with access."
         )
-    roles[user.id] = role.value
-    
-    result = markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {"roles": roles}}
-    )
-    
-    if result.modified_count > 0:
-        _record_role(market_id, requesting_user, History.ROLE_GIVEN, user.id, None, role)
-    return result.modified_count > 0
+
+    _write_role(market, {"$set": {_role_key(user.id): role.value}}, user.id, requesting_user,
+                owner_count_read=role == MarketRole.OWNER)
+    _record_role(market_id, requesting_user, History.ROLE_GIVEN, user.id, None, role)
 
 
 NO_LONGER_ON_THE_MARKET = "They no longer have a role on this market."
@@ -2204,6 +2203,12 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     a 404 saying so, written and recorded as nothing, and Manage market reads it as done. A
     requester whom neither roles row lets take a role is refused first, in one sentence, so they
     learn nothing of whether the person is the only owner, an Admin, anyone else or nobody.
+
+    Unsets that person's key alone, holding their role and the requester's as read
+    (``_write_role``).
+
+    Raises:
+        MarketChanged: their role, or the requester's, changed since the read, and they still hold one.
     """
     context = load_market_context(market_id)
     if context is None:
@@ -2211,7 +2216,6 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     if context.market is None:
         raise BadRequestError("Invalid market data")
 
-    market_dict = context.document
     market = context.market
     organization = context.organization
 
@@ -2220,16 +2224,16 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     if all(refusals):
         raise ForbiddenError(refusals[0])
 
-    roles = market_dict.get('roles', {})
+    roles = context.document.get('roles') or {}
     if user_id not in roles:
         raise NotFoundError(NO_LONGER_ON_THE_MARKET)
-    
-    if roles.get(user_id) == MarketRole.OWNER.value:
-        # Count how many owners there are
+
+    taking_an_owner = roles.get(user_id) == MarketRole.OWNER.value
+    if taking_an_owner:
         owner_count = sum(1 for r in roles.values() if r == MarketRole.OWNER.value)
         if owner_count <= 1:
             raise BadRequestError("Cannot remove the only owner. Transfer ownership first.")
-    
+
     # The role as the market model read it, which takes only the four roles: every removal asks
     # the row of the role it takes.
     refused = Actions.refusal(
@@ -2237,33 +2241,37 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     if refused:
         raise ForbiddenError(refused)
 
-    del roles[user_id]
-    
-    result = markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {"roles": roles}}
-    )
-    
-    # Nothing changed: someone else took the role between the read and this write.
-    if result.modified_count == 0:
-        raise NotFoundError(NO_LONGER_ON_THE_MARKET)
+    try:
+        _write_role(market, {"$unset": {_role_key(user_id): ""}}, user_id, requesting_user,
+                    owner_count_read=taking_an_owner)
+    except MarketChanged as changed:
+        # Someone else took the role between the read and this write.
+        if user_id not in (changed.latest.get('roles') or {}):
+            raise NotFoundError(NO_LONGER_ON_THE_MARKET) from changed
+        raise
     _record_role(market_id, requesting_user, History.ROLE_TAKEN, user_id,
                  market.roles[user_id], None)
 
 
 def update_market_role(market_id: str, user_id: str, new_role: MarketRole, requesting_user: str) -> bool:
-    """Update a user's role in a market. Asks the row of the role taken and of the one given."""
+    """Update a user's role in a market. Asks the row of the role taken and of the one given.
+
+    Sets that person's key alone, holding their role and the requester's as read (``_write_role``).
+    Answers False, writing nothing, when they already hold ``new_role``.
+
+    Raises:
+        MarketChanged: their role, or the requester's, changed since the read.
+    """
     context = load_market_context(market_id)
     if context is None:
         raise MarketNotFoundError("Market not found")
     if context.market is None:
         raise BadRequestError("Invalid market data")
 
-    market_dict = context.document
     market = context.market
     organization = context.organization
 
-    roles = market_dict.get('roles', {})
+    roles = context.document.get('roles') or {}
     current_role_value = roles.get(user_id)
     if not current_role_value:
         raise BadRequestError("User does not have a role in this market")
@@ -2280,23 +2288,44 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
         refused = Actions.refusal(Actions.roles_row(role), requesting_user, market, organization)
         if refused:
             raise ForbiddenError(refused)
-    
+
     if new_role == MarketRole.OWNER:
         for uid, existing_role in roles.items():
             if uid != user_id and existing_role == MarketRole.OWNER.value:
                 raise BadRequestError("Market already has an owner. Transfer ownership first.")
-    
-    roles[user_id] = new_role.value
-    
-    result = markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {"roles": roles}}
-    )
-    
-    if result.modified_count > 0:
-        _record_role(market_id, requesting_user, History.ROLE_CHANGED, user_id,
-                     current_role, new_role)
-    return result.modified_count > 0
+
+    if current_role_value == new_role.value:
+        return False
+
+    _write_role(market, {"$set": {_role_key(user_id): new_role.value}}, user_id, requesting_user,
+                owner_count_read=new_role == MarketRole.OWNER)
+    _record_role(market_id, requesting_user, History.ROLE_CHANGED, user_id,
+                 current_role, new_role)
+    return True
+
+
+def _role_key(user_id: str) -> str:
+    """The stored key of one person's role on the market."""
+    return f"{market_doc_key('roles')}.{user_id}"
+
+
+def _write_role(
+    market: Market, update: Dict[str, Any], user_id: str, requesting_user: str, *,
+    owner_count_read: bool,
+) -> None:
+    """Write one person's role, holding what the decision read (ADR 0024): that person's role and
+    the requester's, each as read (absent when the requester's right comes through the
+    organization), and the whole map when the decision counted the market's owners, so two role
+    changes at once land on the people they name and never undo each other.
+
+    Raises ``MarketChanged`` when any of them moved."""
+    holds = [_role_key(user_id)]
+    requester = UsersApi.get_user(requesting_user)
+    if requester is not None and requester.id != user_id:
+        holds.append(_role_key(requester.id))
+    if owner_count_read:
+        holds.append(market_doc_key('roles'))
+    write_market(market, update, holds=holds)
 
 
 NO_SUCH_ROW = "This market's table has no such row."

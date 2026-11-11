@@ -716,8 +716,7 @@ def add_market_role(market_id: str) -> Response:
     if role is None:
         return jsonify({"error": f"Invalid role: {role_str}"}), 400
 
-    if not MarketsApi.add_market_role(market_id, user_email, role, authenticated_email()):
-        return jsonify({"error": "Failed to add role"}), 400
+    MarketsApi.add_market_role(market_id, user_email, role, authenticated_email())
     return jsonify({"message": "Role added successfully"}), 200
 
 @app.route('/markets/<market_id>/roles/<user_id>', methods=['DELETE'])

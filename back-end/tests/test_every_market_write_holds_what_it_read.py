@@ -62,9 +62,6 @@ EXCEPTIONS: Dict[Tuple[str, str], str] = {
         "the fake Discord's own servers, not the markets collection; the walk cannot name a "
         "receiver made by a call"),
     # Not yet moved onto write_market.
-    ("api.markets", "add_market_role"): "moves in ticket 09",
-    ("api.markets", "remove_market_role"): "moves in ticket 09",
-    ("api.markets", "update_market_role"): "moves in ticket 09",
     ("api.placements", "_store_vendor_assignments"): "moves in ticket 10",
     ("api.markets", "apply_phase_transition"): "moves in ticket 10",
     ("api.markets", "write_application_form"): "moves in ticket 11",

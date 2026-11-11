@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import COMPLETE_PLAN, client_market, stored_market
+from conftest import COMPLETE_PLAN, FakeMarketsCollection, client_market, stored_market
 import api.added_vendors as AddedVendorsApi
 import api.discord_connection as DiscordConnectionApi
 import api.door as DoorApi
@@ -20,6 +20,7 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import api.vendor_export as VendorExportApi
+import market_write as MarketWrite
 from client_errors import ForbiddenError
 from datatypes import MarketPerson, MarketPhase, MarketRole
 
@@ -308,19 +309,23 @@ class TestRolesAskTheirRows:
             roles = {"user-1": "owner"}
             if target_role is not None:
                 roles["target"] = target_role.value
-            doc = stored_market(MarketPhase.APPLICATIONS, roles=roles)
-            monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: (
-                MarketsApi.MarketContext(doc, MarketsApi.market_from_document(doc), None, None)))
-            monkeypatch.setattr(MarketsApi, "markets_collection", SimpleNamespace(
-                update_one=lambda _q, update: doc.update(roles=update["$set"]["roles"])
-                or SimpleNamespace(modified_count=1)))
+            markets = FakeMarketsCollection(stored_market(MarketPhase.APPLICATIONS, roles=roles))
+
+            def load(_id):
+                stored = markets.find_one({"id": markets.doc["id"]})
+                return MarketsApi.MarketContext(
+                    stored, MarketsApi.market_from_document(stored), None, None)
+
+            monkeypatch.setattr(MarketsApi, "load_market_context", load)
+            monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+            monkeypatch.setattr(MarketWrite, "markets_collection", markets)
             monkeypatch.setattr(MarketsApi.UsersApi, "get_user", lambda email: SimpleNamespace(
                 id=email, email=email))
             asked = []
             refusal = Actions.refusal
             monkeypatch.setattr(Actions, "refusal", lambda row, *a: asked.append(row) or refusal(
                 row, *a))
-            return (lambda: dict(doc["roles"])), asked
+            return (lambda: dict(markets.doc["roles"])), asked
         return make
 
     @pytest.mark.parametrize("asker", LADDER, ids=str)
