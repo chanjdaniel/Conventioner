@@ -51,7 +51,7 @@ afterEach(() => {
 /** The flow with its steps stubbed: what each step emits is what moves the flow on. */
 async function mountFlow(): Promise<VueWrapper> {
   wrapper = mount(FloorplanWorkflow, {
-    props: { marketId: 'market-1' },
+    props: { marketId: 'market-1', storedFloorplanId: null },
     global: {
       stubs: {
         FloorplanUploader: true,
