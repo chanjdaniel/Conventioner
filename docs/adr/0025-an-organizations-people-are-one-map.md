@@ -47,4 +47,5 @@ A user id becomes a key of the map, and a part of a dotted path, only when it co
 
 - An organization's place and a market's role read the same way: a map keyed by user id, one entry a person, exactly one owner.
 - A person's organizations are found in either shape until every organization holds a map.
+- Every organization stored before the map is folded by [`migrate_organization_people.py`](../../back-end/migrations/migrate_organization_people.py), run after the deploy, whenever, in the same write a change makes; its dry run counts the organizations that do not parse on the release before ([RELEASING.md](../RELEASING.md#pre-deploy-database-migrations)).
 - **The follow-up**, a release after this one and once every stored organization holds a map: remove `owner`, `admins` and `members` from every organization document, the fold, the lists the writes keep beside the map, the filter's list branches and the three list indexes, and `User.organizations` with every write of it.

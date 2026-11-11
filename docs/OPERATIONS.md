@@ -9,6 +9,7 @@ describes:
   - back-end/api/applications.py#ensure_application_indexes
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_placement_history.py
+  - back-end/migrations/migrate_organization_people.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
 verified: 2026-11-09
 sources:
@@ -181,6 +182,9 @@ The first that is: the release carrying E32 refuses to boot until every account 
 If it names accounts that share an address (by id; it prints no address), keep one of each and run it again.
 The release carrying E40/F01/S01 moves the placement history into the market's history: once it is deployed, whenever is convenient, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_placement_history.py --dry-run` ([`migrate_placement_history.py`](../back-end/migrations/migrate_placement_history.py)), which counts the entries it would move, then without `--dry-run`.
 Until it runs, that release reads the old `placement_history` collection beside the new one, so the older placements still show in the Assignment history and a vendor's History tab, and nothing refuses to boot; a later release removes that fallback ([the market's history](implementation/data/history.md#the-move-from-placement_history)).
+The release carrying T283 keeps an organization's people in one map: once it is deployed, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_organization_people.py --dry-run` ([`migrate_organization_people.py`](../back-end/migrations/migrate_organization_people.py)), then without `--dry-run`.
+The dry run is the read-only count of how many organizations do not parse on the release before (an owner also an admin or a member), and it writes nothing.
+It prints each organization's id and name; only its counts go into the team's records, never a name or an id.
 
 ### When the back end refuses to boot
 

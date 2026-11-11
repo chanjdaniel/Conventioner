@@ -6,6 +6,8 @@ describes:
   - back-end/datatypes.py#people_from_lists
   - back-end/datatypes.py#organization_people_of
   - back-end/organization_people.py#of_person
+  - back-end/migrations/migrate_organization_people.py
+  - back-end/tests/test_migrate_organization_people.py
   - back-end/tests/test_a_persons_organizations_in_either_shape.py
   - back-end/datatypes.py#OrganizationRole
   - back-end/datatypes.py#MarketRole
@@ -197,3 +199,8 @@ Its people see the market, its owner and admins run it, and deleting the organiz
 
 [`migrations/migrate_roles.py`](../../../back-end/migrations/migrate_roles.py) turned the old `owner`/`editors`/`viewers` lists into the `roles` map and the old flat `users` list into `owner`, `admins` and `members`.
 [`migrations/migrate_to_uuid.py`](../../../back-end/migrations/migrate_to_uuid.py) gave users, organizations and markets UUID ids and moved every reference (an organization's people and markets, a market's organization and its role keys) from names and emails to ids.
+[`migrations/migrate_organization_people.py`](../../../back-end/migrations/migrate_organization_people.py) folds every organization stored before the map into its `people` (T283, [ADR 0025](../../adr/0025-an-organizations-people-are-one-map.md)), in the write a change makes on such an organization (`organization_people.folding_write`): held on `people` absent and the three lists as read, it sets the fold and the lists as its mirror.
+It skips and lists an organization with no owner, one holding an id that cannot be a key of the map, and one that changed between its read and its write, which a second run folds.
+Its `--dry-run` writes nothing and prints each organization it would fold, what it holds, and whether it does not parse on the release before (its owner also an admin or a member) or lists an admin also as a member, then the counts.
+Nothing waits on it, since every reader reads both shapes: it runs after the deploy, whenever ([RELEASING.md](../../RELEASING.md#pre-deploy-database-migrations)).
+[`test_migrate_organization_people.py`](../../../back-end/tests/test_migrate_organization_people.py) folds each stored shape, and pins the dry run, a second run and a change landing during the run; [`test_an_organizations_people_on_the_server.py`](../../../back-end/tests/real_mongo/test_an_organizations_people_on_the_server.py) runs the same on a server.

@@ -310,6 +310,7 @@ python migrations/create_applications_collection.py   # creates the applications
 python migrations/migrate_user_emails.py              # stores every account address lowercased; stops and names (by id) accounts that share one
 python migrations/migrate_placement_history.py        # AFTER the deploy, whenever: moves the placement history into the market's history
 python migrations/migrate_to_one_stage.py             # AFTER the deploy, whenever: moves the three old stage phases into `applications`
+python migrations/migrate_organization_people.py      # AFTER the deploy, whenever, `--dry-run` first: folds each organization's three lists of people into its `people` map
 ```
 
 `migrate_placement_history.py` runs **after** its deploy, not before (E40/F01/S01): it moves every `placement_history` entry into `history` with its fields unchanged and drops the old collection, and a run before the deploy leaves behind whatever the old build writes meanwhile.
@@ -322,6 +323,14 @@ It moves every market in `applications_open`, `applications_closed` or `review` 
 Production held 2 markets when it was written: 1 in an old phase (a market whose vendors apply on its page, in `review`, which comes out not taking applications) and 1 in `market_days`, whose phase history alone is renamed.
 Run `--dry-run` first and read it, then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says.
 It is idempotent: a second run says "Nothing to change".
+
+`migrate_organization_people.py` runs **after** the deploy that ships an organization's `people` map ([ADR 0025](adr/0025-an-organizations-people-are-one-map.md)), whenever the operator likes, never before it: the build before changes only the three lists, so a map written earlier goes stale under its writes, and the build after reads the map over the lists.
+That build reads an organization stored before the map by folding its three lists, the owner winning, and the first change to its people folds it in, so nothing waits on the script and the boot does not check for it.
+It writes `people` on every organization that has none, in one write held on the lists as read, and keeps `owner`, `admins` and `members` as the map's mirror, so the release before still reads the same people after a rollback.
+It leaves alone, and lists, an organization with no owner, one holding an id that cannot be a key of the map, and one that changed during the run (run it again for that one).
+Run `--dry-run` first: it writes nothing and prints each organization it would fold, whether it does not parse on the release before (its owner also an admin or a member) and whether it lists an admin also as a member, then the counts; [OPERATIONS.md](OPERATIONS.md#starting-a-database-and-migrations) says what of it goes into the team's records.
+Then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says.
+It is idempotent: a second run folds nothing.
 
 `migrate_user_emails.py` **must** be run before the code that holds one account per address (E32/F03/S04).
 The back end builds a UNIQUE index on the stored, lowercased address at boot (`api.users.ensure_user_indexes`) and refuses to boot while any address is stored with capitals, naming this script, or while two accounts share an address, naming them by id.
