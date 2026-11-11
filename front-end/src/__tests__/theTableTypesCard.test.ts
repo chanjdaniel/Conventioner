@@ -375,15 +375,13 @@ describe('the Table types card', () => {
     const save = vi.fn();
     card({
       save,
-      listSaved: vi
-        .fn()
-        .mockResolvedValue([
-          {
-            id: 'tpl-1',
-            name: 'Same',
-            tableTypes: [{ name: 'Square 4 ft', widthMm: 1, depthMm: 1 }],
-          },
-        ]),
+      listSaved: vi.fn().mockResolvedValue([
+        {
+          id: 'tpl-1',
+          name: 'Same',
+          tableTypes: [{ name: 'Square 4 ft', widthMm: 1, depthMm: 1 }],
+        },
+      ]),
     });
     byTestId('layout-types-use-saved')!.click();
     await flushPromises();
