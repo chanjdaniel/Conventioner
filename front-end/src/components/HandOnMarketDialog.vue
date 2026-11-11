@@ -6,8 +6,10 @@
  * Destructive, since the Owner cannot take it back themselves: once it lands, only the new Owner can
  * hand it back. The choices are everyone with access but the Owner, the person looking, each with
  * the role that counts beside the address; the words saying what changes show once a choice is
- * made, and the button waits for one. Nothing closes the dialog while the request is in flight, so its refusal is read
- * here, under the choice it refused.
+ * made, and the button waits for one. Nothing closes the dialog while the request is in flight, so
+ * its refusal is read here, under the choice it refused. A choice the people no longer offer, as
+ * when a re-read finds the person gone, is let go, so the field never shows someone it would not
+ * hand on to; a choice the person makes is told (`choose`), so the refusal of the last one goes.
  */
 import { computed, ref, watch } from 'vue';
 import type { PersonWithAccess } from '@/assets/types/datatypes';
@@ -31,7 +33,7 @@ const props = defineProps<{
   error?: string;
 }>();
 
-const emit = defineEmits<{ close: []; confirm: [userId: string] }>();
+const emit = defineEmits<{ close: []; confirm: [userId: string]; choose: [] }>();
 
 const chosen = ref('');
 
@@ -50,6 +52,10 @@ const groups = computed(() => [
 
 /** The person chosen, by their address, while they are still one of the choices. */
 const newOwner = computed(() => choices.value.find((person) => person.email === chosen.value));
+
+watch(newOwner, (person) => {
+  if (!person && chosen.value) chosen.value = '';
+});
 
 watch(
   () => props.open,
@@ -83,6 +89,7 @@ watch(
       label="New owner"
       placeholder="Type an address…"
       testid="hand-on-market-picker"
+      @update:model-value="emit('choose')"
     />
     <p v-if="newOwner" class="hand-on-text" data-testid="hand-on-market-consequence">
       <EmailAddress :words="newOwner.email" /> becomes its Owner: only they can delete it, give and

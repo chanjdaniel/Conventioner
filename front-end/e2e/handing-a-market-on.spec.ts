@@ -28,12 +28,16 @@ test.beforeAll(() => {
 
 /**
  * A draft market of the test user's, in an organization of its own so no other spec's people stand
- * in its list, with `ADMIN` its Admin and `EDITOR` its Editor.
+ * in its list, with `ADMIN` its Admin and `EDITOR` its Editor. The test user owns that organization,
+ * so on the market it is an Admin through it once the market is handed on.
  */
-async function seed(request: APIRequestContext): Promise<{ marketName: string }> {
+async function seed(
+  request: APIRequestContext,
+): Promise<{ marketName: string; organizationName: string }> {
   await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  const organizationName = uniqueMarketName('Hand On Org');
   const org = await request.post(`${BACKEND_URL}/organizations`, {
-    data: { name: uniqueMarketName('Hand On Org') },
+    data: { name: organizationName },
   });
   expect(org.ok(), await org.text()).toBeTruthy();
   const organizationId = (await org.json()).organization_id as string;
@@ -53,7 +57,7 @@ async function seed(request: APIRequestContext): Promise<{ marketName: string }>
     });
     expect(given.ok(), await given.text()).toBeTruthy();
   }
-  return { marketName };
+  return { marketName, organizationName };
 }
 
 async function openManageMarket(page: Page, marketName: string): Promise<ManageMarketPage> {
@@ -76,7 +80,7 @@ for (const size of PHONE_AND_DESK) {
     }) => {
       const window = inTheWindow(size);
       const me = TEST_USER.email;
-      const { marketName } = await seed(request);
+      const { marketName, organizationName } = await seed(request);
       const manage = await openManageMarket(page, marketName);
 
       await expect(manage.handOnLine).toHaveText(
@@ -119,7 +123,7 @@ for (const size of PHONE_AND_DESK) {
       await expect(manage.deleteButton).toHaveCount(0);
       await expect(manage.person(ADMIN).getByTestId('manage-market-role')).toHaveText('Owner');
       await expect(manage.person(me).getByTestId('manage-market-role')).toHaveText(
-        /^Admin(, through .*)?$/,
+        `Admin, through ${organizationName}`,
       );
       await expect(manage.people).toBeFocused();
       await expect(manage.window).toBeVisible();

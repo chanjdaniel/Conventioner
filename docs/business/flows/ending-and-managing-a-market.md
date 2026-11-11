@@ -16,7 +16,7 @@ describes:
   - front-end/e2e/people-at-scale-market.spec.ts
   - front-end/src/components/HandOnMarketDialog.vue
   - front-end/e2e/handing-a-market-on.spec.ts
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -210,7 +210,9 @@ Covered by:
 3. Once someone is chosen it says "<address> becomes its Owner: only they can delete it, give and take Admin roles and change who may do what. You stay on it as an Admin, and cannot take it back yourself."; "Hand on" waits for a choice, and nothing closes the dialog while the request is in flight.
 4. "Hand on" makes that person the Owner and the owner an Admin in one write (`POST /markets/:id/hand-on`), and [the market's history](../../implementation/data/history.md) records it: "<owner> handed the market on to <address>, and stays on it as an Admin".
    The dialog closes, the market is re-read, so the section and "Delete market" go and "Users with access" shows both new roles, the market open in the store is re-read when it is this one, and focus goes to "Users with access".
-5. A refusal stays in the dialog with the choice: someone who no longer has access is refused "You can hand this market only to someone who has access to it.", and a hand-on over a market whose owner or the person chosen changed role meanwhile, a second hand-on from another tab among them, is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers), the market behind it re-read.
+5. A refusal stays in the dialog with the choice, and choosing someone else lets it go.
+   Someone who no longer has access is refused "You can hand this market only to someone who has access to it.", and the market behind it is re-read, so they are offered no more and the field waits for another choice.
+   A hand-on over a market whose owner or the person chosen changed role meanwhile, a second hand-on from another tab among them, is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers), the market behind it re-read.
 
 The new Owner, signing in, finds "Delete market" and "Hand this market on" theirs.
 Covered by:

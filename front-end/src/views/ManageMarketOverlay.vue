@@ -413,7 +413,8 @@ function cancelHandOn() {
  * is re-read, as every write here re-reads it, so "Hand this market on" goes, since this person no
  * longer owns it, and Users with access shows both new roles; focus goes to that list, as "Hand on"
  * is gone. A refusal stays in the dialog; one saying the market changed under it re-reads the
- * market behind it, as a removal's does.
+ * market behind it, as a removal's does, and so does one saying the person chosen has no access,
+ * since the read the choice came from is stale: they then drop out of the choices.
  */
 async function handleHandOn(userId: string) {
   if (!marketData.value || handOnBusy.value) return;
@@ -423,7 +424,7 @@ async function handleHandOn(userId: string) {
     await api.post(`/markets/${encodeURIComponent(marketData.value.id)}/hand-on`, { userId });
   } catch (err) {
     handOnError.value = getApiErrorMessage(err, 'The market was not handed on.');
-    if (isMarketChanged(err)) await fetchMarket(false);
+    if (isMarketChanged(err) || getApiErrorStatus(err) === 400) await fetchMarket(false);
     handOnBusy.value = false;
     return;
   }
@@ -840,6 +841,7 @@ async function closeAddUser() {
     :error="handOnError"
     @close="cancelHandOn"
     @confirm="handleHandOn"
+    @choose="handOnError = ''"
   />
 
   <!--

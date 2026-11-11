@@ -88,6 +88,8 @@ const allByTestId = (id: string) => [
 const MARKET_CHANGED =
   'This market changed while you were working on it, so your change was not saved. ' +
   'Reload to see the latest, then make your change again.';
+const ONLY_THE_OWNER = "Only the market's owner may hand this market on to someone else.";
+const NO_ACCESS = 'You can hand this market only to someone who has access to it.';
 const text = (id: string) => byTestId(id)?.textContent?.replace(/\s+/g, ' ').trim();
 
 function refusing(status: number, data: Record<string, string>): AxiosError {
@@ -300,21 +302,65 @@ describe('handing a market on', () => {
     const wrapper = await open();
     await openTheDialog();
     await choose('admin@example.com');
-    api.post.mockRejectedValue(
-      refusing(400, { error: 'You can hand this market only to someone who has access to it.' }),
-    );
+    api.post.mockRejectedValue(refusing(403, { error: ONLY_THE_OWNER }));
     const reads = api.get.mock.calls.length;
 
     submit().click();
     await flushPromises();
 
     expect(byTestId('hand-on-market-window')).not.toBeNull();
-    expect(byTestId('hand-on-market-window')!.textContent).toContain(
-      'You can hand this market only to someone who has access to it.',
-    );
+    expect(byTestId('hand-on-market-window')!.textContent).toContain(ONLY_THE_OWNER);
     expect(text('hand-on-market-consequence')).toContain('admin@example.com becomes its Owner');
     expect(submit().disabled).toBe(false);
     expect(api.get.mock.calls.length).toBe(reads);
+    wrapper.unmount();
+  });
+
+  it('re-reads the market when the person chosen no longer has access, and offers them no more', async () => {
+    const wrapper = await open();
+    await openTheDialog();
+    await choose('admin@example.com');
+    api.post.mockRejectedValue(refusing(400, { error: NO_ACCESS }));
+    // Their role was taken while the dialog was open.
+    served = market([OWNER, MEMBER]);
+    const reads = api.get.mock.calls.filter(([url]) => url === '/markets/market-1').length;
+
+    submit().click();
+    await flushPromises();
+
+    expect(api.get.mock.calls.filter(([url]) => url === '/markets/market-1').length).toBe(
+      reads + 1,
+    );
+    expect(byTestId('hand-on-market-window')!.textContent).toContain(NO_ACCESS);
+    expect(field().value).toBe('');
+    expect(byTestId('hand-on-market-consequence')).toBeNull();
+    expect(submit().disabled).toBe(true);
+    expect((await showChoices()).map((o) => o.dataset.value)).toEqual(['member@example.com']);
+    expect(
+      allByTestId('manage-market-person').some((row) =>
+        row.textContent?.includes('admin@example.com'),
+      ),
+    ).toBe(false);
+    expect(api.post).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it('lets the refusal go once someone else is chosen', async () => {
+    const wrapper = await open();
+    await openTheDialog();
+    await choose('admin@example.com');
+    api.post.mockRejectedValue(refusing(400, { error: NO_ACCESS }));
+    served = market([OWNER, MEMBER]);
+
+    submit().click();
+    await flushPromises();
+    expect(byTestId('hand-on-market-window')!.textContent).toContain(NO_ACCESS);
+
+    await choose('member@example.com');
+
+    expect(byTestId('hand-on-market-window')!.textContent).not.toContain(NO_ACCESS);
+    expect(text('hand-on-market-consequence')).toContain('member@example.com becomes its Owner');
+    expect(submit().disabled).toBe(false);
     wrapper.unmount();
   });
 
