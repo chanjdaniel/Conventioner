@@ -9,7 +9,9 @@
  * first end and then the second, and Escape lets go of a first end; a polite live region says each
  * step. The length is typed in m, cm, mm, ft or in (m first), and "Set the scale" emits the line
  * and its length in millimetres, which the page saves as the layout's scale
- * (`calibration.ts#pxPerMm`). Recalibrating starts from the line stored.
+ * (`calibration.ts#pxPerMm`). Recalibrating starts from the line stored. The hint and the form stand
+ * above the image, where the editor's toolbar will, so the image may take the column's height and
+ * "Set the scale" stays in view at a desk.
  */
 import { computed, onMounted, onUnmounted, ref, useId } from 'vue';
 import {
@@ -195,6 +197,59 @@ const ends = computed<Point[]>(() => (line.value ? [line.value.start, line.value
 
 <template>
   <div class="layout-calibration" data-testid="layout-calibration">
+    <p :id="hintId" class="calibration-hint">
+      Drag across something whose length you know, like a wall or a door.
+    </p>
+    <p :id="keysId" class="visually-hidden">
+      With the keyboard, the arrow keys move a crosshair and Enter sets each end of the line.
+    </p>
+
+    <form class="calibration-form" novalidate @submit.prevent="submit">
+      <label class="calibration-field">
+        <span class="calibration-label">Length</span>
+        <input
+          v-model="typed"
+          name="length"
+          class="field calibration-length"
+          type="text"
+          inputmode="decimal"
+          autocomplete="off"
+          data-testid="layout-calibration-length"
+        />
+      </label>
+      <label class="calibration-field">
+        <span class="calibration-label">Unit</span>
+        <select
+          v-model="unit"
+          name="unit"
+          class="field field--select"
+          data-testid="layout-calibration-unit"
+        >
+          <option v-for="u in LENGTH_UNITS" :key="u.unit" :value="u.unit">{{ u.label }}</option>
+        </select>
+      </label>
+      <button
+        type="submit"
+        class="btn btn--primary"
+        :disabled="busy"
+        data-testid="layout-calibration-set"
+      >
+        Set the scale
+      </button>
+      <button
+        v-if="cancellable"
+        type="button"
+        class="btn btn--secondary"
+        :disabled="busy"
+        data-testid="layout-calibration-cancel"
+        @click="emit('cancel')"
+      >
+        Keep the scale
+      </button>
+    </form>
+    <p v-if="error" class="calibration-error" role="alert" data-testid="layout-calibration-error">
+      {{ error }}
+    </p>
     <svg
       ref="svg"
       class="calibration-map"
@@ -249,53 +304,6 @@ const ends = computed<Point[]>(() => (line.value ? [line.value.start, line.value
       </g>
     </svg>
 
-    <p :id="hintId" class="calibration-hint">
-      Drag across something whose length you know, like a wall or a door.
-    </p>
-    <p :id="keysId" class="visually-hidden">
-      With the keyboard, the arrow keys move a crosshair and Enter sets each end of the line.
-    </p>
-
-    <form class="calibration-form" novalidate @submit.prevent="submit">
-      <label class="calibration-field">
-        <span class="calibration-label">Length</span>
-        <input
-          v-model="typed"
-          class="field calibration-length"
-          type="text"
-          inputmode="decimal"
-          autocomplete="off"
-          data-testid="layout-calibration-length"
-        />
-      </label>
-      <label class="calibration-field">
-        <span class="calibration-label">Unit</span>
-        <select v-model="unit" class="field field--select" data-testid="layout-calibration-unit">
-          <option v-for="u in LENGTH_UNITS" :key="u.unit" :value="u.unit">{{ u.label }}</option>
-        </select>
-      </label>
-      <button
-        type="submit"
-        class="btn btn--primary"
-        :disabled="busy"
-        data-testid="layout-calibration-set"
-      >
-        Set the scale
-      </button>
-      <button
-        v-if="cancellable"
-        type="button"
-        class="btn btn--secondary"
-        :disabled="busy"
-        data-testid="layout-calibration-cancel"
-        @click="emit('cancel')"
-      >
-        Keep the scale
-      </button>
-    </form>
-    <p v-if="error" class="calibration-error" role="alert" data-testid="layout-calibration-error">
-      {{ error }}
-    </p>
     <p class="visually-hidden" aria-live="polite">{{ announced }}</p>
   </div>
 </template>
@@ -350,8 +358,8 @@ const ends = computed<Point[]>(() => (line.value ? [line.value.start, line.value
 
 .calibration-hint {
   margin: 0;
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .calibration-form {

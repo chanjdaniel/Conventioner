@@ -374,8 +374,9 @@ const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(store
 .layout-location {
   display: inline-flex;
   align-items: center;
-  min-height: calc(var(--target-min) - 2 * var(--space-1));
-  padding: 0 var(--space-3);
+  /* A thumb's target on a phone, where --target-min is 44px. */
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-pill);
   font-size: var(--text-sm);
   color: var(--mm-black);
@@ -442,10 +443,13 @@ const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(store
   min-width: 0;
 }
 
+/* The floorplan fills the column, whole, as the calibration draws it; LayoutMap takes its place. */
 .layout-image {
   display: block;
-  max-width: 100%;
+  width: 100%;
+  height: auto;
   max-height: 70vh;
+  object-fit: contain;
   background: var(--layout-floor);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);

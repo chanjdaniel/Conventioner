@@ -255,6 +255,12 @@ onUnmounted(() => {
   width: 100%;
 }
 
+/* The zone's own top margin keeps it off a heading above it elsewhere; here it heads the map
+   column, level with the side panel's first card. */
+.floorplan-uploader :deep(.file-drop-zone) {
+  margin-top: 0;
+}
+
 .pdf-pages {
   display: flex;
   flex-direction: column;
