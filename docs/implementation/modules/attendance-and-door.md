@@ -22,7 +22,7 @@ describes:
   - front-end/src/utils/fitsAPhone.ts
   - back-end/app.py#verify_attendance_indexes
   - front-end/e2e/one-record-for-a-vendors-day.spec.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
@@ -42,6 +42,7 @@ sources:
   - E38/F15/S04
   - T202
   - T251
+  - T274
   - T270
 ---
 
@@ -68,7 +69,7 @@ An upsert with no unique index behind it can insert twice when two land at once,
   MongoDB itself retries such an upsert when its query is equality on the unique index's fields, so the retry is the fallback when the server does not.
 - Only the call whose upsert inserted the record writes the "checked in" entry, so two racing check-ins write one.
 - The index's prefix serves a vendor's check-ins, so `attendance` has no lookup index of its own in [the lookup indexes](../data/lookup-indexes.md); a database that already held the old `(market_id, vendor_email)` one keeps it, which is harmless.
-- [`one-record-for-a-vendors-day.spec.ts`](../../../front-end/e2e/one-record-for-a-vendors-day.spec.ts) proves the refusal and 16 check-ins at once on the stack's real MongoDB; the back end's suite runs on fakes, which hold no index, except [the real-MongoDB suite](../testing/real-mongo-suite.md), which builds the index through the boot and refuses to start over two planted records of one vendor's day.
+- [`one-record-for-a-vendors-day.spec.ts`](../../../front-end/e2e/one-record-for-a-vendors-day.spec.ts) proves the refusal and 16 check-ins at once on the stack's real MongoDB; the back end's suite runs on fakes, which hold no index, except [the real-MongoDB suite](../testing/real-mongo-suite.md), which builds the index through the boot, refuses to start over two planted records of one vendor's day, and races 20 check-ins of one vendor's day, which leave one record and one "checked in" entry ([one record per vendor's day](../testing/real-mongo-suite.md#one-record-per-vendors-day)).
 
 ## The routes
 
@@ -144,7 +145,7 @@ A roster that could not be read says which kind of failure it was, with a Try ag
 It is stored on the market document as `doorCode`, `{code, madeAt, madeBy}`, and `api/door.py` serves it on its own endpoints, to whoever may check vendors in: a Viewer who read it could check vendors in by proxy.
 So `leave_out_what_no_read_serves` in [`back-end/market_documents.py`](../../../back-end/market_documents.py) takes it off the market read and every Markets list entry.
 A code is 6 characters of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (no 0, O, 1 or I), each drawn by `secrets`.
-Making one loads through the change loader, answers 409 outside `market_days`, and writes with a filter on the phase too, so a market archived since it was loaded is not changed; a new code replaces the old at once, so every poster of the old one stops working.
+Making one loads through the change loader, answers 409 outside `market_days`, and writes through [the market write](market-write.md), holding the phase it was loaded in, so a market archived since it was loaded is not changed and the request answers the one 409 with [its sentence](market-write.md#what-it-answers); a new code replaces the old at once, so every poster of the old one stops working.
 It records `door_code_made` with the organizer as the actor and `replaced` in its detail, never the code.
 Its `url`, the address the QR code opens, is the vendor page with the code, `<FRONTEND_URL>/<slug>?door=<code>`.
 

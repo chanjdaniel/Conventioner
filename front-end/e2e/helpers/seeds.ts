@@ -9,6 +9,7 @@ import {
   seedApprovedVendor,
 } from './seedApplication';
 import { uniqueMarketName } from './uniqueName';
+import { saveApplicationForm } from './saveApplicationForm';
 
 /**
  * The market day every seeded vendor says they can attend.
@@ -323,15 +324,7 @@ export async function seedMarketWithVendors(
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
   // Step 2: Finalize the application form while market is still in draft.
-  const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    data: MINIMAL_APPLICATION_FORM,
-  });
-  if (!formRes.ok()) {
-    throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
-  }
+  await saveApplicationForm(request, baseURL, marketId, MINIMAL_APPLICATION_FORM);
   // And its review setup decided (T206): Review waits on it.
   await decideReviewSetup(request, baseURL, marketId);
 
@@ -404,15 +397,7 @@ export async function seedPublishedMarketWithAssignments(
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
   // Step 2: Finalize the application form while market is still in draft.
-  const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    data: MINIMAL_APPLICATION_FORM,
-  });
-  if (!formRes.ok()) {
-    throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
-  }
+  await saveApplicationForm(request, baseURL, marketId, MINIMAL_APPLICATION_FORM);
   // And its review setup decided (T206): Review waits on it.
   await decideReviewSetup(request, baseURL, marketId);
 

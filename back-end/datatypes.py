@@ -4,7 +4,9 @@ import unicodedata
 import uuid
 from enum import Enum
 from typing import List, Literal, Optional, Union, Dict, Any, Tuple
-from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validator, model_validator
+from pydantic import (
+    BaseModel, ConfigDict, Field, PrivateAttr, computed_field, field_validator, model_validator,
+)
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -726,6 +728,16 @@ class Market(BaseModel):
     assignment_object: AssignmentObject
     phase: MarketPhase = MarketPhase.DRAFT  # Market lifecycle phase (single source of truth)
     application_form: Optional["ApplicationForm"] = None  # Application form definition
+    # How many times the form's questions were written (T274): a form save carries the revision its
+    # copy was read at and is refused when the stored one moved, so two people saving the form never
+    # replace each other's questions (``write_application_form``). Server-owned: counted by the form
+    # write and the CSV start, never taken from a body. Absent reads as 0.
+    form_revision: int = 0
+    # How many times the plan was written (T274): a plan save carries the revision its copy was read
+    # at and is refused when the stored one moved, so two people planning one market never erase
+    # each other's edits (``save_plan``). Server-owned: counted by every writer of ``setup_object``
+    # (the plan write, the CSV start, the floorplan save), never taken from a body. Absent reads as 0.
+    plan_revision: int = 0
     # Who reviews this market's applications, and whose turn the next arrival is (E38/F07/S02,
     # ADR 0020). Server-owned: only ``review_team.py`` writes it, never a market update body. Absent
     # is no reviewers chosen: first come, first served, as before it existed.
@@ -774,6 +786,10 @@ class Market(BaseModel):
     # The Discord server it is connected to (E46/F01/S02). Server-owned: only the Discord card's
     # routes write it. Absent is not connected.
     discord: Optional["DiscordConnection"] = None
+    # The stored document this market was parsed from, as it was read: what a write judged on this
+    # market holds (``market_write.write_market``). Set only by ``market_from_document``, carried by
+    # ``model_copy``, never served or dumped; None on a market built in code rather than read.
+    _stored_document: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
     @field_validator("permissions", mode="before")
     @classmethod
@@ -1601,6 +1617,8 @@ class DiscordConnectionContract(ContractModel):
 
 class MarketSchemaContract(ContractModel):
     application_form: Optional[ApplicationFormContract] = None
+    form_revision: Optional[int] = None
+    plan_revision: Optional[int] = None
     discord: Optional[DiscordConnectionContract] = None
     discord_vendors: Optional[List[ServedDiscordVendorContract]] = None
     example_columns: Optional[List[ExampleColumnContract]] = None

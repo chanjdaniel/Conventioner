@@ -13,6 +13,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
 import { useVerdictActions } from '@/utils/verdictActions';
+import { useMarketStore } from '@/stores/market';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 
 const reviewApplication = vi.fn();
@@ -125,5 +126,30 @@ describe('marking a follow-up', () => {
       APP.applicantEmail,
       'Needs a portfolio link',
     );
+  });
+});
+
+describe('a verdict refused because someone decided it first', () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it('re-reads the market, so the rail counts what the other reviewer decided', async () => {
+    const decidedFirst = { ...APP, status: ApplicationStatus.ReviewerApproved };
+    reviewApplication.mockReset().mockRejectedValue({
+      response: {
+        status: 409,
+        data: { error: 'Someone decided it first.', application: decidedFirst },
+      },
+    });
+    const store = useMarketStore();
+    const refresh = vi.spyOn(store, 'refresh').mockResolvedValue(undefined);
+    const market = ref({ id: 'market-1', actionRefusals: {} } as unknown as Market);
+
+    const outcome = await useVerdictActions(market, ref([APP])).give(
+      APP,
+      ApplicationStatus.ReviewerRejected,
+    );
+
+    expect(outcome.kind).toBe('changed');
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 });

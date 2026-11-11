@@ -13,13 +13,14 @@ sources:
   - E43/F01/S01
   - bug/25
   - bug/30
+  - T274
 ---
 
 # The plan's autosave
 
 Market Setup's plan saves itself as it is edited ([planning the market](../../business/flows/planning.md)).
 [`front-end/src/utils/useAutosave.ts`](../../../front-end/src/utils/useAutosave.ts) owns the order of the saves of one working copy, and knows nothing of markets.
-[`front-end/src/views/MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue) gives it the write (`PUT /markets/<id>/plan` with `setupObject` and `intakeMode`), the same write as a keepalive request for the way out of the page, the re-read after it (the [market store](market-store.md)'s `refresh`), and who may write (`mayTake(market, MarketAction.ChangeSetup)`).
+[`front-end/src/views/MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue) gives it the write (`PUT /markets/<id>/plan` with `setupObject`, `intakeMode` and `planRevision`), the same write as a keepalive request for the way out of the page, the re-read after it (the [market store](market-store.md)'s `refresh`), and who may write (`mayTake(market, MarketAction.ChangeSetup)`).
 
 ## The queue
 
@@ -36,7 +37,7 @@ An answer that leaves an edit unsaved with no save sent after it (the edit's pau
 A wanted save is sent before the re-read of the answer that freed it, so that re-read lands while an edit is unsaved, and the view ignores it.
 
 **A refusal and a failure are told apart** by the answer's status, in one function, `isRefusal`: an answer from 400 to 499 other than 401, 408 and 429 is the server saying no, and anything else (no answer, a 401, 408, 429 or 5xx) is the save not getting through.
-The plan's write refuses with a 400 (an invalid plan, a price, the intake mode after draft, the setup settled on leaving draft, the rules settled) or a 403 (archived, the person's role); a stale-write 409 would read as a refusal too.
+The plan's write refuses with a 400 (an invalid plan, a price, the intake mode after draft, the setup settled on leaving draft, the rules settled), a 403 (archived, the person's role) or the 409 "market changed" (the copy came from an older revision: another tab or person saved first, or the market moved under the save, [the plan's revision](market-write.md#the-plans-revision)).
 
 **A refusal drops every edit made so far** and takes the server's plan back: the plan is written whole, so every later edit builds on the refused one, and none of them is kept.
 The status is `refused`, and the line (`market-setup-plan-refused`, in the error's red, with no Retry) says the server's sentence and then "The plan is back as it was last saved."
@@ -88,6 +89,12 @@ On Settings, where the assignment rules ride in the plan, the failed and refused
 
 **The echo rule** (`serverPlan`, bug 25): the plan cards deep-watch the working copy and report every change to it, the page's own adoption of a re-read included, so a report that leaves the plan as the server sent it, while nothing is unsaved, is not an edit.
 Without it one edit saved every 625 ms until the page was left (`plan-saves-once.spec.ts`).
+
+**The revision** (`planRevision`, ADR 0024): the working copy's revision, taken with it from the market (`adoptPlan`, a market that never stored one reading as 0), sent with every save, the keepalive write's included, and replaced by the one each save answers, before the answer frees a wanted save.
+The saves go one at a time, so each carries the revision the last one answered, and a page's own second save is never refused for its first; a save refused as the market changed drops the edits as every refusal does, and the page takes the store's plan and its revision, with the server's sentence on the refused line.
+Allocate tables' flush of the plan before a run and a phase move's go through the same queue, so they send it too.
+The keepalive write carries the revision the working copy came from, so an edit made while a save is out, with the page then going before that save answers, is refused when it arrives after it, and the save that was out is what the server keeps: that edit is lost, after the browser's question.
+The keepalive never guesses the revision the save out will answer, since a save out refused over another person's save would then let the keepalive land over that person's plan unseen.
 
 **The saves write to the market the working copy was taken from** (`planMarket`), never the store's market at the time of the write.
 A save sent on leaving, or after a save out answers, can run once the store holds the next page's market, or none while it reads it, since a route's new view sets up before the old one's unmount hooks run.

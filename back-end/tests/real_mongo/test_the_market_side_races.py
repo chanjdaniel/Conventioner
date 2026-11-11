@@ -12,7 +12,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from datatypes import MarketPhase, VendorAssignmentResult
-from market_documents import MARKETS_COLLECTION
+from market_documents import MARKETS_COLLECTION, market_from_document
+from market_write import MarketChanged
 
 import api.applicants as ApplicantsApi
 import api.markets as MarketsApi
@@ -66,7 +67,7 @@ class TestTwoPhaseMovesFromOnePhaseLandOne:
         harness.warm(real_db[MARKETS_COLLECTION], 2)
 
         answered = race(2, lambda i: MarketsApi.apply_phase_transition(
-            market["id"], as_read, targets[i].value, by=f"mover-{i}@example.com"))
+            as_read, targets[i].value, by=f"mover-{i}@example.com"))
 
         landed, refused = _outcomes(answered, MarketsApi.PhaseChangedUnderRequest)
         assert len(landed) == 1 and len(refused) == 1, answered
@@ -132,7 +133,7 @@ class TestBackToReviewAgainstPublishResults:
             meet("back")
             try:
                 return MarketsApi.apply_phase_transition(
-                    market_id, as_read, MarketPhase.APPLICATIONS.value, by=OWNER)
+                    as_read, MarketPhase.APPLICATIONS.value, by=OWNER)
             finally:
                 written["back"].set()
 
@@ -160,8 +161,7 @@ class TestBackToReviewAgainstPublishResults:
             assert not (stored["phase"] == MarketPhase.APPLICATIONS.value
                         and stored.get("resultsPublished")), stored
             if moved is None:
-                assert published == ({"error": "This market moved while the request was in "
-                                               "flight. Reload it and try again."}, 409)
+                assert isinstance(published, MarketChanged), published
                 assert stored["phase"] == MarketPhase.APPLICATIONS.value
                 assert stored.get("resultsPublished") is not True
                 assert first in (None, "back")
@@ -188,10 +188,13 @@ class TestTwoAssignmentWritesFromOneRevisionLandOne:
         rows = [[_row(f"vendor-{i}@example.com", f"A{i + 1}")] for i in range(2)]
         harness.warm(real_db[MARKETS_COLLECTION], 2)
 
-        answered = race(2, lambda i: PlacementsApi._store_vendor_assignments(
-            market["id"], rows[i], f"2026-11-0{i + 1}T09:00:00Z", read_revision))
+        as_read = market_from_document(_stored(real_db, market["id"]))
+        assert (as_read.assignment_object.revision or 0) == read_revision
 
-        landed, refused = _outcomes(answered, PlacementsApi.AssignmentChangedUnderRequest)
+        answered = race(2, lambda i: PlacementsApi._store_vendor_assignments(
+            as_read, rows[i], f"2026-11-0{i + 1}T09:00:00Z"))
+
+        landed, refused = _outcomes(answered, MarketChanged)
         assert len(landed) == 1 and len(refused) == 1, answered
         winner = landed[0]
         stored = _stored(real_db, market["id"])["assignmentObject"]

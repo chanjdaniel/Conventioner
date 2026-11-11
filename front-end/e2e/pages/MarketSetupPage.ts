@@ -64,6 +64,11 @@ export class MarketSetupPage {
   /** Why Assign is unavailable in this market's phase (E10/F03/S02). */
   readonly assignPhaseHint: Locator;
 
+  /** "Plan saved", once the server holds the last edit (T271). */
+  readonly planSaved: Locator;
+  /** A plan save the server refused, in its words (T271, ADR 0024). */
+  readonly planRefused: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
@@ -93,6 +98,9 @@ export class MarketSetupPage {
 
     this.assignError = page.getByTestId('market-setup-assign-error');
     this.assignPhaseHint = page.getByTestId('market-setup-assign-phase-hint');
+
+    this.planSaved = page.getByTestId('market-setup-plan-saved');
+    this.planRefused = page.getByTestId('market-setup-plan-refused');
   }
 
   // --- Tabs ---
@@ -290,7 +298,12 @@ export class MarketSetupPage {
         .click();
     }
 
-    await this.page.getByTestId(`setup-dates-day-${date}`).click();
+    await this.dateDay(date).click();
+  }
+
+  /** A day of the dates calendar, pressed when it is a market date (`aria-pressed`). */
+  dateDay(date: string): Locator {
+    return this.page.getByTestId(`setup-dates-day-${date}`);
   }
 
   /** Get a date column select by row index. */

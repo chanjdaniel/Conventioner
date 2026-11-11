@@ -313,7 +313,9 @@ export function useAutosave(options: AutosaveOptions) {
    * The page is going (a reload, a closed tab, a link out of the app): an edit the server does not
    * have and no save out carries is sent one last time. A save out carrying every edit is left to
    * land; one with a later edit behind it most likely lands first, since it was sent first, and
-   * waiting for it would lose the later edit for sure.
+   * waiting for it would lose the later edit for sure. A screen whose writes hold a revision (the
+   * plan, ADR 0024) sends the copy's own, which that save out moves past, so there the server
+   * refuses the last write and only the browser's question guarded the later edit.
    */
   function onPageHide() {
     if (!options.may()) return;

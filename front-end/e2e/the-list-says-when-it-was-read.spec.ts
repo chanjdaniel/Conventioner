@@ -100,7 +100,7 @@ test("One by one: Refresh brings others' verdicts into the counts, and keeps the
 
   await monitor.goto(marketId);
   await monitor.waitForLoaded();
-  await expect(monitor.progress).toContainText('of 3 to review');
+  await expect(monitor.progress).toContainText('of 3 open');
   await expect(page.getByTestId('applications-updated')).toHaveText('Updated just now');
   // On to the second card, which the reviewer now holds; the first is let go.
   await expect(monitor.email).toHaveText('nadia@ember.test');
@@ -115,13 +115,13 @@ test("One by one: Refresh brings others' verdicts into the counts, and keeps the
     );
     expect(rejected.ok(), await rejected.text()).toBeTruthy();
   });
-  await expect(monitor.progress).toContainText('of 3 to review');
+  await expect(monitor.progress).toContainText('of 3 open');
 
   await page.getByTestId('applications-refresh').click();
-  await expect(monitor.progress).toContainText('of 2 to review');
+  await expect(monitor.progress).toContainText('of 2 open');
   await expect(monitor.tally).toContainText('1 reviewed · 0 approved · 1 rejected');
   await expect(monitor.email).toHaveText('theo@thistle.test');
-  await expect(monitor.progress).toContainText('1 of 2 to review');
+  await expect(monitor.progress).toContainText('1 of 2 open');
 });
 
 test('Refresh recovers from a list that failed to load, in both views', async ({
@@ -159,7 +159,7 @@ test('Refresh recovers from a list that failed to load, in both views', async ({
   await expect(monitor.empty).toHaveCount(0);
   await page.unroute(THE_LIST);
   await refresh.click();
-  await expect(monitor.progress).toContainText('of 3 to review');
+  await expect(monitor.progress).toContainText('of 3 open');
   await expect(monitor.card).toBeVisible();
   await expect(page.getByTestId('applications-read-failed')).toHaveCount(0);
   const up = ((await monitor.email.textContent()) ?? '').trim();

@@ -83,6 +83,7 @@ export interface MarketSchema {
     question?: boolean;
     type: string;
   }[];
+  formRevision?: number;
   id: string;
   importMapping?: {
     headers?: string[];
@@ -104,6 +105,7 @@ export interface MarketSchema {
     source: string;
   }>;
   phase?: string;
+  planRevision?: number;
   rejectionRules?: {
     answers?: string[];
     key: string;

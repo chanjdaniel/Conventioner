@@ -182,6 +182,20 @@ let planMarket: Market | null = null;
  */
 let serverPlan = '';
 
+/**
+ * The revision the working copy came from (ADR 0024, T274): taken with the plan from the market,
+ * sent with every save, and replaced by the one each save answers. The server refuses a save from
+ * an older revision, so a tab opened before another saved, or before the CSV start or the
+ * floorplan wrote the plan, is told the market changed rather than storing its copy over theirs.
+ * The saves go one at a time (`useAutosave`), so each carries the revision the last one answered.
+ */
+let planRevision = 0;
+
+/** A plan save's body: the working copy, and the revision it came from. */
+function planBody() {
+  return { setupObject: { ...setupObject }, intakeMode: planIntakeMode.value, planRevision };
+}
+
 function workingPlan(): string {
   return JSON.stringify({ setupObject, intakeMode: planIntakeMode.value });
 }
@@ -203,7 +217,9 @@ function workingPlan(): string {
  * every edit reaches the server through, so nothing slips past them.
  *
  * A save the server refuses (the market left draft under the organizer, the rules settled, a role
- * lost) puts the plan back as the server holds it and says why; one that failed on the way keeps
+ * lost, or the market changed since the copy was read: another tab or person saved first, ADR 0024)
+ * drops the unsaved edits, puts the plan back as the server holds it and says why in the server's
+ * words; one that failed on the way keeps
  * the edit and offers Retry (T271). Either stops a move, an allocation or a start from a CSV that
  * would read the plan.
  *
@@ -224,10 +240,11 @@ const {
   forgetUnsendable: forgetUnsendablePlan,
 } = useAutosave({
   send: async () => {
-    await api.put(`/markets/${encodeURIComponent(planMarket!.id)}/plan`, {
-      setupObject: { ...setupObject },
-      intakeMode: planIntakeMode.value,
-    });
+    const response = await api.put(
+      `/markets/${encodeURIComponent(planMarket!.id)}/plan`,
+      planBody(),
+    );
+    planRevision = response.data?.planRevision ?? planRevision;
   },
   sendOnUnload: () => {
     // `fetch`, not the app's axios: axios's browser adapter is XHR, which has no `keepalive`.
@@ -239,7 +256,7 @@ const {
           keepalive: true,
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ setupObject, intakeMode: planIntakeMode.value }),
+          body: JSON.stringify(planBody()),
         },
       ).catch(() => {});
       return true;
@@ -277,6 +294,7 @@ function adoptPlan(fresh: Market) {
     Object.assign(setupObject, fresh.setupObject);
   }
   planIntakeMode.value = fresh.intakeMode;
+  planRevision = fresh.planRevision ?? 0;
   serverPlan = workingPlan();
 }
 

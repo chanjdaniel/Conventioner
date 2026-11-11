@@ -24,7 +24,7 @@ from datatypes import (
     AssignmentOptionObject, FloorplanObject, SetupObject, StartingCount, TableTypeObject,
 )
 import layout as Layout
-from market_documents import market_doc_filter, market_doc_key
+from market_write import MarketChanged, write_market
 from services.gridfs_service import delete_image
 from utils.identity import authenticated_email
 from utils.request_body import NOT_AN_OBJECT, string_field
@@ -176,10 +176,10 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
          this market (400 with the sentence for each); then the layout's own rules
          (``layout.layout_refusal``: its location one of the plan's, no two tables of one id, each
          section's tables numbered 1 to N, every type the market's, every table inside the
-         floorplan; 400 with the sentence). The write holds what
-         step 4 read, and the market's table types as it read them, so a save or a write of the
-         types landing in between makes it 409 ``STALE_LAYOUT`` too. An image the
-         layout no longer names is deleted.
+         floorplan; 400 with the sentence). The write goes through ``write_market``, holding the
+         phase and the plan's revision as read and counting it, as every write of the plan does
+         (T274): a layout, a plan or table types saved since step 1 read the market make it 409
+         ``STALE_LAYOUT``. An image the layout no longer names is deleted.
 
     **Returns** the layout and the plan's sections as stored, so the editor adopts the revision and
     the counts::
@@ -255,11 +255,13 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
     refused = Layout.layout_refusal(floorplan, plan)
     if refused:
         raise BadRequestError(refused)
-    written = MarketsApi.markets_collection.update_one(
-        {**market_doc_filter("id", market_id), **_still_as_read(index, held, floorplan),
-         **prepared.held},
-        {"$set": prepared.update})
-    if written.matched_count == 0:
+    # Built on the plan as read, so held at its revision as read, and counted, as every write of
+    # the plan is (T274): a plan, a layout or the types saved meanwhile refuse this save, and a
+    # Market Setup page open from before is told the market changed rather than storing its copy.
+    try:
+        write_market(market, {"$set": prepared.update},
+                     revisions={MarketsApi.PLAN_REVISION_KEY: market.plan_revision})
+    except MarketChanged:
         return jsonify({"error": STALE_LAYOUT}), 409
     MarketsApi.release_removed_floorplans(market, prepared.removed_floorplans, user_email)
     if held is not None and held.image_gridfs_id \

@@ -8,6 +8,7 @@ from conftest import FakeMarketsCollection, client_market, stored_market
 import api.markets as MarketsApi
 import phase_record as PhaseRecord
 from datatypes import MarketPhase
+import market_write as MarketWrite
 
 
 def dated(phase, by="owner@example.com"):
@@ -30,6 +31,7 @@ class TestWritingIt:
     def test_a_new_market_starts_its_record_in_draft(self, monkeypatch):
         fake = FakeMarketsCollection(None)
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
 
         MarketsApi.create_market(client_market(), "user-1")
 
@@ -41,6 +43,7 @@ class TestWritingIt:
     def test_a_create_body_cannot_write_it(self, monkeypatch):
         fake = FakeMarketsCollection(None)
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
 
         MarketsApi.create_market(
             client_market(phase_history=[{"phase": "market_days", "entered_at": "x"}]), "user-1"
@@ -52,8 +55,9 @@ class TestWritingIt:
         doc = stored_market(MarketPhase.ASSIGNMENT, phaseHistory=[dated("draft")])
         fake = FakeMarketsCollection(doc)
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
 
-        MarketsApi.apply_phase_transition("market-123", doc, "market_days", by="ana@example.com")
+        MarketsApi.apply_phase_transition(doc, "market_days", by="ana@example.com")
 
         assert fake.last_update["$set"]["phase"] == "market_days"
         [entry] = fake.last_update["$push"]["phaseHistory"]["$each"]
@@ -65,8 +69,9 @@ class TestWritingIt:
         doc = stored_market(MarketPhase.MARKET_DAYS)
         fake = FakeMarketsCollection(doc)
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
 
-        MarketsApi.apply_phase_transition("market-123", doc, "archived", by="ana@example.com")
+        MarketsApi.apply_phase_transition(doc, "archived", by="ana@example.com")
 
         first, second = fake.last_update["$push"]["phaseHistory"]["$each"]
         assert first == {"phase": "market_days", "enteredAt": None, "by": None}

@@ -569,6 +569,9 @@ def market_from_document(
     object.__setattr__(
         market, "applications_stopped", applications_stopped_from_market_document(document),
     )
+    # The document as read, which a write judged on this market holds (``market_write``). Kept, not
+    # copied, so a caller never changes the document a loader handed it.
+    market._stored_document = document
     return market
 
 

@@ -43,6 +43,8 @@ import api.payments as PaymentsApi
 import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError, ForbiddenError
 import history as History
+from market_documents import market_doc_key
+from market_write import MarketChanged, document_as_read, write_market
 from utils.email_address import normalized_email
 
 
@@ -60,20 +62,6 @@ class AssignPhaseError(ConflictError):
     A conflict with the market's state rather than a malformed request: the same call is correct
     one transition earlier or later.
     """
-
-
-class AssignmentChangedUnderRequest(ConflictError):
-    """Someone else wrote the market's placements between this request's read and its write. A 409.
-
-    Every change reads the whole assignment and writes it back, so storing it anyway would store
-    the assignment as it was before that other change, and undo it without a word.
-    """
-
-    def __init__(self):
-        super().__init__(
-            "Someone else changed this market's tables while this change was being saved, so it "
-            "was not saved. Reload the tables and try again."
-        )
 
 
 class SeatTakenError(PlacementError):
@@ -184,25 +172,29 @@ def _placement_for(
 
 
 def _store_vendor_assignments(
-    market_id: str,
+    market: Market,
     vendor_assignments: List[VendorAssignmentResult],
     assignment_date: str,
-    read_revision: int,
     made_from: Optional[Dict[str, str]] = None,
 ) -> None:
-    """Write the placements, and nothing else, onto the stored market.
+    """Write the placements, and nothing else, onto the market as this request read it.
 
     Statistics are never persisted - every read derives them fresh - so only the fields that are
     the assignment itself are set. A ``$set`` of those keys rather than of the whole
     ``assignmentObject`` keeps a stale ``assignmentStatistics`` from being resurrected by a write.
 
-    The rows are the whole assignment as this request read it and changed it, so the write lands
-    only while the stored ``revision`` is still ``read_revision``, and counts one more. Otherwise
-    another change landed in between, and this one is refused rather than stored over it: two
-    organizers moving two vendors into one empty seat at once both got a 200, and one move was lost.
+    The rows are the whole assignment as this request read it and changed it, so the write
+    (``write_market``) lands only while the market is still in the phase it was read in and the
+    stored ``revision`` is still the one read, and counts one more. Otherwise another change landed
+    in between, and this one is refused with ``MarketChanged`` rather than stored over it: two
+    organizers moving two vendors into one empty seat at once both got a 200, and one move was
+    lost; a placement judged on a market's days landed on the market archived a moment before.
+    The revision is read from the stored document, which a run's solver does not touch.
 
     ``made_from`` is what a solver run read (E22/F03/S01), and only a run passes it: a hand
-    placement is an edit to the result, not an input, so it leaves the fingerprint alone.
+    placement is an edit to the result, not an input, so it leaves the fingerprint alone. A run
+    also holds ``resultsPublished`` as read, so an allocation never lands after Publish results
+    told applicants the one before it.
     """
     written: Dict[str, Any] = {
         "assignmentObject.vendorAssignments": [
@@ -211,17 +203,16 @@ def _store_vendor_assignments(
         "assignmentObject.assignmentDate": assignment_date,
         "assignmentObject.assignmentStatistics": None,
     }
+    holds = []
     if made_from is not None:
         written["assignmentObject.madeFrom"] = made_from
+        holds.append(market_doc_key("results_published"))
+    assignment_key = market_doc_key("assignment_object")
     # An assignment written before the count existed has none, and one a market was created with
-    # holds 0.
-    read = read_revision if read_revision else {"$in": [None, 0]}
-    result = MarketsApi.markets_collection.update_one(
-        {"id": market_id, "assignmentObject.revision": read},
-        {"$set": written, "$inc": {"assignmentObject.revision": 1}},
-    )
-    if not result.matched_count:
-        raise AssignmentChangedUnderRequest()
+    # holds 0: ``write_market`` matches either for 0 or None.
+    read_revision = (document_as_read(market).get(assignment_key) or {}).get("revision")
+    write_market(market, {"$set": written}, holds=holds,
+                 revisions={f"{assignment_key}.revision": read_revision})
 
 
 # The one phase the assignment runs in, and the whole of what this rule says (E10/F03/S02).
@@ -310,7 +301,6 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
         return {"error": NOTHING_TO_ASSIGN}, 400
 
     # Read before the run, which replaces the market's assignment with the one it produced.
-    read_revision = market.assignment_object.revision
     held_before = [(seat.email, seat.date) for seat in market.assignment_object.vendor_assignments]
     market.assignment_object.assignment_statistics = None
     # Raises ``BrokenAllocationError`` on an allocation that breaks the solver's own rules (T253),
@@ -319,10 +309,9 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     assignment = assigned_market.assignment_object
 
     _store_vendor_assignments(
-        market_id,
+        market,
         assignment.vendor_assignments,
         assignment.assignment_date,
-        read_revision,
         MadeFrom.fingerprint(market.setup_object, vendors, market.phase_history),
     )
     History.record_assignment_run(
@@ -403,8 +392,7 @@ def write_placement(
     ]
     kept.append(placement)
 
-    _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date,
-                              market.assignment_object.revision)
+    _store_vendor_assignments(market, kept, market.assignment_object.assignment_date)
     History.record_placed(market_id, requesting_user, placement, left)
     PaymentsApi.seated_again(market_id, [(placement.email, placement.date)],
                              [(left.email, left.date)] if left else [], requesting_user)
@@ -459,13 +447,12 @@ def remove_placement(
         kept_line = PaymentsApi.keep_freed_line(market, email, date, requesting_user,
                                                 deduct=deduct_owed)
         try:
-            _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date,
-                                      market.assignment_object.revision)
-        except AssignmentChangedUnderRequest:
-            # Not freed: the record goes back as it was, since while the seat is still held a
-            # freed record left behind would come back as the line once that seat went some
-            # other way than a free. Unless a free of the same seat landed meanwhile and kept its
-            # own record over this one: that record, and any $0 it set, are the line's.
+            _store_vendor_assignments(market, kept, market.assignment_object.assignment_date)
+        except MarketChanged:
+            # Refused, so the line goes back as it was: while the seat is still held, a freed record
+            # left behind would come back as the line once that seat went some other way than a
+            # free. Unless a free of the same seat landed meanwhile and kept its own record over
+            # this one: that record, and any $0 it set, are the line's now.
             kept_line.undo()
             raise
         except BaseException:
@@ -547,8 +534,7 @@ def swap_placements(
         **{field: getattr(first, field) for field in seat_fields}, "hand_placed": True,
     })
 
-    _store_vendor_assignments(market_id, placements, market.assignment_object.assignment_date,
-                              market.assignment_object.revision)
+    _store_vendor_assignments(market, placements, market.assignment_object.assignment_date)
     # One entry, because it was one action: a trade recorded as two placements reads as two
     # unrelated decisions a week later.
     History.record_swapped(

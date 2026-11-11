@@ -123,3 +123,33 @@ export function onSessionEnded(handler: () => void): () => void {
   });
   return () => api.interceptors.response.eject(id);
 }
+
+/** The `code` of the back end's one 409 for a write over a market that changed (`MarketChanged`). */
+export const MARKET_CHANGED_CODE = 'market_changed';
+
+/**
+ * Whether a failed request is a write the server refused because the market changed since the
+ * request read it (`back-end/market_write.py`): a 409 whose body's `code` is `market_changed`. It
+ * stored nothing; its sentence is the server's, which `getApiErrorMessage` reads as it reads any
+ * refusal.
+ */
+export function isMarketChanged(err: unknown): boolean {
+  if (!axios.isAxiosError(err) || err.response?.status !== 409) return false;
+  const data: unknown = err.response.data;
+  return (
+    !!data && typeof data === 'object' && (data as { code?: unknown }).code === MARKET_CHANGED_CODE
+  );
+}
+
+/**
+ * Run `handler` when a request answers that the market changed under it (`isMarketChanged`). The
+ * request still fails as it would have, so the screen's own catch runs too and shows the sentence.
+ * A response interceptor only, as `onSessionEnded` is. Answers the function that removes it.
+ */
+export function onMarketChanged(handler: () => void): () => void {
+  const id = api.interceptors.response.use(undefined, (err: unknown) => {
+    if (isMarketChanged(err)) handler();
+    return Promise.reject(err);
+  });
+  return () => api.interceptors.response.eject(id);
+}

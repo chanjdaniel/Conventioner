@@ -169,7 +169,7 @@ test.describe('The MVP journey', () => {
 
     // They arrive awaiting a decision. Nobody is assignable yet, and the queue is one card at a
     // time, so the count of work left is the assertion.
-    await expect(monitor.progress).toContainText('of 3 to review');
+    await expect(monitor.progress).toContainText('of 3 open');
     await expect(monitor.tally).toContainText('0 reviewed');
     // The card carries the answers the verdict is supposed to rest on, not just an address.
     await expect(monitor.answers).toBeVisible();

@@ -47,6 +47,7 @@ sources:
   - T224
   - T217
   - T263
+  - T274
 ---
 
 # The market's actions
@@ -399,6 +400,7 @@ Then the row: one the table does not have is "This market's table has no such ro
 Setting the role a row already asks, resetting a row the market does not hold, or resetting a market that holds no row it can read, stores and records nothing.
 Setting writes `permissions.<action>` to `{role, source: market}`, and resetting unsets it, whether it was changed here or copied from the organization; resetting every row unsets exactly the rows it returns, in one write, so a stored row this build cannot read stays as the per-row reset leaves it, and is not in the entry.
 Mongo cannot set a key inside a stored null or string, so setting a row on a market whose stored `permissions` is not a map, which the read takes as no rows held, writes the whole map holding that row.
+Each of the four goes through [the market write](market-write.md), holding the phase and every row it changes as the market was loaded (`permissions.<action>`), or the whole `permissions` where the stored rows are not a map: a row the owner changed in another tab meanwhile refuses the write with the one 409 and [its sentence](market-write.md#what-it-answers), and the history's "before" is always the row that stood; a row changed meanwhile that the write does not change stands beside it.
 
 **Every change is recorded** in [the market's history](../data/history.md): the `change-the-table` action, kind `permission_set` or `permission_reset`, subject `{action}` and detail `{before, after}`, each `{role, source}`; a reset of every row is one entry of kind `permission_table_reset`, no subject, and detail `{before, after}`, each a map from every row it returned to its `{role, source}`.
 A copy of the organization's default is one entry of kind `permission_table_copied`, shaped as the reset's, holding every row it changed.

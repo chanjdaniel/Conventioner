@@ -53,7 +53,7 @@ from assignment.assignment import (
     vendors_to_show,
 )
 from assignment.vendor_input import SolverVendor, outside_solver_vendors
-from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
+from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case, snake_to_camel
 import api.applications as ApplicationsApi
 import api.applicants as ApplicantsApi
 import result_outcome as ResultOutcome
@@ -66,9 +66,11 @@ from market_documents import (
     market_doc_projection,
     market_doc_filter,
     market_doc_key,
-    market_doc_set,
     market_from_document,
     leave_out_what_no_read_serves,
+)
+from market_write import (
+    MARKET_CHANGED, MarketChanged, MarketNotFoundError, document_as_read, write_market,
 )
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
@@ -107,10 +109,6 @@ markets_collection = db["markets"]
 
 VALID_FORM_FIELD_TYPES = {"text", "number", "select", "multi_select", "checkbox", "date", "email"}
 
-
-
-class MarketNotFoundError(NotFoundError):
-    """No market exists with the requested id: a 404."""
 
 
 class ApplicationFormLockedError(ConflictError):
@@ -979,6 +977,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict.update(price_facts(market))
     # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
     market_dict['setupLockReason'] = setup_lock_reason(market)
+    # And the plan's revision, which Market Setup sends back with every save (T274): a market that
+    # never stored one reads as 0, as the model does.
+    market_dict[PLAN_REVISION_KEY] = market.plan_revision
     # And why this market cannot be started from a Google Form's CSV (E24/F03): the flow and the
     # Market Setup action mirror the proposal's own refusal rather than deciding it for themselves.
     market_dict['csvStartRefusal'] = CsvProposal.refusal(market_dict)
@@ -1319,6 +1320,9 @@ def create_market(market: Market, owner_email: str) -> tuple:
     # And the review setup's two "none"s, each decided by its list's own write (T206).
     market_dict["nothing_leads_the_card"] = False
     market_dict["no_automatic_rejections"] = False
+    # And the form's and the plan's revisions, each counted by its own writes alone.
+    market_dict["form_revision"] = 0
+    market_dict["plan_revision"] = 0
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -2052,8 +2056,7 @@ class MoveBlockedUnderRequest(ConflictError):
         self.current_phase = current_phase
         self.target_phase = target_phase
         self.blockers = blockers
-        super().__init__(blockers[0].message if blockers else (
-            "This market changed while the request was in flight. Reload it and try again."))
+        super().__init__(blockers[0].message)
 
     def body(self) -> Dict[str, Any]:
         return convert_keys_to_camel_case({
@@ -2064,35 +2067,54 @@ class MoveBlockedUnderRequest(ConflictError):
         })
 
 
-def _what_the_move_stood_on(from_phase: str, to_phase: str) -> Dict[str, Any]:
-    """What a move's guards passed on that another request can change under it, as a filter.
+def _what_the_move_stood_on(from_phase: str, to_phase: str) -> Tuple[str, ...]:
+    """What a move's guards passed on that another request can change under it: the stored keys
+    the move's write holds at their value as read (``write_market``'s ``holds``).
 
     Back to review (T207) is refused once results are published, and Publish results writes the
     flag without moving the phase, so the move's write holds the flag as its guard read it: two
     requests in flight together never leave a market in the review with its results published.
     Publish results' write holds the phase the same way (``publish_results``).
+
+    Open applications judges the form and the plan as read and stamps the form published, so it
+    holds both revisions: a form or a plan save landing in its window refuses the move rather than
+    opening a form or a setup its guards never read, after which the setup is settled. The move
+    counts neither revision, since it changes no question and no part of the plan.
     """
     if (from_phase, to_phase) == (MarketPhase.ASSIGNMENT.value, MarketPhase.APPLICATIONS.value):
-        return {market_doc_key("results_published"): {"$ne": True}}
-    return {}
+        return (market_doc_key("results_published"),)
+    if (from_phase, to_phase) == (MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value):
+        return (FORM_REVISION_KEY, PLAN_REVISION_KEY)
+    return ()
+
+
+def _what_changed_under_the_move(latest: Dict[str, Any], to_phase: str) -> List[PreconditionResult]:
+    """The blockers a move meets on the market as it now stands, its phase unmoved: what its guards
+    say now, or, when they pass, that the market changed under it, so the rail still says why the
+    move was not taken and to reload."""
+    blockers = evaluate_transition(market_from_document(latest), to_phase, db)
+    return blockers or [PreconditionResult(id="market_changed", passed=False, message=MARKET_CHANGED)]
 
 
 def apply_phase_transition(
-    market_id: str, document: Dict[str, Any], to_phase: str, by: Optional[str] = None,
+    document: Dict[str, Any], to_phase: str, by: Optional[str] = None,
 ) -> None:
-    """Write one phase change, conditional on the market still being where the caller thinks.
+    """Write one phase change to the market ``document`` was read from, only while it still is.
 
     The ONE writer of a market's phase: every move, the transition endpoint's and a Google Form
     market's first import's, comes through ``take_move`` to it. A second copy is how the `isDraft` stamp and the
     finalization stamp come to disagree with `phase` - and how a move goes unrecorded.
 
-    ONE atomic update, and one conditional on the stored phase: a failure between the phase and
-    the stamp would leave a market whose two answers disagree, which is the class of bug
-    `migrate_is_draft_consistency` exists to repair, and a lost update would move a market a
-    concurrent request had already moved. The same update records the phase entered, and who
-    moved it there, in the market's phase history (E26/F06/S03). A move whose guard read a fact
-    another write can change without moving the phase holds that fact too
+    ONE atomic update, through ``write_market``, which holds the stored phase as read: a failure
+    between the phase and the stamp would leave a market whose two answers disagree, which is the
+    class of bug `migrate_is_draft_consistency` exists to repair, and a lost update would move a
+    market a concurrent request had already moved. The same update records the phase entered, and
+    who moved it there, in the market's phase history (E26/F06/S03). A move whose guard read a
+    fact another write can change without moving the phase holds that fact too
     (``_what_the_move_stood_on``).
+
+    The rail shows a refused move as a blocker beside the phase the market is in, so the
+    ``MarketChanged`` the write raises is answered in those terms, from the market it carries.
 
     Raises:
         PhaseChangedUnderRequest: the stored phase moved under this request.
@@ -2102,11 +2124,9 @@ def apply_phase_transition(
     phase_key = market_doc_key("phase")
     is_draft_key = market_doc_key("is_draft")
     from_phase = phase_from_market_document(document).value
-    stored_phase = document[phase_key] if phase_key in document else {"$exists": False}
 
-    result = markets_collection.update_one(
-        {"id": market_id, phase_key: stored_phase, **_what_the_move_stood_on(from_phase, to_phase)},
-        {
+    try:
+        write_market(document, {
             "$set": {
                 phase_key: to_phase,
                 is_draft_key: to_phase == MarketPhase.DRAFT.value,
@@ -2114,20 +2134,14 @@ def apply_phase_transition(
                 **taking_applications_update(from_phase, to_phase, document),
             },
             "$push": PhaseRecord.push_entries(document, to_phase, by),
-        },
-    )
-
-    if result.matched_count:
-        return
-
-    latest = markets_collection.find_one({"id": market_id})
-    if latest is None:
-        raise MarketNotFoundError("Market not found")
-    actual_phase = phase_from_market_document(latest).value
-    if actual_phase == from_phase and latest.get(phase_key) == document.get(phase_key):
-        raise MoveBlockedUnderRequest(
-            from_phase, to_phase, evaluate_transition(market_from_document(latest), to_phase, db))
-    raise PhaseChangedUnderRequest(actual_phase, from_phase, to_phase)
+        }, holds=_what_the_move_stood_on(from_phase, to_phase))
+    except MarketChanged as changed:
+        latest = changed.latest
+        actual_phase = phase_from_market_document(latest).value
+        if actual_phase == from_phase and latest.get(phase_key) == document.get(phase_key):
+            raise MoveBlockedUnderRequest(
+                from_phase, to_phase, _what_changed_under_the_move(latest, to_phase)) from None
+        raise PhaseChangedUnderRequest(actual_phase, from_phase, to_phase) from None
 
 
 class MoveUnavailable(BadRequestError):
@@ -2155,7 +2169,7 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
         return blockers
     # Through the one phase writer, so the phase, its two stamps and the phase history move in one
     # atomic update (E26/F06/S03).
-    apply_phase_transition(market_id, context.document, to_phase, by=by)
+    apply_phase_transition(context.document, to_phase, by=by)
 
     # Only after the phase is written.
     swept: Dict[str, int] = {}
@@ -2182,48 +2196,47 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
     return []
 
 
-def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> bool:
-    """Add a user role to a market. Asks the row that gives the role (``Actions.roles_row``)."""
+def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> None:
+    """Add a user role to a market. Asks the row that gives the role (``Actions.roles_row``).
+
+    Sets that person's key alone, holding it absent and the requester's role as read
+    (``_write_role``), so an add never undoes another organizer's change to someone else.
+
+    Raises:
+        MarketChanged: the person was given a role, or the requester's changed, since the read.
+    """
     context = load_market_context(market_id)
     if context is None:
         raise MarketNotFoundError("Market not found")
     if context.market is None:
         raise BadRequestError("Invalid market data")
 
-    market_dict = context.document
     market = context.market
+    roles = context.document.get('roles') or {}
 
     refused = Actions.refusal(Actions.roles_row(role), requesting_user, market, context.organization)
     if refused:
         raise ForbiddenError(refused)
 
     if role == MarketRole.OWNER:
-        current_roles = market_dict.get('roles', {})
-        for uid, existing_role in current_roles.items():
+        for uid, existing_role in roles.items():
             if existing_role == MarketRole.OWNER.value:
                 raise BadRequestError("Market already has an owner. Transfer ownership first.")
-    
+
     user = UsersApi.get_user(user_email)
     if not user:
         raise BadRequestError("User not found")
 
-    roles = market_dict.get('roles', {})
     # Adding never changes a role: overwriting one here would skip update_market_role's guards and
     # let an Admin demote the Owner.
     if user.id in roles:
         raise BadRequestError(
             f"{user.email} already has a role on this market. Change it in their row under Users with access."
         )
-    roles[user.id] = role.value
-    
-    result = markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {"roles": roles}}
-    )
-    
-    if result.modified_count > 0:
-        _record_role(market_id, requesting_user, History.ROLE_GIVEN, user.id, None, role)
-    return result.modified_count > 0
+
+    _write_role(market, {"$set": {_role_key(user.id): role.value}}, user.id, requesting_user,
+                owner_count_read=role == MarketRole.OWNER)
+    _record_role(market_id, requesting_user, History.ROLE_GIVEN, user.id, None, role)
 
 
 NO_LONGER_ON_THE_MARKET = "They no longer have a role on this market."
@@ -2236,6 +2249,12 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     a 404 saying so, written and recorded as nothing, and Manage market reads it as done. A
     requester whom neither roles row lets take a role is refused first, in one sentence, so they
     learn nothing of whether the person is the only owner, an Admin, anyone else or nobody.
+
+    Unsets that person's key alone, holding their role and the requester's as read
+    (``_write_role``).
+
+    Raises:
+        MarketChanged: their role, or the requester's, changed since the read, and they still hold one.
     """
     context = load_market_context(market_id)
     if context is None:
@@ -2243,7 +2262,6 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     if context.market is None:
         raise BadRequestError("Invalid market data")
 
-    market_dict = context.document
     market = context.market
     organization = context.organization
 
@@ -2252,16 +2270,16 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     if all(refusals):
         raise ForbiddenError(refusals[0])
 
-    roles = market_dict.get('roles', {})
+    roles = context.document.get('roles') or {}
     if user_id not in roles:
         raise NotFoundError(NO_LONGER_ON_THE_MARKET)
-    
-    if roles.get(user_id) == MarketRole.OWNER.value:
-        # Count how many owners there are
+
+    taking_an_owner = roles.get(user_id) == MarketRole.OWNER.value
+    if taking_an_owner:
         owner_count = sum(1 for r in roles.values() if r == MarketRole.OWNER.value)
         if owner_count <= 1:
             raise BadRequestError("Cannot remove the only owner. Transfer ownership first.")
-    
+
     # The role as the market model read it, which takes only the four roles: every removal asks
     # the row of the role it takes.
     refused = Actions.refusal(
@@ -2269,33 +2287,37 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     if refused:
         raise ForbiddenError(refused)
 
-    del roles[user_id]
-    
-    result = markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {"roles": roles}}
-    )
-    
-    # Nothing changed: someone else took the role between the read and this write.
-    if result.modified_count == 0:
-        raise NotFoundError(NO_LONGER_ON_THE_MARKET)
+    try:
+        _write_role(market, {"$unset": {_role_key(user_id): ""}}, user_id, requesting_user,
+                    owner_count_read=taking_an_owner)
+    except MarketChanged as changed:
+        # Someone else took the role between the read and this write.
+        if user_id not in (changed.latest.get('roles') or {}):
+            raise NotFoundError(NO_LONGER_ON_THE_MARKET) from changed
+        raise
     _record_role(market_id, requesting_user, History.ROLE_TAKEN, user_id,
                  market.roles[user_id], None)
 
 
 def update_market_role(market_id: str, user_id: str, new_role: MarketRole, requesting_user: str) -> bool:
-    """Update a user's role in a market. Asks the row of the role taken and of the one given."""
+    """Update a user's role in a market. Asks the row of the role taken and of the one given.
+
+    Sets that person's key alone, holding their role and the requester's as read (``_write_role``).
+    Answers False, writing nothing, when they already hold ``new_role``.
+
+    Raises:
+        MarketChanged: their role, or the requester's, changed since the read.
+    """
     context = load_market_context(market_id)
     if context is None:
         raise MarketNotFoundError("Market not found")
     if context.market is None:
         raise BadRequestError("Invalid market data")
 
-    market_dict = context.document
     market = context.market
     organization = context.organization
 
-    roles = market_dict.get('roles', {})
+    roles = context.document.get('roles') or {}
     current_role_value = roles.get(user_id)
     if not current_role_value:
         raise BadRequestError("User does not have a role in this market")
@@ -2312,23 +2334,44 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
         refused = Actions.refusal(Actions.roles_row(role), requesting_user, market, organization)
         if refused:
             raise ForbiddenError(refused)
-    
+
     if new_role == MarketRole.OWNER:
         for uid, existing_role in roles.items():
             if uid != user_id and existing_role == MarketRole.OWNER.value:
                 raise BadRequestError("Market already has an owner. Transfer ownership first.")
-    
-    roles[user_id] = new_role.value
-    
-    result = markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {"roles": roles}}
-    )
-    
-    if result.modified_count > 0:
-        _record_role(market_id, requesting_user, History.ROLE_CHANGED, user_id,
-                     current_role, new_role)
-    return result.modified_count > 0
+
+    if current_role_value == new_role.value:
+        return False
+
+    _write_role(market, {"$set": {_role_key(user_id): new_role.value}}, user_id, requesting_user,
+                owner_count_read=new_role == MarketRole.OWNER)
+    _record_role(market_id, requesting_user, History.ROLE_CHANGED, user_id,
+                 current_role, new_role)
+    return True
+
+
+def _role_key(user_id: str) -> str:
+    """The stored key of one person's role on the market."""
+    return f"{market_doc_key('roles')}.{user_id}"
+
+
+def _write_role(
+    market: Market, update: Dict[str, Any], user_id: str, requesting_user: str, *,
+    owner_count_read: bool,
+) -> None:
+    """Write one person's role, holding what the decision read (ADR 0024): that person's role and
+    the requester's, each as read (absent when the requester's right comes through the
+    organization), and the whole map when the decision counted the market's owners, so two role
+    changes at once land on the people they name and never undo each other.
+
+    Raises ``MarketChanged`` when any of them moved."""
+    holds = [_role_key(user_id)]
+    requester = UsersApi.get_user(requesting_user)
+    if requester is not None and requester.id != user_id:
+        holds.append(_role_key(requester.id))
+    if owner_count_read:
+        holds.append(market_doc_key('roles'))
+    write_market(market, update, holds=holds)
 
 
 NO_SUCH_ROW = "This market's table has no such row."
@@ -2382,9 +2425,9 @@ def set_permission(
     key = market_doc_key('permissions')
     # Mongo cannot set a key inside a stored null or string, so a field that is not a map, which
     # the read already takes as no rows held, is replaced by one holding this row.
-    write = ({f"{key}.{row.id}": after.model_dump()} if _stored_rows_are_a_map(market_id)
+    write = ({f"{key}.{row.id}": after.model_dump()} if _stored_rows_are_a_map(market)
              else {key: {row.id: after.model_dump()}})
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": write})
+    write_market(market, {"$set": write}, holds=_rows_held(market, [row]))
     _record_permission(market_id, requesting_user, History.PERMISSION_SET, row, before, after)
     market.permissions[row.id] = after
     return Actions.table(market)
@@ -2402,9 +2445,8 @@ def reset_permission(market_id: str, action_id: Any, requesting_user: str) -> Li
     before = Actions.held_row(row, market.permissions)
     if before is None:
         return Actions.table(market)
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$unset": {
-        f"{market_doc_key('permissions')}.{row.id}": "",
-    }})
+    write_market(market, {"$unset": {f"{market_doc_key('permissions')}.{row.id}": ""}},
+                 holds=_rows_held(market, [row]))
     _record_permission(market_id, requesting_user, History.PERMISSION_RESET, row, before, None)
     market.permissions.pop(row.id, None)
     return Actions.table(market)
@@ -2429,9 +2471,8 @@ def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, An
     # Exactly the rows it returns: a row this build cannot read (a later build's, a malformed one)
     # is left as the per-row reset leaves it, and is not in the entry.
     key = market_doc_key('permissions')
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$unset": {
-        f"{key}.{row.id}": "" for row, _ in held_rows
-    }})
+    write_market(market, {"$unset": {f"{key}.{row.id}": "" for row, _ in held_rows}},
+                 holds=_rows_held(market, [row for row, _ in held_rows]))
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_RESET,
         detail=lambda: {
@@ -2474,7 +2515,7 @@ def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict
         return Actions.table(market)
 
     key = market_doc_key('permissions')
-    if _stored_rows_are_a_map(market_id):
+    if _stored_rows_are_a_map(market):
         # Row by row, so a row this build cannot read stays, as a reset leaves it.
         update: Dict[str, Any] = {}
         sets = {f"{key}.{row.id}": after.model_dump() for row, _, after in changed if after}
@@ -2485,7 +2526,7 @@ def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict
             update["$unset"] = unsets
     else:
         update = {"$set": {key: {row_id: held.model_dump() for row_id, held in copied.items()}}}
-    markets_collection.update_one(market_doc_filter("id", market_id), update)
+    write_market(market, update, holds=_rows_held(market, [row for row, _, _ in changed]))
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_COPIED,
         detail=lambda: {
@@ -2501,11 +2542,20 @@ def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict
     return Actions.table(market)
 
 
-def _stored_rows_are_a_map(market_id: str) -> bool:
-    """Whether the market's stored ``permissions`` is a map or absent, as Mongo can set a key in."""
+def _stored_rows_are_a_map(market: Market) -> bool:
+    """Whether the market's ``permissions``, as it was read, is a map or absent, as Mongo can set
+    a key in."""
+    return isinstance(document_as_read(market).get(market_doc_key('permissions'), {}), dict)
+
+
+def _rows_held(market: Market, rows: List[Actions.Action]) -> Tuple[str, ...]:
+    """What a write to ``rows`` of the market's table holds as it was read: each row it changes,
+    so a row changed meanwhile in another tab is not overwritten, or the whole ``permissions``
+    where the stored rows are not a map, since the write then replaces it whole."""
     key = market_doc_key('permissions')
-    stored = markets_collection.find_one(market_doc_filter("id", market_id), {key: 1}) or {}
-    return isinstance(stored.get(key, {}), dict)
+    if not _stored_rows_are_a_map(market):
+        return (key,)
+    return tuple(f"{key}.{row.id}" for row in rows)
 
 
 def get_permission_history(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
@@ -2607,10 +2657,10 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
         raise BadRequestError(refusal)
 
     try:
-        markets_collection.update_one(
-            market_doc_filter("id", market_id),
-            {"$set": {market_doc_key("name"): name, market_doc_key("slug"): market_name_slug(name)}},
-        )
+        # Held at the phase it was judged on: a rename landing after the market left draft would
+        # move the public address it handed out (``MarketChanged``).
+        write_market(market, {"$set": {
+            market_doc_key("name"): name, market_doc_key("slug"): market_name_slug(name)}})
     except DuplicateKeyError as e:
         # A rename that raced another write to the same address, refused by the unique index.
         raise BadRequestError(_address_taken(name)) from e
@@ -2618,15 +2668,17 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
                    detail=lambda: History.changes({"name": market.name}, {"name": name}))
 
 
-PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
-#: How many times a plan write is made from a fresh read while the table types keep changing under
-#: it, before it is refused with ``PLAN_RACED``.
-PLAN_WRITE_TRIES = 3
-PLAN_RACED = "The market changed while the plan was saved. Try again in a moment."
+#: The stored count of the plan's writes (``Market.plan_revision``), which a plan save holds at
+#: the revision its copy was read at and counts up, and every other writer of the plan counts.
+PLAN_REVISION_KEY = market_doc_key("plan_revision")
+#: What a plan save's body that names a revision not a count is told.
+PLAN_REVISION_NOT_A_COUNT = "planRevision must be a whole number."
+PLAN_WRITE_FIELDS = ("setupObject", "intakeMode", PLAN_REVISION_KEY)
 
 
-def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> None:
-    """Write the market plan and, while the market is a draft, how vendors reach it (E21/F03/S02).
+def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> int:
+    """Write the market plan and, while the market is a draft, how vendors reach it (E21/F03/S02),
+    and answer the plan's revision now stored, for the next save.
 
     The plan's own write. It used to travel inside a PUT of the whole market, which stored the
     client's entire copy and stayed safe only by re-applying every field the server owns - added
@@ -2641,6 +2693,16 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     not a change. Asks ``Actions.CHANGE_SETUP``, and ``Actions.ASSIGN`` too when it changes the
     assignment rules, which are that row's though they ride in the plan (E39/F01/S01,
     ``Actions.ask_assign_if_the_rules_change``).
+
+    The body carries ``planRevision``, the revision the page's copy of the plan was read at, since
+    the plan is sent whole: a copy older than the stored plan would put back whatever was saved
+    since (ADR 0024). The write holds it, the phase and ``resultsPublished`` (the rules' lock reads
+    it) as the judgment read them, so a save from an older copy, one crossing a phase move and one
+    crossing Publish results are each refused instead of stored.
+
+    Raises:
+        MarketChanged: the body names no revision, or the market changed since its copy was read.
+        BadRequestError: the plan is refused, or the revision is not a count.
     """
     extra = sorted(set(body) - set(PLAN_WRITE_FIELDS))
     if extra:
@@ -2648,23 +2710,20 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     if "setupObject" not in body:
         raise BadRequestError("setupObject is required.")
 
-    # The write keeps the stored table types, which have a write of their own: one landing between
-    # this read and this write would be put back, so the write holds them as read, and is made
-    # again from a fresh read when they changed (T257).
-    for _ in range(PLAN_WRITE_TRIES):
-        market, organization = _load_market_and_organization_to_change(
-            market_id, requesting_user, Actions.CHANGE_SETUP)
-        prepared = prepared_plan(market, body)
-        plan, update = prepared.plan, prepared.update
-        Actions.ask_assign_if_the_rules_change(market, plan, requesting_user, organization)
-        written = markets_collection.update_one(
-            {**market_doc_filter("id", market_id), **prepared.held}, {"$set": update})
-        if written.matched_count:
-            break
-    else:
-        raise ConflictError(PLAN_RACED)
+    market, organization = _load_market_and_organization_to_change(
+        market_id, requesting_user, Actions.CHANGE_SETUP)
+    plan_revision = _revision_in(body, PLAN_REVISION_KEY, PLAN_REVISION_NOT_A_COUNT)
+    prepared = prepared_plan(market, body)
+    plan, update = prepared.plan, prepared.update
+    Actions.ask_assign_if_the_rules_change(market, plan, requesting_user, organization)
+    if plan_revision is _NO_REVISION:
+        raise MarketChanged(dict(document_as_read(market)))
+    written = write_market(market, {"$set": update},
+                           holds=(market_doc_key("results_published"),),
+                           revisions={PLAN_REVISION_KEY: plan_revision})
     _record_plan(market, plan, update, requesting_user)
     release_removed_floorplans(market, prepared.removed_floorplans, requesting_user)
+    return written.revisions[PLAN_REVISION_KEY]
 
 
 #: The plan's fields that are Market Setup's and recorded by its entry; the rest,
@@ -2941,7 +3000,7 @@ def save_review_highlights(
     if nothing_leads_the_card and seen:
         raise BadRequestError(NOTHING_LEADS_BESIDE_A_MARK)
 
-    markets_collection.update_one({"id": market_id}, {"$set": {
+    write_market(market, {"$set": {
         market_doc_key("review_highlights"): seen,
         market_doc_key("nothing_leads_the_card"): nothing_leads_the_card,
     }})
@@ -3059,7 +3118,8 @@ def save_rejection_rules(
     prepared = RejectionRules.Rulebook(market).prepared(rules)
     if no_automatic_rejections and prepared:
         raise BadRequestError(NO_REJECTIONS_BESIDE_A_RULE)
-    markets_collection.update_one({"id": market_id}, {"$set": {
+    # Held at the phase the lock was judged on, so rules never land after the review closed.
+    write_market(market, {"$set": {
         market_doc_key("rejection_rules"): prepared,
         market_doc_key("no_automatic_rejections"): no_automatic_rejections,
     }})
@@ -3080,28 +3140,57 @@ def save_rejection_rules(
     return {"rejectionRules": prepared, "noAutomaticRejections": no_automatic_rejections}
 
 
+#: The stored count of the form's question writes (``Market.form_revision``), which a form save
+#: holds at the revision its copy was read at and counts up.
+FORM_REVISION_KEY = market_doc_key("form_revision")
+#: What a form save's body that names a revision not a count is told.
+FORM_REVISION_NOT_A_COUNT = "formRevision must be a whole number."
+
+
 def save_application_form(market_id: str, application_form_data: dict, requesting_user: str) -> dict:
     """Save or update the application form for a market.
 
     The only writer of ``Market.application_form`` on an existing market - the whole-market PUT
     that once carried one is gone (E21/F03/S06) - so every write passes the lock below.
+    ``application_form_data`` is the form, beside the ``form_revision`` the page's copy of it was
+    read at, which the write holds (``write_application_form``).
 
-    Returns the saved ``ApplicationForm`` as a camelCase dict on success.
+    Returns the saved ``ApplicationForm`` as a camelCase dict, under ``application_form``, and the
+    revision now stored, under ``formRevision``, as the form read answers them.
 
     Raises:
         MarketNotFoundError: no such market
-        BadRequestError: validation failure
+        BadRequestError: validation failure, or a revision that is not a count
         ForbiddenError: ``Actions.CHANGE_FORM`` refuses the user
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
+        MarketChanged: the body names no revision, or the market changed since its copy was read
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
-    form_dict, verdicts = write_application_form(
-        market, application_form_data, overturns=may_overturn(requesting_user, market))
+    form_data = {key: value for key, value in application_form_data.items() if key != "form_revision"}
+    written = write_application_form(
+        market, form_data,
+        _revision_in(application_form_data, "form_revision", FORM_REVISION_NOT_A_COUNT),
+        overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
-                   detail=lambda: _with_counts(form_changes(market, form_dict), verdicts))
-    if verdicts.returned:
+                   detail=lambda: _with_counts(form_changes(market, written.form), written.verdicts))
+    if written.verdicts.returned:
         ReviewTeam.deal_arrivals(market, requesting_user, Actions.CHANGE_FORM)
-    return form_dict
+    return {"application_form": written.form, "formRevision": written.revision}
+
+
+_NO_REVISION = object()
+
+
+def _revision_in(body: Mapping[str, Any], key: str, not_a_count: str) -> Any:
+    """The revision a save's body says its copy was read at, under ``key``: ``_NO_REVISION`` when
+    it names none (the page from before the revision existed), or a ``BadRequestError`` saying
+    ``not_a_count`` for one that is not a count; ``True`` is refused, though Python counts it as 1."""
+    if key not in body:
+        return _NO_REVISION
+    revision = body[key]
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise BadRequestError(not_a_count)
+    return revision
 
 
 def _with_counts(
@@ -3112,25 +3201,57 @@ def _with_counts(
     return {**detail, **verdicts.counts()} if detail else None
 
 
+class FormWritten(NamedTuple):
+    """What a form write stored: the form as stored, what the rules decided against it, and the
+    form's revision now."""
+    form: Dict[str, Any]
+    verdicts: RejectionRules.Judged
+    revision: int
+
+
 def write_application_form(
-    market: Market, application_form_data: dict, overturns: bool = True,
-) -> Tuple[dict, RejectionRules.Judged]:
+    market: Market, application_form_data: dict, form_revision: Any, overturns: bool = True,
+) -> FormWritten:
     """Judge and store the form on ``market``, loaded and asked by the caller, and return it as
-    stored with what the rules decided against it; the caller records it, as the action it was -
-    the form write, or an amendment. ``overturns`` is whether the writer may overturn an automatic
-    rejection, as ``RejectionRules.judge`` takes it."""
+    stored with what the rules decided against it; the caller records it. ``form_revision`` is the
+    revision the writer's copy was read at (``_NO_REVISION`` when it named none), and
+    ``overturns`` whether the writer may overturn an automatic rejection, as
+    ``RejectionRules.judge`` takes it.
+
+    The write sets the questions and the unasked essentials alone, never the published stamp or the
+    frozen offering, which Open applications and the first application write while the market is
+    being edited; it holds the phase, the offering as read (the first application's freeze lands
+    there before any answer does) and the revision, so a save from an older copy, or one crossing
+    either of those, is refused instead of erasing them. A market with no form yet gets it whole,
+    held absent as read.
+
+    Raises:
+        MarketChanged: no revision named, or the market changed since it was read.
+    """
     form_dict = prepared_application_form(market, application_form_data)
-    markets_collection.update_one(
-        {"id": market.id},
-        {"$set": {"applicationForm": form_dict}}
-    )
+    if form_revision is _NO_REVISION:
+        raise MarketChanged(dict(document_as_read(market)))
+    form_key = market_doc_key("application_form")
+    # A stored form that is not a form fails the market's parse, so the model has one exactly when
+    # the stored document does.
+    if market.application_form is not None:
+        fields_key, unasked_key = snake_to_camel("fields"), snake_to_camel("unasked_essentials")
+        update = {"$set": {f"{form_key}.{fields_key}": form_dict[fields_key],
+                           f"{form_key}.{unasked_key}": form_dict[unasked_key]}}
+        holds: Tuple[str, ...] = (f"{form_key}.{snake_to_camel('essential_options')}",)
+    else:
+        update = {"$set": {form_key: {**form_dict, snake_to_camel("published_at"): None,
+                                      snake_to_camel("essential_options"): None}}}
+        holds = (form_key,)
+    written = write_market(market, update, holds=holds, revisions={FORM_REVISION_KEY: form_revision})
+    revision = written.revisions[FORM_REVISION_KEY]
     # The rules stand against the form as it now is (E33/F03/S02): a question taken away judges
     # nobody, and what it rejected is judged again.
     rewritten = load_market_context(market.id)
     if rewritten is not None and rewritten.market is not None:
-        return form_dict, RejectionRules.judge(
-            RejectionRules.Rulebook(rewritten.market), market.id, overturns=overturns)
-    return form_dict, RejectionRules.Judged()
+        return FormWritten(form_dict, RejectionRules.judge(
+            RejectionRules.Rulebook(rewritten.market), market.id, overturns=overturns), revision)
+    return FormWritten(form_dict, RejectionRules.Judged(), revision)
 
 
 def form_changes(market: Market, saved: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -3215,6 +3336,8 @@ def get_application_form(market_id: str, requesting_user: str) -> dict:
         ),
         "editable": lock_reason is None,
         "lock_reason": lock_reason,
+        # The revision a save of this copy carries, so one from an older copy is refused.
+        "formRevision": market.form_revision,
     }
 
 

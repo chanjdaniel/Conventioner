@@ -245,9 +245,7 @@ test('a verdict on a selection: confirmed by count, held ones untickable, change
   await expect(all.statusOf('theo@thistle.test')).toHaveText('Approved');
   await expect(all.statusOf('ines@loom.test')).toHaveText('Rejected');
   // The rail moves with it: two left, not four.
-  await expect(page.getByTestId('phase-rail-next')).toContainText(
-    '2 applications are still awaiting review',
-  );
+  await expect(page.getByTestId('phase-rail-next')).toContainText('2 applications are still open');
   // Omar was never ticked, and is left as he was.
   await expect(all.statusOf('omar@kiln.test')).toHaveText('Open');
 });

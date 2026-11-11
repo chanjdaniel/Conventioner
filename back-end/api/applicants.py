@@ -26,10 +26,12 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 from client_errors import parse_failure_detail
 from application_write import record_application_answers, validate_application_answers
 import table_share as TableShare
+from market_write import write_market
 from market_documents import (
     applicant_intake_market_by_slug,
     market_dates_of,
     market_doc_field,
+    market_doc_key,
     market_from_document,
     market_serves_applicants,
     results_are_out,
@@ -44,7 +46,6 @@ from datatypes import (
     VendorAssignmentResult,
     VerdictGiver,
     MarketPhase,
-    LEGACY_STAGE_PHASES,
     applications_stopped_from_market_document,
     intake_mode_from_market_document,
     phase_from_market_document,
@@ -951,8 +952,11 @@ def set_applications_stopped(
     """Stop taking applications, or take them again, on a market whose vendors apply on its page,
     ``by`` the signed-in organizer.
 
-    The write is conditional on the market still being where the refusal judged it, so a move into
-    assignment that lands first leaves nothing to undo. Who may is the caller's to ask first.
+    The write holds the phase and the intake mode the refusal judged (``write_market``), so a move
+    into assignment that lands first leaves nothing to undo. Who may is the caller's to ask first.
+
+    Raises:
+        MarketChanged: the market moved, or its intake mode changed, since it was read.
     """
     from db_config import get_database
     db = get_database()
@@ -964,17 +968,8 @@ def set_applications_stopped(
     if refusal:
         return {"error": refusal}, 409
 
-    result = db["markets"].update_one(
-        {
-            "id": market_id,
-            # An old stage phase too, read as the stage until the migration has run.
-            "phase": {"$in": [MarketPhase.APPLICATIONS.value, *LEGACY_STAGE_PHASES]},
-            "intakeMode": IntakeMode.FORM.value,
-        },
-        {"$set": {"applicationsStopped": stopped}},
-    )
-    if not result.matched_count:
-        return {"error": "This market moved while the request was in flight. Reload it and try again."}, 409
+    write_market(doc, {"$set": {market_doc_key("applications_stopped"): stopped}},
+                 holds=(market_doc_key("intake_mode"),))
     # A stop restated records nothing.
     History.record(market_id, by, Actions.STOP_APPLICATIONS, detail=lambda: History.changes(
         {"applications_stopped": applications_stopped_from_market_document(doc)},
@@ -1004,15 +999,13 @@ def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
     if refusal:
         return {"error": refusal}, 409
 
-    # Conditional on what the refusal read (T207): Back to review checks the flag and then moves
-    # the phase, so this write holds the phase, and the flag against a second publish, as they
-    # were read; two requests in flight together never leave the review open on published results.
-    result = db["markets"].update_one(
-        {"id": market_id, "phase": doc.get("phase"), "resultsPublished": {"$ne": True}},
-        {"$set": {"resultsPublished": True}},
-    )
-    if not result.matched_count:
-        return {"error": "This market moved while the request was in flight. Reload it and try again."}, 409
+    # Holding what the refusal read (T207): Back to review checks the flag and then moves the
+    # phase, so this write holds the phase, and the flag against a second publish, as they were
+    # read; two requests in flight together never leave the review open on published results. It
+    # holds the assignment's revision too, so an allocation stored after this one was judged
+    # current refuses the publish rather than be published unjudged.
+    write_market(doc, {"$set": {market_doc_key("results_published"): True}}, holds=(
+        market_doc_key("results_published"), f"{market_doc_key('assignment_object')}.revision"))
     History.record(market_id, by, Actions.PUBLISH_RESULTS,
                    detail=lambda: History.changes(
                        {"results_published": False}, {"results_published": True}))

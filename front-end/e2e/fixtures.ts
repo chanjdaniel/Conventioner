@@ -4,7 +4,11 @@ import { LoginPage } from './pages/LoginPage';
 import { settle } from './helpers/settle';
 import { stack } from './helpers/stack';
 import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
-import { attachWhatTheBrowserSaid, watchTheBrowser } from './helpers/browserSaid';
+import {
+  annotateANetworkChange,
+  attachWhatTheBrowserSaid,
+  watchTheBrowser,
+} from './helpers/browserSaid';
 
 export const TEST_USER = {
   email: 'e2e@example.com',
@@ -85,7 +89,9 @@ export const test = base.extend<{
     const said = watchTheBrowser(page);
     await use(page);
     if (testInfo.status !== testInfo.expectedStatus) {
-      await attachWhatTheBrowserSaid(testInfo, said());
+      const lines = said();
+      await attachWhatTheBrowserSaid(testInfo, lines);
+      annotateANetworkChange(testInfo, lines);
     }
   },
   authenticatedPage: async ({ page }, use) => {

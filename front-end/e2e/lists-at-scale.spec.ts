@@ -834,6 +834,51 @@ test.describe('Payments', () => {
       });
     });
   }
+
+  test.describe("at 1280, while the vendors' names are read", () => {
+    test.use({ viewport: { width: 1280, height: 844 } });
+
+    // The list sorts by name, so drawn before the names it would re-sort under the reader (T284).
+    test('the list waits for the names, so the row "Show 50 more" focuses stays where it was', async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      test.setTimeout(120_000);
+      const seed = await seedMarketAtScale(request, { pays: true });
+      const payments = new PaymentsPage(page);
+      const { applications } = seed.counts;
+      const byName = [...seed.applicants].sort((a, b) =>
+        a.shownName.toLowerCase().localeCompare(b.shownName.toLowerCase()),
+      );
+      let release = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(new RegExp(`/api/markets/${seed.marketId}/applications$`), async (route) => {
+        await held;
+        await route.continue();
+      });
+      try {
+        await page.goto(marketScreenPath(seed.marketId, 'payments'));
+        await expect(payments.vendorsLoading).toHaveText('Loading vendors…');
+        await expect(payments.summary).toHaveText(`${applications} vendors`);
+        await expect(payments.rows).toHaveCount(0);
+      } finally {
+        release();
+      }
+
+      await expect(payments.vendorsLoading).toHaveCount(0);
+      await expect(payments.rows).toHaveCount(50);
+      // Drawn in the names' order from the first: by address the first page would end on another.
+      await expect(payments.rows.nth(49)).toHaveAttribute('data-email', byName[49]!.email);
+      await payments.showMore.focus();
+      await page.keyboard.press('Enter');
+      await expect(payments.rows).toHaveCount(100);
+      await expect(payments.rows.nth(50)).toBeFocused();
+      await expect(payments.rows.nth(50)).toHaveAttribute('data-email', byName[50]!.email);
+      await expect(page.locator(':focus')).toHaveAttribute('data-email', byName[50]!.email);
+    });
+  });
 });
 
 test.describe('The Assignments page', () => {

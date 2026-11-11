@@ -7,6 +7,8 @@ describes:
   - back-end/requirements-floorplan-solver.in
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
+  - back-end/floorplan_limits.py
+  - back-end/api/markets.py#_floorplans_refusal
   - back-end/api/floorplans_calibrate.py
   - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
@@ -15,13 +17,11 @@ describes:
   - back-end/services/gridfs_service.py
   - back-end/utils/pdf_converter.py
   - front-end/src/components/floorplan/FloorplanWorkflow.vue
+  - front-end/src/views/FloorplanEditorView.vue
+  - front-end/src/stores/floorplan.ts
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
-  - back-end/floorplan_limits.py
-  - back-end/api/markets.py#_floorplans_refusal
-  - front-end/src/views/FloorplanEditorView.vue
-  - front-end/src/stores/floorplan.ts
   - back-end/api/markets.py#_with_the_layouts
   - back-end/api/markets.py#release_removed_floorplans
   - back-end/layout.py
@@ -67,9 +67,10 @@ sources:
   - T221
   - T217
   - T263
-  - T271
   - T272
+  - T271
   - T257
+  - T274
 ---
 
 # Floorplan placement
@@ -392,7 +393,7 @@ The rule is the wizard's, not the store's: the store keeps its data across a vis
 **A floorplan is a location's layout, and a save writes only it** (T257).
 `POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) takes `{market_id, floorplan, revision}`, refuses a body that is not a JSON object (400), a `floorplan` that is not one ("floorplan is required") and a `revision` that is not a whole number from 0 ("revision is required"), needs EDITOR, refuses an archived market (403) and a setup that has settled (409, [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)), then parses the floorplan as `FloorplanObject`: a field that does not parse answers 400 "Invalid floorplan: ..." naming it, a floorplan with no id of its own answers "A floorplan needs its id.", and an unknown key is dropped, the beta's `walls`, `placedTables` and `sections` among them.
 **It writes through the plan's own writer, so it can never store a market that does not read.**
-It puts the floorplan in the stored plan's `floorplans` in the place of the one of its id, or after them, so saving again replaces it, and hands that list to `prepared_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), which judges it as it judges a plan write and derives the sections' counts from it; sections and locations are Market Setup's, and the save never writes them.
+It puts the floorplan in the stored plan's `floorplans` in the place of the one of its id, or after them, so saving again replaces it, and hands that list to `prepared_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), which judges it as it judges a plan write and derives the sections' counts from it; sections and locations are Market Setup's, and the save never writes them. The route writes the whole `setupObject` that returns through [the market write](market-write.md#the-plans-revision), holding the phase and the plan's revision as read and counting it, as every write of the plan does: a plan, a layout or the table types saved since the save read the market refuse it with the 409 `STALE_LAYOUT`, and a Market Setup page read before it is refused with the 409 "market changed" rather than storing its older plan over the layout.
 Before the plan's writer judges it, a table naming a section that is not one of its location's (removed on Section Setup, or another location's) is stored in no section and of no number (`in_its_sections`), as the editor sends it.
 Then [`layout.py`](../../../back-end/layout.py)'s `layout_refusal` answers 400 with one sentence for a layout whose location is not one of the plan's, two tables of one id ("Every table must have an id of its own."), a section's tables not numbered 1 to N (or a number on a table of no section), a table of a type the market does not have, a table with no scale to stand by, or a table whose centre is outside the floorplan; the beta's wizard sends a floorplan of no location, so its save is refused with "This layout's location is not one of the market's locations.".
 The save used to write the plan's sections and locations by hand, which on a market whose plan was never saved left a plan of those alone, and with one wrong field a floorplan that did not parse: either way the market then answered as missing to every reader and refused every write, its Delete included (T272, [`test_a_floorplan_save_keeps_the_market_readable.py`](../../../back-end/tests/test_a_floorplan_save_keeps_the_market_readable.py)).

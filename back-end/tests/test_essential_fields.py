@@ -12,6 +12,7 @@ import pytest
 from conftest import FakeMarketsCollection, FakeSlugMarketsCollection, stored_market
 
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.permissions as PermissionsApi
 import db_config as test_db_config
 import essential_fields as EssentialFields
@@ -562,16 +563,17 @@ class TestReservedKeyPrefix:
         carries is discarded."""
         markets = FakeMarketsCollection(stored_market())
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+        monkeypatch.setattr(MarketWrite, "markets_collection", markets)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
         form = {
             "fields": [{"key": "business_name", "label": "Business Name", "type": "text"}],
             "essential_options": {"dates": ["2027-01-01"], "sections": [], "table_types": []},
+            "form_revision": 0,
         }
 
         MarketsApi.save_application_form("market-123", form, "user-1")
 
-        written = markets.last_update["$set"]["applicationForm"]
-        assert written["essentialOptions"] is None
+        assert markets.doc["applicationForm"]["essentialOptions"] is None
 
 
 class FakeFreezeMarketsCollection:

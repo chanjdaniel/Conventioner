@@ -18,6 +18,7 @@ describes:
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
+  - front-end/e2e/helpers/stackReady.ts
 verified: 2026-11-11
 sources:
   - E21/F02/S02
@@ -45,6 +46,7 @@ sources:
   - T260
   - T263
   - T257
+  - T284
 ---
 
 # E2E patterns
@@ -79,6 +81,7 @@ It provides `TEST_USER` (`e2e@example.com`) and `NO_ORG_USER` (`e2e-noorg@exampl
 A spec that needs several people at once drives each in a browser context of its own with `withUser()` ([`front-end/e2e/helpers/withUser.ts`](../../../front-end/e2e/helpers/withUser.ts)), so no two share a session cookie.
 Every `page`, and the page `withUser()` opens, is watched by [`helpers/browserSaid.ts`](../../../front-end/e2e/helpers/browserSaid.ts) so that a failing test carries what the browser said (console errors, page errors, crashes, failed requests other than a navigation's aborts), since the suite has failed on pages that never painted with nothing in the stack's logs to say why.
 The fixture's page attaches it when the test fails, and a `withUser()` page when its sign-in or body throws, headed with whose page it was; [`a-stalled-helper-says-why.spec.ts`](../../../front-end/e2e/a-stalled-helper-says-why.spec.ts) shows both that and the people-at-scale wait for quiet naming each API request still open and its age.
+That wait ([`helpers/peopleAtScale.ts`](../../../front-end/e2e/helpers/peopleAtScale.ts), `requestsWhile`) lets go of the requests the old page still had out when a reload or a `goto` inside it brings a new page, since Playwright reports neither their end nor their failure, and still waits for the new page's own.
 `expectAccessible(state)` runs axe over the page as it stands and fails on any WCAG A or AA violation, one line per element as `rule (impact) target`; its configuration and why `color-contrast` is off are [the design language's](../../design-system.md#what-keeps-this-true).
 `settle(page)` ([`helpers/settle.ts`](../../../front-end/e2e/helpers/settle.ts)) waits, bounded, for CSS transitions to end, since a control mid-transition reports its passing paint rather than its own; every sweep calls it before it looks.
 A sweep's tests are registered by `walkTheScreens()`, so Playwright reports each under [`helpers/screens.ts`](../../../front-end/e2e/helpers/screens.ts), the line of its `test()` call, never the sweep's spec file; the describe title names the sweep, and `npx playwright test e2e/<sweep>.spec.ts` still runs that sweep alone.
@@ -126,10 +129,14 @@ A try that signs in takes its count back, so the suite's hundreds of fixture sig
 Asking for an organizer's code, a reset link or a verification link, and signing up, take nothing back: five of each per address and thirty per caller per 15 minutes, so a spec that goes past one clears the counters in its `finally` too.
 Every signed-out vendor page, and every vendor request that finds its tab's sign-in ended, also asks to resume a remembered sign-in, 300 per caller per 15 minutes; a refused resume draws the sign-in as no cookie does, so only a spec that needs a resume to pass clears the counters first, as `remember-me-on-the-vendor-page.spec.ts` does.
 
-**A run starts once the host's container network has settled.**
+**A run starts once the stack is ready.**
 A stack's interfaces keep changing for a while after `up` returns: each takes an IPv6 address within a second, and changes link state again about 15 seconds later, and Chromium fails whatever it has in flight with `net::ERR_NETWORK_CHANGED` at each change, so the first spec after a stack started lost a module and failed.
 `global-setup.ts` waits until the host's newest container interface (`veth`, `br-` or `docker`, aged by its `/sys/class/net` entry) is 20 seconds old ([`networkSettles.ts`](../../../front-end/e2e/helpers/networkSettles.ts)), and prints how long; a settled host, or one with no such interface, waits for nothing.
+Then it waits for the stack itself ([`stackReady.ts`](../../../front-end/e2e/helpers/stackReady.ts)), since `up` returns once the back end's and the dev server's containers run, neither having a health check: for `/api/healthz` to answer 200 through the dev server's proxy, for at most 60 seconds, and then for the sign-in page to draw its email field in a browser of its own, for at most 120 seconds.
+It prints `e2e: the stack was ready in <n>s` when that took over 2 seconds, and a stack that never gets ready fails the run with the part that did not, the back end with its last answer or the sign-in page, rather than its first spec.
 Another stack starting or stopping during a run can still abort a request: [CI and the gate](ci-and-the-gate.md#the-no-mistakes-gate) has the lock that keeps two gate runs apart.
+A test that fails after its browser, the fixture's page or a `withUser` page, saw `net::ERR_NETWORK_CHANGED` gains the annotation "network changed", which says so, beside what the browser said ([`browserSaid.ts`](../../../front-end/e2e/helpers/browserSaid.ts)); such a failure is the machine's, so run the test again rather than chase it.
+E2E stays on the dev server rather than a built front end, though a build makes fewer requests per page: an API request fails on a network change all the same, a build goes stale at every source edit, so a spec run after a change would test the old code, and the dev-only component library's specs need the dev server.
 
 **A spec finds a market or an organization by name through the page's search, never by scanning the cards.**
 Markets and Organizations show 50 cards at a time, in date order and in the order the organizations were made, and the shared test user gathers hundreds of markets over runs on one stack, so a card made in the spec can be past the first page.
@@ -164,3 +171,21 @@ A route that must fail the screen's own read fails every matching request until 
 **A spec that waits on a file chooser listens for it from before the page loads.**
 `page.waitForEvent('filechooser')` turns on Playwright's catching of choosers as it is called, without waiting for the browser to agree, so a chooser opened by the very next key press can slip past it and the wait times out with focus still on the input: [`the-upload-steps-are-one.spec.ts`](../../../front-end/e2e/the-upload-steps-are-one.spec.ts) missed its first Enter in 4 runs of 20 this way.
 It adds `page.on('filechooser', () => {})` before it opens the page, then waits for each chooser as before.
+
+## Chasing a flake
+
+A flake is chased the same way every time, so its report says what was tried; [when a test fails](../../TESTING.md#when-a-test-fails) is where each attempt's trace lands.
+
+**The load.** `stress-ng --cpu <n> --timeout <minutes>m`, always with `--timeout` so it ends by itself, with `<n>` chosen so `uptime` reads a load average of one to one and a half times the machine's cores once it runs, counting what already runs there.
+Start it only while `uptime` reads below that band, never push it past the band's top, run one at a time, and stop it by its own timeout or the process id it started with.
+Where the load cannot be raised (a session not allowed to start `stress-ng`), run at the load the machine has.
+Note `uptime` before and during each run in the report, and report a run that ran below the band as below it.
+
+**A cold stack**, for a flake seen on a stack's first spec: stop the worktree's stack and start it again (a team worker with `team-stack stop` and `team-stack up`), then run the spec as the first thing after it is up.
+
+**The run.** From `front-end/`, `npx playwright test <files> --retries=0 --repeat-each=<k> --output=<a new directory>`, with `<k>` 20 for a single test or file; a fresh `--output` per run keeps each run's traces apart, since a rerun empties the last one's.
+Before a fix the run must fail at least once; one that does not fail in 20 repeats under load, and 3 cold starts where a cold stack applies, is reported with what was tried, not fixed and not called fixed.
+After the fix the same run passes 30 of 30 under the same load.
+
+**A held route makes a race certain.** A `page.route` handler that awaits a promise the test releases holds one read while the page goes on, which turns a suspected race into a yes or no, as the second test of [`undoing-a-verdict.spec.ts`](../../../front-end/e2e/undoing-a-verdict.spec.ts) does.
+Never unroute it with a request still held: unrouting lets the held request go on, and the test's later release then throws "Route is already handled".

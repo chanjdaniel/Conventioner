@@ -6,6 +6,7 @@ one choice question and the answers that reject. The server is the authority on 
 and when it may change: free text is not a choice, an answer must be one the question offers, and
 the rules close with the review, where they judge.
 """
+import copy
 import os
 import sys
 
@@ -14,8 +15,10 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import api.markets as MarketsApi  # noqa: E402
+import market_write as MarketWrite  # noqa: E402
 import rejection_rules as Rules  # noqa: E402
-from conftest import client_market, complete_setup, stored_market  # noqa: E402
+from conftest import (  # noqa: E402
+    FakeMarketsCollection, client_market, complete_setup, stored_market)
 from client_errors import BadRequestError  # noqa: E402
 from datatypes import ApplicationForm, MarketPhase  # noqa: E402
 
@@ -110,33 +113,35 @@ class TestWhenTheRulesClose:
 
 
 class TestTheWrite:
-    @pytest.fixture
-    def saved(self, monkeypatch):
-        writes = []
+    @staticmethod
+    def _markets(monkeypatch, phase):
+        """A markets fake holding one market in ``phase`` with the questions above, which the rules
+        write writes to and each load reads a copy of, as the server hands one."""
+        markets = FakeMarketsCollection(stored_market(phase, applicationForm={"fields": FIELDS}))
+        monkeypatch.setattr(MarketWrite, "markets_collection", markets)
         monkeypatch.setattr(MarketsApi, "_load_market_to_change",
-                            lambda market_id, user, action: self.market)
-        monkeypatch.setattr(MarketsApi.markets_collection, "update_one",
-                            lambda query, update: writes.append((query, update)))
-        return writes
+                            lambda market_id, user, action:
+                            MarketsApi.market_from_document(copy.deepcopy(markets.doc)))
+        return markets
 
-    def test_it_writes_the_rules_on_a_locked_form(self, saved):
+    def test_it_writes_the_rules_on_a_locked_form(self, monkeypatch):
         # The form locked at the first application; the rules did not (decision 24).
-        self.market = _market(phase=MarketPhase.APPLICATIONS)
+        markets = self._markets(monkeypatch, MarketPhase.APPLICATIONS)
 
         stored = MarketsApi.save_rejection_rules(
             "market-123", [{"key": "no_shows", "answers": [Rules.NOT_TICKED]}], "owner@x.test")
 
         rules = [{"key": "no_shows", "answers": [Rules.NOT_TICKED]}]
         assert stored == {"rejectionRules": rules, "noAutomaticRejections": False}
-        assert saved == [({"id": "market-123"}, {"$set": {
-            "rejectionRules": rules, "noAutomaticRejections": False}})]
+        assert markets.doc["rejectionRules"] == rules
+        assert markets.doc["noAutomaticRejections"] is False
 
-    def test_it_is_refused_from_assignment_on(self, saved):
-        self.market = _market(phase=MarketPhase.ASSIGNMENT)
+    def test_it_is_refused_from_assignment_on(self, monkeypatch):
+        markets = self._markets(monkeypatch, MarketPhase.ASSIGNMENT)
 
         with pytest.raises(BadRequestError, match="closed while tables are allocated"):
             MarketsApi.save_rejection_rules("market-123", [], "owner@x.test")
-        assert saved == []
+        assert "rejectionRules" not in markets.doc
 
     def test_the_market_read_says_what_a_rule_may_name_and_whether_it_may(self):
         document = stored_market(MarketPhase.APPLICATIONS,

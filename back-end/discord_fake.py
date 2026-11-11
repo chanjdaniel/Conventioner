@@ -126,8 +126,9 @@ def _give(server: Dict[str, Any], member_id: str, role_id: str) -> Answer:
     bot_top = max((positions.get(str(role), 0) for role in server.get("botRoles", [])), default=0)
     if positions[role_id] >= bot_top:
         return Answer(403, {"message": "Missing Permissions", "code": 50013})
-    _collection().update_one({"guildId": server["guildId"], "members.user.id": member_id},
-                             {"$addToSet": {"members.$.roles": role_id}})
+    fake_servers = _collection()
+    fake_servers.update_one({"guildId": server["guildId"], "members.user.id": member_id},
+                            {"$addToSet": {"members.$.roles": role_id}})
     return Answer(204, None)
 
 

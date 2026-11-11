@@ -196,7 +196,7 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     // Refused before the click (E31/F02/S01): the move is disabled and the rail says why.
     await expect(page.getByTestId('phase-transition-assignment')).toBeDisabled();
     const next = page.getByTestId('phase-rail-next');
-    await expect(next).toContainText('still awaiting review');
+    await expect(next).toContainText('still open');
     // Applications keep arriving, and the rail says so before the work left (E38/F04/S01).
     await expect(next).toContainText(
       /^Applications are open on your vendor page.*Finish deciding: /,
@@ -215,7 +215,7 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     await expect(page.getByTestId('market-bar-tab-setup')).not.toHaveClass(/active/);
 
     // And once you are on the tab that holds the fix, the rail stops offering to take you there.
-    await expect(next).toContainText('still awaiting review');
+    await expect(next).toContainText('still open');
     await expect(next.locator('a')).toHaveCount(0);
     await expect(fix).toHaveCount(0);
 

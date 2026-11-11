@@ -149,11 +149,17 @@ def seed_test_market(test_market: TestMarket, organization_id: str, owner: User,
     if not Actions.may(Actions.MOVE_PHASE, owner.email, context.market, context.organization):
         raise SeedError(f"{owner.email} may not move {test_market.name!r}.")
 
+    # Each from the revision the market was read at, as Market Setup and the form tab save (T274):
+    # a draft seeded before has its plan and its questions written once more, never over a save
+    # made since.
     MarketsApi.save_plan(market_id, {
         "setupObject": test_plan(today),
         "intakeMode": test_market.intake_mode.value,
+        "planRevision": context.market.plan_revision,
     }, owner.email)
-    MarketsApi.save_application_form(market_id, {"fields": TEST_FORM_FIELDS}, owner.email)
+    MarketsApi.save_application_form(market_id, {
+        "fields": TEST_FORM_FIELDS, "form_revision": context.market.form_revision,
+    }, owner.email)
     # Its review setup, decided as an organizer decides it on Review setup (T206): nothing leads
     # the card and no answer rejects. Review waits on both, the Google Form market's first import too.
     MarketsApi.save_review_highlights(market_id, [], owner.email, nothing_leads_the_card=True)

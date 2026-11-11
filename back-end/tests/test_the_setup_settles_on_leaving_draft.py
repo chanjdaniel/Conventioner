@@ -15,6 +15,7 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 from client_errors import BadRequestError
 from datatypes import MarketPhase
+import market_write as MarketWrite
 
 AFTER_DRAFT = [p for p in MarketPhase if p not in (MarketPhase.DRAFT, MarketPhase.ARCHIVED)]
 
@@ -26,6 +27,7 @@ def market(monkeypatch, applications):
     def at(phase):
         fake = FakeMarketsCollection(stored_market(phase=phase, setupObject=COMPLETE_PLAN))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
         return fake
 
     return at
@@ -51,7 +53,7 @@ def test_after_draft_a_change_to_the_setup_is_refused(market, phase, what):
     collection = market(phase)
 
     with pytest.raises(BadRequestError, match="settled"):
-        MarketsApi.save_plan("market-123", {"setupObject": _changed(**CHANGES[what])}, "user-1")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": _changed(**CHANGES[what])}, "user-1")
     assert collection.last_update is None
 
 
@@ -59,7 +61,7 @@ def test_after_draft_a_change_to_the_setup_is_refused(market, phase, what):
 def test_in_draft_each_change_saves(market, what):
     collection = market(MarketPhase.DRAFT)
 
-    MarketsApi.save_plan("market-123", {"setupObject": _changed(**CHANGES[what])}, "user-1")
+    MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": _changed(**CHANGES[what])}, "user-1")
 
     assert collection.last_update is not None
 
@@ -69,7 +71,7 @@ def test_restating_the_stored_setup_is_not_a_change(market, phase):
     """The plan saves as the organizer types, in every phase, and always carries the whole setup."""
     collection = market(phase)
 
-    MarketsApi.save_plan("market-123", {"setupObject": COMPLETE_PLAN}, "user-1")
+    MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": COMPLETE_PLAN}, "user-1")
 
     assert collection.last_update is not None
 
@@ -79,7 +81,7 @@ def test_the_rules_are_not_setup_and_still_save(market, phase):
     collection = market(phase)
     rules = _changed(assignmentOptions={"maxAssignmentsPerVendor": 2})
 
-    MarketsApi.save_plan("market-123", {"setupObject": rules}, "user-1")
+    MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": rules}, "user-1")
 
     assert collection.last_update["$set"]["setupObject"]["assignmentOptions"][
         "maxAssignmentsPerVendor"] == 2

@@ -38,6 +38,7 @@ import layout as Layout
 from datatypes import MarketPhase
 from market_documents import market_from_document
 from utils.request_body import NOT_AN_OBJECT
+import market_write as MarketWrite
 
 MARKET_ID = "market-123"
 ACCOUNTS = {
@@ -115,6 +116,7 @@ def market(monkeypatch):
     test gives it a plan with ``_with_plan``."""
     markets = FakeMarketsCollection(stored_market(MarketPhase.DRAFT, roles=dict(ROLES)))
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
     monkeypatch.setitem(_THE_MARKET, "markets", markets)
     return markets
 
@@ -998,7 +1000,7 @@ class TestThePlanWriteNeverJudgesFloorplans:
 
     def _put_plan(self, client, floorplans):
         return client.put(f"/markets/{MARKET_ID}/plan",
-                          json={"setupObject": {**copy.deepcopy(FULL_PLAN),
+                          json={"planRevision": 0, "setupObject": {**copy.deepcopy(FULL_PLAN),
                                                 "floorplans": floorplans}})
 
     def test_a_floorplan_over_a_bound_in_the_body_is_not_stored(self, client, market):
@@ -1011,7 +1013,7 @@ class TestThePlanWriteNeverJudgesFloorplans:
 
     def test_a_floorplan_holding_nan_in_the_body_is_not_stored(self, client, market):
         _with_plan(market)
-        body = {"setupObject": {**copy.deepcopy(FULL_PLAN),
+        body = {"planRevision": 0, "setupObject": {**copy.deepcopy(FULL_PLAN),
                                 "floorplans": [_floorplan(scalePxPerUnit="@@")]}}
 
         response = client.put(f"/markets/{MARKET_ID}/plan",

@@ -511,7 +511,7 @@ class AllApplicationsReviewedGuard:
             waiting = []
             if unreviewed_count:
                 waiting.append(f"{unreviewed_count} application"
-                               f"{' is' if unreviewed_count == 1 else 's are'} still awaiting review")
+                               f"{' is' if unreviewed_count == 1 else 's are'} still open")
             # Named apart, so the organizer knows to chase them (E34/F02/S01).
             if following_up:
                 waiting.append(f"{following_up} application"
