@@ -647,6 +647,46 @@ describe("the plan's revision", () => {
     expect(server.sent).toEqual([4, 5]);
     expect(server.market.setupObject.marketDates).toEqual(next.marketDates);
   });
+
+  /**
+   * The keepalive carries the revision the copy came from, never the one the save out will
+   * answer: guessing that one would let the keepalive land over another person's plan whenever the
+   * save out was itself refused (ADR 0024). So an edit typed while a save is out is lost when the
+   * page goes, after the browser's question, and the server keeps the save that was out.
+   */
+  it('refuses the keepalive of an edit made while a save is out, keeping the save that was out', async () => {
+    const server = aServer(0);
+    const keepalive = vi.fn((_url: string, _init: RequestInit) =>
+      Promise.resolve(new Response(null, { status: 200 })),
+    );
+    vi.stubGlobal('fetch', keepalive);
+    const wrapper = await mountPlan();
+    let answer: () => void = () => {};
+    const write = api.put.getMockImplementation()!;
+    api.put.mockImplementationOnce(
+      (url: string, body: Record<string, unknown>) =>
+        new Promise((resolve, reject) => {
+          answer = () => write(url, body).then(resolve, reject);
+        }),
+    );
+
+    await edit(wrapper, ADDED);
+    await vi.advanceTimersByTimeAsync(1000);
+    // A second edit while the first save is out, then the page goes before that save answers.
+    await edit(wrapper, BOTH);
+    expect(asksBeforeUnload()).toBe(true);
+    window.dispatchEvent(new Event('pagehide'));
+    answer();
+    await vi.advanceTimersByTimeAsync(0);
+    // The keepalive reaches the server after the save sent before it.
+    expect(keepalive).toHaveBeenCalledTimes(1);
+    const [url, init] = keepalive.mock.calls[0]!;
+    await write(url, JSON.parse(init.body as string)).catch(() => {});
+
+    expect(server.sent).toEqual([0, 0]);
+    expect(server.market.planRevision).toBe(1);
+    expect(server.market.setupObject.marketDates).toEqual(ADDED.marketDates);
+  });
 });
 
 describe('leaving the page', () => {

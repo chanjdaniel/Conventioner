@@ -92,6 +92,8 @@ Without it one edit saved every 625 ms until the page was left (`plan-saves-once
 **The revision** (`planRevision`, ADR 0024): the working copy's revision, taken with it from the market (`adoptPlan`, a market that never stored one reading as 0), sent with every save, the keepalive write's included, and replaced by the one each save answers, before the answer frees a wanted save.
 The saves go one at a time, so each carries the revision the last one answered, and a page's own second save is never refused for its first; a save refused as the market changed drops the edits as every refusal does, and the page takes the store's plan and its revision, with the server's sentence on the refused line.
 Allocate tables' flush of the plan before a run and a phase move's go through the same queue, so they send it too.
+The keepalive write carries the revision the working copy came from, so an edit made while a save is out, with the page then going before that save answers, is refused when it arrives after it, and the save that was out is what the server keeps: that edit is lost, after the browser's question.
+The keepalive never guesses the revision the save out will answer, since a save out refused over another person's save would then let the keepalive land over that person's plan unseen.
 
 **The saves write to the market the working copy was taken from** (`planMarket`), never the store's market at the time of the write.
 A save sent on leaving, or after a save out answers, can run once the store holds the next page's market, or none while it reads it, since a route's new view sets up before the old one's unmount hooks run.
