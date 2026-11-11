@@ -8,6 +8,7 @@
  * - `change-setup/floorplan`, a layout's save (T257) and the beta's (T272)
  * - `change-setup/floorplan_removed`, a layout taken with its location (T257)
  * - `change-setup/floorplan_image_deleted`
+ * - `change-setup/table_types`, the market's table types replaced (T257)
  * - `change-form/form`
  * - `change-form/review_highlights`
  * - `change-form/rejection_rules`
@@ -125,9 +126,65 @@ function layoutClauses(detail: Detail, location: string): string[] {
   if (renumbered.length && !('added' in detail) && !('removed' in detail)) {
     clauses.push(`renumbered ${listed(renumbered)}${where}`);
   }
+  clauses.push(...zoneClauses(detail.zones, where));
   clauses.push(...ofSections(detail.colours, 'changed', 'colour', 'colours', where));
   clauses.push(...ofSections(detail.labels, 'moved', 'label', 'labels', where));
   return clauses.length ? clauses : [`changed ${whose} layout`];
+}
+
+/** No-table zones a save marked, changed and removed: "marked 2 no-table zones in Upper Hall". */
+function zoneClauses(recorded: unknown, where: string): string[] {
+  const zones = asDetail(recorded);
+  const verbs: [string, string][] = [
+    ['added', 'marked'],
+    ['changed', 'changed'],
+    ['removed', 'removed'],
+  ];
+  return verbs.flatMap(([key, verb]) => {
+    const count = zones[key];
+    if (typeof count !== 'number' || count <= 0) return [];
+    return [`${verb} ${plural(count, 'no-table zone', 'no-table zones')}${where}`];
+  });
+}
+
+/** A table type as its history entry records it: its id, its name and its size in words. */
+interface TypeInWords {
+  id: string;
+  name: string;
+  size: string;
+}
+
+function typesInWords(recorded: unknown): TypeInWords[] {
+  return (Array.isArray(recorded) ? recorded : []).map((one) => {
+    const type = asDetail(one);
+    return { id: str(type.id), name: str(type.name), size: str(type.size) };
+  });
+}
+
+/**
+ * What a write of the table types did, a clause for each type it touched, by id: "added Square 4 ft
+ * (122 x 122 cm)", "removed Round 5 ft", "renamed Long to Long 8 ft", "resized Square 4 ft to 120
+ * x 120 cm".
+ */
+function tableTypeClauses(detail: Detail): string[] {
+  const before = typesInWords(asDetail(detail.before).table_types);
+  const after = typesInWords(asDetail(detail.after).table_types);
+  const was = new Map(before.map((type) => [type.id, type]));
+  const now = new Set(after.map((type) => type.id));
+  const clauses: string[] = [];
+  for (const type of after) {
+    const old = was.get(type.id);
+    if (!old) {
+      clauses.push(`added ${type.name} (${type.size})`);
+      continue;
+    }
+    if (old.name !== type.name) clauses.push(`renamed ${old.name} to ${type.name}`);
+    if (old.size !== type.size) clauses.push(`resized ${type.name} to ${type.size}`);
+  }
+  for (const type of before) {
+    if (!now.has(type.id)) clauses.push(`removed ${type.name}`);
+  }
+  return clauses;
 }
 
 /** The section names a layout's save recorded under a field. */
@@ -401,6 +458,29 @@ export const readers: HistoryReaders = {
         actor,
         text(`removed ${location ? `${location}'s` : 'a'} layout${of} with its location`),
       ];
+    },
+  },
+  'change-setup/table_types': {
+    parts(entry, context) {
+      const { actor, text, detail } = sentence(entry, context);
+      const clauses = tableTypeClauses(detail);
+      return [
+        actor,
+        text(`changed the table types${clauses.length ? `: ${listed(clauses)}` : ''}`),
+      ];
+    },
+    changes(entry) {
+      const detail = asDetail(entry.detail);
+      const words = (side: unknown) =>
+        typesInWords(asDetail(side).table_types)
+          .map((type) => `${type.name} (${type.size})`)
+          .join('\n') || 'none';
+      return {
+        changed: [
+          { field: 'Table types', before: words(detail.before), after: words(detail.after) },
+        ],
+        recorded: [],
+      };
     },
   },
   'change-setup/floorplan_image_deleted': {

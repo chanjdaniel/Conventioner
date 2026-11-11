@@ -142,9 +142,7 @@ describe("a layout's save reads in words", () => {
   });
 
   it('says a save it has no words for yet changed the layout', () => {
-    expect(said(saved({ zones: { added: 1, changed: 0, removed: 0 } }))).toBe(
-      "dana@ember.test changed Upper Hall's layout",
-    );
+    expect(said(saved({ walls: 2 }))).toBe("dana@ember.test changed Upper Hall's layout");
   });
 
   it('opens to the metres across before and after', () => {
@@ -187,5 +185,54 @@ describe('a layout taken with its location reads in words', () => {
     expect(said(removed(3, null))).toBe(
       'dana@ember.test removed a layout of 3 tables with its location',
     );
+  });
+});
+
+describe("a layout's no-table zones read in words (ticket 10)", () => {
+  it('says the zones a save marked, changed and removed', () => {
+    expect(said(saved({ zones: { added: 2, changed: 0, removed: 0 } }))).toBe(
+      'dana@ember.test marked 2 no-table zones in Upper Hall',
+    );
+    expect(said(saved({ zones: { added: 0, changed: 1, removed: 1 } }))).toBe(
+      'dana@ember.test changed 1 no-table zone in Upper Hall and removed 1 no-table zone in Upper Hall',
+    );
+  });
+});
+
+describe("the market's table types read in words (ticket 10)", () => {
+  const SIX = { id: 'tt-six', name: 'Standard 6 ft', size: '183 x 76 cm' };
+  const SQUARE = { id: 'tt-square', name: 'Square 4 ft', size: '122 x 122 cm' };
+  const types = (before: unknown[], after: unknown[]): MarketHistoryEntry => ({
+    ...saved({ before: { table_types: before }, after: { table_types: after } }),
+    kind: 'table_types',
+    subject: {},
+  });
+
+  it('says a type added, with its size', () => {
+    expect(said(types([SIX], [SIX, SQUARE]))).toBe(
+      'dana@ember.test changed the table types: added Square 4 ft (122 x 122 cm)',
+    );
+  });
+
+  it('says a type renamed, resized and removed, by its id', () => {
+    expect(
+      said(types([SIX, SQUARE], [{ ...SIX, name: 'Trestle 6 ft', size: '180 x 75 cm' }])),
+    ).toBe(
+      'dana@ember.test changed the table types: renamed Standard 6 ft to Trestle 6 ft, ' +
+        'resized Trestle 6 ft to 180 x 75 cm and removed Square 4 ft',
+    );
+  });
+
+  it('lists the types before and after', () => {
+    expect(entryChanges(types([SIX], [SIX, SQUARE]))).toEqual({
+      changed: [
+        {
+          field: 'Table types',
+          before: 'Standard 6 ft (183 x 76 cm)',
+          after: 'Standard 6 ft (183 x 76 cm)\nSquare 4 ft (122 x 122 cm)',
+        },
+      ],
+      recorded: [],
+    });
   });
 });

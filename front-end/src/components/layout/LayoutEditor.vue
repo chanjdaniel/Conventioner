@@ -137,10 +137,12 @@ const props = withDefaults(
     sections: readonly SectionObject[];
     tableTypes: readonly TableTypeObject[];
     imageUrl?: string;
+    /** Whether the venue's floorplan is drawn under the tables. */
+    showImage?: boolean;
     /** Ask the placement to fill an area of this market's layout (`layoutFill.ts`). */
     fill?: (request: FillRequest) => Promise<FillAnswer>;
   }>(),
-  { imageUrl: '', fill: undefined },
+  { imageUrl: '', showImage: true, fill: undefined },
 );
 
 const emit = defineEmits<{
@@ -2029,6 +2031,7 @@ watch(
         :sections="sections"
         :tableTypes="tableTypes"
         :imageUrl="imageUrl"
+        :showImage="showImage"
         :view="view"
         :selection="selection"
         :guides="guides"

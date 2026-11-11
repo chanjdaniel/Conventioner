@@ -38,6 +38,8 @@ const props = defineProps<{
   busy?: boolean;
   /** Offered when the layout already has a scale, to keep it. */
   cancellable?: boolean;
+  /** What the way out says: "Keep the scale" unless told; a replaced image's keeps the old one. */
+  cancelLabel?: string;
 }>();
 
 const emit = defineEmits<{
@@ -244,7 +246,7 @@ const ends = computed<Point[]>(() => (line.value ? [line.value.start, line.value
         data-testid="layout-calibration-cancel"
         @click="emit('cancel')"
       >
-        Keep the scale
+        {{ cancelLabel ?? 'Keep the scale' }}
       </button>
     </form>
     <p v-if="error" class="calibration-error" role="alert" data-testid="layout-calibration-error">

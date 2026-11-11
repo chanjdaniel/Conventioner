@@ -36,6 +36,7 @@ import type {
   TableTypeObject,
 } from '@/assets/types/datatypes';
 import MarketFrame from '@/components/MarketFrame.vue';
+import { api } from '@/utils/api';
 import { useOpenMarket } from '@/utils/openMarket';
 import { useUnsavedWork } from '@/utils/useUnsavedWork';
 import { MarketAction, mayTake } from '@/utils/marketActions';
@@ -142,6 +143,7 @@ watch(stored, (held) => editor.adopt(held), { immediate: true });
 watch(locationId, () => {
   editor.reload(stored.value);
   recalibrating.value = false;
+  stopReplacing();
 });
 
 // A change still waiting is saved before the page is left, for another location's layout or
@@ -166,6 +168,75 @@ const { url: imageUrl, failed: imageFailed } = useFloorplanImage(
 const scaleText = computed(() => metresAcross(floorplan.value) ?? 'Not calibrated');
 const calibrated = computed(() => Boolean(floorplan.value?.scalePxPerUnit));
 const recalibrating = ref(false);
+
+/** Whether the venue's floorplan is drawn under the tables; unticked, the hall is its floor. */
+const showImage = ref(true);
+
+// ── Replacing the image ──────────────────────────────────────────────────────
+
+/**
+ * "Replace the image": the upload again, then the scale over the new image, its line started from
+ * the old one where it stands on the new image's pixels (the same drawing at another size reads
+ * the same), so "Set the scale" alone keeps the hall's size. Only then is the layout written with
+ * the new image and its scale, every table keeping its place in millimetres, and the server
+ * deletes the old image. Given up, the new image is deleted.
+ */
+const replacing = ref(false);
+const replacement = ref<UploadedFloorplan | null>(null);
+const { url: replacementUrl, failed: replacementFailed } = useFloorplanImage(
+  computed(() => replacement.value?.gridfs_id),
+);
+
+/** The old line, on the new image's pixels. */
+const carriedLine = computed(() => {
+  const old = floorplan.value;
+  const next = replacement.value;
+  if (!old?.referenceLineStart || !old.referenceLineEnd || !next) return null;
+  const across = next.width / (old.imageWidth || next.width);
+  const down = next.height / (old.imageHeight || next.height);
+  const on = ([x, y]: [number, number]): [number, number] => [x * across, y * down];
+  return { start: on(old.referenceLineStart), end: on(old.referenceLineEnd) };
+});
+
+function startReplacing() {
+  recalibrating.value = false;
+  replacement.value = null;
+  replacing.value = true;
+}
+
+function onReplacement(image: UploadedFloorplan) {
+  replacement.value = image;
+}
+
+/** Give up the replacement: the new image, uploaded and named by nothing, is deleted. */
+function stopReplacing() {
+  const unused = replacement.value?.gridfs_id;
+  replacing.value = false;
+  replacement.value = null;
+  if (unused) void api.delete(`/floorplans/${encodeURIComponent(unused)}`).catch(() => {});
+}
+
+async function onReplacementCalibrated(line: { start: Point; end: Point; lengthMm: number }) {
+  const current = floorplan.value;
+  const image = replacement.value;
+  const scale = pxPerMm(line.start, line.end, line.lengthMm);
+  if (!current || !image || scale === null) return;
+  const round = (n: number) => Math.round(n * 10) / 10;
+  const saved = await editor.write({
+    ...current,
+    imageGridfsId: image.gridfs_id,
+    imageWidth: image.width,
+    imageHeight: image.height,
+    pdfPage: image.page ?? null,
+    scalePxPerUnit: scale,
+    referenceLineStart: [round(line.start[0]), round(line.start[1])],
+    referenceLineEnd: [round(line.end[0]), round(line.end[1])],
+    referenceLineLengthMm: line.lengthMm,
+  });
+  if (!saved) return;
+  replacing.value = false;
+  replacement.value = null;
+}
 
 /** The location's sections as the map draws them, for the panel's list. */
 const sections = computed(() =>
@@ -352,7 +423,8 @@ onUnmounted(() => phoneWindow?.removeEventListener('change', readTheWindow));
 
 /** Whether the map is the editor: a calibrated layout, for someone who may change it, at a desk. */
 const editing = computed(
-  () => calibrated.value && editable.value && !recalibrating.value && atADesk.value,
+  () =>
+    calibrated.value && editable.value && !recalibrating.value && !replacing.value && atADesk.value,
 );
 
 const selectedTables = computed(() => {
@@ -473,6 +545,44 @@ const saveTheseTypes = (name: string) =>
               No floorplan has been uploaded for {{ location.name }} yet.
             </p>
           </template>
+          <template v-else-if="editable && replacing">
+            <template v-if="!replacement">
+              <FloorplanUploader
+                :marketId="market.id"
+                :busy="saveState === 'saving'"
+                @uploaded="onReplacement"
+              />
+              <div>
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  data-testid="layout-replace-cancel"
+                  @click="stopReplacing"
+                >
+                  Keep the current image
+                </button>
+              </div>
+            </template>
+            <p v-else-if="replacementFailed" class="layout-empty" data-testid="layout-image-failed">
+              The new image could not be shown. Reload the page to try again.
+            </p>
+            <LayoutCalibration
+              v-else-if="replacementUrl"
+              :key="replacement.gridfs_id"
+              :imageUrl="replacementUrl"
+              :imageWidth="replacement.width"
+              :imageHeight="replacement.height"
+              :locationName="location.name"
+              :start="carriedLine?.start"
+              :end="carriedLine?.end"
+              :lengthMm="floorplan.referenceLineLengthMm"
+              :busy="saveState === 'saving'"
+              cancellable
+              cancelLabel="Keep the current image"
+              @set="onReplacementCalibrated"
+              @cancel="stopReplacing"
+            />
+          </template>
           <template v-else-if="calibrated && !(editable && recalibrating)">
             <p v-if="imageFailed" class="layout-empty" data-testid="layout-image-failed">
               The floorplan's image could not be shown. Reload the page to try again.
@@ -484,6 +594,7 @@ const saveTheseTypes = (name: string) =>
               :sections="market.setupObject?.sections ?? []"
               :tableTypes="tableTypes"
               :imageUrl="imageUrl"
+              :showImage="showImage"
               :fill="(request) => placeTables(marketId, request)"
               @announce="say"
               @status="showStatus"
@@ -502,6 +613,7 @@ const saveTheseTypes = (name: string) =>
                 :sections="market.setupObject?.sections ?? []"
                 :tableTypes="tableTypes"
                 :imageUrl="imageUrl"
+                :showImage="showImage"
                 mode="read"
               />
             </div>
@@ -603,15 +715,28 @@ const saveTheseTypes = (name: string) =>
             <section class="layout-card" data-testid="layout-panel-floorplan">
               <h2 class="layout-card-title">Floorplan</h2>
               <p class="layout-card-text">{{ location.name }}'s floorplan reads {{ scaleText }}.</p>
-              <button
-                v-if="editable && !recalibrating"
-                type="button"
-                class="btn btn--secondary"
-                data-testid="layout-recalibrate"
-                @click="recalibrating = true"
-              >
-                Recalibrate
-              </button>
+              <label class="layout-tick">
+                <input v-model="showImage" type="checkbox" data-testid="layout-show-image" />
+                <span>Show the floorplan</span>
+              </label>
+              <div v-if="editable && !recalibrating && !replacing" class="layout-card-actions">
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  data-testid="layout-replace-image"
+                  @click="startReplacing"
+                >
+                  Replace the image
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  data-testid="layout-recalibrate"
+                  @click="recalibrating = true"
+                >
+                  Recalibrate
+                </button>
+              </div>
             </section>
             <LayoutPanelKeyboard v-if="editing" class="layout-card" />
           </template>
@@ -785,6 +910,21 @@ const saveTheseTypes = (name: string) =>
   margin: 0;
   font-size: var(--text-md);
   font-weight: 600;
+}
+
+.layout-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.layout-tick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .layout-card-text {
