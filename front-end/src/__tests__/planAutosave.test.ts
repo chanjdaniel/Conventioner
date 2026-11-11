@@ -656,7 +656,7 @@ describe("the plan's revision", () => {
    */
   it('refuses the keepalive of an edit made while a save is out, keeping the save that was out', async () => {
     const server = aServer(0);
-    const keepalive = vi.fn((_url: string, _init: RequestInit) =>
+    const keepalive = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
       Promise.resolve(new Response(null, { status: 200 })),
     );
     vi.stubGlobal('fetch', keepalive);
