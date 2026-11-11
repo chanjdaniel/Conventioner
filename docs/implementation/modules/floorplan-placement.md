@@ -51,6 +51,13 @@ describes:
   - front-end/src/components/layout/LayoutFillPreview.vue
   - front-end/src/components/layout/LayoutCrosshair.vue
   - front-end/src/components/elements/ElementLocationSetup.vue
+  - back-end/api/layouts.py
+  - front-end/src/components/layout/layoutTypes.ts
+  - front-end/src/components/layout/LayoutPanelTypes.vue
+  - front-end/src/components/layout/LayoutTypeDialog.vue
+  - front-end/src/components/layout/LayoutSavedTypesDialog.vue
+  - front-end/src/components/layout/LayoutSaveTypesDialog.vue
+  - front-end/src/components/layout/LayoutPanelZones.vue
 verified: 2026-11-11
 sources:
   - bug/38
@@ -86,6 +93,9 @@ Its head row holds "Layout", the switch between the market's named locations (ea
 Before an image the map column is the upload's drop zone and the panel says "Upload the venue's floorplan for Upper Hall to start."; the first save, made as the image is chosen, starts the layout.
 Before a scale it is [`LayoutCalibration.vue`](../../../front-end/src/components/layout/LayoutCalibration.vue): the image in an SVG whose units are its pixels, a line drawn by drag (its ends draggable after) or by keyboard (a crosshair from the centre, the arrows, Enter for each end, a polite live region saying each step), a length in m, cm, mm, ft or in, and "Set the scale", whose arithmetic is [`calibration.ts`](../../../front-end/src/components/layout/calibration.ts): `scalePxPerUnit` is the line's pixels over its millimetres, from a line of at least 10 px.
 Recalibrate draws the line again from the stored one; a table keeps its millimetres, so the image is what moves under it.
+The panel's Floorplan card says how wide the floorplan reads, holds "Show the floorplan" (ticked; unticked, the map draws the floor alone, for this visit), and for someone who may change the layout "Replace the image" and "Recalibrate".
+Replace the image is the upload again in the map's place, with "Keep the current image", and then the scale over the new image, its line started from the stored one carried onto the new image's pixels, so the same drawing at another size keeps its hall's size with "Set the scale" alone; only then is the layout written with the new image and its scale, every table keeping its millimetres, and the save deletes the old image by id.
+A replacement given up after its upload deletes the image it uploaded (`DELETE /floorplans/<id>`, which records `floorplan_image_deleted`).
 With a scale the map column is [the editor](#the-editor) for a person who may change the layout, at a desk, and for anyone else, and at a phone's width (640px and below), [the drawing](#the-drawing) in its read mode; either is drawn over the floor alone while the image is on its way or could not be fetched (which the page says above it), the read map the whole hall in a box of the floorplan's shape, as wide as the column and as tall as that makes it, and the panel gains "Sections in Upper Hall" ([`LayoutPanelSections.vue`](../../../front-end/src/components/layout/LayoutPanelSections.vue)): each of the location's sections with the colour the map draws it in, its tier and its count of tables on the layout.
 A person the Market Setup row refuses, and anyone past draft (the save's blanket 409 until T257's ticket 11 narrows it), reads the page with nothing to upload or calibrate.
 The page holds the layout's working copy ([`useLayoutEditor.ts`](../../../front-end/src/components/layout/useLayoutEditor.ts), [below](#the-editor)); each save names the revision of the layout it read ([`layoutSave.ts`](../../../front-end/src/components/layout/layoutSave.ts)), and after each answer the page re-reads the market through [the one store](../conventions/one-market-from-the-server.md).
@@ -225,6 +235,21 @@ It draws the working copy through [the drawing](#the-drawing) in `edit` mode and
   Under the list it counts the tables in no section ("3 tables are in no section") with "Select them", and says what Section Setup had for each section that has fewer tables than when the layout began ("Section Setup had Gold row at 13: 9 placed.").
   A reader sees the count of tables in no section and none of the controls.
 
+- **No-table zone**, the toolbar's fifth tool: a drag draws a box, held to the floorplan, and its release marks a zone of it (`addZone`, one step of undo; a box under 10 cm a side, or a 101st zone, marks none and says why on the status line), says its size ("Added a no-table zone 4.0 m by 3.0 m. Name it in the panel.") and gives the focus to its name in the zones card.
+  A zone is drawn only with the pointer, as a box is.
+  **A table put down on a zone is pushed off it**, to the nearest clear place with every centre inside the floorplan, as a snap takes it (`offZones`: from where the tables stand, each zone a table meets offers four ways off it, past each of its edges, tried nearest first, and a way that lands on another zone offers that zone's in turn); it applies to a drag, frame by frame, to a table added or turned there, and to tables carried by keyboard only as they are dropped, so the keys can carry them across a zone.
+  A zone drawn over tables that stand leaves them where they are.
+- **The Table types card** ([`LayoutPanelTypes.vue`](../../../front-end/src/components/layout/LayoutPanelTypes.vue)): each of the market's types with its size ("183 x 76 cm", [`layoutTypes.ts`](../../../front-end/src/components/layout/layoutTypes.ts)) and how many of the market's tables are of it, the layout being edited counted as it stands; each row's menu has Edit and Remove.
+  "Add a type" and Edit open [`LayoutTypeDialog.vue`](../../../front-end/src/components/layout/LayoutTypeDialog.vue): Name, Width, Depth and a Unit (cm first, then m, mm, ft and in, the sides carried into a unit chosen), each field saying beneath it what it is refused for (a name each, none shared, sides 100 mm to 20,000 mm).
+  Remove takes a type no table uses, and of one that tables use says how many and keeps it: "12 tables are Square 4 ft. Change them first.".
+  "Save these types" ([`LayoutSaveTypesDialog.vue`](../../../front-end/src/components/layout/LayoutSaveTypesDialog.vue)) names a template of the types, filed under the market's organization; "Use saved types" ([`LayoutSavedTypesDialog.vue`](../../../front-end/src/components/layout/LayoutSavedTypesDialog.vue), wide, its list scrolling in its body) lists the person's own templates and their market's organization's, each once, and adds the chosen one's types the market has none of by name, each a new id (`withSavedTypes`); a beta template's height is read as the depth.
+  Both ask [the template routes](#who-may-use-the-floorplan-routes), which know the caller from the session; nothing reads the stored user.
+  Every change is one write of the whole list, `PUT /markets/:id/table-types` ([below](#who-may-use-the-floorplan-routes)), sent once the layout's own pending change has landed, so the server judges the tables as the page shows them; then the market is read again, and the map draws each table at its type's new size.
+  The dialogs hold through the write and write its refusal into themselves.
+- **The No-table zones card** ([`LayoutPanelZones.vue`](../../../front-end/src/components/layout/LayoutPanelZones.vue)): each zone's name in a field ("Name of zone 1"), saved as one step when the field is left or Enter pressed, its size under it, and Remove, the focus going to the next zone's field.
+  With none it says how one is drawn.
+- **The panel's cards while editing**, in order: the status line when it has words, the selection, the sections, the table types, the no-table zones, the floorplan and the keys.
+
 **Leaving Draft waits on tables in no section**: `LayoutTablesHaveSectionsGuard` ([the guards](guards.md)) refuses `draft -> applications` while a layout has any (`layout.tables_in_no_section`: of no section, of one that is gone, or of another location's), naming the location and how many, with "Open the layout" leading to that location's layout.
 
 **Removing a location that has a layout asks first** ([`ElementLocationSetup.vue`](../../../front-end/src/components/elements/ElementLocationSetup.vue), on [`AppDialog`](../conventions/dialogs.md)): "Remove Upper Hall?", "Its layout of 49 tables goes with it.", "Remove location and layout" and Cancel, on which it opens; the plan's next save then drops the layout with its location.
@@ -301,6 +326,12 @@ Every page of a PDF is stored; the pages not chosen are named by no floorplan, a
 The server draws each page at 200 dpi with pypdfium2 ([`pdf_converter.py`](../../../back-end/utils/pdf_converter.py)), whose `manylinux_2_17` wheel carries PDFium, so it needs no system package on Vercel, Docker or CI (T205).
 Images uploaded before images named a market have no `marketId`, so no route reads them, `GET /floorplans/<id>` included; no migration gives them one, and [`migrations/migrate_layouts.py`](../../../back-end/migrations/migrate_layouts.py) deletes them with every other image no floorplan names.
 Deleting a market deletes every image whose `metadata.marketId` names it, with its other records ([market deletion](market-deletion.md)); an image with no `marketId` names no market, so no deletion takes it.
+
+**The market's table types have their own write**: `PUT /markets/:id/table-types`, [`back-end/api/layouts.py`](../../../back-end/api/layouts.py), registered in `app.py` beside the plan write, body `{tableTypes}` and nothing else (another key is refused by name), answered `{tableTypes}` as stored.
+It asks save's questions in save's order: the body (a list of objects), the market (404), its data (400 "Invalid market data"), Change Market Setup (403 with its sentence), the archived rule (403), the settled setup (409 with its sentence: the types settle with the seats), then each type's parse (400 naming the field), the bounds (`table_types_refusal`), a name each and no two alike by case ("Two table types are named Standard 6 ft. Give each its own name."), an id each, and no type taken away that a table of a located layout uses (400 "12 tables are Square 4 ft. Change them first.").
+`prepared_plan(table_types=...)` judges the plan it would make, and only `setupObject.tableTypes` is written (the whole plan for a market that never saved one), conditional on each stored layout's id and revision as read, so a layout saved in between answers 409 "A layout changed while the table types were saved. Reload and try again." rather than being put back or left naming a type that is gone.
+It records `table_types` ([the market's history](../data/history.md)) when the types changed, each its id, name and size in words before and after, read as "changed the table types: added Square 4 ft (122 x 122 cm)", "renamed …", "resized … to 120 x 120 cm", "removed …".
+`TestEveryFloorplanRouteNeedsASignIn` asks it without a session too.
 
 **A template is its creator's, and one filed under an organization is filed by someone in it.**
 [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) reads a create's or an update's `organizationId` with `string_field()`: null or absent files it under none, another type answers 400, an organization nobody has 404, and one the caller is not in (as owner, admin or member) 403, the test listing an organization's templates applies.
@@ -381,6 +412,7 @@ This replaced a snapshot-and-restore workaround in the E2E page object.
 
 **Saving a layout, deleting an image and a layout taken with its location record into [the market's history](../data/history.md)** (`floorplan`, `floorplan_image_deleted`, `floorplan_removed`, under `change-setup`), a layout's save as one `floorplan` entry and never also a `plan` one.
 Its subject is the layout's id and its location's name (`floorplan_id`, `location`), and its detail is `layout.describe_change`: what the save changed in the layout's own terms (`started`, tables `added` and `removed` per section, `moved`, `turned`, `renumbered`, `zones`, `image`, `scale` in metres across before and after, `colours`, `labels`), never a table itself; a save that changes nothing records nothing.
+Its zones read "marked 2 no-table zones in Upper Hall", "changed 1 no-table zone in Upper Hall" and "removed 1 no-table zone in Upper Hall".
 Manage market reads it in words, "started Upper Hall's layout", "calibrated Upper Hall's layout to 30.0 m across", "recalibrated ...", "replaced Upper Hall's floorplan image", "added 12 tables to Silver aisle in Upper Hall", "removed 1 table from Gold row in Upper Hall", "moved 3 tables in Upper Hall", "turned 2 tables in Upper Hall", a save of anything else reading "changed Upper Hall's layout" ([`historyReaders/setup.ts`](../../../front-end/src/utils/historyReaders/setup.ts)), and an entry the beta's save recorded, its detail the plan's and the floorplan's two sides, reads as it did.
 An upload stores an image the market uses only once a layout is saved, so it records nothing.
 

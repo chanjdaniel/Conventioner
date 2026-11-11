@@ -106,7 +106,8 @@ One block per action, in the order of [the actions table](../modules/market-acti
 - `floorplan_removed`: a location's layout taken with its location by a plan write or the CSV start, its image deleted with it (T257)
   - Subject: `floorplan_id`, and `location`, its name as the market last held it
   - Detail: `tables`, the layout's table count, then null
-- `table_types`: the market's table types replaced (T257); no write records it yet
+- `table_types`: the market's table types replaced by `PUT /markets/:id/table-types` (T257)
+  - Detail: `table_types`, before and after, each type `{id, name, size}` with its size in words ("122 x 122 cm"); a write that restates the types records nothing
 
 **`change-form`**
 
