@@ -10,6 +10,7 @@ describes:
   - front-end/e2e/helpers/seeds.ts#removeFromOrganization
   - front-end/e2e/helpers/seeds.ts#seedMarketWithVendors
   - front-end/e2e/helpers/seeds.ts#seedPublishedMarketWithAssignments
+  - front-end/e2e/helpers/seeds.ts#seedLayout
   - front-end/e2e/helpers/seedAssignedMarket.ts
   - front-end/e2e/helpers/seedPhaseMarket.ts
   - front-end/e2e/helpers/seedDraftMarket.ts
@@ -18,7 +19,6 @@ describes:
   - front-end/e2e/helpers/seedApplication.ts#approvedVendorApplication
   - front-end/e2e/helpers/seedApplication.ts#insertApplications
   - front-end/e2e/helpers/seedTheScreens.ts
-  - front-end/e2e/helpers/seedFloorplanTemplate.ts
   - front-end/e2e/helpers/verifiedUser.ts
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
@@ -26,7 +26,7 @@ describes:
   - front-end/e2e/helpers/decideReviewSetup.ts
   - front-end/e2e/helpers/seedPeopleAtScale.ts
   - front-end/e2e/helpers/seedMarketAtScale.ts
-verified: 2026-11-09
+verified: 2026-11-11
 sources:
   - E02
   - E11/F01/S01
@@ -49,6 +49,7 @@ sources:
   - T234
   - T251
   - T263
+  - T257
 ---
 
 # E2E seeds
@@ -205,14 +206,16 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
     - holding a draft of its own, made anew on each run and dated after every other seeded market, its admin also Editor on it, so Manage market draws an organization's people and a market role that adds nothing (E38/F12/S01)
     - the organizer always has a second organization, and "the new-market dialog" always draws the organization select rather than naming one (T148)
   - the review market's cards lead with two answers and fold the rest behind "N more answers"
+  - a `seedLayout()` draft whose Upper Hall layout has its floorplan and no scale, which the sweeps walk calibrating (T257)
 - Notes:
   - for the [sweeps](../../design-system.md#what-keeps-this-true)
   - its applications go in with one `insertApplications()` per market
 
-**`seedFloorplanTemplate()`** ([file](../../../front-end/e2e/helpers/seedFloorplanTemplate.ts))
+**`seedLayout()`** ([file](../../../front-end/e2e/helpers/seeds.ts))
 
-- Leaves: a floorplan template of the given table types, saved by the signed-in user
-- Notes: a seeded template is the user's and outlives every market, so a spec finds its own by the unique name returned
+- Leaves: a draft with two locations to lay out (T257): Upper Hall with Gold row (13) and Silver aisle (6), Lower Hall with Bronze corner (4), their ids fixed (`UPPER_HALL`, `LOWER_HALL`), and a third location with no name, which offers no layout
+- With `layout`, Upper Hall's layout started: `fixtures/test-floorplan.png` uploaded and saved through `POST /floorplans/save-to-market`, as the page saves it; with `metresAcross`, calibrated to that width
+- Notes: tables are placed by later tickets' specs; it returns the layout's id and stored revision, for a spec that saves over it
 
 **A vendor is seeded as an approved application**, which is what the solver reads ([ADR 0003](../../adr/0003-applications-are-the-solvers-only-input.md)).
 `seedApprovedVendor()` writes the essential answers in the shapes `essential_fields.py` validates into (dates and tiers as the plan's own names, the count an integer, the table choice lower-cased).

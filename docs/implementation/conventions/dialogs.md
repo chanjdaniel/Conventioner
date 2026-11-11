@@ -26,7 +26,7 @@ describes:
   - front-end/src/components/ScrollBox.vue
   - front-end/src/__tests__/scrollBox.test.ts
   - front-end/e2e/the-long-dialogs-scroll-their-body.spec.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -53,6 +53,7 @@ sources:
   - T223
   - T228
   - T263
+  - T257
 ---
 
 # Dialogs
@@ -156,7 +157,7 @@ An Add row's refusal in Manage market or Manage organization is brought into vie
 **The page behind a modal is out of play, not only dimmed.**
 `aria-modal="true"` tells assistive technology that everything outside the dialog is out of play, and that has to be true: the vendor drawer once declared it while fourteen controls behind it stayed in the tab order, the rail's "Publish market" among them, so a keyboard user could publish with a vendor's details open.
 A control that can be focused and fired presents itself as available far more strongly than a dimmed one, so the page behind is held `inert` ([`useInertBehind`](../../../front-end/src/utils/useInertBehind.ts)).
-**A dialog may mount already open, and is held all the same**: the change-placement dialog and the floorplan's choose-a-path overlay are `v-if` dialogs with `:open="true"`, open from setup, before the template ref that names the dialog's root has bound.
+**A dialog may mount already open, and is held all the same**: the change-placement dialog is a `v-if` dialog with `:open="true"`, as the floorplan beta's choose-a-path overlay was until T257 took its way in, open from setup, before the template ref that names the dialog's root has bound.
 `useInertBehind` watched the open state alone, so it walked once with no root to walk from and never again, and Tab walked out of the change-placement dialog onto the market bar behind it (T181).
 It watches the dialog's parts with the open state, so the ref binding on mount runs the walk; a re-run releases before it marks, so no element is counted twice, and a branch that a dialog open on top of it holds live stays live (below).
 
@@ -194,7 +195,7 @@ With exactly one organization it names it rather than offering a select with one
 - [`useInertBehind.test.ts`](../../../front-end/src/__tests__/useInertBehind.test.ts) holds the walk: the page's other branches marked and the modal not, the marks given back on close and on unmount, an element already `inert` left as it was found, the counted marks of two modals open at once, a dialog on top kept live while the one beneath walks again, and a modal mounted already open with its root bound by template ref, the choose-a-path overlay among them; [`a-dialog-mounted-open-holds-the-page.spec.ts`](../../../front-end/e2e/a-dialog-mounted-open-holds-the-page.spec.ts) opens the change-placement dialog on the screens seed's big market and the choose-path overlay on its CSV draft, each at 390 and 1440, and finds the market frame, the rail and the app bar inert, Tab walking only the dialog's controls, and Escape giving the frame and the app bar back, focus returning to the seat's Change.
 - [`removingSomeoneAsksFirst.test.ts`](../../../front-end/src/__tests__/removingSomeoneAsksFirst.test.ts) and [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) open each Remove's confirmation, find it named by its question and opened on Cancel, close it by Cancel and by Escape (only it, not the dialog beneath) with focus back on the Remove and nothing removed, and confirm it, with focus on the list.
 - [`changingARoleAsksFirst.test.ts`](../../../front-end/src/__tests__/changingARoleAsksFirst.test.ts) and [`changing-a-role-asks-first.spec.ts`](../../../front-end/e2e/changing-a-role-asks-first.spec.ts) choose a role, find the confirmation named by its question with nothing sent, close it by Cancel, Escape and the backdrop (only it, not the dialog beneath) with the select back on the role held and focused, confirm it with one write and focus on the select, or on the list when the select has gone, and find a refusal said beneath the row, with the list re-read.
-- [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open and focus given back on close (the create-market dialog, a dialog opened from a dialog, and Edit Table Type), Manage organization staying open through saves and closing by its close control, the backdrop and Escape, its controls at the product's height with each add row's own Cancel and opening on no Remove, a dialog opened from a dialog, Escape there closing only the one on top, the floorplan's Edit Table Type dialog (its window and scrim, Enter from any field, and a unit change that saves the same millimetres), and its template dialogs (Save Template's Enter through its guard, its three closes, and staying open through a save in flight; Load Template's list, its confirm view, Cancel back to the list, and Replace, with focus following each view).
+- [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open and focus given back on close (the create-market dialog and a dialog opened from a dialog), Manage organization staying open through saves and closing by its close control, the backdrop and Escape, its controls at the product's height with each add row's own Cancel and opening on no Remove, a dialog opened from a dialog, and Escape there closing only the one on top; the floorplan beta's Edit Table Type and template dialogs left with its wizard, which nothing reaches since T257, and a location's layout's own dialogs join as they are built.
 
 ## What breaks it
 

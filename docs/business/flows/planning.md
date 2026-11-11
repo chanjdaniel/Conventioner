@@ -30,6 +30,7 @@ sources:
   - T205
   - T217
   - T263
+  - T257
 ---
 
 # Planning the market
@@ -40,7 +41,7 @@ sources:
 
 Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, Pricing, How vendors apply, and Application form.
 The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.
-It is deliberately not a wizard; the floorplan flow ([E6](#e6-sections-from-a-floorplan)) is the product's one wizard.
+It is deliberately not a wizard; a location's layout has a page of its own ([E6](#e6-a-locations-layout)).
 A draft opens on Market Setup, and an address naming a tab opens that tab, so a shared link keeps working.
 "Plan saved" appears after each edit (debounced about 0.6 s); a failed save says "Could not save the plan. Retry in a moment."
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
@@ -114,25 +115,25 @@ Covered by:
 - `intake-mode.spec.ts`
 - `where-a-form-starts.spec.ts`
 
-## E6. Sections from a floorplan
+## E6. A location's layout
 
-**Status:** Beta (steps 1 to 4 walked live; grouping by lasso not driven); "Auto-Place Tables" places the count asked for of each type (bug 38, `the-floorplan-beta-places-tables.spec.ts`); its save is refused since a floorplan became a location's layout (T257), until the layout replaces this flow.
-Offered as "Set up sections from a floorplan instead" on Section Setup while the plan has no sections and the market is a draft.
+**Status:** Begun (T257): a location's floorplan and its scale; placing tables on it comes with T257's later tickets.
+Under Section Setup's rows, each named location offers "Lay out Upper Hall", or "Open Upper Hall's layout · 49 tables" once it has one; a location with no name offers nothing until it has one, and a plan that cannot change offers only the layouts it has, to read.
+Opening one saves the plan's pending edits first, then goes to `/markets/<id>/layout/<location>`, under the Market Setup tab; `/markets/<id>/layout` opens the first location's, and the floorplan beta's old address, `/markets/<id>/floorplan`, lands there too.
 
-1. "Choose your setup path": "Manual setup" (Recommended, "Get started") or "From a floorplan" (Beta, "Try the beta").
-2. `/markets/<id>/floorplan`, a five-step wizard with "← Back" and "Next →":
-   1. **Upload:** "Drop a floorplan image or PDF here, or choose a file", the app's one drop zone (PNG, JPG, WebP or PDF; a PDF of more than one page asks which page).
-   2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
-   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted, and when fewer did, whether the room had no space for the rest or Auto-Place ran out of time before them.
-   4. **Edit Layout:** draw walls and obstacle zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
-   5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" is refused with "This layout's location is not one of the market's locations.", since the wizard's floorplan names no location, and it writes nothing (T257).
+1. **Upload:** "Drop the floorplan's image or PDF here, or choose a file", the app's one drop zone, with "Upload the venue's floorplan for Upper Hall to start." beside it.
+   PNG, JPG, WebP or PDF up to 4 MB: a larger image is made smaller first, a larger PDF is refused ("This PDF is larger than 4 MB. Export the page with the plan on it as a PNG or a smaller PDF."), and so are a PDF of more than 20 pages and one that cannot be read ("Venue plan.pdf could not be read as a PDF."), each said as an alert; a PDF of several pages shows the page chosen with "Use page N".
+   The image chosen starts the layout: the server records what Section Setup had for each of the location's sections, and a market with no table type gains "Standard 6 ft".
+2. **Set the scale:** "Drag across something whose length you know, like a wall or a door.", by pointer or with the arrow keys and Enter; type its length in m, cm, mm, ft or in, and "Set the scale".
+   The head row then reads "30.0 m across" (before, "Not calibrated"), and "Recalibrate" draws the line again.
 
-The wizard makes no AI calls; placement is a geometry solver ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
-Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
-Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
+The head row's switch moves between the market's locations, each its own layout, and its save state says "Saved", or "This layout changed elsewhere. Reload to see the latest." with Reload when another tab saved the layout first.
+The layout makes no AI calls ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
+Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)).
+Past Draft the layout says the setup is settled and offers nothing to upload (`what-to-show-and-when.spec.ts`).
 Covered by:
 
-- `the-floorplan-beta-places-tables.spec.ts`
+- `the-layout-takes-the-same-zone.spec.ts`
 
 ## E7. Edit the plan after Draft
 
