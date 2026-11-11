@@ -106,7 +106,10 @@ test.describe('Fixing the form from inside the import', () => {
     // And Market Setup, reached without a reload, shows the market as the dialog left it: the
     // question it added (E21/F02/S04). The import used to read and never write a stored copy of
     // the market, so the way back showed the market as it had been.
+    // The file is not imported, so leaving asks first (T271).
     await page.getByTestId('import-leave-button').click();
+    await page.getByTestId('unsaved-work-submit-button').click();
+    await expect(page).toHaveURL(/\/applications$/);
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', {
       timeout: 10000,
     });

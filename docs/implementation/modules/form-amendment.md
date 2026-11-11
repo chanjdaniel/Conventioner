@@ -41,7 +41,7 @@ On that refusal the dialog stays open on the server's sentence and emits `change
 **It answers both of the import's dead ends**: a column with nowhere to go, which adds a question for it, and a preference the Google Form never asked, which switches that question off.
 After the save the import inspects the file again, so a new question is offered as a target and a switched-off one leaves the required list, and the organizer's own column choices and value decisions are put back.
 
-**A jump through history closes it**, as the router keeps the import's page for another market's import and `:market-id` follows the address while the form it holds does not, so a save would write the first market's form over the other's; the view's `watch(marketId, ...)` closes the dialog, and `openAmend` stops at an answer that comes after the jump.
+**A jump through history closes it**, once the leave question the import asks over a mapping is answered Leave ([the CSV import](csv-import.md#sharp-edges)), as the router keeps the import's page for another market's import and `:market-id` follows the address while the form it holds does not, so a save would write the first market's form over the other's; the view's `watch(marketId, ...)` closes the dialog, and `openAmend` stops at an answer that comes after the jump.
 
 **Its save records as the form builder's does**, one `change-form` entry of kind `form` in [the market's history](../data/history.md), since it is the same write.
 

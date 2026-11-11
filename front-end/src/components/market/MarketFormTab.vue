@@ -9,14 +9,17 @@
  *
  * It owns the form: the document, its load and save status, the lock, and what the essential
  * questions offer. What it cannot own arrives as props - the market it belongs to, and the PLAN,
- * because while the form is editable the essential offering follows the organizer's local plan
- * Two things others need back, so they are emitted rather than reached for: whether the form is
- * editable, which the applications tab reads, and the form's FIELDS, which the plan's assignment
- * priority offers as the questions a rule can order by.
+ * because while the form is editable the essential offering follows the organizer's local plan.
+ * One thing Market Setup needs back is emitted rather than reached for: whether the questions hold
+ * changes not yet saved, which stops a phase move until Save Form (T271).
+ *
+ * Unsaved questions ask before they are dropped: a tab, a link or Back opens "Leave without
+ * saving?", and a reload or closing the tab is asked by the browser (`utils/useUnsavedWork.ts`).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useUnsavedWork } from '@/utils/useUnsavedWork';
 import { useRoute, useRouter } from 'vue-router';
 import { useMarketStore } from '@/stores/market';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
@@ -52,12 +55,20 @@ import type {
 } from '@/assets/types/datatypes';
 
 const props = defineProps<{ market: Market | null; setupObject: SetupObject }>();
+const emit = defineEmits<{ unsaved: [unsaved: boolean] }>();
 /** A save is a write, so it is followed by the store re-reading the market (E21/F02/S02). */
 const marketStore = useMarketStore();
 
 const market = computed(() => props.market);
 
 const applicationForm = ref<ApplicationForm | null>(null);
+/**
+ * The form as the server last handed it, apart from the working copy (T271). Its fields are what
+ * "unsaved" is measured against, and it is what "Ask this" sends, so a question still being written
+ * never rides along on a toggle, past Save Form's checks.
+ */
+const storedForm = ref<ApplicationForm | null>(null);
+const storedFields = ref('[]');
 /**
  * Per-field "the organizer typed this key themselves" flags, positionally aligned with the
  * form's fields. It lives beside the form, whose lifetime it shares, rather than inside the
@@ -141,7 +152,27 @@ const essentialOptions = computed<EssentialFormOptions>(() => {
  */
 function adoptApplicationForm(form: ApplicationForm | null) {
   applicationForm.value = form;
+  // A copy, so nothing done to the working copy reaches the stored one.
+  storedForm.value = form ? (JSON.parse(JSON.stringify(form)) as ApplicationForm) : null;
+  storedFields.value = JSON.stringify(form?.fields ?? []);
 }
+
+/**
+ * Whether the questions hold changes the server does not have: the working copy's fields differ
+ * from the stored ones. Only the fields: the essentials' "Ask this" saves itself as it is ticked,
+ * and the key flags are intent, never sent.
+ */
+const unsaved = computed(
+  () => JSON.stringify(applicationForm.value?.fields ?? []) !== storedFields.value,
+);
+
+useUnsavedWork({
+  unsaved: () => unsaved.value,
+  sentence: "Your changes to the form's questions are not saved. Leaving drops them.",
+});
+watch(unsaved, (now) => emit('unsaved', now), { immediate: true });
+// Before the unmount, since Vue drops an emit from an unmounted component.
+onBeforeUnmount(() => emit('unsaved', false));
 
 /**
  * Adopt a form read back from storage, dropping whatever the organizer had in flight. Its keys
@@ -226,11 +257,15 @@ async function rereadAfterARefusal(err: unknown) {
  * Saved immediately rather than on the form's Save button: it is a property of what the market
  * asks, not of the custom fields being edited, and Save is disabled until a custom field exists.
  * The back end refuses anything but a ranking, so this cannot turn off a constraint.
+ *
+ * It sends the form as stored with the new choice, never the working copy: it used to send every
+ * question in hand, saving one still being written without Save Form's checks (T271). Only the
+ * choice comes back into the working copy, so unsaved questions stay unsaved and unsent.
  */
 async function handleToggleUnasked(key: string, unasked: boolean) {
   if (!market.value?.id || !formEditable.value) return;
-  const current = applicationForm.value ?? { fields: [] };
-  const next = new Set(current.unaskedEssentials ?? []);
+  const current = storedForm.value ?? { fields: [] };
+  const next = new Set(applicationForm.value?.unaskedEssentials ?? current.unaskedEssentials ?? []);
   if (unasked) {
     next.add(key);
   } else {
@@ -248,8 +283,13 @@ async function handleToggleUnasked(key: string, unasked: boolean) {
       `/markets/${market.value.id}/application-form`,
       savedForm(updated),
     );
-    adoptApplicationForm(response.data?.application_form ?? updated);
+    const stored: ApplicationForm = response.data?.application_form ?? updated;
     formRevision.value = response.data?.formRevision ?? formRevision.value;
+    const working = applicationForm.value;
+    adoptApplicationForm(stored);
+    if (working) {
+      applicationForm.value = { ...working, unaskedEssentials: stored.unaskedEssentials ?? [] };
+    }
     void marketStore.refresh();
     formSaveStatus.value = 'saved';
     savedStatusTimer.value = setTimeout(() => {
@@ -274,9 +314,8 @@ async function saveApplicationForm() {
       savedForm(applicationForm.value),
     );
     formSaveStatus.value = 'saved';
-    if (response.data?.application_form) {
-      adoptApplicationForm(response.data.application_form);
-    }
+    // What was sent is what is stored, when the answer does not say otherwise.
+    adoptApplicationForm(response.data?.application_form ?? applicationForm.value);
     formRevision.value = response.data?.formRevision ?? formRevision.value;
     void marketStore.refresh();
     savedStatusTimer.value = setTimeout(() => {

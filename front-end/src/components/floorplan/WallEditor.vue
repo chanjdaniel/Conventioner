@@ -455,7 +455,6 @@ function finishObstacle() {
     type: 'custom',
   };
   store.obstacles.push(obs);
-  store.markDirty();
   newObstaclePoints.value = [];
   cursorPixel.value = null;
   setToolMode('select');
@@ -471,7 +470,6 @@ function deleteSelected() {
       store.obstacles.findIndex((o) => o.id === selectedObstacleId.value),
       1,
     );
-    store.markDirty();
     selectedObstacleId.value = null;
   }
 }

@@ -102,6 +102,9 @@ Someone the table's Move the phase row refuses (`mayTake(market, MarketAction.Mo
 The rail navigates there itself: it once emitted an event no screen listened to, so every move landed on the server and the organizer stayed where they had clicked, an import's result still drawn (E32/F01/S01).
 A spec that clicks a move follows it to that page; it does not stay on the tab it clicked from.
 Before posting, the rail awaits the screen's `beforeTransition` (the plan flushes its pending autosave there), and after the move it calls the store's `refresh()`.
+A sentence answered by `beforeTransition` stops the move: the rail shows it as its error (`phase-rail-error`) and posts nothing, so a market never moves over a plan that did not save ([the plan's autosave](plan-autosave.md), T271).
+A screen's `refuseMove`, answered at once with no request, is asked as a move is pressed, before any of the move's dialogs opens (Open applications' reviewers, a confirm), and again before `beforeTransition`: a sentence stops the move the same way, so the organizer is never walked through a dialog for a move already refused.
+Market Setup refuses so over questions the form builder has not saved ("The market did not move: the form has changes that are not saved. Save Form first.", [building the application form](../../business/flows/form-tab.md#leaving-with-questions-not-yet-saved)); "Open applications" once opened its dialog first and refused only after its confirm (T271 review).
 
 **A terminal state is stated in words.**
 Strikethrough alone reads as stopped, not as archived; the prototype proved it, so an archived rail says what became of the market ("It was published and ran its market days.") and keeps the strikethrough only as reinforcement.
