@@ -9,8 +9,9 @@ describes:
   - back-end/market_stats.py
   - front-end/src/utils/statsHeadlines.ts
   - front-end/src/utils/appliedOverTime.ts
+  - front-end/src/utils/roomRows.ts
   - front-end/src/components/charts/
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - E45/F01/S01
   - E45/F01/S02
@@ -25,10 +26,10 @@ sources:
 **Who:** anyone who can read the market, a Viewer included; the page changes nothing ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Stats tab, last on the market bar, at `/markets/<id>/stats`, open in every phase from draft to the archive.
 
-The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as charts drawn in the app's own HTML and CSS ([`components/charts/`](../../../front-end/src/components/charts/)), each with its figures as text, rather than a chart library: applications over time as columns, the review as one split bar, and the answers as cards of bars, each row an answer with its count, its share of the whole and a bar against the largest in its card.
-Before anyone applies it says "Nobody has applied yet." and nothing else.
+The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as charts drawn in the app's own HTML and CSS ([`components/charts/`](../../../front-end/src/components/charts/)), each with its figures as text, rather than a chart library: applications over time as columns, the review as one split bar, the room as a meter bar a day and a tier, and the answers as cards of bars, each row an answer with its count, its share of the whole and a bar against the largest in its card.
+Before anyone applies it says "Nobody has applied yet." and shows the room alone, so a draft already shows its capacity.
 Every figure is counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
-Its sections keep one order, the market's life's: who applied, then what they answered (T201).
+Its sections keep one order, the market's life's: who applied, the room, then what they answered (T201).
 Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width; the chart over time and the review's split bar, each one line of a whole, span the row.
 The page fits a phone, so how the day stands is read at the market (T180): its headlines stand one to a line, each link a thumb's target, and the switch and the cards stay inside the window ([the design language](../../design-system.md#layout)).
 
@@ -74,7 +75,29 @@ Covered by:
 - `the-component-library-charts.spec.ts` (the column chart a day and a week, its numbers, the split bar and its legend, a zero not linked)
 - `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Applications tab does, for anyone who reads it", "a review status with nobody in it is told, and not linked")
 
-## N3. See what they answered
+## N3. See whether there is room for those asking
+
+**Status:** Works (read from the code as of T201 ticket 03: `the-stats-tab.spec.ts`, `test_the_stats_room.py`).
+
+1. "Room" shows in every phase, from draft on, wherever the plan has a date.
+   "Tables asked each day" is a row per market date: the date, "42 asking, 30 tables", and a bar of the tables asked with a black line where the day's tables end, what is asked past it drawn in the attention fill ([the design language](../../design-system.md#the-contrast-contract)).
+   A day's tables are the plan's, every section's on every date.
+2. With two tiers or more, "Table-days asked each tier" is a row per tier the same way, "84 asking, 60 table-days", over every date: the tier's own sections' tables times the dates.
+   A plan of one tier has no tier card, which would repeat the days.
+3. Asked is a ceiling, and each card says so under its rows: someone available three days who wants at most two counts on all three, and a vendor who accepts two tiers on a day counts in both, so the tier rows can add up to more than the days.
+   It counts every application the review has not rejected, a vendor added by hand among them, and not a waitlist one, on each date it is available: a half table as 0.5, a full table, "either" or no answer as 1.
+4. The answers are read as [the solver](../../implementation/modules/assignment-solver.md) reads them, an organizer's [update of an answer](../rules/an-update-is-kept-beside-the-vendors-answer.md) in its place, so a date or tier the plan no longer offers counts nowhere, and a vendor never asked their tiers counts in every tier ([tier filters, section prefers](../rules/tier-filters-section-prefers.md)).
+5. Before anyone applies each row reads its tables alone, "30 tables", with no bar and no note.
+6. Every row of a card is drawn on one scale, the card's largest asked or tables, so the rows compare; the bar is hidden from a screen reader, which reads the row's words.
+
+The server counts it (`count_room` in [`back-end/market_stats.py`](../../../back-end/market_stats.py), the answer's `room`, `null` where the plan has no date), and [`roomRows.ts`](../../../front-end/src/utils/roomRows.ts) makes the cards.
+Covered by:
+
+- `test_the_stats_room.py`
+- `the-component-library-charts.spec.ts` (the fixture's room, one scale a card, the mark and the attention fill, the tables alone)
+- `the-stats-tab.spec.ts` ("the room reads each day and tier as the tables asked against the plan, past them in the attention fill", "a market nobody has applied to says so, in draft")
+
+## N4. See what they answered
 
 **Status:** Works (read from the code as of T201 ticket 01: `the-stats-tab.spec.ts`, `test_the_stats_tab.py`).
 

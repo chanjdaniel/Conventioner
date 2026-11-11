@@ -4,7 +4,8 @@ import type { Locator, Page } from '@playwright/test';
 /**
  * Page object for a market's Stats tab (/markets/:marketId/stats): who applied, a column a day (or
  * week) and the review as one split bar (E45/F01/S01, T201), and a chart per choice question,
- * narrowed to the approved or the assigned (E45/F01/S02); above them the placement and money
+ * narrowed to the approved or the assigned (E45/F01/S02); between them the room, the tables asked
+ * against the plan's per day and per tier (T201); above them the placement and money
  * headlines (E45/F01/S03).
  */
 export class StatsPage {
@@ -21,6 +22,8 @@ export class StatsPage {
   /** The review's split bar, hidden from a screen reader, and the parts drawn in it. */
   readonly statusBar: Locator;
   readonly statusBarParts: Locator;
+  /** The Room section: its cards, `days` and `tiers`. */
+  readonly room: Locator;
   readonly answers: Locator;
   readonly questions: Locator;
   /** "N of M": how many of every application the charts count. */
@@ -38,6 +41,7 @@ export class StatsPage {
     this.overTimeRows = page.getByTestId('stats-over-time-row');
     this.statusBar = page.getByTestId('stats-status-bar');
     this.statusBarParts = page.getByTestId('stats-status-bar-part');
+    this.room = page.getByTestId('stats-room');
     this.answers = page.getByTestId('stats-answers');
     this.questions = page.getByTestId('stats-question');
     this.amongCount = page.getByTestId('stats-among-count');
@@ -64,6 +68,16 @@ export class StatsPage {
 
   statusCount(filter: string): Locator {
     return this.status(filter).getByTestId('stats-status-count');
+  }
+
+  /** A Room card: `days` or `tiers`. */
+  roomCard(id: 'days' | 'tiers'): Locator {
+    return this.page.getByTestId(`stats-room-${id}`);
+  }
+
+  /** A Room card's rows, in order, each a label, its words and its bar. */
+  roomRows(id: 'days' | 'tiers'): Locator {
+    return this.roomCard(id).getByTestId('stats-room-row');
   }
 
   /** The switch's button for a group: `all`, `approved` or `assigned`. */

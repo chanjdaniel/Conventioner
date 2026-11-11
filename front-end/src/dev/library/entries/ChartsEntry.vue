@@ -3,23 +3,27 @@
  * The charts (T201): the Stats tab's figures, drawn in the app's own HTML and CSS (ADR 0015), on the
  * fixture's data at a desk and on a phone, in the tab's order. Who applied: the 359 applications
  * over time as a `ColumnChart`, a column a day over 17 days and a column a week over a long intake,
- * and the review's state as a `SplitBar`. Then what they answered: `BarLedger` as the tab passes it,
+ * and the review's state as a `SplitBar`. Then the room: each day's and tier's tables asked against
+ * the plan's as a `MeterBar` a row, the mark at the tables, and the tables alone before anyone
+ * applies. Then what they answered: `BarLedger` as the tab passes it,
  * its answers most chosen first and folded past 8, each answer one line in a card wider than 32rem
  * and stacked in a narrower one.
  */
 import { MarketPhase } from '@/assets/types/datatypes';
 import BarLedger from '@/components/BarLedger.vue';
 import ColumnChart from '@/components/charts/ColumnChart.vue';
+import MeterBar from '@/components/charts/MeterBar.vue';
 import SplitBar from '@/components/charts/SplitBar.vue';
 import { applicantStats } from '@/utils/applicantStats';
 import { appliedOverTime, type AppliedOverTime } from '@/utils/appliedOverTime';
 import { ledgerRows } from '@/utils/barLedger';
+import { roomCards } from '@/utils/roomRows';
 import LibraryPanel from '../parts/LibraryPanel.vue';
 import ReadOut from '../parts/ReadOut.vue';
 import LibrarySection from '../parts/LibrarySection.vue';
 import { fixture } from '../fixture';
 
-const { applications, question } = fixture;
+const { applications, question, room } = fixture;
 
 const submittedAt = applications.map((application) => application.submittedAt);
 const statuses: Record<string, number> = {};
@@ -62,6 +66,10 @@ const review = applicantStats(
 const noFollowUp = review.map((part) =>
   part.value === 'needs_follow_up' ? { ...part, count: 0 } : part,
 );
+
+// As the Stats tab draws the room once someone applied, and before anyone has.
+const [roomDays, roomTiers] = roomCards(room, true);
+const [emptyDays] = roomCards(room, false);
 
 /** As the Stats tab folds a question's answers. */
 const ANSWERS_SHOWN = 8;
@@ -129,6 +137,42 @@ const answers = ledgerRows(
     </LibraryPanel>
   </LibrarySection>
   <LibrarySection
+    title="Is there room: MeterBar"
+    about="The tab's room, a row per market day and per tier: the label, the words that carry every figure, and a bar of the tables asked against the card's largest asked or tables, so the rows compare. A 2px line marks the tables, and what is asked past them is in the attention fill. The bar is hidden from a screen reader, which reads the words. Before anyone applies a row reads its tables alone, with no bar."
+  >
+    <LibraryPanel v-for="card in [roomDays!, roomTiers!]" :key="card.id" :label="card.title">
+      <ul class="library-meters">
+        <li v-for="row in card.rows" :key="row.key">
+          <MeterBar
+            :label="row.label"
+            :words="row.words"
+            :value="row.asked"
+            :mark="row.tables"
+            :scale="card.scale"
+            :testid="`library-charts-room-${card.id}`"
+            :data-testid="`library-charts-room-${card.id}`"
+          />
+        </li>
+      </ul>
+      <p class="library-note">{{ card.note }}</p>
+    </LibraryPanel>
+    <LibraryPanel label="Before anyone applies: the tables alone">
+      <ul class="library-meters">
+        <li v-for="row in emptyDays!.rows" :key="row.key">
+          <MeterBar
+            :label="row.label"
+            :words="row.words"
+            :value="row.asked"
+            :mark="row.tables"
+            :scale="emptyDays!.scale"
+            testid="library-charts-room-empty"
+            data-testid="library-charts-room-empty"
+          />
+        </li>
+      </ul>
+    </LibraryPanel>
+  </LibrarySection>
+  <LibrarySection
     title="What they answered: BarLedger"
     :about="`The tab's card per question, here the fixture's ${answers.length} answers, the ${ANSWERS_SHOWN} most chosen first and the rest one press away. In a window 1280px wide or more the tab's cards stand two to a row, each wider than 32rem, so an answer is one line: its label, its bar and its count.`"
   >
@@ -175,6 +219,22 @@ const answers = ledgerRows(
 
 .library-full {
   width: 100%;
+}
+
+.library-meters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.library-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 
 /* About half the tab's content at a 1440 desk, the width a lone card takes there. */

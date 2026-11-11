@@ -154,6 +154,26 @@ def test_a_seats_tier_is_its_sections():
     assert tiers == {("North Wing", "Gold"), ("South Wing", "Silver")}
 
 
+def test_the_room_is_the_stats_tabs_for_the_plan_of_both_sections():
+    # Both sections on each of the four dates; the plan offers three tiers and seats only two.
+    assert FIXTURE["room"] == {
+        "dates": [
+            {"date": "2024-04-22", "asked": 190, "tables": 59},
+            {"date": "2024-04-23", "asked": 166.5, "tables": 59},
+            {"date": "2024-04-24", "asked": 184, "tables": 59},
+            {"date": "2024-04-25", "asked": 171, "tables": 59},
+        ],
+        "tiers": [
+            {"tier": "Gold", "asked": 538, "tables": 124},
+            {"tier": "Silver", "asked": 438.5, "tables": 112},
+            {"tier": "Bronze", "asked": 232, "tables": 0},
+        ],
+    }
+    # Asked by the applications the review has not rejected, none more than once a date.
+    asking = sum(1 for a in FIXTURE["applications"] if a["status"] != "reviewer_rejected")
+    assert all(day["asked"] <= asking for day in FIXTURE["room"]["dates"])
+
+
 def test_each_vendor_answers_the_markets_questions_as_the_import_reads_them():
     questions = FIXTURE["export"]["questions"]
     answer_columns = [c["id"].removeprefix("answer:") for c in FIXTURE["export"]["columns"]
@@ -205,7 +225,8 @@ def test_a_seated_vendor_owes_for_each_seat_and_stands_in_the_exact_counts_dealt
 
 def test_it_holds_only_strings_numbers_and_the_shape_the_library_reads():
     assert sorted(FIXTURE) == [
-        "applications", "export", "people", "question", "reviewers", "seats", "valuesToFix"]
+        "applications", "export", "people", "question", "reviewers", "room", "seats",
+        "valuesToFix"]
     assert sorted(FIXTURE["applications"][0]) == [
         "business", "email", "export", "id", "name", "reviewer", "sells", "status",
         "submittedAt"]

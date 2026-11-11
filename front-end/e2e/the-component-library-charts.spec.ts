@@ -7,7 +7,8 @@ import { inTheWindow } from './helpers/phoneWindow';
  * The component library's `charts` entry (T201), at a desk and on a phone: the Stats tab's charts on
  * the fixture's data. Its 359 applications over time, a column a day from the opening to the close
  * and a column a week over a long intake, each one image named by its sentence with its numbers in a
- * table; the review as one split bar read by its legend; and the answers' bars, each answer one
+ * table; the review as one split bar read by its legend; the room, a meter bar a day and a tier
+ * with its mark at the tables, read by its words; and the answers' bars, each answer one
  * line in a card wider than 32rem and stacked below it, folded past 8 with the most chosen first.
  */
 
@@ -113,6 +114,44 @@ eachWindow('the charts entry', (size) => {
     await expect(zero).toHaveText('Needs follow-up: 0, 0% of applications');
     await expect(zero.locator('xpath=self::a')).toHaveCount(0);
     await expect(page.getByTestId('library-charts-review-zero-bar-part')).toHaveCount(3);
+  });
+
+  test('the room is a meter bar a row, read by its words, the mark at the tables and past it the attention fill', async ({
+    page,
+  }) => {
+    const days = page.getByTestId('library-charts-room-days');
+    await expect(days).toHaveText([
+      'Monday, April 22, 2024: 190 asking, 59 tables',
+      'Tuesday, April 23, 2024: 166.5 asking, 59 tables',
+      'Wednesday, April 24, 2024: 184 asking, 59 tables',
+      'Thursday, April 25, 2024: 171 asking, 59 tables',
+    ]);
+    await expect(page.getByTestId('library-charts-room-tiers')).toHaveText([
+      'Gold: 538 asking, 124 table-days',
+      'Silver: 438.5 asking, 112 table-days',
+      'Bronze: 232 asking, 0 table-days',
+    ]);
+    await expect(page.getByTestId('library-charts-room-days-bar').first()).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
+
+    // One scale for the card, its largest asked: Monday's bar fills its track, the mark a third
+    // of the way along it, and what is past the mark in the attention fill.
+    const monday = days.first();
+    const track = (await monday.getByTestId('library-charts-room-days-bar').boundingBox())!;
+    const mark = (await monday.getByTestId('library-charts-room-days-mark').boundingBox())!;
+    expect((mark.x + mark.width / 2 - track.x) / track.width).toBeCloseTo(59 / 190, 1);
+    const past = monday.getByTestId('library-charts-room-days-past');
+    await expect(past).toHaveCSS('background-color', 'rgb(189, 134, 25)');
+    const pastBox = (await past.boundingBox())!;
+    expect(pastBox.x + pastBox.width).toBeCloseTo(track.x + track.width, 0);
+
+    // Before anyone applies: the tables alone, no bar.
+    await expect(page.getByTestId('library-charts-room-empty').first()).toHaveText(
+      'Monday, April 22, 2024: 59 tables',
+    );
+    await expect(page.getByTestId('library-charts-room-empty-bar')).toHaveCount(0);
   });
 
   test('an answer is one line in a wide card at a desk, and stacks on a phone', async ({

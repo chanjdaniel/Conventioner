@@ -13,13 +13,17 @@
  * a column per day (or week) from the day applications opened to today or their close
  * (`ColumnChart`, `utils/appliedOverTime.ts`), and the review's state as one split bar, each status
  * counted as the Applications tab's All view filters it and linked to that filter (`SplitBar`,
- * `utils/applicantStats.ts`). Then what they answered: a card per choice question of the form
+ * `utils/applicantStats.ts`). Then the room, in every phase: whether the plan has room for those
+ * asking, each market day's tables asked against its tables and, with two tiers or more, each
+ * tier's table-days the same way (`MeterBar`, `utils/roomRows.ts`); before anyone applies, the
+ * tables alone, so a draft shows its capacity. Then what they answered: a card per choice question of the form
  * (`utils/answerCounts.ts`), its answers most chosen first and folded past `ANSWERS_SHOWN` (T201),
  * narrowed by a switch, kept in the address as `among`, to the approved or the assigned
  * (E45/F01/S02). Stats reads; it changes nothing, so a Viewer sees all of it and nothing here is
  * disabled.
  *
- * Its sections keep one order, the market's life's (T201): who applied, then what they answered.
+ * Its sections keep one order, the market's life's (T201): who applied, the room, then what they
+ * answered.
  * Their cards stand two to a row while the page's content is 48rem wide or more, one below it; a
  * chart that reads as one line of a whole, over time or across the review, spans the row.
  */
@@ -30,10 +34,12 @@ import { applicantStats } from '@/utils/applicantStats';
 import { appliedOverTime } from '@/utils/appliedOverTime';
 import { ANSWER_GROUPS, answerGroup, questionLedgers } from '@/utils/answerCounts';
 import { fetchMarketStats, type MarketStats } from '@/utils/marketStats';
+import { roomCards } from '@/utils/roomRows';
 import { statsHeadlines } from '@/utils/statsHeadlines';
 import { useOpenMarket } from '@/utils/openMarket';
 import BarLedger from '@/components/BarLedger.vue';
 import ColumnChart from '@/components/charts/ColumnChart.vue';
+import MeterBar from '@/components/charts/MeterBar.vue';
 import SplitBar from '@/components/charts/SplitBar.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 
@@ -67,6 +73,10 @@ const overTime = computed(() =>
 );
 const overTimeColumns = computed(() =>
   (overTime.value?.buckets ?? []).map((bucket) => ({ ...bucket, key: bucket.start })),
+);
+/** The room's cards, the tables alone before anyone applies; none where the plan has no dates. */
+const room = computed(() =>
+  figures.value ? roomCards(figures.value.room, figures.value.applicants.total > 0) : [],
 );
 const answers = computed(() => figures.value?.answers ?? null);
 const headlines = computed(() =>
@@ -161,6 +171,39 @@ const NOBODY: Record<string, string> = {
             />
           </div>
         </template>
+      </section>
+      <section
+        v-if="room.length"
+        class="stats-section"
+        aria-labelledby="stats-room-title"
+        data-testid="stats-room"
+      >
+        <h2 id="stats-room-title" class="stats-title">Room</h2>
+        <div class="stats-ledgers">
+          <div
+            v-for="card in room"
+            :key="card.id"
+            class="stats-card"
+            :data-testid="`stats-room-${card.id}`"
+          >
+            <h3>{{ card.title }}</h3>
+            <ul class="stats-meters">
+              <li v-for="row in card.rows" :key="row.key">
+                <MeterBar
+                  :label="row.label"
+                  :words="row.words"
+                  :value="row.asked"
+                  :mark="row.tables"
+                  :scale="card.scale"
+                  testid="stats-room-row"
+                  data-testid="stats-room-row"
+                  :data-key="row.key"
+                />
+              </li>
+            </ul>
+            <p v-if="card.note" class="stats-card-note">{{ card.note }}</p>
+          </div>
+        </div>
       </section>
       <!-- Nobody applied: the section above says so, and a chart of noughts says nothing more. -->
       <section
@@ -302,6 +345,40 @@ const NOBODY: Record<string, string> = {
 /* A chart of one whole, over time or across the review, spans the row. */
 .stats-wide {
   grid-column: 1 / -1;
+}
+
+/* A card of rows, in the charts' look: white, bordered, its title small over them. */
+.stats-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-card);
+  background: white;
+}
+
+.stats-card h3 {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--mm-text-muted);
+}
+
+.stats-meters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats-card-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 
 .stats-among {

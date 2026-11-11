@@ -17494,6 +17494,47 @@
       "application": "a341"
     }
   ],
+  "room": {
+    "dates": [
+      {
+        "date": "2024-04-22",
+        "asked": 190,
+        "tables": 59
+      },
+      {
+        "date": "2024-04-23",
+        "asked": 166.5,
+        "tables": 59
+      },
+      {
+        "date": "2024-04-24",
+        "asked": 184,
+        "tables": 59
+      },
+      {
+        "date": "2024-04-25",
+        "asked": 171,
+        "tables": 59
+      }
+    ],
+    "tiers": [
+      {
+        "tier": "Gold",
+        "asked": 538,
+        "tables": 124
+      },
+      {
+        "tier": "Silver",
+        "asked": 438.5,
+        "tables": 112
+      },
+      {
+        "tier": "Bronze",
+        "asked": 232,
+        "tables": 0
+      }
+    ]
+  },
   "export": {
     "groups": [
       {

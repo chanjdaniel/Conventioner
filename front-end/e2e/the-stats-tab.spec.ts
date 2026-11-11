@@ -18,8 +18,9 @@ import { StatsPage } from './pages/StatsPage';
 /**
  * The Stats tab (E45/F01/S01): the last tab on the market bar, open in every phase and to anyone who
  * reads the market, starting with who applied - a column a day from the opening to today (T201), and
- * the review as one bar split by status, counted as the Applications tab counts them - then a chart
- * per choice question of the form, narrowed to the approved or the assigned (E45/F01/S02).
+ * the review as one bar split by status, counted as the Applications tab counts them - then the room,
+ * each day's and tier's tables asked against the plan's (T201), then a chart per choice question of
+ * the form, narrowed to the approved or the assigned (E45/F01/S02).
  */
 const VIEWER = { email: 'e2e-stats-viewer@example.com', password: 'e2estatsviewer1' };
 
@@ -206,6 +207,106 @@ test('a market nobody has applied to says so, in draft', async ({
   const stats = new StatsPage(page);
   await stats.goto(marketId);
   await expect(stats.none).toHaveText('Nobody has applied yet.', { timeout: 15000 });
+
+  // The room alone, so a draft already shows its capacity: the plan's tables, no bar, and no tier
+  // card for a plan of one tier.
+  await expect(stats.roomRows('days')).toHaveText(['Friday, May 1, 2099: 5 tables']);
+  await expect(stats.roomCard('days').getByTestId('stats-room-row-bar')).toHaveCount(0);
+  await expect(stats.roomCard('tiers')).toHaveCount(0);
+});
+
+/** Two days, and two tiers of sections: 3 Gold tables and 4 Silver ones, every day. */
+const SAT = '2099-08-01';
+const SUN = '2099-08-02';
+const TWO_TIERS = {
+  priority: [],
+  marketDates: [{ date: SAT }, { date: SUN }],
+  tiers: [
+    { id: 1, name: 'Gold' },
+    { id: 2, name: 'Silver' },
+  ],
+  locations: [{ name: 'Main Hall' }],
+  sections: [
+    { name: 'Hall A', location: { name: 'Main Hall' }, tier: { id: 1, name: 'Gold' }, count: 3 },
+    { name: 'Hall B', location: { name: 'Main Hall' }, tier: { id: 2, name: 'Silver' }, count: 4 },
+  ],
+  assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
+};
+
+test('the room reads each day and tier as the tables asked against the plan, past them in the attention fill', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  mongoEval(
+    `db.markets.updateOne({id: ${JSON.stringify(marketId)}}, ` +
+      `{$set: {setupObject: ${JSON.stringify(TWO_TIERS)}}})`,
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  const vendor = (n: number, answers: Parameters<typeof approvedVendorApplication>[2]) =>
+    approvedVendorApplication(marketId, `room-${n}@vendor.test`, answers);
+  insertApplications([
+    // Six whole tables at Gold, both days.
+    ...[1, 2, 3, 4, 5, 6].map((n) => vendor(n, { dates: [SAT, SUN], tiers: ['Gold'] })),
+    // Three halves on Saturday, at either tier: half a table each, in both tiers.
+    ...[7, 8, 9].map((n) =>
+      vendor(n, { dates: [SAT], tiers: ['Gold', 'Silver'], tableChoice: 'half' }),
+    ),
+    // Either size on Sunday, at Silver: a whole table.
+    vendor(10, { dates: [SUN], tiers: ['Silver'], tableChoice: 'either' }),
+    // Rejected: asks for nothing.
+    { ...vendor(11, { dates: [SAT, SUN], tiers: ['Gold'] }), status: 'reviewer_rejected' },
+  ]);
+
+  const stats = new StatsPage(page);
+  await stats.goto(marketId);
+
+  await expect(stats.roomRows('days')).toHaveText(
+    [
+      'Saturday, August 1, 2099: 7.5 asking, 7 tables',
+      'Sunday, August 2, 2099: 7 asking, 7 tables',
+    ],
+    { timeout: 15000 },
+  );
+  await expect(stats.roomCard('days')).toContainText(
+    'A ceiling: someone available three days who wants at most two counts on all three.',
+  );
+  // Each tier's table-days over both dates: a half counted in each tier it accepts.
+  await expect(stats.roomRows('tiers')).toHaveText([
+    'Gold: 13.5 asking, 6 table-days',
+    'Silver: 2.5 asking, 8 table-days',
+  ]);
+  await expect(stats.roomCard('tiers')).toContainText(
+    'A vendor who accepts two tiers on a day counts in both.',
+  );
+
+  // Saturday asks past its tables, Sunday fills them; Gold asks past its, Silver does not.
+  const past = (id: 'days' | 'tiers', n: number) =>
+    stats.roomRows(id).nth(n).getByTestId('stats-room-row-past');
+  await expect(past('days', 0)).toBeVisible();
+  await expect(past('days', 1)).toHaveCount(0);
+  await expect(past('tiers', 0)).toBeVisible();
+  await expect(past('tiers', 1)).toHaveCount(0);
+  // The bar is the words' picture, hidden from a screen reader.
+  await expect(stats.roomRows('days').first().getByTestId('stats-room-row-bar')).toHaveAttribute(
+    'aria-hidden',
+    'true',
+  );
+
+  // At a desk the two cards stand side by side.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const [days, tiers] = await Promise.all([
+    stats.roomCard('days').boundingBox(),
+    stats.roomCard('tiers').boundingBox(),
+  ]);
+  expect(Math.abs(days!.y - tiers!.y)).toBeLessThan(1);
+  expect(tiers!.x).toBeGreaterThan(days!.x + days!.width);
 });
 
 test('the bar holds seven tabs beside a 60-character name at 1280, and scrolls them on a phone', async ({

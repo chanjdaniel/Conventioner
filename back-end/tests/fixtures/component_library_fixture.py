@@ -17,7 +17,11 @@ the product's own readers:
 - the export's columns and filters are ``api.vendor_export``'s ``offered_columns`` and
   ``offered_questions`` for a market started from the four-day grid by ``csv_start``, built in
   memory, so every column label and group is the one the product offers, and each vendor's answers
-  to them are read from the file's cells as ``csv_import`` reads them for that market.
+  to them are read from the file's cells as ``csv_import`` reads them for that market;
+- the room, the tables asked against the plan's on each date and in each tier, is
+  ``market_stats.count_room`` of that market, its plan given the fixture's two sections, over the
+  applications as ``csv_import`` reads each row through the mapping the start saved, each with the
+  status dealt it.
 
 What no file holds (each application's status and reviewer, each person's role, who reviews, who
 sits where, each vendor's Discord state and what they have paid) is dealt here from a seeded
@@ -44,6 +48,7 @@ import api.vendor_export as VendorExport  # noqa: E402
 import csv_import as CsvImport  # noqa: E402
 import csv_proposal as CsvProposal  # noqa: E402
 import csv_start as CsvStart  # noqa: E402
+import market_stats as MarketStats  # noqa: E402
 import essential_fields as EssentialFields  # noqa: E402
 import payments as Payments  # noqa: E402
 import pricing as Pricing  # noqa: E402
@@ -250,6 +255,25 @@ def _export(market_doc: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _room(market_doc: Dict[str, Any], headers, rows, applications) -> Dict[str, Any]:
+    """The Stats tab's room for this market, its plan given the fixture's sections, counted by the
+    product's own ``count_room`` over each application's answers as the import reads its row."""
+    planned = copy.deepcopy(market_doc)
+    planned["setupObject"]["sections"] = [
+        {"name": section, "count": tables, "location": None,
+         "tier": next(t for t in planned["setupObject"]["tiers"] if t["name"] == tier)}
+        for section, tables, tier in SECTIONS
+    ]
+    mapping, _unresolved, _new = CsvImport.restore_mapping(
+        headers, CsvImport.stored_mapping(planned), CsvImport.import_targets(planned))
+    answered = {row.email: row.form_data
+                for row in CsvImport._assembled_rows(planned, headers, rows, mapping, {})}
+    documents = [{"id": a["id"], "market_id": planned["id"], "applicant_email": a["email"],
+                  "form_data": answered[a["email"]], "status": a["status"],
+                  "application_type": "main"} for a in applications]
+    return MarketStats.count_room(market_from_document(planned), documents)
+
+
 def _answer_readers(proposal: Dict[str, Any], market_doc: Dict[str, Any]):
     """How to read each of the form's own questions out of a row, as the import reads its cell."""
     market = market_from_document(market_doc)
@@ -349,6 +373,7 @@ def fixture() -> Dict[str, Any]:
     market_doc = _market_document(text, question_column)
     export = _export(market_doc)
     seats = _seats(rng, applications, export["dates"])
+    room = _room(market_doc, headers, rows, applications)
     _with_export(rng, applications, named, proposal, market_doc, seats)
     return {
         "applications": applications,
@@ -358,6 +383,7 @@ def fixture() -> Dict[str, Any]:
                      "options": [{"label": o["value"], "count": o["count"]} for o in options]},
         "valuesToFix": [o["value"] for o in their_answers if o["value"] not in offered],
         "seats": seats,
+        "room": room,
         "export": export,
     }
 
