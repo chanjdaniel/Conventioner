@@ -441,8 +441,8 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `npx playwright install chromium`, never `--with-deps` or `install-deps` - those run
   `sudo` with no terminal, and each failed attempt counts toward the account's
   `pam_faillock` lockout. The machine's own package manager provides the system libraries;
-  CI's workflow keeps `--with-deps`, which is right on GitHub's Ubuntu runners.
-- **`nm-test.sh` runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs (without `--skip-e2e`) on one machine
+  CI's e2e action keeps `--with-deps`, and `install-deps` when the browser comes from its cache, which is right on GitHub's Ubuntu runners.
+- **`nm-test.sh` runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs (with neither switch) on one machine
   run their unit suites side by side, but the second waits, saying
   `nm-test: waiting for the end-to-end lock since ...` and naming the run it waits for, until the first's stack is down,
   because a stack starting or stopping breaks another run's browser with

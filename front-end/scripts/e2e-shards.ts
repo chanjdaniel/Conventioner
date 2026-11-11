@@ -12,7 +12,7 @@
  *
  * Run one shard, from `front-end/`, as CI's `e2e-shard` job does:
  *
- *   node scripts/e2e-shards.ts --shard=3/6
+ *   node scripts/e2e-shards.ts --shard=3/10
  *
  * A spec file with no timing yet weighs the median of those measured, so a new file is dealt as an
  * ordinary one until the timings are refreshed. Refresh them from a CI run's Playwright reports, the
