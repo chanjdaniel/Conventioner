@@ -12,7 +12,7 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { api, getApiErrorMessage } from '@/utils/api';
+import { api, getApiErrorMessage, isMarketChanged } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import { formatPrice } from '@/utils/pricing';
@@ -358,6 +358,11 @@ const emptySeats = computed((): EmptySeat[] => {
   return emptySeatsOn(allRows.value, seat.row.date, market.value?.setupObject, seat.row.tableCode);
 });
 
+/** The tables and, when a vendor's details are open, those details, read again. */
+function rereadTheTables(): Promise<unknown> {
+  return Promise.all([loadTables(), details.loaded.value ? details.load() : Promise.resolve()]);
+}
+
 async function runPlacementChange(change: () => Promise<unknown>): Promise<void> {
   placementBusy.value = true;
   placementError.value = '';
@@ -368,13 +373,13 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
     // so one change can move other vendors, and a locally patched grid would show a floor plan
     // nobody is standing on. A placement is a write to the market's stored assignment, so the
     // store re-reads the market too (E21/F02/S04): anything else showing it follows.
-    await Promise.all([
-      loadTables(),
-      refreshMarket(),
-      details.loaded.value ? details.load() : Promise.resolve(),
-    ]);
+    await Promise.all([rereadTheTables(), refreshMarket()]);
   } catch (err: unknown) {
     placementError.value = getApiErrorMessage(err, 'That change could not be saved.');
+    // Another change to the market landed first, so this one stored nothing (ADR 0024): the grid
+    // is read again as after a success, and the sentence stays in the seat's dialog, which now
+    // shows who sits where. The store's market is read again by the market-changed interceptor.
+    if (isMarketChanged(err)) await rereadTheTables();
   } finally {
     placementBusy.value = false;
   }

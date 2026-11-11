@@ -21,6 +21,7 @@ from conftest import (
 )
 from datatypes import MarketPhase
 from mongo_cases import UPDATE_CASES, as_stored
+import market_write as MarketWrite
 
 MARKET_UPDATES = [case for case in UPDATE_CASES if not case.upsert]
 ANSWERED = [case for case in MARKET_UPDATES if case.fake_refuses is None]
@@ -145,9 +146,10 @@ class TestThePhaseMove:
         as_read = stored_market(MarketPhase.DRAFT)
         fake = FakeMarketsCollection(stored_market(MarketPhase.APPLICATIONS))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
 
         with pytest.raises(PhaseChangedUnderRequest):
-            apply_phase_transition("market-123", as_read, MarketPhase.APPLICATIONS.value)
+            apply_phase_transition(as_read, MarketPhase.APPLICATIONS.value)
 
         assert fake.doc == stored_market(MarketPhase.APPLICATIONS)
 
@@ -155,8 +157,9 @@ class TestThePhaseMove:
         as_read = stored_market(MarketPhase.DRAFT)
         fake = FakeMarketsCollection(stored_market(MarketPhase.DRAFT))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
 
-        apply_phase_transition("market-123", as_read, MarketPhase.APPLICATIONS.value, by="user-1")
+        apply_phase_transition(as_read, MarketPhase.APPLICATIONS.value, by="user-1")
 
         assert fake.doc["phase"] == MarketPhase.APPLICATIONS.value
         assert fake.doc["isDraft"] is False

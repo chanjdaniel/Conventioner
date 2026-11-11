@@ -20,6 +20,7 @@ import csv_start as CsvStart
 import discord_client as Discord
 import history as History
 from datatypes import MarketPhase, VendorAssignmentResult
+from market_documents import market_from_document
 from market_write import MARKET_CHANGED
 from real_mongo.test_a_judged_write_lands_only_on_the_market_it_judged import (
     _history, _move, _stored,
@@ -53,7 +54,8 @@ class TestPublishResults:
             table_choice="Full Table", section="Main Hall", tier="Gold", location="Hall")]
         interleave("api.applicants.publish_results_refusal",
                    lambda: PlacementsApi._store_vendor_assignments(
-                       market["id"], rerun, "2026-11-11T09:00:00Z", 1))
+                       market_from_document(_stored(real_db, market)), rerun,
+                       "2026-11-11T09:00:00Z"))
 
         response = client.post(f"/markets/{market['id']}/publish-results")
 

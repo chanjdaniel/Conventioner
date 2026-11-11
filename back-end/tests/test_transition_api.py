@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 from conftest import COMPLETE_PLAN, REVIEW_SETUP_DECIDED, sessions_load_through_get_user
+from conftest import FakeMarketsCollection as SharedFakeMarketsCollection
 
 from conftest import skip_without_real_dependencies
 
@@ -21,6 +22,7 @@ import app as app_module
 import api.markets as MarketsApi
 import api.users as UsersApi
 import guards
+import market_write as MarketWrite
 
 
 OWNER_EMAIL = "owner@example.com"
@@ -59,49 +61,18 @@ def _market_doc(phase="draft", fields=None, is_draft=True, plan=COMPLETE_PLAN, i
     return doc
 
 
-def _matches(doc, filter_query):
-    """Mongo filter matching for the operators the transition endpoint uses."""
-    for key, expected in filter_query.items():
-        if isinstance(expected, dict) and "$exists" in expected:
-            if (key in doc) != expected["$exists"]:
-                return False
-        elif doc.get(key) != expected:
-            return False
-    return True
-
-
-def _set_path(doc, key, value):
-    """A dotted `$set` writes into the nested document, as Mongo does.
-
-    A flat `dict.update` would store the literal key "applicationForm.publishedAt" beside the form
-    rather than inside it, so a test asserting the stamp would pass against a document shape the
-    database never produces.
-    """
-    head, _, tail = key.partition(".")
-    if not tail:
-        doc[key] = value
-        return
-    target = doc.setdefault(head, {})
-    _set_path(target, tail, value)
-
-
-class FakeMarketsCollection:
-    """Honours the phase field in the filter so compare-and-set is testable."""
+class FakeMarketsCollection(SharedFakeMarketsCollection):
+    """The shared markets fake, which lands a write only where its filter matches and applies it as
+    Mongo does, so compare-and-set is testable; each write's filter and update are kept for a test
+    to read."""
 
     def __init__(self, doc):
-        self.doc = doc
+        super().__init__(doc)
         self.updates = []
 
-    def find_one(self, query):
-        return dict(self.doc) if _matches(self.doc, query) else None
-
-    def update_one(self, filter_query, update):
-        self.updates.append((filter_query, update))
-        if not _matches(self.doc, filter_query):
-            return SimpleNamespace(matched_count=0, modified_count=0)
-        for key, value in update.get("$set", {}).items():
-            _set_path(self.doc, key, value)
-        return SimpleNamespace(matched_count=1, modified_count=1)
+    def find_one_and_update(self, query, update, **kwargs):
+        self.updates.append((query, update))
+        return super().find_one_and_update(query, update, **kwargs)
 
 
 @pytest.fixture
@@ -134,6 +105,7 @@ def markets(monkeypatch):
     def _install(doc):
         collection = FakeMarketsCollection(doc)
         monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+        monkeypatch.setattr(MarketWrite, "markets_collection", collection)
         return collection
     return _install
 
@@ -322,13 +294,13 @@ class TestTransitionBlocked:
     def test_phase_changed_underneath_returns_conflict(self, client, markets):
         collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
 
-        original_update_one = collection.update_one
+        original_write = collection.find_one_and_update
 
-        def racing_update_one(filter_query, update):
+        def racing_write(filter_query, update, **kwargs):
             collection.doc["phase"] = "archived"
-            return original_update_one(filter_query, update)
+            return original_write(filter_query, update, **kwargs)
 
-        collection.update_one = racing_update_one
+        collection.find_one_and_update = racing_write
 
         response = _post(client, {"toPhase": "applications"})
 
@@ -345,12 +317,12 @@ class TestTransitionBlocked:
         """The conflict can answer for itself once a route stops building its payload."""
         raised = _spy_on_the_conflict(monkeypatch)
         collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
-        original_update_one = collection.update_one
+        original_write = collection.find_one_and_update
 
-        def racing_update_one(filter_query, update):
+        def racing_write(filter_query, update, **kwargs):
             collection.doc["phase"] = "archived"
-            return original_update_one(filter_query, update)
-        collection.update_one = racing_update_one
+            return original_write(filter_query, update, **kwargs)
+        collection.find_one_and_update = racing_write
 
         response = _post(client, {"toPhase": "applications"})
 
@@ -360,13 +332,13 @@ class TestTransitionBlocked:
     def test_market_deleted_underneath_returns_not_found(self, client, markets):
         collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
 
-        original_update_one = collection.update_one
+        original_write = collection.find_one_and_update
 
-        def deleting_update_one(filter_query, update):
+        def deleting_write(filter_query, update, **kwargs):
             collection.doc = {}
-            return original_update_one(filter_query, update)
+            return original_write(filter_query, update, **kwargs)
 
-        collection.update_one = deleting_update_one
+        collection.find_one_and_update = deleting_write
 
         response = _post(client, {"toPhase": "applications"})
 

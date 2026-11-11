@@ -138,7 +138,8 @@ class TestAStopBelongsToItsStay:
 
         markets = FakeMarketsCollection(_doc(phase=phase, applicationsStopped=stopped))
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
-        MarketsApi.apply_phase_transition("market-123", markets.doc, to_phase, by="owner@example.com")
+        monkeypatch.setattr(MarketWrite, "markets_collection", markets)
+        MarketsApi.apply_phase_transition(markets.doc, to_phase, by="owner@example.com")
         return markets.last_update["$set"]
 
     def test_going_back_to_draft_clears_it(self, monkeypatch):
@@ -167,8 +168,9 @@ class TestAStopBelongsToItsStay:
 
         markets = FakeMarketsCollection(_doc(phase=MarketPhase.ASSIGNMENT.value, intakeMode="csv"))
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+        monkeypatch.setattr(MarketWrite, "markets_collection", markets)
         MarketsApi.apply_phase_transition(
-            "market-123", markets.doc, MarketPhase.APPLICATIONS.value, by="owner@example.com")
+            markets.doc, MarketPhase.APPLICATIONS.value, by="owner@example.com")
 
         assert "applicationsStopped" not in markets.last_update["$set"]
 

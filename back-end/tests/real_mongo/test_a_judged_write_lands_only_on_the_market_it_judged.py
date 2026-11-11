@@ -17,7 +17,7 @@ def _move(market, to_phase):
     """Move ``market`` (the document as stored) to ``to_phase`` through the one phase writer."""
     import api.markets as MarketsApi
 
-    return lambda: MarketsApi.apply_phase_transition(market["id"], market, to_phase.value)
+    return lambda: MarketsApi.apply_phase_transition(market, to_phase.value)
 
 
 def _stored(real_db, market):

@@ -18,6 +18,7 @@ import history as History
 from datatypes import MarketPhase
 from test_the_history import FakeHistoryCollection
 from test_the_placement_endpoint import SETUP_OBJECT, placement
+import market_write as MarketWrite
 
 
 @pytest.fixture
@@ -34,6 +35,7 @@ def collection(monkeypatch):
         stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
     return fake
@@ -218,6 +220,7 @@ def test_deleting_a_market_deletes_its_trail_through_the_endpoint(monkeypatch, h
 
     fake = FakeMarketsCollection(stored_market())
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(MarketWrite, "markets_collection", fake)
     monkeypatch.setattr(
         MarketsApi.PermissionsApi, "get_user_market_role", lambda *_a, **_k: MarketRole.OWNER
     )

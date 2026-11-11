@@ -61,7 +61,6 @@ from market_documents import (
     market_doc_projection,
     market_doc_filter,
     market_doc_key,
-    market_doc_set,
     market_from_document,
     leave_out_what_no_read_serves,
 )
@@ -2033,8 +2032,9 @@ class MoveBlockedUnderRequest(ConflictError):
         })
 
 
-def _what_the_move_stood_on(from_phase: str, to_phase: str) -> Dict[str, Any]:
-    """What a move's guards passed on that another request can change under it, as a filter.
+def _what_the_move_stood_on(from_phase: str, to_phase: str) -> Tuple[str, ...]:
+    """What a move's guards passed on that another request can change under it: the stored keys
+    the move's write holds at their value as read (``write_market``'s ``holds``).
 
     Back to review (T207) is refused once results are published, and Publish results writes the
     flag without moving the phase, so the move's write holds the flag as its guard read it: two
@@ -2042,26 +2042,29 @@ def _what_the_move_stood_on(from_phase: str, to_phase: str) -> Dict[str, Any]:
     Publish results' write holds the phase the same way (``publish_results``).
     """
     if (from_phase, to_phase) == (MarketPhase.ASSIGNMENT.value, MarketPhase.APPLICATIONS.value):
-        return {market_doc_key("results_published"): {"$ne": True}}
-    return {}
+        return (market_doc_key("results_published"),)
+    return ()
 
 
 def apply_phase_transition(
-    market_id: str, document: Dict[str, Any], to_phase: str, by: Optional[str] = None,
+    document: Dict[str, Any], to_phase: str, by: Optional[str] = None,
 ) -> None:
-    """Write one phase change, conditional on the market still being where the caller thinks.
+    """Write one phase change to the market ``document`` was read from, only while it still is.
 
     The ONE writer of a market's phase: every move, the transition endpoint's and a Google Form
     market's first import's, comes through ``take_move`` to it. A second copy is how the `isDraft` stamp and the
     finalization stamp come to disagree with `phase` - and how a move goes unrecorded.
 
-    ONE atomic update, and one conditional on the stored phase: a failure between the phase and
-    the stamp would leave a market whose two answers disagree, which is the class of bug
-    `migrate_is_draft_consistency` exists to repair, and a lost update would move a market a
-    concurrent request had already moved. The same update records the phase entered, and who
-    moved it there, in the market's phase history (E26/F06/S03). A move whose guard read a fact
-    another write can change without moving the phase holds that fact too
+    ONE atomic update, through ``write_market``, which holds the stored phase as read: a failure
+    between the phase and the stamp would leave a market whose two answers disagree, which is the
+    class of bug `migrate_is_draft_consistency` exists to repair, and a lost update would move a
+    market a concurrent request had already moved. The same update records the phase entered, and
+    who moved it there, in the market's phase history (E26/F06/S03). A move whose guard read a
+    fact another write can change without moving the phase holds that fact too
     (``_what_the_move_stood_on``).
+
+    The rail shows a refused move as a blocker beside the phase the market is in, so the
+    ``MarketChanged`` the write raises is answered in those terms, from the market it carries.
 
     Raises:
         PhaseChangedUnderRequest: the stored phase moved under this request.
@@ -2071,11 +2074,9 @@ def apply_phase_transition(
     phase_key = market_doc_key("phase")
     is_draft_key = market_doc_key("is_draft")
     from_phase = phase_from_market_document(document).value
-    stored_phase = document[phase_key] if phase_key in document else {"$exists": False}
 
-    result = markets_collection.update_one(
-        {"id": market_id, phase_key: stored_phase, **_what_the_move_stood_on(from_phase, to_phase)},
-        {
+    try:
+        write_market(document, {
             "$set": {
                 phase_key: to_phase,
                 is_draft_key: to_phase == MarketPhase.DRAFT.value,
@@ -2083,20 +2084,15 @@ def apply_phase_transition(
                 **taking_applications_update(from_phase, to_phase, document),
             },
             "$push": PhaseRecord.push_entries(document, to_phase, by),
-        },
-    )
-
-    if result.matched_count:
-        return
-
-    latest = markets_collection.find_one({"id": market_id})
-    if latest is None:
-        raise MarketNotFoundError("Market not found")
-    actual_phase = phase_from_market_document(latest).value
-    if actual_phase == from_phase and latest.get(phase_key) == document.get(phase_key):
-        raise MoveBlockedUnderRequest(
-            from_phase, to_phase, evaluate_transition(market_from_document(latest), to_phase, db))
-    raise PhaseChangedUnderRequest(actual_phase, from_phase, to_phase)
+        }, holds=_what_the_move_stood_on(from_phase, to_phase))
+    except MarketChanged as changed:
+        latest = changed.latest
+        actual_phase = phase_from_market_document(latest).value
+        if actual_phase == from_phase and latest.get(phase_key) == document.get(phase_key):
+            raise MoveBlockedUnderRequest(
+                from_phase, to_phase, evaluate_transition(market_from_document(latest), to_phase, db)
+            ) from None
+        raise PhaseChangedUnderRequest(actual_phase, from_phase, to_phase) from None
 
 
 class MoveUnavailable(BadRequestError):
@@ -2124,7 +2120,7 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
         return blockers
     # Through the one phase writer, so the phase, its two stamps and the phase history move in one
     # atomic update (E26/F06/S03).
-    apply_phase_transition(market_id, context.document, to_phase, by=by)
+    apply_phase_transition(context.document, to_phase, by=by)
 
     # Only after the phase is written.
     swept: Dict[str, int] = {}

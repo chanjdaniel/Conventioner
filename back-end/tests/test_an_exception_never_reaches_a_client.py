@@ -58,7 +58,6 @@ from client_errors import (
     traceback_without_messages,
 )
 from datatypes import MarketPhase, market_name_slug
-from guards import PreconditionResult
 from utils.request_body import NO_DATA_PROVIDED, NOT_AN_OBJECT
 
 
@@ -144,7 +143,7 @@ class TestTheTypes:
         (PlacementsApi.PlacementError, BadRequestError),
         (PlacementsApi.SeatTakenError, BadRequestError),
         (PlacementsApi.AssignPhaseError, ConflictError),
-        (PlacementsApi.AssignmentChangedUnderRequest, ConflictError),
+        (MarketsApi.MarketChanged, ConflictError),
         (AddedVendorsApi.AddVendorRefused, ConflictError),
         (AddedVendorsApi.AddVendorInvalid, BadRequestError),
         (CsvStart.ConfirmRefused, ConflictError),
