@@ -3,6 +3,12 @@ import { test, expect, TEST_USER, LoginPage } from './fixtures';
 import { MarketsPage } from './pages/MarketsPage';
 
 test.describe('Conventioner smoke test', () => {
+  // A trial of the e2e-repeat job: fails on every third run of a --repeat-each.
+  test('fails one run in three', async ({ page }, testInfo) => {
+    await page.goto('about:blank');
+    expect(testInfo.repeatEachIndex % 3).not.toBe(2);
+  });
+
   test('login and land on Markets', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
