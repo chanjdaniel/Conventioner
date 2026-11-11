@@ -61,7 +61,7 @@ import {
   useAnnouncements,
 } from './layoutAnnouncements';
 import { layoutSections } from './layoutDrawing';
-import { placeTables } from './layoutFill';
+import { LAYOUT_IS_FULL, placeTables } from './layoutFill';
 import { STANDARD_TABLE, hallOf } from './layoutGeometry';
 import { MAX_LAYOUT_TABLES, gapMmOf, rowChoices, rowOnFrom, standingShapes } from './layoutRow';
 import { saveLayout, saveLayoutOnUnload, type UploadedFloorplan } from './layoutSave';
@@ -140,6 +140,12 @@ const saveState = editor.saveState;
 const saveMessage = editor.saveMessage;
 
 watch(stored, (held) => editor.adopt(held), { immediate: true });
+// Once this person may no longer change the layout here (the market left Draft or was archived
+// elsewhere, or their role went), a change no save stored can never land: it is dropped, with
+// its failed line, and the layout shown is the server's, as Market Setup forgets such a plan.
+watch(editable, (may) => {
+  if (!may && editor.pending()) editor.reload(stored.value);
+});
 watch(locationId, () => {
   editor.reload(stored.value);
   recalibrating.value = false;
@@ -295,7 +301,10 @@ function tablesOf(ids: readonly string[]) {
 /** Duplicate the selection, and select the copies, which the next change is most likely for. */
 function duplicateSelection() {
   const copies = editor.duplicate(editor.selection.value);
-  if (!copies.length) return;
+  if (!copies.length) {
+    if (editor.selection.value.length) say(LAYOUT_IS_FULL);
+    return;
+  }
   editor.select(copies);
   say(saidAdded(tablesOf(copies), sections.value));
 }
@@ -375,9 +384,11 @@ function removeZone(id: string) {
   if (zone) say(saidZoneRemoved(zone.label));
 }
 
-/** The layout's pending change lands before a phase move reads the market. */
-async function flushLayout(): Promise<void> {
-  await editor.flush();
+/** The layout's pending change lands before a phase move reads the market, and one that did not
+ * land stops the move, as Market Setup's plan does: past Draft the server would refuse it. */
+async function flushLayout(): Promise<string | null> {
+  const why = await editor.flush();
+  return why === null ? null : `The market did not move, because the layout did not save. ${why}`;
 }
 
 async function reload() {
@@ -408,18 +419,51 @@ function onUploaded(image: UploadedFloorplan) {
   void editor.write(next);
 }
 
+/** Why the last scale drawn was not taken: tables it would leave outside the floorplan, or the
+ * server's refusal. Said in the calibration's own error line. */
+const calibrationRefusal = ref('');
+
+/** How far past the floorplan's edge a centre may stand, as the server allows (`layout.py`). */
+const EDGE_MM = 0.5;
+
+function outsideAt(layout: FloorplanObject, scale: number): number {
+  const width = (layout.imageWidth ?? 0) / scale;
+  const depth = (layout.imageHeight ?? 0) / scale;
+  return layout.tables.filter(
+    (table) =>
+      table.xMm < -EDGE_MM ||
+      table.yMm < -EDGE_MM ||
+      table.xMm > width + EDGE_MM ||
+      table.yMm > depth + EDGE_MM,
+  ).length;
+}
+
 async function onCalibrated(line: { start: Point; end: Point; lengthMm: number }) {
   const current = floorplan.value;
   const scale = pxPerMm(line.start, line.end, line.lengthMm);
   if (!current || scale === null) return;
+  // The tables keep their places in metres, so a smaller hall can leave some outside it, which
+  // the server refuses on every Retry: the page says so first and writes nothing.
+  const outside = outsideAt(current, scale);
+  if (outside) {
+    calibrationRefusal.value =
+      outside === 1
+        ? 'At this scale 1 table would stand outside the floorplan. Draw the line again, or move it in first.'
+        : `At this scale ${outside} tables would stand outside the floorplan. Draw the line again, or move them in first.`;
+    return;
+  }
+  calibrationRefusal.value = '';
   const round = (n: number) => Math.round(n * 10) / 10;
-  const saved = await editor.write({
-    ...current,
-    scalePxPerUnit: scale,
-    referenceLineStart: [round(line.start[0]), round(line.start[1])],
-    referenceLineEnd: [round(line.end[0]), round(line.end[1])],
-    referenceLineLengthMm: line.lengthMm,
-  });
+  const saved = await editor.write(
+    {
+      ...current,
+      scalePxPerUnit: scale,
+      referenceLineStart: [round(line.start[0]), round(line.start[1])],
+      referenceLineEnd: [round(line.end[0]), round(line.end[1])],
+      referenceLineLengthMm: line.lengthMm,
+    },
+    { rollBack: true, onRefused: (sentence) => (calibrationRefusal.value = sentence) },
+  );
   if (saved) recalibrating.value = false;
 }
 
@@ -680,8 +724,12 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
             :lengthMm="floorplan.referenceLineLengthMm"
             :busy="saveState === 'saving'"
             :cancellable="calibrated"
+            :refusal="calibrationRefusal"
             @set="onCalibrated"
-            @cancel="recalibrating = false"
+            @cancel="
+              recalibrating = false;
+              calibrationRefusal = '';
+            "
           />
           <img
             v-else-if="imageUrl"

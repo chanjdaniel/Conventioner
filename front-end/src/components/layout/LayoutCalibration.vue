@@ -40,6 +40,8 @@ const props = defineProps<{
   cancellable?: boolean;
   /** What the way out says: "Keep the scale" unless told; a replaced image's keeps the old one. */
   cancelLabel?: string;
+  /** Why the page did not take the last line set, said in the error line until the next. */
+  refusal?: string;
 }>();
 
 const emit = defineEmits<{
@@ -249,8 +251,13 @@ const ends = computed<Point[]>(() => (line.value ? [line.value.start, line.value
         {{ cancelLabel ?? 'Keep the scale' }}
       </button>
     </form>
-    <p v-if="error" class="calibration-error" role="alert" data-testid="layout-calibration-error">
-      {{ error }}
+    <p
+      v-if="error || refusal"
+      class="calibration-error"
+      role="alert"
+      data-testid="layout-calibration-error"
+    >
+      {{ error || refusal }}
     </p>
     <svg
       ref="svg"

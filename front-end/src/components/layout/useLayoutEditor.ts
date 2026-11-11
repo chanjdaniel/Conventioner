@@ -62,6 +62,7 @@ import {
   type PointMm,
 } from './layoutGeometry';
 import { SAVE_FAILED, STALE_LAYOUT, type SavedLayout } from './layoutSave';
+import { MAX_LAYOUT_TABLES } from './layoutRow';
 
 /** How many steps undo holds. */
 export const UNDO_STEPS = 200;
@@ -407,7 +408,9 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     change((tables, whole) => {
       const hall = hallOf(whole);
       const next = [...tables];
-      for (const table of added) {
+      // As many as the layout has room for, which the server holds it to: one more would be a
+      // save refused on every Retry.
+      for (const table of added.slice(0, Math.max(0, MAX_LAYOUT_TABLES - tables.length))) {
         const at = clampToHall(table, hall);
         const id = newId();
         ids.push(id);
@@ -421,7 +424,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
           rotation: roundTurn(table.rotation ?? 0),
         });
       }
-      return added.length ? pushedOff(next, new Set(ids), whole) : tables;
+      return ids.length ? pushedOff(next, new Set(ids), whole) : tables;
     });
     return ids;
   }
@@ -561,7 +564,8 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     change((tables, whole) => {
       // In the order of their sections' numbers, as they are stored among equals.
       const originals = tables.filter((table) => named.has(table.id)).sort(byNumber);
-      if (!originals.length) return tables;
+      // Whole or not at all: copies past the layout's 1,000 would be refused on every Retry.
+      if (!originals.length || tables.length + originals.length > MAX_LAYOUT_TABLES) return tables;
       const hall = hallOf(whole);
       const by = duplicateOffset(
         originals.map((table) => tableCorners(table, sizeOf(table))),
@@ -799,7 +803,23 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     if (gesture?.carried) cancel();
   }
 
+  /** Whether a step of undo can be saved: every table of it of one of the market's types. A type
+   *  removed since makes a step that holds its tables one the server refuses on every Retry. */
+  function typed(step: Step): boolean {
+    const types = options.tableTypes?.();
+    if (!types) return true;
+    const ids = new Set(types.map((type) => type.id));
+    return step.tables.every((table) => ids.has(table.tableTypeId));
+  }
+
+  /** Drop the steps of undo and redo that hold a table of a type the market no longer has. */
+  function forgetUntyped() {
+    if (!undone.value.every(typed)) undone.value = undone.value.filter(typed);
+    if (!redone.value.every(typed)) redone.value = redone.value.filter(typed);
+  }
+
   function undo() {
+    forgetUntyped();
     const now = layout.value;
     const last = undone.value.at(-1);
     if (!now || !last || gesture) return;
@@ -811,6 +831,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   }
 
   function redo() {
+    forgetUntyped();
     const now = layout.value;
     const next = redone.value.at(-1);
     if (!now || !next || gesture) return;
@@ -826,8 +847,8 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     selection,
     saveState,
     saveMessage,
-    canUndo: computed(() => undone.value.length > 0),
-    canRedo: computed(() => redone.value.length > 0),
+    canUndo: computed(() => undone.value.some(typed)),
+    canRedo: computed(() => redone.value.some(typed)),
     select: (ids) => {
       selection.value = [...ids];
     },

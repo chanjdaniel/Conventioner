@@ -608,3 +608,71 @@ describe("a write of the layout's own fields", () => {
     expect(editor.saveMessage.value).toBe('Every table must stand inside the floorplan.');
   });
 });
+
+describe('a change the server would always refuse (the first review)', () => {
+  function aFullLayout(count: number) {
+    return Array.from({ length: count }, (_, i) =>
+      table(`t-${i + 1}`, 'gold', i + 1, 1000 + (i % 25) * 1000, 1000 + Math.floor(i / 25) * 500),
+    );
+  }
+
+  it('is not made by Add table on a layout of 1,000 tables', async () => {
+    const { editor, server, tablesNow } = anEditor(aFullLayout(1000));
+
+    const ids = editor.addTables([
+      { sectionId: 'gold', tableTypeId: 'six-foot', xMm: 500, yMm: 500 },
+    ]);
+    await settle();
+
+    expect(ids).toEqual([]);
+    expect(tablesNow()).toHaveLength(1000);
+    expect(editor.pending()).toBe(false);
+    expect(server.save).not.toHaveBeenCalled();
+  });
+
+  it('adds only as many as the layout has room for', () => {
+    const { editor, tablesNow } = anEditor(aFullLayout(999));
+
+    const ids = editor.addTables([
+      { sectionId: 'gold', tableTypeId: 'six-foot', xMm: 500, yMm: 500 },
+      { sectionId: 'gold', tableTypeId: 'six-foot', xMm: 500, yMm: 2500 },
+    ]);
+
+    expect(ids).toHaveLength(1);
+    expect(tablesNow()).toHaveLength(1000);
+  });
+
+  it('is not made by Duplicate past 1,000 tables', async () => {
+    const { editor, server, tablesNow } = anEditor(aFullLayout(999));
+
+    const copies = editor.duplicate(['t-1', 't-2']);
+    await settle();
+
+    expect(copies).toEqual([]);
+    expect(tablesNow()).toHaveLength(999);
+    expect(server.save).not.toHaveBeenCalled();
+  });
+
+  it('is not made by an undo back to tables of a type the market no longer has', () => {
+    let types = [
+      { id: 'six-foot', name: 'Standard 6 ft', widthMm: 1830, depthMm: 760 },
+      { id: 'square', name: 'Square 4 ft', widthMm: 1220, depthMm: 1220 },
+    ];
+    const editor = useLayoutEditor({
+      save: aServer().save,
+      draft: () => true,
+      tableTypes: () => types,
+    });
+    editor.adopt(aLayout([{ ...table('g-1', 'gold', 1), tableTypeId: 'square' }]));
+    editor.setType(['g-1'], 'six-foot');
+    editor.moveTables(['g-1'], 1000, 0);
+    types = types.filter((type) => type.id !== 'square');
+
+    editor.undo();
+    editor.undo();
+
+    expect(editor.layout.value!.tables.map((t) => t.tableTypeId)).toEqual(['six-foot']);
+    expect(editor.layout.value!.tables[0].xMm).toBe(5000);
+    expect(editor.canUndo.value).toBe(false);
+  });
+});

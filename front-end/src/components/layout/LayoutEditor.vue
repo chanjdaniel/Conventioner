@@ -1130,7 +1130,11 @@ function place(at: PointMm): string | null {
       ...at,
     },
   ]);
-  if (!ids.length) return null;
+  if (!ids.length) {
+    // The one way an add makes nothing: the layout holds as many tables as it may.
+    say(LAYOUT_IS_FULL);
+    return null;
+  }
   props.editor.select(ids);
   say(saidAdded(tablesOf(ids), drawnSections.value));
   return ids[0];
@@ -1226,8 +1230,12 @@ function removeByKey() {
 /** Duplicate what the keys act on; the copies are selected, and the focus goes with them. */
 function duplicateByKey() {
   const hadFocus = focusedTable() !== null;
-  const copies = props.editor.duplicate(targets());
-  if (!copies.length) return;
+  const originals = targets();
+  const copies = props.editor.duplicate(originals);
+  if (!copies.length) {
+    if (originals.length) say(LAYOUT_IS_FULL);
+    return;
+  }
   props.editor.select(copies);
   const made = tablesOf(copies);
   say(saidAdded(made, drawnSections.value));
