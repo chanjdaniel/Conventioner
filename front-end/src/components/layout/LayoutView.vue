@@ -52,6 +52,7 @@ import {
   useAnnouncements,
 } from './layoutAnnouncements';
 import { layoutSections } from './layoutDrawing';
+import { placeTables } from './layoutFill';
 import { STANDARD_TABLE, hallOf } from './layoutGeometry';
 import { MAX_LAYOUT_TABLES, gapMmOf, rowChoices, rowOnFrom, standingShapes } from './layoutRow';
 import { saveLayout, saveLayoutOnUnload, type UploadedFloorplan } from './layoutSave';
@@ -164,6 +165,23 @@ const unsectioned = computed(() => {
 
 /** What the editor's changes did, in words, for the page's live region. */
 const { said, say } = useAnnouncements();
+
+/**
+ * The panel's status line: what Fill an area did ("Placed 24 of 30; the rest did not fit."), or
+ * why an area could not be closed. It stands until a table is next added or removed, by an undo
+ * say, or another location is opened, and is said in the live region by the editor.
+ */
+const status = ref('');
+/** Which tables the layout holds, by their ids: a save's answer brings the same tables back. */
+const held = () => (floorplan.value?.tables ?? []).map((table) => table.id).join(' ');
+let statusOf = '';
+function showStatus(words: string) {
+  status.value = words;
+  statusOf = held();
+}
+watch(held, (tables) => {
+  if (tables !== statusOf) status.value = '';
+});
 
 /** The layout's tables of the ids named, as they stand now. */
 function tablesOf(ids: readonly string[]) {
@@ -423,7 +441,9 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
               :sections="market.setupObject?.sections ?? []"
               :tableTypes="tableTypes"
               :imageUrl="imageUrl"
+              :fill="(request) => placeTables(marketId, request)"
               @announce="say"
+              @status="showStatus"
             />
             <div
               v-else
@@ -486,6 +506,13 @@ const tableTypes = computed(() => market.value?.setupObject?.tableTypes ?? []);
             </p>
           </section>
           <template v-else-if="calibrated">
+            <p
+              v-if="editing && status"
+              class="layout-card layout-fill-status"
+              data-testid="layout-status"
+            >
+              {{ status }}
+            </p>
             <LayoutPanelSelection
               v-if="editing"
               class="layout-card"

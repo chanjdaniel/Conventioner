@@ -176,3 +176,191 @@ def test_the_solver_stops_at_its_own_time_limit(monkeypatch):
     )
 
     assert time.monotonic() - started < 8
+
+
+# ── Fill an area (T257): a box or a drawn shape, packed in rows ──────────────
+
+AREA_HALL = {"width_mm": 30000, "height_mm": 20000}
+AISLE = {"wall_buffer_mm": 0, "table_spacing_mm": 1200}
+
+
+def fill(count, *, area_mm=None, area_polygon_mm=None, obstacles=(), existing_mm=(),
+         direction="across", room_mm=AREA_HALL):
+    return Placement.auto_place_tables(
+        walls=[], obstacles=list(obstacles), table_types=[SIX_FOOT], counts={"six": count},
+        scale_px_per_mm=0.02, room_mm=room_mm, aisle_config=AISLE, area_mm=area_mm,
+        area_polygon_mm=area_polygon_mm, existing_mm=list(existing_mm), direction=direction,
+    )
+
+
+def _rows_of(footprints):
+    """The footprints by the row they stand in: their top edge, then left to right."""
+    rows = {}
+    for footprint in footprints:
+        rows.setdefault(round(footprint[1]), []).append(footprint)
+    return [sorted(row) for _, row in sorted(rows.items())]
+
+
+@pytest.fixture(params=["with the solver installed", "without it"])
+def either_install(request, monkeypatch):
+    """An area is packed by the rows of this module wherever it runs: with ``pyckingsolver``
+    installed, as on a developer's machine and in CI, and without it, as in production."""
+    if request.param == "without it":
+        monkeypatch.setitem(sys.modules, "pyckingsolver", None)
+    return request.param
+
+
+class TestFillingABox:
+    def test_thirty_asked_of_an_empty_box_are_thirty_inside_it(self, either_install):
+        area = [2000, 3000, 20000, 12000]
+
+        result = fill(30, area_mm=area)
+
+        assert len(result.placed) == 30
+        assert result.timed_out is False
+        for min_x, min_y, max_x, max_y in map(_footprint, result.placed):
+            assert 2000 - 0.01 <= min_x and max_x <= 22000 + 0.01
+            assert 3000 - 0.01 <= min_y and max_y <= 15000 + 0.01
+
+    def test_the_tables_stand_in_rows_across_touching_with_the_aisle_between_rows(
+        self, either_install,
+    ):
+        rows = _rows_of([_footprint(table) for table in fill(30, area_mm=[2000, 3000, 20000, 12000]).placed])
+
+        # 20 m holds eleven 1.8 m tables end to end; thirty are two rows of eleven and one of eight.
+        assert [len(row) for row in rows] == [11, 11, 8]
+        for row in rows:
+            for left, right in zip(row, row[1:]):
+                assert right[0] == pytest.approx(left[2], abs=0.01)
+        tops = [row[0][1] for row in rows]
+        assert tops == pytest.approx([3000, 3000 + 750 + 1200, 3000 + 2 * (750 + 1200)], abs=0.01)
+        assert all(table["rotation"] == 0 for table in fill(30, area_mm=[2000, 3000, 20000, 12000]).placed)
+
+    def test_the_answer_is_in_reading_order(self, either_install):
+        placed = fill(30, area_mm=[2000, 3000, 20000, 12000]).placed
+
+        assert [(t["y_mm"], t["x_mm"]) for t in placed] == sorted((t["y_mm"], t["x_mm"]) for t in placed)
+
+    def test_asked_for_more_than_fit_it_fills_the_box_and_does_not_say_it_ran_out_of_time(
+        self, either_install,
+    ):
+        # 10 m by 5 m: three rows (0, 1.95 m and 3.9 m down) of five.
+        result = fill(500, area_mm=[0, 0, 10000, 5000])
+
+        assert len(result.placed) == 15
+        assert result.timed_out is False
+
+    def test_rows_down_stand_turned_a_quarter_in_columns(self, either_install):
+        placed = fill(500, area_mm=[0, 0, 5000, 10000], direction="down").placed
+
+        assert len(placed) == 15
+        assert all(table["rotation"] == 90 for table in placed)
+        assert sorted({round(table["x_mm"]) for table in placed}) == [375, 2325, 4275]
+
+    def test_no_table_stands_on_a_no_table_zone(self, either_install):
+        zone = {"polygon": [[6000, 0], [9000, 0], [9000, 20000], [6000, 20000]], "type": "no_table_zone"}
+
+        result = fill(500, area_mm=[0, 0, 20000, 6000], obstacles=[zone])
+
+        assert result.placed
+        for min_x, _min_y, max_x, _max_y in map(_footprint, result.placed):
+            assert max_x <= 6000 + 0.01 or min_x >= 9000 - 0.01
+        # A row goes on past the zone, from its far edge.
+        assert any(_footprint(table)[0] == pytest.approx(9000, abs=0.01) for table in result.placed)
+
+    def test_every_table_keeps_the_aisle_from_a_table_already_placed(self, either_install):
+        # A table already standing in the middle of the box, turned 30 degrees.
+        standing = [[9000, 2600], [10585, 3515], [10205, 4173], [8620, 3258]]
+
+        result = fill(500, area_mm=[0, 0, 20000, 6000], existing_mm=[standing])
+
+        assert result.placed
+        from shapely.geometry import Polygon
+        for table in result.placed:
+            assert box(*_footprint(table)).distance(Polygon(standing)) >= 1200 - 0.01
+
+    def test_a_zone_whose_sides_cross_still_keeps_its_floor_clear(self, either_install):
+        from shapely.geometry import Polygon
+        from shapely.validation import make_valid
+        bow_tie = [[6000, 0], [10000, 6000], [10000, 0], [6000, 6000]]
+
+        result = fill(500, area_mm=[0, 0, 20000, 6000],
+                      obstacles=[{"polygon": bow_tie, "type": "no_table_zone"}])
+
+        assert result.placed
+        covered = make_valid(Polygon(bow_tie))
+        for table in result.placed:
+            assert box(*_footprint(table)).intersection(covered).area < 0.01
+
+    @pytest.mark.parametrize("points", [[], [[5, 5]], [[0, 0], [5, 5]]])
+    def test_a_zone_of_fewer_than_three_points_takes_no_floor(self, either_install, points):
+        result = fill(500, area_mm=[0, 0, 10000, 5000],
+                      obstacles=[{"polygon": points, "type": "no_table_zone"}])
+
+        assert len(result.placed) == 15
+
+    def test_a_box_that_runs_past_the_floorplan_is_filled_only_on_it(self, either_install):
+        result = fill(500, area_mm=[25000, 15000, 20000, 20000])
+
+        assert result.placed
+        for _min_x, _min_y, max_x, max_y in map(_footprint, result.placed):
+            assert max_x <= 30000 + 0.01 and max_y <= 20000 + 0.01
+
+    def test_a_box_with_no_room_for_a_table_places_none(self, either_install):
+        result = fill(5, area_mm=[0, 0, 1000, 500])
+
+        assert result.placed == []
+        assert result.timed_out is False
+
+
+class TestFillingADrawnShape:
+    L_SHAPE = [[0, 0], [12000, 0], [12000, 4000], [4000, 4000], [4000, 12000], [0, 12000]]
+
+    def test_an_l_is_filled_only_inside_the_l(self, either_install):
+        from shapely.geometry import Polygon
+        shape = Polygon(self.L_SHAPE)
+
+        result = fill(500, area_polygon_mm=self.L_SHAPE)
+
+        # Rows 0 and 1.95 m down run the L's whole width (six tables); the four below, its arm (two).
+        assert len(result.placed) == 2 * 6 + 4 * 2
+        for table in result.placed:
+            assert shape.buffer(0.01).contains(box(*_footprint(table)))
+
+    def test_a_shape_with_a_sloping_wall_holds_only_whole_tables_inside_it(self, either_install):
+        from shapely.geometry import Polygon
+        triangle = [[0, 0], [16000, 0], [0, 8000]]
+
+        result = fill(500, area_polygon_mm=triangle)
+
+        assert len(result.placed) > 5
+        for table in result.placed:
+            assert Polygon(triangle).buffer(0.01).contains(box(*_footprint(table)))
+
+
+class TestAFillsTime:
+    def test_a_fill_that_runs_out_of_time_says_so(self, monkeypatch):
+        monkeypatch.setattr(Placement, "GRID_TIME_LIMIT_S", 0.0)
+
+        result = fill(30, area_mm=[0, 0, 20000, 12000])
+
+        assert result.timed_out is True
+        assert len(result.placed) < 30
+
+    def test_a_hall_of_five_hundred_among_a_thousand_standing_is_filled_within_its_time(self):
+        """The largest request the route lets through: 500 asked, 1,000 tables standing."""
+        standing = [
+            [[x, y], [x + 1800, y], [x + 1800, y + 750], [x, y + 750]]
+            for x in range(0, 100_000, 2000) for y in range(100_000, 140_000, 2000)
+        ]
+        assert len(standing) == 1000
+        started = time.monotonic()
+
+        result = fill(
+            500, area_mm=[0, 0, 100_000, 150_000], existing_mm=standing,
+            room_mm={"width_mm": 100_000, "height_mm": 150_000},
+        )
+
+        assert time.monotonic() - started < 5
+        assert len(result.placed) == 500
+        assert result.timed_out is False

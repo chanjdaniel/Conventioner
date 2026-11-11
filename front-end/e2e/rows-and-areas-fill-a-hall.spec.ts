@@ -12,12 +12,14 @@ import {
 import { apart as separation, cornersOf as tableCorners } from './helpers/tableShapes';
 
 /**
- * Rows of tables fill a hall (T257 tickets 07 and 08), on Upper Hall, 30 m by 22.5 m, with
+ * Rows of tables and filled areas fill a hall (T257 tickets 07 to 09), on Upper Hall, 30 m by 22.5 m, with
  * six-foot tables, 1830 by 760 mm: a drag places a straight row, clicks along a wall place a row
  * that follows it, round a curve or a corner, on the side chosen, clear of what stands there; a
  * click on the first point closes the path into a shape, its tables spread evenly round it;
  * Rows and Aisle place several rows in the one gesture; and the crosshair lays the same rows and
- * shapes by keys alone. Every gesture is the pointer's or the keys' own, and
+ * shapes by keys alone. Fill an area packs a dragged box, or a shape whose corners are clicked,
+ * with rows of tables an aisle apart, clear of what stands there, as one change, and says how
+ * many it placed. Every gesture is the pointer's or the keys' own, and
  * what it placed is read from the layout the server stored, the tables' names on the map and the
  * live region, never from the page's state.
  *
@@ -33,6 +35,7 @@ async function open(
   request: APIRequestContext,
   tables: SeedTable[] = [],
   zones: SeedZone[] = [],
+  tool: 'row' | 'fill' = 'row',
 ): Promise<{ layout: LayoutPage; seeded: SeededLayout }> {
   const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
     metresAcross: 30,
@@ -43,8 +46,13 @@ async function open(
   await layout.goto(seeded.marketId, seeded.upper.id);
   await expect(layout.stage).toBeVisible();
   await expect(layout.tables).toHaveCount(tables.length);
-  await layout.toolRow.click();
-  await expect(layout.rowGap).toBeVisible();
+  if (tool === 'fill') {
+    await layout.toolFill.click();
+    await expect(layout.fillView).toBeVisible();
+  } else {
+    await layout.toolRow.click();
+    await expect(layout.rowGap).toBeVisible();
+  }
   return { layout, seeded };
 }
 
@@ -702,5 +710,455 @@ test.describe('Rows fill a hall', () => {
     // The table stays selected, and the button under the focus, so the row goes on again.
     await expect(layout.selectionTitle).toHaveText('Gold row 1');
     await expect(layout.selectionRowAdd).toBeFocused();
+  });
+});
+
+/** A table's box on the page, for tables that stand unturned or a quarter turned. */
+function boxOf(table: StoredLayoutTable) {
+  const turned = table.rotation === 90;
+  const halfWidth = (turned ? SIX_FOOT.depthMm : SIX_FOOT.widthMm) / 2;
+  const halfDepth = (turned ? SIX_FOOT.widthMm : SIX_FOOT.depthMm) / 2;
+  return {
+    left: table.xMm - halfWidth,
+    right: table.xMm + halfWidth,
+    top: table.yMm - halfDepth,
+    bottom: table.yMm + halfDepth,
+  };
+}
+
+/** The tables by the row they stand in, from the top, each row from the left. */
+function rowsOf(tables: StoredLayoutTable[]): StoredLayoutTable[][] {
+  const rows = new Map<number, StoredLayoutTable[]>();
+  for (const table of tables) {
+    const row = Math.round(table.yMm);
+    rows.set(row, [...(rows.get(row) ?? []), table]);
+  }
+  return [...rows.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, row]) => row.sort((a, b) => a.xMm - b.xMm));
+}
+
+const PLACE_TABLES = '**/floorplans/place-tables';
+
+test.describe('Areas fill a hall', () => {
+  test('a box dragged over empty floor and asked for 30 is filled with 30, in rows touching with the aisle between them, numbered as read, and one Undo takes them all', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request, [], [], 'fill');
+    await expect(layout.hint).toContainText('Drag a box over the floor to fill.');
+
+    await layout.drag([2000, 3000], [22_000, 15_000], {
+      hold: async () => {
+        // The box as it is drawn, while the button is down.
+        await expect(layout.fillArea).toBeVisible();
+      },
+    });
+    await expect(layout.fillDialog).toBeVisible();
+    // The pointer is put within a few centimetres of the places asked for.
+    await expect(layout.fillAreaText).toHaveText(
+      /^Area: A box (19\.9|20\.0|20\.1) m by (11\.9|12\.0|12\.1) m$/,
+    );
+    await expect(layout.fillSection).toHaveValue('sec-gold');
+    await expect(layout.fillCount).toHaveValue('30');
+    await expect(layout.fillDirection).toHaveValue('across');
+    await expect(layout.fillAisle).toHaveValue('120');
+    await expect(layout.fillInView).not.toBeChecked();
+
+    // The placement held, so what the dialog says while it runs can be read.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(PLACE_TABLES, async (route) => {
+      await held;
+      await route.continue();
+    });
+    await layout.fillSubmit.click();
+    await expect(layout.fillSubmit).toHaveText('Placing…');
+    await expect(layout.fillSubmit).toBeDisabled();
+    await expect(layout.fillCancel).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(layout.fillDialog).toBeVisible();
+    await layout.saved(async () => {
+      release();
+      await expect(layout.fillDialog).toBeHidden();
+    });
+    await page.unroute(PLACE_TABLES);
+
+    await expect(layout.status).toHaveText('Placed 30.');
+    await expect(layout.announcement).toHaveText('Placed 30.');
+    await expect(layout.tables).toHaveCount(30);
+    await expect(layout.fillPreview).toHaveCount(0);
+    await expect(layout.selectionTitle).toHaveText('30 tables selected');
+
+    const tables = await stored(request, seeded.marketId);
+    expect(tables).toHaveLength(30);
+    expect(tables.map((table) => table.number)).toEqual(
+      Array.from({ length: 30 }, (_, i) => i + 1),
+    );
+    expect(new Set(tables.map((table) => table.sectionId))).toEqual(new Set(['sec-gold']));
+    expect(new Set(tables.map((table) => table.rotation))).toEqual(new Set([0]));
+    for (const table of tables) {
+      const box = boxOf(table);
+      expect(box.left).toBeGreaterThanOrEqual(2000 - 2 * A_PIXEL_MM);
+      expect(box.right).toBeLessThanOrEqual(22_000 + 2 * A_PIXEL_MM);
+      expect(box.top).toBeGreaterThanOrEqual(3000 - 2 * A_PIXEL_MM);
+      expect(box.bottom).toBeLessThanOrEqual(15_000 + 2 * A_PIXEL_MM);
+    }
+    // Three rows of ten, each row's tables touching and the rows an aisle apart; numbered in
+    // reading order, so each row holds the next ten numbers from its left.
+    const rows = rowsOf(tables);
+    expect(rows.map((row) => row.length)).toEqual([10, 10, 10]);
+    rows.forEach((row, at) => {
+      expect(row.map((table) => table.number)).toEqual(
+        Array.from({ length: 10 }, (_, i) => at * 10 + i + 1),
+      );
+      for (const step of steps(row)) expect(step).toBeCloseTo(1830, 1);
+    });
+    expect(rows[1][0].yMm - rows[0][0].yMm).toBeCloseTo(760 + 1200, 1);
+    expect(rows[2][0].yMm - rows[1][0].yMm).toBeCloseTo(760 + 1200, 1);
+    expect(leastSeparation(tables)).toBeGreaterThanOrEqual(-0.05);
+
+    // One change: one Undo takes all thirty, and the status line with them.
+    await layout.saved(() => layout.undo.click());
+    await expect(layout.tables).toHaveCount(0);
+    await expect(layout.status).toHaveCount(0);
+    expect(await stored(request, seeded.marketId)).toHaveLength(0);
+    await layout.saved(() => layout.redo.click());
+    await expect(layout.tables).toHaveCount(30);
+  });
+
+  test('"As many as fit" fills the box, in rows down the page where asked, and a box too small for what was asked says how many fitted', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request, [], [], 'fill');
+
+    // 6 m by 12 m, rows down: three columns (0, 1.96 m and 3.92 m across) of six tables each.
+    await layout.drag([2000, 3000], [8000, 15_000]);
+    await layout.fillFitChoice.check();
+    await expect(layout.fillCount).toBeDisabled();
+    await layout.fillDirection.selectOption('down');
+    await layout.saved(() => layout.fillSubmit.click());
+    await expect(layout.status).toHaveText('Placed 18.');
+    let tables = await stored(request, seeded.marketId);
+    expect(tables).toHaveLength(18);
+    expect(new Set(tables.map((table) => table.rotation))).toEqual(new Set([90]));
+    expect(new Set(tables.map((table) => Math.round(table.xMm - tables[0].xMm)))).toEqual(
+      new Set([0, 1960, 3920]),
+    );
+    expect(leastSeparation(tables)).toBeGreaterThanOrEqual(-0.05);
+
+    // The dialog kept what was chosen. 12 m by 6 m across holds three rows of six: 18 of 30.
+    await layout.drag([12_000, 3000], [24_000, 9000]);
+    await expect(layout.fillFitChoice).toBeChecked();
+    await expect(layout.fillDirection).toHaveValue('down');
+    await layout.fillCountChoice.check();
+    await layout.fillDirection.selectOption('across');
+    await layout.saved(() => layout.fillSubmit.click());
+    await expect(layout.status).toHaveText('Placed 18 of 30; the rest did not fit.');
+    await expect(layout.announcement).toHaveText('Placed 18 of 30; the rest did not fit.');
+    tables = (await stored(request, seeded.marketId)).slice(18);
+    expect(tables.map((table) => table.number)).toEqual(
+      Array.from({ length: 18 }, (_, i) => i + 19),
+    );
+    expect(rowsOf(tables).map((row) => row.length)).toEqual([6, 6, 6]);
+
+    // A box no table fits in changes nothing, and says so.
+    await layout.drag([26_000, 18_000], [27_000, 18_500]);
+    await layout.fillSubmit.click();
+    await expect(layout.fillDialog).toBeHidden();
+    await expect(layout.status).toHaveText('No table fits in that area.');
+    await expect(layout.tables).toHaveCount(36);
+
+    // A drag along one line is no box: no dialog, and the same sentence.
+    await layout.saved(() => layout.undo.click());
+    await expect(layout.status).toHaveCount(0);
+    await layout.drag([12_000, 14_000], [24_000, 14_000]);
+    await expect(layout.status).toHaveText('No table fits in that area.');
+    await expect(layout.fillDialog).toBeHidden();
+    await expect(layout.fillPreview).toHaveCount(0);
+  });
+
+  test('no table is placed on a no-table zone or within the aisle of a table that stands, and the rows go on past both', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const standing: SeedTable = { section: 'sec-silver', at: [9000, 4380], rotation: 30 };
+    const stage: SeedZone = { label: 'Stage', box: [15_000, 2000, 2000, 9000] };
+    const { layout, seeded } = await open(page, request, [standing], [stage], 'fill');
+
+    await layout.drag([2000, 3000], [24_000, 10_000]);
+    await layout.fillFitChoice.check();
+    await layout.saved(() => layout.fillSubmit.click());
+    await expect(layout.status).toHaveText(/^Placed \d+\.$/);
+
+    const all = await storedLayoutTables(request, BACKEND_URL, seeded.marketId);
+    const filled = all.filter((table) => table.sectionId === 'sec-gold');
+    expect(filled.length).toBeGreaterThan(15);
+    const table = tableCorners({ xMm: 9000, yMm: 4380, rotation: 30 }, SIX_FOOT);
+    const zone = [
+      { xMm: 15_000, yMm: 2000 },
+      { xMm: 17_000, yMm: 2000 },
+      { xMm: 17_000, yMm: 11_000 },
+      { xMm: 15_000, yMm: 11_000 },
+    ];
+    for (const one of filled) {
+      const corners = tableCorners(one, SIX_FOOT);
+      expect(separation(corners, table)).toBeGreaterThanOrEqual(1200 - 0.05);
+      expect(separation(corners, zone)).toBeGreaterThanOrEqual(-0.05);
+    }
+    // Tables stand on both sides of the zone, and the first row past it starts at its edge.
+    expect(filled.some((one) => one.xMm < 15_000)).toBe(true);
+    const past = filled.filter((one) => one.xMm > 17_000);
+    expect(past.length).toBeGreaterThan(0);
+    expect(Math.min(...past.map((one) => boxOf(one).left))).toBeCloseTo(17_000, 1);
+    expect(leastSeparation(filled)).toBeGreaterThanOrEqual(-0.05);
+  });
+
+  test('an L-shaped area, its corners clicked and closed on the first, is filled only inside the L', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request, [], [], 'fill');
+    const corners: [number, number][] = [
+      [2000, 2000],
+      [14_000, 2000],
+      [14_000, 6000],
+      [6000, 6000],
+      [6000, 14_000],
+      [2000, 14_000],
+    ];
+
+    for (const corner of corners) await layout.clickAt(corner);
+    await expect(layout.fillPoints).toHaveCount(6);
+    // Nothing of a shape being drawn is the layout's.
+    await expect(layout.undo).toBeDisabled();
+    // The first corner wears a ring while a click on it would close the shape.
+    await layout.hoverAt(corners[0]);
+    await expect(layout.fillClose).toBeVisible();
+    await layout.clickAt(corners[0]);
+
+    await expect(layout.fillDialog).toBeVisible();
+    await expect(layout.fillAreaText).toHaveText('Area: A shape of 6 corners');
+    await layout.fillFitChoice.check();
+    await layout.saved(() => layout.fillSubmit.click());
+    // Two rows of six across the L's top, and four of two down its arm.
+    await expect(layout.status).toHaveText('Placed 20.');
+
+    const tables = await stored(request, seeded.marketId);
+    expect(tables).toHaveLength(20);
+    const slack = 2 * A_PIXEL_MM;
+    for (const table of tables) {
+      const box = boxOf(table);
+      expect(box.left).toBeGreaterThanOrEqual(2000 - slack);
+      expect(box.top).toBeGreaterThanOrEqual(2000 - slack);
+      expect(box.bottom).toBeLessThanOrEqual(14_000 + slack);
+      // Inside the top of the L, or inside its arm: never in the corner the L leaves out.
+      const inTheTop = box.bottom <= 6000 + slack && box.right <= 14_000 + slack;
+      const inTheArm = box.right <= 6000 + slack;
+      expect(inTheTop || inTheArm, `table ${table.number} at ${table.xMm}, ${table.yMm}`).toBe(
+        true,
+      );
+    }
+    expect(rowsOf(tables).map((row) => row.length)).toEqual([6, 6, 2, 2, 2, 2]);
+  });
+
+  test('a shape whose sides cross cannot be closed, by pointer or by Enter, until a corner is moved; given up in the dialog it is its corners again, and Escape drops it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request, [], [], 'fill');
+    const crosses =
+      "This shape's sides cross. Move a corner, or take one back, so that they do not.";
+
+    // A bow tie: the third and fourth corners are the wrong way round.
+    for (const corner of [
+      [4000, 4000],
+      [16_000, 4000],
+      [4000, 12_000],
+      [16_000, 12_000],
+    ] as [number, number][]) {
+      await layout.clickAt(corner);
+    }
+    await expect(layout.fillLine).toHaveAttribute('data-crosses', '');
+    await layout.hoverAt([4000, 4000]);
+    await expect(layout.fillClose).toHaveCount(0);
+    await layout.clickAt([4000, 4000]);
+    await expect(layout.status).toHaveText(crosses);
+    await expect(layout.announcement).toHaveText(crosses);
+    await expect(layout.fillDialog).toBeHidden();
+    await layout.hoverAt([10_000, 16_000]);
+    await page.keyboard.press('Enter');
+    await expect(layout.fillDialog).toBeHidden();
+    await expect(layout.fillPoints).toHaveCount(4);
+
+    // The fourth corner dragged past the third, and the third to where the fourth was.
+    await layout.drag([16_000, 12_000], [16_000, 14_000]);
+    await layout.drag([4000, 12_000], [16_000, 11_000]);
+    await layout.drag([16_000, 14_000], [4000, 12_000]);
+    await expect(layout.fillLine).not.toHaveAttribute('data-crosses', '');
+    await expect(layout.status).toHaveCount(0);
+    await layout.hoverAt([10_000, 16_000]);
+    await page.keyboard.press('Enter');
+    await expect(layout.fillDialog).toBeVisible();
+    await expect(layout.fillAreaText).toHaveText('Area: A shape of 4 corners');
+
+    // Cancel gives the corners back, to be moved; Backspace takes one, and Escape drops the rest.
+    await layout.fillCancel.click();
+    await expect(layout.fillDialog).toBeHidden();
+    await expect(layout.fillPoints).toHaveCount(4);
+    await layout.hoverAt([10_000, 16_000]);
+    await page.keyboard.press('Backspace');
+    await expect(layout.fillPoints).toHaveCount(3);
+    await page.keyboard.press('Escape');
+    await expect(layout.fillPreview).toHaveCount(0);
+    await expect(layout.status).toHaveText('Area dropped. No table was added.');
+    await expect(layout.tables).toHaveCount(0);
+    expect(await stored(request, seeded.marketId)).toHaveLength(0);
+
+    // The server refuses a crossing shape too, with its sentence.
+    const refused = await request.post(`${BACKEND_URL}/floorplans/place-tables`, {
+      data: {
+        market_id: seeded.marketId,
+        walls: [],
+        obstacles: [],
+        table_types: [{ id: 'six', name: 'Six', width_mm: 1830, height_mm: 760, max_capacity: 1 }],
+        counts: { six: 5 },
+        scale_px_per_mm: 0.05,
+        room_mm: { width_mm: 30_000, height_mm: 22_500 },
+        area_polygon_mm: [
+          [4000, 4000],
+          [16_000, 4000],
+          [4000, 12_000],
+          [16_000, 12_000],
+        ],
+      },
+    });
+    expect(refused.status()).toBe(400);
+    expect(await refused.json()).toEqual({
+      error: 'An area is drawn with 3 to 50 corners that do not cross.',
+    });
+  });
+
+  test('a placement that ran out of time says so with what it placed, and a refusal is written into the dialog, which stays open', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout } = await open(page, request, [], [], 'fill');
+
+    // The server's refusal: the dialog keeps it, and the area.
+    await page.route(PLACE_TABLES, (route) =>
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Auto-Place places up to 500 tables at a time.' }),
+      }),
+    );
+    await layout.drag([2000, 3000], [22_000, 15_000]);
+    await layout.fillSubmit.click();
+    await expect(layout.fillError).toHaveText('Auto-Place places up to 500 tables at a time.');
+    await expect(layout.fillDialog).toBeVisible();
+    await expect(layout.fillSubmit).toHaveText('Fill');
+    await expect(layout.fillSubmit).toBeEnabled();
+    await page.unroute(PLACE_TABLES);
+
+    // The grid's deadline cannot be reached on this stack in a spec's time: its answer is staged.
+    await page.route(PLACE_TABLES, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          placed_tables: Array.from({ length: 24 }, (_, i) => ({
+            x_mm: 2915 + (i % 10) * 1830,
+            y_mm: 3380 + Math.floor(i / 10) * 1960,
+            rotation: 0,
+            width_mm: 1830,
+            height_mm: 760,
+            table_type_id: 'six-foot',
+          })),
+          timed_out: true,
+        }),
+      }),
+    );
+    await layout.saved(() => layout.fillSubmit.click());
+    await page.unroute(PLACE_TABLES);
+    await expect(layout.fillDialog).toBeHidden();
+    await expect(layout.status).toHaveText(
+      'Placed 24 of 30 - Fill an area ran out of time before the rest.',
+    );
+    await expect(layout.tables).toHaveCount(24);
+  });
+
+  test('the crosshair lays an area\'s corners by keys alone and Ctrl+Enter closes it; "Fill what is in view" fills what the map shows with nothing drawn', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request, [], [], 'fill');
+
+    // The crosshair begins at the middle of the view, on the keys' 10 cm steps.
+    await layout.tabToTheMap();
+    await expect(layout.fillCrosshair).toBeVisible();
+    await expect(layout.hint).toContainText('Enter lays a corner of the area');
+    await page.keyboard.press('Control+Enter');
+    await expect(layout.status).toHaveText('An area takes three corners or more.');
+    await page.keyboard.press('Enter');
+    await expect(layout.announcement).toHaveText('Corner 1 at 15.0 m, 11.3 m.');
+    for (let press = 0; press < 8; press += 1) await page.keyboard.press('Shift+ArrowRight');
+    await expect(layout.announcement).toHaveText('Crosshair at 23.0 m, 11.3 m');
+    await page.keyboard.press('Enter');
+    await expect(layout.announcement).toHaveText('Corner 2 at 23.0 m, 11.3 m.');
+    for (let press = 0; press < 5; press += 1) await page.keyboard.press('Shift+ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Enter');
+    await expect(layout.announcement).toHaveText('Corner 4 at 22.9 m, 16.3 m.');
+    await page.keyboard.press('Backspace');
+    await expect(layout.announcement).toHaveText('Corner 4 taken back.');
+    await expect(layout.fillPoints).toHaveCount(3);
+    await expect(layout.undo).toBeDisabled();
+
+    // Ctrl+Enter closes the triangle and asks how to fill it, the focus in the dialog; Enter in
+    // a field is Fill.
+    await page.keyboard.press('Control+Enter');
+    await expect(layout.fillDialog).toBeVisible();
+    await expect(layout.fillAreaText).toHaveText('Area: A shape of 3 corners');
+    await expect(layout.fillSection).toBeFocused();
+    await layout.fillCount.fill('3');
+    await layout.saved(() => page.keyboard.press('Enter'));
+    await expect(layout.fillDialog).toBeHidden();
+    await expect(layout.announcement).toHaveText('Placed 3.');
+    let tables = await stored(request, seeded.marketId);
+    expect(tables).toHaveLength(3);
+    // The triangle's top row, under its top side and inside its sloping one.
+    for (const table of tables) {
+      expect(table.yMm).toBeCloseTo(11_300 + 380, 1);
+      expect(boxOf(table).right).toBeLessThanOrEqual(23_000 + 0.05);
+      expect(boxOf(table).left).toBeGreaterThanOrEqual(15_000 + (760 / 5000) * 8000 - 0.05);
+    }
+
+    // "Fill what is in view", by keys: the whole hall is in view, less what stands and its aisle.
+    await layout.fillView.focus();
+    await page.keyboard.press('Enter');
+    await expect(layout.fillDialog).toBeVisible();
+    await expect(layout.fillAreaText).toHaveText('Area: What is in view');
+    await expect(layout.fillInView).toBeChecked();
+    await expect(layout.fillInView).toBeDisabled();
+    await layout.fillFitChoice.check();
+    await layout.saved(() => page.keyboard.press('Enter'));
+    await expect(layout.status).toHaveText(/^Placed \d+\.$/);
+    // Closed, the dialog gives the focus back to the button that opened it.
+    await expect(layout.fillView).toBeFocused();
+    tables = await stored(request, seeded.marketId);
+    expect(tables.length).toBeGreaterThan(100);
+    expect(leastSeparation(tables)).toBeGreaterThanOrEqual(-0.05);
+    for (const table of tables) {
+      const box = boxOf(table);
+      expect(box.left).toBeGreaterThanOrEqual(-0.05);
+      expect(box.top).toBeGreaterThanOrEqual(-0.05);
+      expect(box.right).toBeLessThanOrEqual(30_000 + 0.05);
+      expect(box.bottom).toBeLessThanOrEqual(22_500 + 0.05);
+    }
   });
 });

@@ -10,6 +10,7 @@
  */
 import { computed } from 'vue';
 import { plural } from '@/utils/historyReaders/shared';
+import LayoutCrosshair from './LayoutCrosshair.vue';
 import { textWidthPx, type Paint } from './layoutDrawing';
 import type { PathPose, PointMm, Run, SizeMm } from './layoutGeometry';
 
@@ -34,7 +35,6 @@ const COUNT_PAD_PX = 8;
 const COUNT_HEIGHT_PX = 22;
 /** How far from the pointer the count stands, clear of its arrow. */
 const COUNT_OFF_PX = 14;
-const CROSSHAIR_ARM_PX = 12;
 
 const px = (value: number) => value * props.mmPerPx;
 const lines = computed(() =>
@@ -125,35 +125,12 @@ const lead = computed(() => {
       vector-effect="non-scaling-stroke"
       data-testid="layout-row-point"
     />
-    <g v-if="crosshair" data-testid="layout-row-crosshair">
-      <!-- White under black, so the crosshair reads over any floorplan. -->
-      <template
-        v-for="[stroke, width] in [
-          ['white', 4],
-          ['var(--mm-black)', 1.5],
-        ] as const"
-        :key="stroke"
-      >
-        <line
-          :x1="crosshair.xMm - px(CROSSHAIR_ARM_PX)"
-          :y1="crosshair.yMm"
-          :x2="crosshair.xMm + px(CROSSHAIR_ARM_PX)"
-          :y2="crosshair.yMm"
-          :stroke="stroke"
-          :stroke-width="width"
-          vector-effect="non-scaling-stroke"
-        />
-        <line
-          :x1="crosshair.xMm"
-          :y1="crosshair.yMm - px(CROSSHAIR_ARM_PX)"
-          :x2="crosshair.xMm"
-          :y2="crosshair.yMm + px(CROSSHAIR_ARM_PX)"
-          :stroke="stroke"
-          :stroke-width="width"
-          vector-effect="non-scaling-stroke"
-        />
-      </template>
-    </g>
+    <LayoutCrosshair
+      v-if="crosshair"
+      :at="crosshair"
+      :mmPerPx="mmPerPx"
+      data-testid="layout-row-crosshair"
+    />
     <g v-if="count" data-testid="layout-row-count">
       <rect
         :x="count.x"

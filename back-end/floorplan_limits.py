@@ -17,9 +17,13 @@ the model later is bounded without a new line here; the list bounds are named on
 Auto-Place's request is not stored, but it holds an instance for as long as the placement takes, so
 ``placement_refusal`` bounds what it is asked to place and where: how many tables, how large each
 is, how large the room and its aisles, and how much geometry, whose wall ordering is quadratic.
+A layout's Fill an area is the same request with an area, a box or a drawn shape, and the tables
+already placed: the area's size and corners and how many tables stand are bounded with it.
 """
 import math
-from typing import Any, Iterator, List, Mapping, Optional
+from typing import Any, Iterator, List, Mapping, Optional, Sequence
+
+from shapely.geometry import Polygon
 
 from datatypes import (
     AisleConfigObject, BetaTableType, FloorplanObject, ObstacleZone, TableTypeObject, WallSegment,
@@ -46,6 +50,8 @@ MIN_TABLE_SIDE_MM = 100
 MAX_TABLE_SIDE_MM = 20_000
 MAX_ROOM_SIDE_MM = 500_000
 MAX_AISLE_MM = 10_000
+MIN_AREA_CORNERS = 3
+MAX_AREA_CORNERS = 50
 
 TOO_MANY_FLOORPLANS = f"A market keeps at most {MAX_FLOORPLANS_PER_MARKET:,} floorplans."
 TOO_MANY_TABLE_TYPES = f"A market keeps at most {MAX_TABLE_TYPES:,} table types."
@@ -81,10 +87,18 @@ TOO_MUCH_GEOMETRY_TO_PLACE = (
     f"Auto-Place takes up to {MAX_WALLS:,} walls, {MAX_OBSTACLES:,} obstacle zones and "
     f"{MAX_POLYGON_POINTS:,} points in each."
 )
+AREA_SHAPE = (
+    f"An area is drawn with {MIN_AREA_CORNERS} to {MAX_AREA_CORNERS} corners that do not cross."
+)
+ONE_AREA = "An area is a box or a drawn shape, not both."
+AREA_TOO_LARGE = f"An area must be at most {MAX_ROOM_SIDE_MM // 1000:,} m on each side."
 
 
 def _holds_at_most(bound: int, what: str) -> str:
     return f"A floorplan holds at most {bound:,} {what}."
+
+
+TOO_MANY_TABLES_STANDING = _holds_at_most(MAX_PLACED_TABLES, "tables")
 
 
 def _leaves(value: Any) -> Iterator[Any]:
@@ -187,6 +201,27 @@ def tables_to_place(table_types: List[BetaTableType], counts: Mapping[str, int])
     return sum(counts.get(table_type.id, 1) for table_type in table_types)
 
 
+def area_refusal(
+    area_mm: Optional[Sequence[float]], area_polygon_mm: Optional[Sequence[Sequence[float]]],
+) -> Optional[str]:
+    """The sentence the area of a Fill an area request is refused with, or None: a box or a drawn
+    shape and never both, a shape of 3 to 50 corners whose sides do not cross and that encloses
+    some floor, and either no more than ``MAX_ROOM_SIDE_MM`` on a side."""
+    if area_mm is not None and area_polygon_mm is not None:
+        return ONE_AREA
+    if area_mm is not None:
+        return AREA_TOO_LARGE if max(area_mm[2], area_mm[3]) > MAX_ROOM_SIDE_MM else None
+    if area_polygon_mm is None:
+        return None
+    if not MIN_AREA_CORNERS <= len(area_polygon_mm) <= MAX_AREA_CORNERS:
+        return AREA_SHAPE
+    shape = Polygon(area_polygon_mm)
+    if not shape.is_valid or shape.area <= 0:
+        return AREA_SHAPE
+    min_x, min_y, max_x, max_y = shape.bounds
+    return AREA_TOO_LARGE if max(max_x - min_x, max_y - min_y) > MAX_ROOM_SIDE_MM else None
+
+
 def placement_refusal(
     *,
     walls: List[WallSegment],
@@ -195,6 +230,9 @@ def placement_refusal(
     counts: Mapping[str, int],
     room_mm: Optional[Mapping[str, float]],
     aisle: Optional[AisleConfigObject],
+    area_mm: Optional[Sequence[float]] = None,
+    area_polygon_mm: Optional[Sequence[Sequence[float]]] = None,
+    existing_mm: Sequence[Sequence[Sequence[float]]] = (),
 ) -> Optional[str]:
     """The sentence an Auto-Place request over a bound is refused with, or None.
 
@@ -202,12 +240,18 @@ def placement_refusal(
     can be read on them; the room the walls enclose is bounded by the placement service, which is
     where that room is built.
     """
-    geometry = [item.model_dump() for item in (*walls, *obstacles, *table_types)]
+    geometry: List[Any] = [item.model_dump() for item in (*walls, *obstacles, *table_types)]
     if aisle is not None:
         geometry.append(aisle.model_dump())
+    geometry += [area_mm, area_polygon_mm, existing_mm]
     refused = measurement_refusal(geometry)
     if refused:
         return refused
+    refused = area_refusal(area_mm, area_polygon_mm)
+    if refused:
+        return refused
+    if len(existing_mm) > MAX_PLACED_TABLES:
+        return TOO_MANY_TABLES_STANDING
     if (
         len(walls) > MAX_WALLS
         or len(obstacles) > MAX_OBSTACLES

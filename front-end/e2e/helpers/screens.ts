@@ -239,8 +239,9 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * over the faded floorplan with the panel's list of sections: the editor at a desk and the map read
  * on a phone, then, at a desk, with a table selected, with every table selected, with a section's
  * colours open, with Add table's options open, with a table picked up by keyboard, with the
- * panel's list of keys open and with a row being drawn by the crosshair. Nothing is saved, so each
- * walk finds them as seeded.
+ * panel's list of keys open, with a row being drawn by the crosshair, with an L-shaped area's
+ * corners clicked for Fill an area, and with that area closed and its dialog open. Nothing is
+ * saved, so each walk finds them as seeded.
  */
 function layoutAt(
   stage:
@@ -253,7 +254,9 @@ function layoutAt(
     | 'adding'
     | 'pickedUp'
     | 'keys'
-    | 'row',
+    | 'row'
+    | 'fillShape'
+    | 'fillDialog',
 ) {
   return async (page: Page, seed: TheScreensSeed) => {
     const layout = new LayoutPage(page);
@@ -310,6 +313,28 @@ function layoutAt(
         await page.keyboard.press('Enter');
         await expect(layout.rowCount).toBeVisible();
         await expect(layout.rowTables.first()).toBeVisible();
+      }
+      if (stage === 'fillShape' || stage === 'fillDialog') {
+        // Fill an area on, and an L's corners clicked over the clear floor south of the tables.
+        await layout.toolFill.click();
+        const corners: [number, number][] = [
+          [12_000, 13_500],
+          [22_000, 13_500],
+          [22_000, 16_500],
+          [16_000, 16_500],
+          [16_000, 21_000],
+          [12_000, 21_000],
+        ];
+        for (const corner of corners) await layout.clickAt(corner);
+        await expect(layout.fillPoints).toHaveCount(corners.length);
+        // The pointer on the first corner, which wears its ring: a click there closes the shape.
+        await layout.hoverAt(corners[0]);
+        await expect(layout.fillClose).toBeVisible();
+        if (stage === 'fillDialog') {
+          await layout.clickAt(corners[0]);
+          await expect(layout.fillDialog).toBeVisible();
+          await expect(layout.fillSection).toBeFocused();
+        }
       }
       if (stage === 'keys') {
         await layout.keyboardSummary.click();
@@ -1340,6 +1365,21 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     deskOnly: true,
     open: layoutAt('row'),
+  },
+  // Fill an area (T257): a shape's corners clicked over the map, then its dialog.
+  {
+    name: 'the layout, an area being drawn',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('fillShape'),
+  },
+  {
+    name: 'the layout, the Fill dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('fillDialog'),
   },
   {
     name: 'market days, the plan',

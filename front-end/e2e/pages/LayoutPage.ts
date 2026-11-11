@@ -60,6 +60,33 @@ export class LayoutPage {
   readonly rowTables: Locator;
   readonly rowLines: Locator;
   readonly rowCrosshair: Locator;
+  readonly toolFill: Locator;
+  /** "Fill what is in view", in Fill an area's options strip. */
+  readonly fillView: Locator;
+  readonly fillPreview: Locator;
+  /** The box in hand, or the area closed, shaded. */
+  readonly fillArea: Locator;
+  readonly fillLine: Locator;
+  readonly fillPoints: Locator;
+  /** The ring the shape's first corner wears while a click on it would close the shape. */
+  readonly fillClose: Locator;
+  readonly fillCrosshair: Locator;
+  /** Fill an area's dialog and its fields. */
+  readonly fillDialog: Locator;
+  readonly fillAreaText: Locator;
+  readonly fillSection: Locator;
+  readonly fillType: Locator;
+  readonly fillCountChoice: Locator;
+  readonly fillCount: Locator;
+  readonly fillFitChoice: Locator;
+  readonly fillDirection: Locator;
+  readonly fillAisle: Locator;
+  readonly fillInView: Locator;
+  readonly fillSubmit: Locator;
+  readonly fillCancel: Locator;
+  readonly fillError: Locator;
+  /** The panel's status line: what Fill an area did, or why an area did not close. */
+  readonly status: Locator;
   readonly guides: Locator;
   readonly turnKnob: Locator;
   readonly hint: Locator;
@@ -140,6 +167,28 @@ export class LayoutPage {
     this.rowTables = this.map.getByTestId('layout-row-table');
     this.rowLines = this.map.getByTestId('layout-row-line');
     this.rowCrosshair = this.map.getByTestId('layout-row-crosshair');
+    this.toolFill = this.toolbar.getByRole('button', { name: 'Fill an area', exact: true });
+    this.fillView = page.getByTestId('layout-fill-view');
+    this.fillPreview = this.map.getByTestId('layout-fill-preview');
+    this.fillArea = this.map.getByTestId('layout-fill-area');
+    this.fillLine = this.map.getByTestId('layout-fill-line');
+    this.fillPoints = this.map.getByTestId('layout-fill-point');
+    this.fillClose = this.map.getByTestId('layout-fill-close');
+    this.fillCrosshair = this.map.getByTestId('layout-fill-crosshair');
+    this.fillDialog = page.getByTestId('layout-fill-window');
+    this.fillAreaText = page.getByTestId('layout-fill-area-text');
+    this.fillSection = page.getByTestId('layout-fill-section');
+    this.fillType = page.getByTestId('layout-fill-type');
+    this.fillCountChoice = page.getByTestId('layout-fill-count-choice');
+    this.fillCount = page.getByTestId('layout-fill-count');
+    this.fillFitChoice = page.getByTestId('layout-fill-fit-choice');
+    this.fillDirection = page.getByTestId('layout-fill-direction');
+    this.fillAisle = page.getByTestId('layout-fill-aisle');
+    this.fillInView = page.getByTestId('layout-fill-in-view');
+    this.fillSubmit = page.getByTestId('layout-fill-submit-button');
+    this.fillCancel = page.getByTestId('layout-fill-cancel-button');
+    this.fillError = page.getByTestId('layout-fill-error');
+    this.status = page.getByTestId('layout-status');
     this.guides = this.map.getByTestId('layout-map-guide');
     this.turnKnob = this.map.getByTestId('layout-turn-knob');
     this.hint = page.getByTestId('layout-hint');
@@ -357,6 +406,16 @@ export class LayoutPage {
     await change();
     expect((await answered).ok()).toBe(true);
     await expect(this.saveState).toHaveText('Saved');
+  }
+
+  /**
+   * Draw a shape for Fill an area: a click on each corner, in millimetres of the hall, then one
+   * on the first again, which closes it.
+   */
+  async drawShape(corners: [number, number][]): Promise<void> {
+    for (const corner of corners) await this.clickAt(corner);
+    await this.hoverAt(corners[0]);
+    await this.clickAt(corners[0]);
   }
 
   /** Set the scale: the line drawn, then its length typed in `unit`. */

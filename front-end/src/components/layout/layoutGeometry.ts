@@ -2089,3 +2089,69 @@ export function snapPoint(
   const to = corner ?? onEdge;
   return to ? pointOf(to) : point;
 }
+
+// ── An area's outline ────────────────────────────────────────────────────────
+
+/** Which way c lies of the line from a to b: over 0 to its right on screen, under 0 to its left,
+ *  0 on it. */
+const sideOf = (a: PointMm, b: PointMm, c: PointMm) =>
+  (b.xMm - a.xMm) * (c.yMm - a.yMm) - (b.yMm - a.yMm) * (c.xMm - a.xMm);
+
+/** Whether c, on the line through a and b, lies between them, ends included. */
+const within = (a: PointMm, b: PointMm, c: PointMm) =>
+  Math.min(a.xMm, b.xMm) <= c.xMm &&
+  c.xMm <= Math.max(a.xMm, b.xMm) &&
+  Math.min(a.yMm, b.yMm) <= c.yMm &&
+  c.yMm <= Math.max(a.yMm, b.yMm);
+
+/** Whether two sides meet anywhere, an end of one on the other included. */
+function sidesMeet(a: PointMm, b: PointMm, c: PointMm, d: PointMm): boolean {
+  const c1 = sideOf(a, b, c);
+  const d1 = sideOf(a, b, d);
+  const a2 = sideOf(c, d, a);
+  const b2 = sideOf(c, d, b);
+  if (((c1 > 0 && d1 < 0) || (c1 < 0 && d1 > 0)) && ((a2 > 0 && b2 < 0) || (a2 < 0 && b2 > 0))) {
+    return true;
+  }
+  return (
+    (c1 === 0 && within(a, b, c)) ||
+    (d1 === 0 && within(a, b, d)) ||
+    (a2 === 0 && within(c, d, a)) ||
+    (b2 === 0 && within(c, d, b))
+  );
+}
+
+/**
+ * Whether corners, joined in order and the last to the first, draw a shape an area can be: three
+ * corners or more, enclosing some floor, no side crossing or touching another but its two
+ * neighbours at the corner they share, and no side running back along the one before it. Fill an
+ * area closes no other shape; the server refuses one too (`floorplan_limits.py`).
+ */
+export function polygonIsSimple(points: readonly PointMm[]): boolean {
+  const count = points.length;
+  if (count < 3) return false;
+  let twiceArea = 0;
+  for (let i = 0; i < count; i += 1) {
+    const a = points[i];
+    const b = points[(i + 1) % count];
+    if (a.xMm === b.xMm && a.yMm === b.yMm) return false;
+    twiceArea += a.xMm * b.yMm - b.xMm * a.yMm;
+    // The next side runs back along this one.
+    const c = points[(i + 2) % count];
+    if (
+      sideOf(a, b, c) === 0 &&
+      (a.xMm - b.xMm) * (c.xMm - b.xMm) + (a.yMm - b.yMm) * (c.yMm - b.yMm) > 0
+    ) {
+      return false;
+    }
+  }
+  if (twiceArea === 0) return false;
+  for (let i = 0; i < count; i += 1) {
+    for (let j = i + 2; j < count; j += 1) {
+      // The last side and the first are neighbours too.
+      if (i === 0 && j === count - 1) continue;
+      if (sidesMeet(points[i], points[i + 1], points[j], points[(j + 1) % count])) return false;
+    }
+  }
+  return true;
+}

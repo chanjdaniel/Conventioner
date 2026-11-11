@@ -7,7 +7,8 @@ import {
   BACKEND_URL,
   APP_API,
 } from './fixtures';
-import { ensureTestOrg, ensureTestOrgs, loginViaApi } from './helpers/seeds';
+import { ensureTestOrg, ensureTestOrgs, loginViaApi, seedLayout } from './helpers/seeds';
+import { LayoutPage } from './pages/LayoutPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { MarketsPage } from './pages/MarketsPage';
@@ -508,5 +509,104 @@ test.describe('A dialog opened from a dialog can be used', () => {
 
     await page.keyboard.press('Escape');
     await expect(orgs.manageWindow).toBeHidden({ timeout: 5000 });
+  });
+});
+
+test.describe("Fill an area's dialog is the dialog idiom", () => {
+  /** Upper Hall, empty, with Fill an area on and a box dragged over the floor: the dialog open. */
+  async function openTheDialog(
+    page: import('@playwright/test').Page,
+    request: import('@playwright/test').APIRequestContext,
+  ): Promise<{ layout: LayoutPage; marketId: string }> {
+    const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      metresAcross: 30,
+    });
+    const layout = new LayoutPage(page);
+    await layout.goto(seeded.marketId, seeded.upper.id);
+    await expect(layout.stage).toBeVisible();
+    await layout.toolFill.click();
+    await layout.drag([2000, 3000], [14_000, 9000]);
+    await expect(layout.fillDialog).toBeVisible();
+    return { layout, marketId: seeded.marketId };
+  }
+
+  test('it is a narrow dialog that opens with the focus on its first field', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout } = await openTheDialog(page, request);
+
+    await expect(layout.fillDialog).toHaveAccessibleName('Fill an area');
+    await expect(layout.fillSection).toBeFocused();
+    // 26rem, the narrow step.
+    expect((await layout.fillDialog.boundingBox())!.width).toBeCloseTo(416, 0);
+    // The page behind is out of play while it is open.
+    expect(await layout.toolFill.evaluate((el) => el.closest('[inert]') !== null)).toBe(true);
+  });
+
+  test('Enter in a field fills, through the same guard the button has', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout } = await openTheDialog(page, request);
+
+    // No whole number: the button is disabled, so Enter does nothing, with no key handler.
+    await layout.fillCount.fill('a few');
+    await expect(page.getByTestId('layout-fill-count-error')).toHaveText(
+      'Type a whole number of tables, 1 to 500.',
+    );
+    await expect(layout.fillSubmit).toBeDisabled();
+    await layout.fillCount.press('Enter');
+    await expect(layout.fillDialog).toBeVisible();
+    await expect(layout.tables).toHaveCount(0);
+
+    await layout.fillCount.fill('4');
+    await layout.saved(() => layout.fillCount.press('Enter'));
+    await expect(layout.fillDialog).toBeHidden();
+    await expect(layout.status).toHaveText('Placed 4.');
+    await expect(layout.tables).toHaveCount(4);
+  });
+
+  test('Cancel, the close control, Escape and the backdrop each close it and fill nothing', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout } = await openTheDialog(page, request);
+    const reopen = async () => {
+      await layout.drag([2000, 3000], [14_000, 9000]);
+      await expect(layout.fillDialog).toBeVisible();
+    };
+
+    await layout.fillCancel.click();
+    await expect(layout.fillDialog).toBeHidden();
+    await reopen();
+    await page.getByTestId('layout-fill-close-button').click();
+    await expect(layout.fillDialog).toBeHidden();
+    await reopen();
+    await page.keyboard.press('Escape');
+    await expect(layout.fillDialog).toBeHidden();
+    await reopen();
+    // A corner: the dialog is centred in the scrim, so a default click lands on the dialog.
+    await page.getByTestId('layout-fill-background').click({ position: { x: 8, y: 8 } });
+    await expect(layout.fillDialog).toBeHidden();
+
+    // A box given up is gone, and nothing was placed.
+    await expect(layout.fillPreview).toHaveCount(0);
+    await expect(layout.tables).toHaveCount(0);
+    await expect(layout.undo).toBeDisabled();
+  });
+
+  test('opened from "Fill what is in view", closing gives the focus back to that button', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout } = await openTheDialog(page, request);
+    await layout.fillCancel.click();
+
+    await layout.fillView.click();
+    await expect(layout.fillDialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(layout.fillDialog).toBeHidden();
+    await expect(layout.fillView).toBeFocused();
   });
 });

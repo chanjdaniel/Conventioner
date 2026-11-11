@@ -950,6 +950,212 @@ class TestAPlacementRequestIsBounded:
             assert 5000 - 1 <= table["y_mm"] - half_h and table["y_mm"] + half_h <= 15000 + 1
 
 
+# ── Fill an area: a box or a drawn shape of a layout (T257) ──────────────────
+
+AREA_SHAPE = "An area is drawn with 3 to 50 corners that do not cross."
+ONE_AREA = "An area is a box or a drawn shape, not both."
+AREA_TOO_LARGE = "An area must be at most 500 m on each side."
+TOO_MANY_STANDING = "A floorplan holds at most 1,000 tables."
+NO_ROOM_SIZE = (
+    "The floor plan's size is needed to place tables: calibrate it first, or draw its walls."
+)
+
+
+def _standing(n):
+    """A table already placed, by its four corners."""
+    return [[n, 0], [n + 1800, 0], [n + 1800, 900], [n, 900]]
+
+
+def _ring(corners):
+    """A drawn shape of that many corners that do not cross: points round a circle."""
+    import math
+    return [
+        [10000 + 5000 * math.cos(2 * math.pi * i / corners),
+         10000 + 5000 * math.sin(2 * math.pi * i / corners)]
+        for i in range(corners)
+    ]
+
+
+def _fill_body(**changes):
+    body = _placement_body(
+        room_mm={"width_mm": 30000, "height_mm": 20000},
+        aisle_config={"wallBufferMm": 0, "tableSpacingMm": 1200},
+        area_mm=[1000, 1000, 10000, 5000],
+    )
+    body.update(changes)
+    return {key: value for key, value in body.items() if value is not None}
+
+
+class TestFillingAnArea:
+    """Fill an area sends the same request with an area, a box or a drawn shape, the tables
+    already placed and the way the rows run; each is held to its bound before anything is placed."""
+
+    def test_a_box_the_standing_tables_and_the_direction_reach_the_placement(
+        self, sign_in, market, placements,
+    ):
+        body = _fill_body(existing_mm=[_standing(0), _standing(3000)], direction="down")
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 200
+        [asked] = placements
+        assert list(asked["area_mm"]) == [1000, 1000, 10000, 5000]
+        assert asked["area_polygon_mm"] is None
+        assert [[list(corner) for corner in table] for table in asked["existing_mm"]] == [
+            _standing(0), _standing(3000),
+        ]
+        assert asked["direction"] == "down"
+
+    def test_a_drawn_shape_reaches_the_placement_and_rows_run_across_unless_asked(
+        self, sign_in, market, placements,
+    ):
+        corners = [[0, 0], [12000, 0], [12000, 4000], [4000, 4000], [4000, 12000], [0, 12000]]
+
+        response = _place_body(
+            sign_in("owner@example.com"), _fill_body(area_mm=None, area_polygon_mm=corners),
+        )
+
+        assert response.status_code == 200
+        [asked] = placements
+        assert asked["area_mm"] is None
+        assert [list(corner) for corner in asked["area_polygon_mm"]] == corners
+        assert asked["direction"] == "across"
+        assert list(asked["existing_mm"]) == []
+
+    @pytest.mark.parametrize("changes, sentence", [
+        ({"area_mm": None, "area_polygon_mm": [[0, 0], [5000, 0]]}, AREA_SHAPE),
+        ({"area_mm": None, "area_polygon_mm": _ring(51)}, AREA_SHAPE),
+        # A bow tie: its second and fourth sides cross.
+        ({"area_mm": None, "area_polygon_mm": [[0, 0], [8000, 0], [0, 6000], [8000, 6000]]},
+         AREA_SHAPE),
+        # Three corners in a line enclose nothing.
+        ({"area_mm": None, "area_polygon_mm": [[0, 0], [4000, 0], [8000, 0]]}, AREA_SHAPE),
+        ({"area_polygon_mm": _ring(4)}, ONE_AREA),
+        ({"area_mm": [0, 0, 500001, 5000]}, AREA_TOO_LARGE),
+        ({"area_mm": [0, 0, 5000, 500001]}, AREA_TOO_LARGE),
+        ({"area_mm": None,
+          "area_polygon_mm": [[0, 0], [500001, 0], [500001, 5000], [0, 5000]]}, AREA_TOO_LARGE),
+        ({"existing_mm": [_standing(n) for n in range(1001)]}, TOO_MANY_STANDING),
+        ({"area_mm": [0, 0, 10_000_001, 5000]}, UNBOUNDED),
+        ({"area_mm": None, "area_polygon_mm": [[0, 0], [5000, 0], [5000, -10_000_001]]}, UNBOUNDED),
+        ({"existing_mm": [[[0, 0], [1800, 0], [1800, 900], [0, 10_000_001]]]}, UNBOUNDED),
+        ({"room_mm": None}, NO_ROOM_SIZE),
+        ({"room_mm": None, "walls": _square_walls(9000)}, NO_ROOM_SIZE),
+    ])
+    def test_an_area_one_over_a_bound_is_refused_with_its_sentence(
+        self, sign_in, market, placements, changes, sentence,
+    ):
+        response = _place_body(sign_in("owner@example.com"), _fill_body(**changes))
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": sentence}
+        assert placements == []
+
+    @pytest.mark.parametrize("changes", [
+        {"area_mm": None, "area_polygon_mm": [[0, 0], [5000, 0], [0, 5000]]},
+        {"area_mm": None, "area_polygon_mm": _ring(50)},
+        {"area_mm": [0, 0, 500000, 500000]},
+        {"existing_mm": [_standing(n) for n in range(1000)]},
+    ])
+    def test_an_area_at_every_bound_places(self, sign_in, market, placements, changes):
+        response = _place_body(sign_in("owner@example.com"), _fill_body(**changes))
+
+        assert response.status_code == 200
+        assert len(placements) == 1
+
+    @pytest.mark.parametrize("changes, named", [
+        ({"area_mm": [0, 0, 5000]}, "area_mm.3: Field required"),
+        ({"area_mm": [0, 0, 0, 5000]}, "area_mm.2: Input should be greater than 0"),
+        ({"area_mm": [0, 0, 5000, -1]}, "area_mm.3: Input should be greater than 0"),
+        ({"area_mm": "the hall"}, "area_mm: "),
+        ({"area_mm": None, "area_polygon_mm": [[0, 0], [5000], [0, 5000]]},
+         "area_polygon_mm.1.1: Field required"),
+        ({"existing_mm": [[[0, 0], [1800, 0], [1800, 900]]]}, "existing_mm.0.3: Field required"),
+        ({"existing_mm": [[[0, 0], [1800, 0], [1800, 900], [0, "low"]]]}, "existing_mm.0.3.1: "),
+        ({"direction": "diagonal"}, "direction: Input should be 'across' or 'down'"),
+    ])
+    def test_a_malformed_area_is_refused_by_name(
+        self, sign_in, market, placements, changes, named,
+    ):
+        response = _place_body(sign_in("owner@example.com"), _fill_body(**changes))
+
+        assert response.status_code == 400
+        assert response.get_json()["error"].startswith(f"Invalid placement request: {named}")
+        assert placements == []
+
+    @pytest.mark.parametrize("token", ["NaN", "Infinity"])
+    @pytest.mark.parametrize("changes, named", [
+        ({"area_mm": [0, "@@", 5000, 5000]}, "area_mm.1"),
+        ({"area_mm": None, "area_polygon_mm": [[0, 0], [5000, "@@"], [0, 5000]]},
+         "area_polygon_mm.1.1"),
+        ({"existing_mm": [[[0, 0], [1800, 0], ["@@", 900], [0, 900]]]}, "existing_mm.0.2.0"),
+    ])
+    def test_a_number_that_is_not_finite_in_an_area_is_refused_by_name(
+        self, sign_in, market, placements, token, changes, named,
+    ):
+        text = json.dumps(_fill_body(**changes)).replace('"@@"', token)
+
+        response = _place_raw(sign_in("owner@example.com"), text)
+
+        assert response.status_code == 400
+        assert response.get_json()["error"].startswith(f"Invalid placement request: {named}: ")
+        assert placements == []
+
+    # The real service from here.
+
+    @pytest.mark.parametrize("solver", ["installed", "absent"])
+    def test_an_l_is_filled_inside_the_l_in_rows_with_centres_in_the_answer(
+        self, sign_in, market, monkeypatch, solver,
+    ):
+        if solver == "absent":
+            monkeypatch.setitem(sys.modules, "pyckingsolver", None)
+        corners = [[0, 0], [12000, 0], [12000, 4000], [4000, 4000], [4000, 12000], [0, 12000]]
+        body = _fill_body(area_mm=None, area_polygon_mm=corners, counts={"type_6ft": 500})
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        assert response.status_code == 200
+        answer = response.get_json()
+        assert answer["timed_out"] is False
+        placed = answer["placed_tables"]
+        # Tables 1.8 m by 0.9 m, rows 2.1 m apart: two rows of six across the L, four of two down it.
+        assert len(placed) == 2 * 6 + 4 * 2
+        assert placed[0] == {
+            "x_mm": 900.0, "y_mm": 450.0, "rotation": 0.0, "width_mm": 1800, "height_mm": 900,
+            "table_type_id": "type_6ft",
+        }
+        for table in placed:
+            in_the_top = table["y_mm"] + 450 <= 4000
+            assert table["x_mm"] + 900 <= (12000 if in_the_top else 4000)
+
+    def test_a_fill_that_ran_out_of_time_says_so(self, sign_in, market, monkeypatch):
+        monkeypatch.setattr(Placement, "GRID_TIME_LIMIT_S", 0.0)
+
+        response = _place_body(sign_in("owner@example.com"), _fill_body(counts={"type_6ft": 30}))
+
+        assert response.status_code == 200
+        assert response.get_json() == {"placed_tables": [], "timed_out": True}
+
+    def test_a_table_already_placed_and_a_zone_are_left_clear(self, sign_in, market):
+        from shapely.geometry import Polygon, box
+        standing = [[4000, 1000], [5800, 1000], [5800, 1900], [4000, 1900]]
+        zone = [[7000, 0], [8000, 0], [8000, 20000], [7000, 20000]]
+        body = _fill_body(
+            area_mm=[0, 0, 12000, 6000], counts={"type_6ft": 500}, existing_mm=[standing],
+            obstacles=[{"polygon": zone, "type": "no_table_zone"}],
+        )
+
+        response = _place_body(sign_in("owner@example.com"), body)
+
+        placed = response.get_json()["placed_tables"]
+        assert placed
+        for table in placed:
+            footprint = box(table["x_mm"] - 900, table["y_mm"] - 450,
+                            table["x_mm"] + 900, table["y_mm"] + 450)
+            assert footprint.distance(Polygon(standing)) >= 1200 - 0.01
+            assert footprint.intersection(Polygon(zone)).area < 0.01
+
+
 # ── Every floorplan route needs a sign-in ────────────────────────────────────
 
 FLOORPLAN_BLUEPRINTS = {

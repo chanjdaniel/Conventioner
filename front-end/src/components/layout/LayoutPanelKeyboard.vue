@@ -45,6 +45,16 @@ const GROUPS: readonly { title: string; keys: readonly (readonly [string[], stri
     ],
   },
   {
+    title: 'With Fill an area on',
+    keys: [
+      [['Arrow keys'], 'Move the crosshair 10 cm, or 1 m with Shift'],
+      [['Enter'], 'Lay a corner of the area at the crosshair'],
+      [['Backspace'], 'Take the last corner back'],
+      [['Ctrl+Enter'], 'Close the area, of three corners or more, and ask how to fill it'],
+      [['Escape'], 'Drop the area'],
+    ],
+  },
+  {
     title: 'Adding, undo and the view',
     keys: [
       [['Enter'], 'With Add table on, place a table at the middle of the view'],

@@ -167,6 +167,16 @@ export function saidOpened(count: number): string {
 /** Said when a path of fewer than three points is asked to close. */
 export const SHAPE_NEEDS_THREE = 'A shape takes three points or more.';
 
+/** A corner of an area laid by the crosshair: "Corner 3 at 12.4 m, 6.1 m." */
+export function saidCorner(number: number, at: PointMm): string {
+  return `Corner ${number} at ${placeInMetres(at)}.`;
+}
+
+/** "Corner 3 taken back."; the first, "Corner 1 taken back. No corners left." */
+export function saidCornerTaken(number: number): string {
+  return `Corner ${number} taken back.${number === 1 ? ' No corners left.' : ''}`;
+}
+
 /** Said when a path is dropped unplaced. */
 export const ROW_DROPPED = 'Row dropped. No table was added.';
 /** Said when a path is placed that no table fits along. */

@@ -27,6 +27,14 @@
  * opened again by Backspace. The strip's Rows and Aisle place several rows in the one gesture.
  * Backspace is the path's key alone while the tool is on, never the selection's.
  *
+ * Fill an area (`layoutFill.ts`): a drag draws a box; clicks instead lay the corners of a shape,
+ * closed by a click on its first corner, a double-click or Enter, and never while its sides cross.
+ * The area closed, a dialog (`LayoutFillDialog.vue`) asks the section, the type, how many, which
+ * way the rows run and the aisle, and Fill asks the placement (`fill`) and adds its answer as one
+ * change, saying how many were placed (`status`). "Fill what is in view", in the options strip and
+ * the dialog, fills the part of the hall the map shows, with nothing drawn. Backspace or Ctrl+Z
+ * takes the last corner back and Escape drops the shape.
+ *
  * The view: the wheel or two fingers pan, Ctrl and the wheel or a pinch zoom about the pointer,
  * 10% to 800%; Space and a drag, or the middle button, pan; the buttons step the zoom and Fit shows
  * the whole floorplan. Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y undo and redo from anywhere on the page but
@@ -43,11 +51,15 @@
  * table on, Enter places a table at the middle of the view, beside what stands there. No key is
  * taken from a field or a select. With Row of tables on, the arrow keys move a crosshair instead, 10
  * cm or 1 m with Shift, Enter lays a point at it, Backspace takes one back, F swaps the side, Ctrl
- * and Enter places the row and Escape drops it. Each move, turn, placement and removal is said (`announce`) for
- * the page's live region.
+ * and Enter places the row and Escape drops it. With Fill an area on, the crosshair lays a shape's
+ * corners the same way, and Ctrl and Enter closes it. Each move, turn, placement and removal is
+ * said (`announce`) for the page's live region.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue';
 import type { FloorplanTable, SectionObject, TableTypeObject } from '@/assets/types/datatypes';
+import { getApiErrorMessage } from '@/utils/api';
+import LayoutFillDialog from './LayoutFillDialog.vue';
+import LayoutFillPreview from './LayoutFillPreview.vue';
 import LayoutMap, { type MapView } from './LayoutMap.vue';
 import LayoutRowPreview from './LayoutRowPreview.vue';
 import {
@@ -65,6 +77,8 @@ import {
   saidPutBack,
   saidRemoved,
   saidClosed,
+  saidCorner,
+  saidCornerTaken,
   saidOpened,
   saidRowAdded,
   saidSide,
@@ -97,6 +111,19 @@ import {
   type Guide,
   type PointMm,
 } from './layoutGeometry';
+import {
+  AREA_DROPPED,
+  FILL_FAILED,
+  LAYOUT_IS_FULL,
+  NOTHING_FITS,
+  fillRequest,
+  saidFilled,
+  useFillTool,
+  type FillAnswer,
+  type FillArea,
+  type FillChoice,
+  type FillRequest,
+} from './layoutFill';
 import { rowChoices, useRowTool } from './layoutRow';
 import { centreOf, selectionBounds, turnSelection } from './layoutSelection';
 import type { LayoutEditor } from './useLayoutEditor';
@@ -109,15 +136,24 @@ const props = withDefaults(
     sections: readonly SectionObject[];
     tableTypes: readonly TableTypeObject[];
     imageUrl?: string;
+    /** Ask the placement to fill an area of this market's layout (`layoutFill.ts`). */
+    fill?: (request: FillRequest) => Promise<FillAnswer>;
   }>(),
-  { imageUrl: '' },
+  { imageUrl: '', fill: undefined },
 );
 
 const emit = defineEmits<{
   /** What a change did, in words for the page's live region. */
   announce: [words: string];
+  /** What Fill an area did, or why it did not, for the panel's status line; '' clears it. */
+  status: [words: string];
 }>();
 const say = (words: string) => emit('announce', words);
+/** Say something on the panel's status line, and to a screen reader. */
+function tell(words: string) {
+  emit('status', words);
+  say(words);
+}
 
 const layout = computed(() => props.editor.layout.value!);
 const selection = computed(() => props.editor.selection.value);
@@ -138,7 +174,7 @@ const tableOf = (id: string | null) =>
 
 // ── The tools ────────────────────────────────────────────────────────────────
 
-type Tool = 'select' | 'add' | 'row';
+type Tool = 'select' | 'add' | 'row' | 'fill';
 const tool = ref<Tool>('select');
 
 /** The location's sections as the map draws them, by which a table is named when it is said. */
@@ -159,6 +195,14 @@ watch(
   },
   { immediate: true },
 );
+
+/** The section as the dialog's select holds it: '' is "No section". */
+const fillSectionId = computed({
+  get: () => addSectionId.value ?? '',
+  set: (id: string) => {
+    addSectionId.value = id;
+  },
+});
 
 /** Whether the keys are on the map: the focus is in it, and came by keyboard. */
 const keysOnMap = ref(false);
@@ -181,9 +225,29 @@ const crosshair = computed(() =>
   tool.value === 'row' && keysOnMap.value ? row.crosshair.value : null,
 );
 
-// A path belongs to the tool that drew it: another tool drops it.
+/** The Fill an area tool: the area being drawn. */
+const fillTool = useFillTool({
+  editor: props.editor,
+  tableTypes: () => props.tableTypes,
+  sectionId: () => addSectionId.value || null,
+  tableTypeId: () => addTypeId.value || (props.tableTypes[0]?.id ?? ''),
+});
+const fillCrosshair = computed(() =>
+  tool.value === 'fill' && keysOnMap.value ? fillTool.crosshair.value : null,
+);
+/** The tool whose points the crosshair lays, while it is on. */
+const pointTool = computed(() =>
+  tool.value === 'row' ? row : tool.value === 'fill' ? fillTool : null,
+);
+
+// A path or an area belongs to the tool that drew it: another tool drops it.
 watch(tool, () => {
   row.drop();
+  fillTool.drop();
+});
+// A corner laid, moved or taken back answers what was said of the shape before it.
+watch(fillTool.points, (points) => {
+  if (points.length) emit('status', '');
 });
 
 /** The hint under the map: what the keys do while they are on it, else what the pointer does. */
@@ -203,6 +267,12 @@ const hint = computed(() => {
         'the row and Escape drops it.'
       );
     }
+    if (tool.value === 'fill') {
+      return (
+        'The arrow keys move the crosshair 10 cm, or 1 m with Shift. Enter lays a corner of the ' +
+        'area, Backspace takes one back, Ctrl and Enter closes it to fill it and Escape drops it.'
+      );
+    }
     return tool.value === 'add'
       ? 'Enter places a table at the middle of the view. The arrow keys move between tables.'
       : 'The arrow keys move between tables. Enter picks a table up to move it, ' +
@@ -212,6 +282,12 @@ const hint = computed(() => {
     return (
       'Click along a wall. A sharp turn makes a corner. Double-click or press Enter to place ' +
       'the row, click the first point to close a shape, or drag for a straight row.'
+    );
+  }
+  if (tool.value === 'fill') {
+    return (
+      'Drag a box over the floor to fill. For another shape, click its corners, then click the ' +
+      'first corner, double-click or press Enter to close it.'
     );
   }
   return tool.value === 'add'
@@ -228,10 +304,14 @@ const mapKeys = computed(() =>
     ? 'The arrow keys move a crosshair. Enter lays a point of the row at it, Backspace takes one ' +
       'back, C closes the path into a shape, F swaps the side the tables stand on, Control and ' +
       'Enter places the row and Escape drops it.'
-    : tool.value === 'add'
-      ? 'The arrow keys move between tables. Enter places a table at the middle of the view.'
-      : 'The arrow keys move between tables. Enter picks a table up; then the arrow keys move it, ' +
-        'R turns it, Enter drops it and Escape puts it back.',
+    : tool.value === 'fill'
+      ? 'The arrow keys move a crosshair. Enter lays a corner of the area to fill at it, ' +
+        'Backspace takes one back, Control and Enter closes the area and asks how to fill it, ' +
+        'and Escape drops it.'
+      : tool.value === 'add'
+        ? 'The arrow keys move between tables. Enter places a table at the middle of the view.'
+        : 'The arrow keys move between tables. Enter picks a table up; then the arrow keys move it, ' +
+          'R turns it, Enter drops it and Escape puts it back.',
 );
 
 // ── The stage and its camera ─────────────────────────────────────────────────
@@ -372,6 +452,15 @@ type Gesture =
       begun: boolean;
     }
   | {
+      kind: 'fill';
+      from: { x: number; y: number };
+      /** Where the press was, on the floorplan. */
+      fromMm: PointMm;
+      /** The corner of the shape that was pressed, which a drag moves. */
+      point: number | null;
+      begun: boolean;
+    }
+  | {
       kind: 'floor';
       from: { x: number; y: number };
       fromMm: PointMm;
@@ -492,6 +581,99 @@ function placeRow() {
   show(added);
 }
 
+// ── Fill an area ─────────────────────────────────────────────────────────────
+
+/** Where a corner of an area goes for a pointer: where it is, on the floorplan. */
+const fillPointAt = (event: PointerEvent) => clampToHall(toMm(event), hall.value);
+
+/** The pointer over the map with Fill an area on: the shape is shown through where it is, and
+ *  closed where it rests on the first corner, which a click there closes. */
+function hoverFill(event: PointerEvent) {
+  // While the keys have the shape it is the corners laid, wherever the pointer passes.
+  if (keysOnMap.value) return;
+  const points = fillTool.points.value;
+  const on = fillTool.pointNear(toMm(event), ROW_POINT_PX / camera.value!.pxPerMm);
+  if (on === 0 && fillTool.closable.value) {
+    fillTool.hoverAt(null);
+    fillTool.hoverClose(true);
+    return;
+  }
+  fillTool.hoverAt(points.length > 1 && on === points.length - 1 ? null : fillPointAt(event));
+}
+
+/** Whether the dialog is open, and whether it fills what is in view in place of an area drawn. */
+const fillAsked = ref(false);
+const fillInView = ref(false);
+const fillBusy = ref(false);
+const fillError = ref('');
+
+/** The part of the hall the map shows, as an area. */
+function viewArea(): FillArea | null {
+  const shown = view.value;
+  if (!shown) return null;
+  const box = {
+    left: Math.max(shown.xMm, 0),
+    top: Math.max(shown.yMm, 0),
+    right: Math.min(shown.xMm + shown.widthMm, hall.value?.widthMm ?? Infinity),
+    bottom: Math.min(shown.yMm + shown.heightMm, hall.value?.heightMm ?? Infinity),
+  };
+  return box.right > box.left && box.bottom > box.top ? { kind: 'box', box } : null;
+}
+
+/** The area the dialog would fill: what is in view where that is ticked, or nothing is drawn. */
+const fillArea = computed(() => {
+  if (!fillAsked.value) return null;
+  const drawn = fillTool.area.value;
+  return fillInView.value || !drawn ? viewArea() : drawn;
+});
+
+function openFill(inView: boolean) {
+  fillInView.value = inView;
+  fillError.value = '';
+  fillAsked.value = true;
+}
+
+/** Close the shape being drawn and ask how to fill it; where it cannot close, say why. */
+function closeFill() {
+  const refused = fillTool.close();
+  if (refused) tell(refused);
+  else openFill(false);
+}
+
+/** The dialog given up: a drawn shape is its corners again, to be moved. */
+function closeFillDialog() {
+  fillAsked.value = false;
+  fillTool.cancel();
+}
+
+/** Fill the area as the dialog chose: ask the placement, add what it placed as one change, and
+ *  say how many. A refusal is written into the dialog, which stays open. */
+async function runFill(choice: FillChoice) {
+  const area = fillArea.value;
+  const typeId = addTypeId.value || (props.tableTypes[0]?.id ?? '');
+  if (!area || !props.fill || fillBusy.value) return;
+  const request = fillRequest(layout.value, props.tableTypes, typeId, area, choice);
+  if (!request.counts[typeId]) {
+    fillError.value = LAYOUT_IS_FULL;
+    return;
+  }
+  const asked = layout.value.id;
+  fillBusy.value = true;
+  fillError.value = '';
+  try {
+    const answer = await props.fill(request);
+    // Another layout meanwhile: the answer is for a hall no longer shown.
+    if (layout.value.id !== asked) return;
+    const added = fillTool.add(answer);
+    fillAsked.value = false;
+    tell(saidFilled(added.length, choice.count, answer.timed_out, request.counts[typeId]));
+  } catch (err: unknown) {
+    fillError.value = getApiErrorMessage(err, FILL_FAILED);
+  } finally {
+    fillBusy.value = false;
+  }
+}
+
 function pinchOf(): { distance: number; middle: { xPx: number; yPx: number } } | null {
   const [a, b] = [...touches.values()];
   if (!a || !b) return null;
@@ -517,6 +699,10 @@ function onPointerDown(event: PointerEvent) {
         row.dragTo(null);
         row.hoverAt(null);
       }
+      if (gesture?.kind === 'fill') {
+        fillTool.dragTo(null);
+        fillTool.hoverAt(null);
+      }
       guides.value = [];
       selectBox.value = null;
       gesture = { kind: 'pinch', ...pinch, camera: cam };
@@ -526,8 +712,9 @@ function onPointerDown(event: PointerEvent) {
     }
   }
   if (gesture) return;
-  // A press on the map with Row of tables on gives the path to the pointer: the crosshair goes.
-  if (tool.value === 'row') keysOnMap.value = false;
+  // A press on the map with Row of tables or Fill an area on gives the path to the pointer: the
+  // crosshair goes.
+  if (pointTool.value) keysOnMap.value = false;
 
   if (event.button === 1 || (event.button === 0 && spaceHeld.value)) {
     event.preventDefault();
@@ -556,6 +743,14 @@ function onPointerDown(event: PointerEvent) {
       from,
       fromMm: rowPointAt(event),
       point: row.pointNear(toMm(event), ROW_POINT_PX / cam.pxPerMm),
+      begun: false,
+    };
+  } else if (tool.value === 'fill') {
+    gesture = {
+      kind: 'fill',
+      from,
+      fromMm: fillPointAt(event),
+      point: fillTool.pointNear(toMm(event), ROW_POINT_PX / cam.pxPerMm),
       begun: false,
     };
   } else {
@@ -602,6 +797,7 @@ function onPointerMove(event: PointerEvent) {
   if (!cam) return;
   if (!gesture) {
     if (tool.value === 'row' && event.pointerType !== 'touch') hoverRow(event);
+    if (tool.value === 'fill' && event.pointerType !== 'touch') hoverFill(event);
     return;
   }
   if (gesture.kind !== 'pinch') {
@@ -609,8 +805,8 @@ function onPointerMove(event: PointerEvent) {
     if (event.pointerId !== gesturePointer) return;
     // A mouse moving with no button down lost its release, to a menu say: the gesture ends here.
     if (event.pointerType === 'mouse' && event.buttons === 0) {
-      // Of a row, nothing is placed or laid where the pointer happens to come back.
-      endGesture(event, gesture.kind === 'row');
+      // Of a row or an area, nothing is placed or laid where the pointer happens to come back.
+      endGesture(event, gesture.kind === 'row' || gesture.kind === 'fill');
       return;
     }
   }
@@ -667,6 +863,15 @@ function onPointerMove(event: PointerEvent) {
     if (gesture.point !== null) row.movePoint(gesture.point, to);
     else if (!row.points.value.length) row.dragTo([gesture.fromMm, to]);
     else row.hoverAt(to);
+  } else if (gesture.kind === 'fill') {
+    if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
+    gesture.begun = true;
+    const to = fillPointAt(event);
+    // A drag moves the corner pressed; with no corner yet it draws a box; else it carries the
+    // next corner, laid where it is let go.
+    if (gesture.point !== null) fillTool.movePoint(gesture.point, to);
+    else if (!fillTool.points.value.length) fillTool.dragTo([gesture.fromMm, to]);
+    else fillTool.hoverAt(to);
   } else if (gesture.kind === 'floor') {
     if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
     gesture.begun = true;
@@ -777,6 +982,31 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
     }
     return;
   }
+  if (done.kind === 'fill') {
+    if (cancelled) {
+      fillTool.dragTo(null);
+      return;
+    }
+    const points = fillTool.points.value;
+    if (done.point !== null) {
+      if (done.begun) return;
+      // A press that was no drag on the first corner of three or more closes the shape, and so
+      // does one on the last: so a double-click does, its first click laying the corner its
+      // second is on.
+      const last = points.length - 1;
+      if ((done.point === 0 && points.length >= 3) || (last > 0 && done.point === last)) {
+        fillTool.hoverAt(null);
+        closeFill();
+      }
+    } else if (done.begun && !points.length) {
+      fillTool.dragTo([done.fromMm, fillPointAt(event)]);
+      if (fillTool.closeBox()) openFill(false);
+      else tell(NOTHING_FITS);
+    } else {
+      fillTool.addPoint(done.begun ? fillPointAt(event) : done.fromMm);
+    }
+    return;
+  }
   if (cancelled) return;
   if (
     done.kind === 'add' &&
@@ -811,6 +1041,11 @@ function abandon() {
   if (done?.kind === 'row') {
     // A straight drag is dropped; a point that was being moved stays where it was let go.
     row.dragTo(null);
+    return;
+  }
+  if (done?.kind === 'fill') {
+    // A box in hand is dropped; a corner that was being moved stays where it was let go.
+    fillTool.dragTo(null);
     return;
   }
   if (!done || !('begun' in done) || !done.begun) return;
@@ -903,6 +1138,10 @@ function onWindowKeydown(event: KeyboardEvent) {
     event.preventDefault();
     return;
   }
+  if (tool.value === 'fill' && fillKey(event, false)) {
+    event.preventDefault();
+    return;
+  }
   if (event.key === 'Escape' && gesture) {
     event.preventDefault();
     abandon();
@@ -991,22 +1230,7 @@ function rowKey(event: KeyboardEvent, onStage: boolean): boolean {
     }
     return false;
   }
-  const nudge = NUDGES[event.key];
-  if (nudge && onStage) {
-    const step = event.shiftKey ? LONG_NUDGE_MM : NUDGE_MM;
-    const from = row.crosshair.value ?? crosshairStart();
-    const to = clampToHall(
-      { xMm: from.xMm + nudge[0] * step, yMm: from.yMm + nudge[1] * step },
-      hall.value,
-    );
-    keysOnMap.value = true;
-    row.moveCrosshair(to);
-    showPlace(to);
-    // A key held down says where the crosshair is once, when it is let go (`onStageKeyup`).
-    if (event.repeat) unsaidMove = true;
-    else say(to.xMm === from.xMm && to.yMm === from.yMm ? AT_THE_EDGE : saidCrosshair(to));
-    return true;
-  }
+  if (onStage && crosshairKey(event, row)) return true;
   if (event.shiftKey) return false;
   if (key === 'enter' && ours) {
     if (event.repeat || gesture) return true;
@@ -1044,6 +1268,90 @@ function rowKey(event: KeyboardEvent, onStage: boolean): boolean {
     return true;
   }
   return false;
+}
+
+/** An arrow key on the map with a tool on that takes its points from the crosshair: it moves the
+ *  crosshair 10 cm, or 1 m with Shift, no further than the floorplan; true when it was one. */
+function crosshairKey(
+  event: KeyboardEvent,
+  points: { crosshair: { readonly value: PointMm | null }; moveCrosshair(to: PointMm): void },
+): boolean {
+  const nudge = NUDGES[event.key];
+  if (!nudge) return false;
+  const step = event.shiftKey ? LONG_NUDGE_MM : NUDGE_MM;
+  const from = points.crosshair.value ?? crosshairStart();
+  const to = clampToHall(
+    { xMm: from.xMm + nudge[0] * step, yMm: from.yMm + nudge[1] * step },
+    hall.value,
+  );
+  keysOnMap.value = true;
+  points.moveCrosshair(to);
+  showPlace(to);
+  // A key held down says where the crosshair is once, when it is let go (`onStageKeyup`).
+  if (event.repeat) unsaidMove = true;
+  else say(to.xMm === from.xMm && to.yMm === from.yMm ? AT_THE_EDGE : saidCrosshair(to));
+  return true;
+}
+
+/**
+ * A key with Fill an area on; true when it was the area's. `onStage` is a key heard on the map
+ * itself. There, once the keys are the map's, the arrow keys move the crosshair and Enter lays a
+ * corner at it; for a pointer, Enter closes the shape as it is drawn. Ctrl+Enter closes it either
+ * way, and the dialog asks how to fill it. Backspace, and Ctrl+Z while a shape is pending, take
+ * the last corner back, leaving the layout's own undo alone; Escape drops the shape.
+ */
+function fillKey(event: KeyboardEvent, onStage: boolean): boolean {
+  if (event.altKey) return false;
+  const command = event.ctrlKey || event.metaKey;
+  const key = event.key.toLowerCase();
+  const ours = onStage || mapHasTheKeys();
+  if (command) {
+    if (key === 'z' && !event.shiftKey && fillTool.pending.value) {
+      // Not under a press, whose release reckons with the corners as it found them.
+      if (!gesture) takeFillPoint();
+      return true;
+    }
+    if (key === 'enter' && ours) {
+      if (!event.repeat && !gesture) closeFill();
+      return true;
+    }
+    return false;
+  }
+  if (onStage && crosshairKey(event, fillTool)) return true;
+  if (event.shiftKey) return false;
+  if (key === 'enter' && ours) {
+    if (event.repeat || gesture) return true;
+    if (onStage && keysOnMap.value) {
+      const at = fillTool.crosshair.value ?? crosshairStart();
+      const last = fillTool.points.value.at(-1);
+      fillTool.moveCrosshair(at);
+      // Enter again where a corner was just laid lays no second one there: the corner is said.
+      if (!last || last.xMm !== at.xMm || last.yMm !== at.yMm) fillTool.addPoint(at);
+      say(saidCorner(fillTool.points.value.length, at));
+      return true;
+    }
+    if (!fillTool.pending.value) return false;
+    closeFill();
+    return true;
+  }
+  if (key === 'backspace' && ours) {
+    // The shape's key while this tool is on, even with no corner left to take: never the
+    // selection's, which the tables just placed are.
+    if (!gesture && fillTool.pending.value) takeFillPoint();
+    return true;
+  }
+  if (key === 'escape' && !gesture && fillTool.pending.value) {
+    fillTool.drop();
+    tell(AREA_DROPPED);
+    return true;
+  }
+  return false;
+}
+
+/** Take the last corner of the area back, and say so. */
+function takeFillPoint() {
+  const number = fillTool.points.value.length;
+  if (fillTool.takePoint()) say(saidCornerTaken(number));
 }
 
 /** Where the crosshair begins: the middle of the view, on the 10 cm steps the keys move it by. */
@@ -1087,10 +1395,11 @@ function onWindowKeyup(event: KeyboardEvent) {
   if (event.key === ' ') spaceHeld.value = false;
 }
 
-/** The pointer left the map: a pending row is shown through its points alone. */
+/** The pointer left the map: a pending row or area is shown through its points alone. */
 function onPointerLeave() {
   hovering.value = false;
   row.hoverAt(null);
+  fillTool.hoverAt(null);
 }
 
 /** The window lost the keys with Space down, so its release will not be heard. */
@@ -1122,9 +1431,9 @@ function onStageKeydown(event: KeyboardEvent) {
     carriedKey(event, id);
     return;
   }
-  if (tool.value === 'row') {
-    // The row's keys, before the map hears them; no table is picked up while it is on.
-    if (rowKey(event, true)) event.preventDefault();
+  if (tool.value === 'row' || tool.value === 'fill') {
+    // The tool's keys, before the map hears them; no table is picked up while it is on.
+    if (tool.value === 'row' ? rowKey(event, true) : fillKey(event, true)) event.preventDefault();
     else if (event.key === 'Enter' || (event.key === ' ' && keysOnMap.value)) {
       event.preventDefault();
     }
@@ -1200,8 +1509,9 @@ let unsaidMove = false;
 function onStageKeyup(event: KeyboardEvent) {
   if (!unsaidMove || !NUDGES[event.key]) return;
   unsaidMove = false;
-  if (tool.value === 'row') {
-    if (row.crosshair.value) say(saidCrosshair(row.crosshair.value));
+  if (pointTool.value) {
+    const at = pointTool.value.crosshair.value;
+    if (at) say(saidCrosshair(at));
     return;
   }
   const tables = tablesOf(pickedUp.value);
@@ -1262,10 +1572,10 @@ function onStageFocusIn(event: FocusEvent) {
   const target = event.target instanceof Element ? event.target : null;
   keysOnMap.value = Boolean(target?.matches(':focus-visible'));
   // The crosshair stands at the middle of the view when the keys first come to the map.
-  if (keysOnMap.value && tool.value === 'row' && !row.crosshair.value) {
-    row.moveCrosshair(crosshairStart());
+  if (keysOnMap.value && pointTool.value && !pointTool.value.crosshair.value) {
+    pointTool.value.moveCrosshair(crosshairStart());
   }
-  const table = keysOnMap.value && tool.value !== 'row' ? tableOf(tableAt(event)) : null;
+  const table = keysOnMap.value && !pointTool.value ? tableOf(tableAt(event)) : null;
   if (table) show([table]);
 }
 
@@ -1406,6 +1716,8 @@ watch(
     props.editor.putBack();
     abandon();
     row.reset();
+    fillTool.reset();
+    fillAsked.value = false;
     fit();
   },
 );
@@ -1454,6 +1766,17 @@ watch(
         @click="tool = 'row'"
       >
         Row of tables
+      </button>
+      <button
+        type="button"
+        class="btn btn--secondary btn--compact"
+        data-tool="fill"
+        data-testid="layout-tool-fill"
+        :aria-pressed="tool === 'fill'"
+        :tabindex="effectiveStop === 'fill' ? 0 : -1"
+        @click="tool = 'fill'"
+      >
+        Fill an area
       </button>
       <span class="layout-toolbar__rule" role="separator" aria-orientation="vertical" />
       <button
@@ -1609,6 +1932,16 @@ watch(
           <span class="layout-option__name">Spread evenly to the ends</span>
         </label>
       </template>
+      <button
+        v-if="tool === 'fill'"
+        type="button"
+        class="btn btn--secondary btn--compact"
+        :disabled="!fill"
+        data-testid="layout-fill-view"
+        @click="openFill(true)"
+      >
+        Fill what is in view
+      </button>
     </div>
 
     <div
@@ -1675,6 +2008,17 @@ watch(
             :paint="rowPaint"
             :mmPerPx="mmPerPx"
           />
+          <LayoutFillPreview
+            v-if="tool === 'fill' && (fillTool.pending.value || fillCrosshair || fillArea)"
+            :outline="fillTool.outline.value"
+            :points="fillTool.points.value"
+            :box="fillTool.box.value"
+            :area="fillArea"
+            :closes="fillTool.closing.value && fillTool.closable.value && !fillTool.crosses.value"
+            :crosses="fillTool.crosses.value"
+            :crosshair="fillCrosshair"
+            :mmPerPx="mmPerPx"
+          />
           <g
             v-if="handle"
             class="layout-turn-handle"
@@ -1715,6 +2059,20 @@ watch(
 
     <p class="layout-hint" data-testid="layout-hint">{{ hint }}</p>
     <p :id="keysId" class="visually-hidden" data-testid="layout-map-keys">{{ mapKeys }}</p>
+
+    <LayoutFillDialog
+      v-model:sectionId="fillSectionId"
+      v-model:tableTypeId="addTypeId"
+      v-model:inView="fillInView"
+      :open="fillAsked"
+      :sections="ownSections"
+      :tableTypes="tableTypes"
+      :area="fillTool.area.value"
+      :busy="fillBusy"
+      :error="fillError"
+      @fill="runFill"
+      @close="closeFillDialog"
+    />
   </div>
 </template>
 

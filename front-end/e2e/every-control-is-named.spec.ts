@@ -372,6 +372,39 @@ test("every table of a layout's map has a name, and the map its own", async ({
   expect(await namelessControls(page), 'the map').toEqual([]);
 });
 
+test("every control of Fill an area's strip and its dialog has a name", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    metresAcross: 30,
+    tables: UPPER_HALL_TABLES,
+    zones: UPPER_HALL_ZONES,
+  });
+  const layout = new LayoutPage(page);
+
+  await layout.goto(seeded.marketId, seeded.upper.id);
+  await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+  await layout.toolFill.click();
+  await expect(layout.toolFill).toHaveAttribute('aria-pressed', 'true');
+  await expect(layout.fillView).toHaveAccessibleName('Fill what is in view');
+  expect(await namelessControls(page), 'the options strip').toEqual([]);
+
+  await layout.fillView.click();
+  await expect(layout.fillDialog).toBeVisible();
+  await expect(layout.fillSection).toHaveAccessibleName('Section');
+  await expect(layout.fillType).toHaveAccessibleName('Table type');
+  await expect(page.getByRole('group', { name: 'How many' })).toBeVisible();
+  await expect(layout.fillCountChoice).toHaveAccessibleName('This many');
+  await expect(layout.fillCount).toHaveAccessibleName('Number of tables');
+  await expect(layout.fillFitChoice).toHaveAccessibleName('As many as fit');
+  await expect(layout.fillDirection).toHaveAccessibleName('Direction');
+  await expect(layout.fillAisle).toHaveAccessibleName('Aisle (cm)');
+  await expect(layout.fillInView).toHaveAccessibleName('Fill what is in view');
+  await expect(layout.fillSubmit).toHaveAccessibleName('Fill');
+  expect(await namelessControls(page), 'the dialog').toEqual([]);
+});
+
 test('every control of a vendor notes panel has a name, wherever it opens', async ({
   authenticatedPage: page,
   request,
