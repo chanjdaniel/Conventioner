@@ -10,7 +10,7 @@ describes:
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_placement_history.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
-verified: 2026-10-27
+verified: 2026-11-11
 sources:
   - E32/F03/S03
   - T15
@@ -18,6 +18,7 @@ sources:
   - T74
   - decision/2026-10-20
   - E40/F01/S01
+  - T255
 ---
 
 # Operations
@@ -257,12 +258,43 @@ In short (the detail is [RELEASING.md](RELEASING.md)):
 
 Vercel's Hobby plan keeps runtime logs for about an hour, so read them while the problem is happening.
 
+### The production check
+
+The team heartbeat (agent-team's `team-uptime`, with the checks in the team home's `projects.toml`) reads production every 5 minutes, so nobody has to:
+
+| Check | Fetches | Good when |
+| --- | --- | --- |
+| `api-health` | `https://api.conventioner.io/healthz` | it answers 2xx within 10 seconds, its body holding `"status":"ok"` |
+| `markets-page` | `https://conventioner.io/markets` | it answers 2xx within 10 seconds, its body holding `<div id="app">` |
+
+- A check that fails two runs in a row posts "Production down" in the team's Discord, channel #coordinator, then "Production still down" every 4 hours while it stays down, and "Production back" once it answers again.
+- A redirect counts as a failure, so each check names the final address.
+- It runs on whichever of Daniel's machines holds the team's lease, so nothing checks while none is on.
+  When that machine cannot reach the internet, it counts no result and the heartbeat raises its own alert after an hour.
+- `markets-page` proves Vercel serves the app's shell for a deep link, not that the app's scripts load or work.
+- Every `api-health` read is a back-end invocation, about 8,640 a month.
+  On Hobby, with its 4 hours of Active CPU a month, read the back-end project's Usage before shortening the interval or adding a check on the API.
+
+### What notifies Daniel
+
+Turned on 2026-11-10:
+
+| Service | What | How |
+| --- | --- | --- |
+| Vercel | Deployment failures, and Domains: configuration and renewals | push and email; Hobby has no usage-limit notification |
+| GitHub | failed workflow runs only | email, and GitHub Mobile push |
+| Atlas, project `conventioner-prod` | Data Size above 4 GB (the Flex cluster's cap is 5 GB), and connections above 80% of the configured limit | email |
+| Atlas, the organization | "Credit card is about to expire" | email |
+
 ## Incidents
 
 | Symptom | Likely cause | What to do |
 | --- | --- | --- |
 | Every API call answers 500 `FUNCTION_INVOCATION_FAILED` | The back end refused to boot | Read the back end's log: it names every missing or refused variable, or an unreachable database, or a missing migration marker. Fix the variable or the database, then redeploy (Deploy, Run workflow). |
 | A deploy succeeded but the domain still serves an old build | The project is in Vercel's rolled-back state, which stops new production builds receiving the domain | `vercel promote <deployment>` (or Promote in the dashboard) for the build that should be live. This kept `api.conventioner.io` on an April build until 2026-10-18. |
+| #coordinator says "Production down" for `api-health` | The back end refused to boot, or its database does not answer | `curl -i https://api.conventioner.io/healthz`: a 500 `FUNCTION_INVOCATION_FAILED` is a refused boot (the first row); a 503 `{"status":"unavailable"}` is the database, so read Atlas's status and the cluster's Metrics and connections. Read the back end's Logs within the hour Hobby keeps them. |
+| #coordinator says "Production down" for `markets-page` | The front end's domain or its current build | `curl -i https://conventioner.io/markets`; then the front-end project's Deployments and Domains in Vercel. |
+| The Deploy run fails at "The front end serves a deep link" or "The front end sends its security headers", after its deploy step passed | That step, which does not retry, read the old build in the moment after the alias | Read the domain again with the step's `curl`; if it now answers as expected, the deploy is good. Run 42487768583 (2026-11-08) failed so, 0.44 seconds after the alias; on 2026-11-10 both projects' Production deployments were read, and each domain served that run's build of `18ad1d84` (v1.1.0's code), the newest, with no rollback. |
 | A deploy broke something | | Roll back each affected project in Vercel (Deployments, Instant Rollback), then revert on `dev`, promote the revert, and promote the fixed build so later deploys reach the domain again. See [RELEASING.md](RELEASING.md#rolling-back). |
 | Organizers cannot sign up (400) | The captcha site key and secret are from different properties, or `conventioner.io` is not on the property's domain list | Check both keys in the reCAPTCHA console; a changed site key needs a front-end rebuild. Meanwhile, make the account by hand. |
 | No verification, reset or sign-in email arrives | Resend refused or the domain lost verification | Resend dashboard, Emails and Domains. Meanwhile, `create_account.py verify` the account. |
