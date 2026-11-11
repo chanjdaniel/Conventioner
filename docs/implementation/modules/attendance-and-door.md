@@ -69,7 +69,7 @@ An upsert with no unique index behind it can insert twice when two land at once,
   MongoDB itself retries such an upsert when its query is equality on the unique index's fields, so the retry is the fallback when the server does not.
 - Only the call whose upsert inserted the record writes the "checked in" entry, so two racing check-ins write one.
 - The index's prefix serves a vendor's check-ins, so `attendance` has no lookup index of its own in [the lookup indexes](../data/lookup-indexes.md); a database that already held the old `(market_id, vendor_email)` one keeps it, which is harmless.
-- [`one-record-for-a-vendors-day.spec.ts`](../../../front-end/e2e/one-record-for-a-vendors-day.spec.ts) proves the refusal and 16 check-ins at once on the stack's real MongoDB; the back end's suite runs on fakes, which hold no index, except [the real-MongoDB suite](../testing/real-mongo-suite.md), which builds the index through the boot and refuses to start over two planted records of one vendor's day.
+- [`one-record-for-a-vendors-day.spec.ts`](../../../front-end/e2e/one-record-for-a-vendors-day.spec.ts) proves the refusal and 16 check-ins at once on the stack's real MongoDB; the back end's suite runs on fakes, which hold no index, except [the real-MongoDB suite](../testing/real-mongo-suite.md), which builds the index through the boot, refuses to start over two planted records of one vendor's day, and races 20 check-ins of one vendor's day, which leave one record and one "checked in" entry ([one record per vendor's day](../testing/real-mongo-suite.md#one-record-per-vendors-day)).
 
 ## The routes
 
