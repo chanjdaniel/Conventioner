@@ -28,6 +28,9 @@ const formApi = vi.hoisted(() => vi.fn());
 vi.mock('vue-router', () => ({
   useRouter: () => marketRouter(),
   useRoute: () => marketRoute('form'),
+  // The tab asks before an in-app move drops questions not yet saved (T271).
+  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteUpdate: vi.fn(),
 }));
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
