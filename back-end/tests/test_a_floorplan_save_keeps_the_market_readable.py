@@ -258,7 +258,10 @@ class TestTheLayoutsOwnRules:
         ({"tables": [{**_table("t-1", 1), "tableTypeId": "tt-gone"}]}, Layout.UNKNOWN_TABLE_TYPE),
         ({"tables": [_table("t-1", 1, x=8001)]}, Layout.OUTSIDE_THE_FLOORPLAN),
         ({"scalePxPerUnit": None}, Layout.NOT_CALIBRATED),
-    ], ids=["unknown-location", "no-location", "numbering", "type", "outside", "no-scale"])
+        ({"tables": [_table("t-1", 1), {**_table("x", None, x=600), "sectionId": None},
+                     {**_table("x", None, x=700), "sectionId": None}]}, Layout.TABLE_IDS),
+    ], ids=["unknown-location", "no-location", "numbering", "type", "outside", "no-scale",
+            "one-id-twice"])
     def test_a_layout_breaking_one_is_refused_and_writes_nothing(
         self, client, market, market_records, overrides, sentence,
     ):
@@ -285,6 +288,21 @@ class TestTheLayoutsOwnRules:
 
         _refused_and_unwritten(response, "A floorplan holds at most 1,000 tables.", market,
                                market_records)
+
+
+class TestATableOfNoSectionOfItsLocation:
+
+    @pytest.mark.parametrize("section", ["sec-gone", "sec-old"], ids=["gone", "another-location"])
+    def test_it_is_stored_in_no_section_and_of_no_number(self, client, market, section):
+        _with_plan(market)
+
+        response = _save(client, _floorplan(tables=[_table("t-1", 1),
+                                                    _table("t-x", 1, x=800, section=section)]))
+
+        assert response.status_code == 200, response.get_json()
+        stored = _saved_plan(market).floorplans[0].tables
+        assert [(t.id, t.section_id, t.number) for t in stored] == [
+            ("t-1", "sec-a", 1), ("t-x", None, None)]
 
 
 class TestTheSaveIsRecorded:

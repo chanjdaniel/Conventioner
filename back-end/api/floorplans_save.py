@@ -169,12 +169,14 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
          a new one records Section Setup's counts for its location's sections, starts at revision
          1, and gives a market with no table type "Standard 6 ft".
       5. Write it through ``MarketsApi.prepared_plan`` with those floorplans, the plan write's own
-         judge, so what is stored is a plan that reads, its sections counting the layout's tables,
-         held to every rule a plan write is: among them the floorplan's bounds
-         (``floorplan_limits``) and its image, which must be one uploaded for this market (400
-         with the sentence for each); then the layout's own rules (``layout.layout_refusal``: its
-         location one of the plan's, each section's tables numbered 1 to N, every type the
-         market's, every table inside the floorplan; 400 with the sentence). The write holds what
+         judge, its tables of a section not its location's in none and of no number
+         (``layout.in_its_sections``), so what is stored is a plan that reads, its sections
+         counting the layout's tables, held to every rule a plan write is: among them the
+         floorplan's bounds (``floorplan_limits``) and its image, which must be one uploaded for
+         this market (400 with the sentence for each); then the layout's own rules
+         (``layout.layout_refusal``: its location one of the plan's, no two tables of one id, each
+         section's tables numbered 1 to N, every type the market's, every table inside the
+         floorplan; 400 with the sentence). The write holds what
          step 4 read, and the market's table types as it read them, so a save or a write of the
          types landing in between makes it 409 ``STALE_LAYOUT`` too. An image the
          layout no longer names is deleted.
@@ -240,7 +242,9 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
     else:
         floorplan = floorplan.model_copy(update={
             "location_id": held.location_id, "starting_counts": held.starting_counts})
-    floorplan = floorplan.model_copy(update={"revision": revision + 1})
+    # A table of a section not its location's is stored in none, of no number (T257).
+    floorplan = Layout.in_its_sections(
+        floorplan.model_copy(update={"revision": revision + 1}), proposed)
     floorplans = _with_floorplan(stored.floorplans if stored else None, floorplan)
 
     # ── 5. Write it through the plan's own writer ──────────────────────

@@ -87,9 +87,26 @@ function floorplanChanges(before: Detail, after: Detail, path: IntakeMode): Chan
   return rows;
 }
 
-/** Metres across, as the layout page reads its scale: "36.0 m". */
-function metres(value: unknown): string {
-  return typeof value === 'number' ? `${value.toFixed(1)} m` : 'none';
+/** The fewest decimals, from one to three, that every one of `values` reads exactly at: the
+ * server records metres across to the millimetre. */
+function metreDecimals(values: unknown[]): number {
+  const numbers = values.filter((value): value is number => typeof value === 'number');
+  for (const decimals of [1, 2]) {
+    const step = 10 ** decimals;
+    if (numbers.every((value) => Math.abs(Math.round(value * step) - value * step) < 1e-6)) {
+      return decimals;
+    }
+  }
+  return 3;
+}
+
+/** Metres across, as the layout page reads its scale, "36.0 m", or "30.04 m" when a
+ * recalibration by centimetres needs more; `beside` are the values read with it, so a before and
+ * an after read to the same decimals. */
+function metres(value: unknown, beside: unknown[] = []): string {
+  return typeof value === 'number'
+    ? `${value.toFixed(metreDecimals([value, ...beside]))} m`
+    : 'none';
 }
 
 /**
@@ -119,6 +136,9 @@ function layoutClauses(detail: Detail, location: string): string[] {
   }
   if (typeof detail.turned === 'number' && detail.turned > 0) {
     clauses.push(`turned ${plural(detail.turned, 'table', 'tables')}${where}`);
+  }
+  if (typeof detail.retyped === 'number' && detail.retyped > 0) {
+    clauses.push(`changed the type of ${plural(detail.retyped, 'table', 'tables')}${where}`);
   }
   // A section left or joined is renumbered to close the gap or to follow on, which the tables
   // added and removed already say; a renumbering said on its own is Renumber by position's.
@@ -433,8 +453,8 @@ export const readers: HistoryReaders = {
               ? [
                   {
                     field: 'Metres across',
-                    before: metres(scale.before),
-                    after: metres(scale.after),
+                    before: metres(scale.before, [scale.after]),
+                    after: metres(scale.after, [scale.before]),
                   },
                 ]
               : [],

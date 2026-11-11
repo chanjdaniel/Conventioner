@@ -195,6 +195,30 @@ class TestLayoutRefusal:
     def test_a_floorplan_not_calibrated_with_no_tables_is_not_refused(self):
         assert Layout.layout_refusal(_floorplan([], scale_px_per_unit=None), _plan()) is None
 
+    def test_two_tables_of_one_id_are_refused(self):
+        floorplan = _floorplan([*_gold(1), _table("x", None, None, x=2000.0),
+                                _table("x", None, None, x=3000.0)])
+
+        assert Layout.layout_refusal(floorplan, _plan()) == Layout.TABLE_IDS
+
+
+class TestInItsSections:
+
+    def test_a_table_of_a_gone_or_another_locations_section_is_in_none_and_has_no_number(self):
+        floorplan = _floorplan([*_gold(2), _table("x-1", "sec-removed", 1),
+                                _table("x-2", BLUE, 1), _table("x-3", None, None)])
+
+        tables = Layout.in_its_sections(floorplan, _plan()).tables
+
+        assert [(t.id, t.section_id, t.number) for t in tables] == [
+            ("g-1", GOLD, 1), ("g-2", GOLD, 2), ("x-1", None, None), ("x-2", None, None),
+            ("x-3", None, None)]
+
+    def test_a_layout_of_its_own_sections_is_unchanged(self):
+        floorplan = _floorplan([*_gold(2), _table("s-1", SILVER, 1)])
+
+        assert Layout.in_its_sections(floorplan, _plan()) == floorplan
+
 
 SETTLED = "The setup is settled."
 
@@ -236,6 +260,12 @@ class TestSettledLayoutRefusal:
         changed[2] = {**changed[2], field: value}
 
         assert self._settled([_floorplan(_gold(3))], [_floorplan(changed)]) == SETTLED
+
+    def test_a_table_repeated_under_its_id_is_refused(self):
+        stored = [*_gold(1), _table("x", None, None, x=2000.0)]
+
+        assert self._settled([_floorplan(stored)],
+                             [_floorplan([*stored, _table("x", None, None, x=3000.0)])]) == SETTLED
 
     def test_an_added_or_removed_table_is_refused(self):
         assert self._settled([_floorplan(_gold(3))], [_floorplan(_gold(4))]) == SETTLED
@@ -347,6 +377,29 @@ class TestDescribeChange:
 
         assert self._change(_floorplan(_gold(1)), _floorplan(after)) == {}
 
+    def test_a_turn_across_nought_by_a_hair_is_not_a_turn(self):
+        before = _gold(1)
+        before[0] = {**before[0], "rotation": 359.999}
+        after = _gold(1)
+        after[0] = {**after[0], "rotation": 0.0}
+
+        assert self._change(_floorplan(before), _floorplan(after)) == {}
+
+    def test_a_turn_across_nought_is_a_turn(self):
+        before = _gold(1)
+        before[0] = {**before[0], "rotation": 350.0}
+        after = _gold(1)
+        after[0] = {**after[0], "rotation": 10.0}
+
+        assert self._change(_floorplan(before), _floorplan(after)) == {"turned": 1}
+
+    def test_tables_given_another_type_are_counted(self):
+        after = _gold(3)
+        after[0] = {**after[0], "table_type_id": SQUARE}
+        after[2] = {**after[2], "table_type_id": SQUARE}
+
+        assert self._change(_floorplan(_gold(3)), _floorplan(after)) == {"retyped": 2}
+
     def test_renumbered_names_the_sections(self):
         after = _gold(2)
         after[0], after[1] = {**after[0], "number": 2}, {**after[1], "number": 1}
@@ -373,6 +426,11 @@ class TestDescribeChange:
         change = self._change(_floorplan([]), _floorplan([], scale_px_per_unit=800 / 36_000))
 
         assert change == {"scale": {"before": 30.0, "after": 36.0}}
+
+    def test_a_recalibration_by_a_few_centimetres_is_said(self):
+        change = self._change(_floorplan([]), _floorplan([], scale_px_per_unit=800 / 30_040))
+
+        assert change == {"scale": {"before": 30.0, "after": 30.04}}
 
     def test_a_first_scale_is_from_none(self):
         change = self._change(_floorplan([], scale_px_per_unit=None), _floorplan([]))

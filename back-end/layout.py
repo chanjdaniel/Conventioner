@@ -8,8 +8,10 @@ its number. The word "layout" is what an organizer reads; the code and the route
   reader read true counts; ``prepared_plan`` runs it on every write of the plan.
 - ``tables_in_no_section``: the tables of a layout no section counts, which keep a market in draft
   (``guards.LayoutTablesHaveSectionsGuard``).
-- ``layout_refusal``: the rules a saved layout keeps (its location, its numbering, its types, its
-  tables inside the floorplan).
+- ``in_its_sections``: a layout whose tables of a section not its location's are in none, as a
+  save stores them.
+- ``layout_refusal``: the rules a saved layout keeps (its location, its tables' ids, its numbering,
+  its types, its tables inside the floorplan).
 - ``layout_seats`` and ``settled_layout_refusal``: what of a layout settles on leaving draft, the
   seats and the types, while where a table stands stays editable until the market is archived.
 - ``describe_change``: what a save changed, as the ``floorplan`` history entry records it.
@@ -17,12 +19,13 @@ its number. The word "layout" is what an organizer reads; the code and the route
 Matched by id throughout: a table names its section and a floorplan its location by id, because
 names change. Every other reader still matches sections and locations by name.
 """
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from datatypes import FloorplanObject, FloorplanTable, SectionObject, SetupObject
 
 UNKNOWN_LOCATION = "This layout's location is not one of the market's locations."
 NUMBERING = "Each section's tables are numbered 1 to N."
+TABLE_IDS = "Every table must have an id of its own."
 UNKNOWN_TABLE_TYPE = "Every table must be of one of the market's table types."
 OUTSIDE_THE_FLOORPLAN = "Every table must stand inside the floorplan."
 NOT_CALIBRATED = "Set the floorplan's scale before placing tables on it."
@@ -91,6 +94,20 @@ def tables_in_no_section(floorplan: FloorplanObject, plan: SetupObject) -> List[
     return [table for table in floorplan.tables if table.section_id not in own]
 
 
+def in_its_sections(floorplan: FloorplanObject, plan: SetupObject) -> FloorplanObject:
+    """The layout with every table naming a section that is not one of its location's (one removed
+    on Section Setup, or another location's) in no section and of no number, as a save stores it,
+    so a number is never kept by a table no section counts."""
+    own = {section.id for section in _sections_of(plan, floorplan.location_id)}
+    if all(table.section_id is None or table.section_id in own for table in floorplan.tables):
+        return floorplan
+    return floorplan.model_copy(update={"tables": [
+        table if table.section_id is None or table.section_id in own
+        else table.model_copy(update={"section_id": None, "number": None})
+        for table in floorplan.tables
+    ]})
+
+
 def _extent_mm(floorplan: FloorplanObject) -> Optional[Tuple[float, float]]:
     """The floorplan image's width and depth in millimetres, or None before it has a scale."""
     if not floorplan.image_width or not floorplan.image_height or not floorplan.scale_px_per_unit:
@@ -116,12 +133,14 @@ def _numbered_1_to_n(tables: List[FloorplanTable]) -> bool:
 def layout_refusal(floorplan: FloorplanObject, plan: SetupObject) -> Optional[str]:
     """The sentence a layout is refused with, or None when it keeps every rule.
 
-    Its location is one of the plan's; each section's tables are numbered 1 to N, and a table of no
-    section has no number; every table is of one of the market's types; and every table's centre
+    Its location is one of the plan's; no two tables share an id; each section's tables are numbered
+    1 to N, and a table of no section has no number; every table is of one of the market's types; and every table's centre
     stands inside the floorplan, which therefore needs its scale once it holds a table.
     """
     if floorplan.location_id not in _location_ids(plan):
         return UNKNOWN_LOCATION
+    if len({table.id for table in floorplan.tables}) != len(floorplan.tables):
+        return TABLE_IDS
     if not _numbered_1_to_n(floorplan.tables):
         return NUMBERING
     types = {table_type.id for table_type in plan.table_types}
@@ -140,16 +159,23 @@ def layout_refusal(floorplan: FloorplanObject, plan: SetupObject) -> Optional[st
     return None
 
 
-def layout_seats(floorplan: FloorplanObject) -> Tuple[Optional[str], FrozenSet[Seat]]:
+def _seat_order(seat: Seat) -> Tuple[str, str, int, str]:
+    table_id, section_id, number, table_type_id = seat
+    return table_id, section_id or "", -1 if number is None else number, table_type_id
+
+
+def layout_seats(floorplan: FloorplanObject) -> Tuple[Optional[str], Tuple[Seat, ...]]:
     """A layout's seats, with the location they stand in: what of it settles on leaving draft.
 
-    Each table's id, section, number and type; never where it stands or how it is turned, which
-    stay editable until the market is archived.
+    Each table's id, section, number and type, in one order whatever the tables' and every one
+    kept, so a table repeated under an id is a seat more; never where it stands or how it is
+    turned, which stay editable until the market is archived.
     """
-    return floorplan.location_id, frozenset(
-        (table.id, table.section_id, table.number, table.table_type_id)
-        for table in floorplan.tables
-    )
+    return floorplan.location_id, tuple(sorted(
+        ((table.id, table.section_id, table.number, table.table_type_id)
+         for table in floorplan.tables),
+        key=_seat_order,
+    ))
 
 
 def settled_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
@@ -190,12 +216,16 @@ def _per_section(plan: SetupObject, tables: List[FloorplanTable]) -> Dict[str, i
 
 
 def _metres_across(floorplan: Optional[FloorplanObject]) -> Optional[float]:
+    """The floorplan's width in metres, to the millimetre, so a recalibration by a few centimetres
+    is recorded; None before it has a scale."""
     extent = _extent_mm(floorplan) if floorplan is not None else None
-    return round(extent[0] / 1000, 1) if extent else None
+    return round(extent[0] / 1000, 3) if extent else None
 
 
-def _turn(degrees: float) -> float:
-    return degrees % 360
+def _turned_by(before: float, after: float) -> float:
+    """How far a table turned, the short way round: 359.999 to 0 is a thousandth of a degree."""
+    turn = abs(before - after) % 360
+    return min(turn, 360 - turn)
 
 
 def describe_change(
@@ -206,10 +236,10 @@ def describe_change(
 
     ``started`` on a layout's first save; ``added`` and ``removed``, tables counted per section
     name (a table that changed section left one and joined the other, a section the plan no longer
-    has reading as none); ``moved`` and ``turned``,
-    how many tables; ``renumbered``, the sections whose tables kept their section and changed
+    has reading as none); ``moved``, ``turned`` and
+    ``retyped`` (given another table type), how many tables; ``renumbered``, the sections whose tables kept their section and changed
     number; ``zones``, how many were added, changed and removed; ``image``, ``"replaced"``;
-    ``scale``, the floorplan's metres across before and after; ``colours`` and ``labels``, the
+    ``scale``, the floorplan's metres across before and after, to the millimetre; ``colours`` and ``labels``, the
     sections whose colour or label changed. Never a table itself: the entry is fetched with the
     market's history.
     """
@@ -239,11 +269,14 @@ def describe_change(
     moved = sum(1 for old, new in kept
                 if max(abs(old.x_mm - new.x_mm), abs(old.y_mm - new.y_mm)) >= _MOVED_MM)
     turned = sum(1 for old, new in kept
-                 if abs(_turn(old.rotation) - _turn(new.rotation)) >= _TURNED_DEGREES)
+                 if _turned_by(old.rotation, new.rotation) >= _TURNED_DEGREES)
+    retyped = sum(1 for old, new in kept if old.table_type_id != new.table_type_id)
     if moved:
         change["moved"] = moved
     if turned:
         change["turned"] = turned
+    if retyped:
+        change["retyped"] = retyped
     renumbered = sorted({
         _section_name(plan, new.section_id) for old, new in kept
         if old.section_id == new.section_id and old.number != new.number

@@ -51,6 +51,22 @@ describe("a layout's save reads in words", () => {
     );
   });
 
+  it('says a recalibration by a few centimetres to the centimetre', () => {
+    expect(said(saved({ scale: { before: 30, after: 30.04 } }))).toBe(
+      "dana@ember.test recalibrated Upper Hall's layout to 30.04 m across",
+    );
+    expect(entryChanges(saved({ scale: { before: 30, after: 30.004 } }))).toEqual({
+      changed: [{ field: 'Metres across', before: '30.000 m', after: '30.004 m' }],
+      recorded: [],
+    });
+  });
+
+  it('says how many tables were given another type', () => {
+    expect(said(saved({ retyped: 2 }))).toBe(
+      'dana@ember.test changed the type of 2 tables in Upper Hall',
+    );
+  });
+
   it('says a new image replaced the floorplan image', () => {
     expect(said(saved({ image: 'replaced' }))).toBe(
       "dana@ember.test replaced Upper Hall's floorplan image",
