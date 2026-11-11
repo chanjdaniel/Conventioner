@@ -10,6 +10,7 @@ verified: 2026-11-11
 
 An organization's people each hold one place in it: its one owner, an admin or a member.
 The place is one entry in one map, as a person's role on a market is, so nobody stands in two places, and an organization written before that map is read with the owner winning over any other place they were also listed in ([one map of people](../../implementation/data/organization-document.md#one-map-of-people)).
+A person's place changes in one write that lands only while the places it was judged on still stand, so a change that meets another is refused and said, never half-made ([the organization's people](../../implementation/modules/organization-people.md)).
 
 ## Rules
 
@@ -28,6 +29,7 @@ The place is one entry in one map, as a person's role on a market is, so nobody 
 ## Implementation
 
 - [The organization document, and roles](../../implementation/data/organization-document.md): organizations, a market's roles map, and what membership gives.
+- [The organization's people](../../implementation/modules/organization-people.md): the one writer of an organization's people, what each change may do, and a change that met another.
 - [Users, and the one spelling of an address](../../implementation/data/users-and-email.md): organizer accounts.
 - [Lookup indexes](../../implementation/data/lookup-indexes.md): the wildcards over an organization's people and a market's roles, and the organization's list indexes.
 - [ADR 0025: An organization's people are one map](../../adr/0025-an-organizations-people-are-one-map.md): the map, the fold, and the lists kept beside it for one release.

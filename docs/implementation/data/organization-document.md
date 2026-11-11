@@ -7,7 +7,6 @@ describes:
   - back-end/datatypes.py#organization_people_of
   - back-end/organization_people.py#of_person
   - back-end/tests/test_a_persons_organizations_in_either_shape.py
-  - back-end/tests/test_todays_writers_keep_the_people_map.py
   - back-end/datatypes.py#OrganizationRole
   - back-end/datatypes.py#MarketRole
   - back-end/api/organizations.py#create_organization
@@ -90,10 +89,11 @@ Manage organization draws its rows from the pairs, each section a [list frame](.
 It serves each with what removing someone from it takes (E38/F15/S01): `marketCount`, its markets counted from the markets themselves by their indexed `organizationId`, since `markets` is kept in step only at best effort, and `marketsWithOwnRole`, each admin's and member's count of those markets whose own `roles` name them, since removing them from the organization leaves those roles; Manage organization's Remove says both ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)), and the organization's card says `marketCount`; the front end reads no organization's `markets` list.
 
 **Who changes an organization**: only the owner renames it, adds an admin or transfers ownership; the owner or an admin adds a member or changes its default table; the owner removes anyone but themselves, an admin only members.
+A person's place changes only through [the organization's people](../modules/organization-people.md), whose table says each of these and refuses the rest: "Add admin" of a member makes them an admin, "Add admin" of an admin and "Add member" of a member say they already are, 400, and adding the owner or an admin as a member is refused as before.
 Renaming is all an update does: it reads the body's `name`, a string that is not blank, and nothing else, so the owner, the admins, the members and the markets change only through the writes above, which keep each user's `organizations` in step.
 Transferring ownership makes the old owner an admin; transferring it to its own owner is refused before anything is written.
 The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
-Removing someone who is neither an admin nor a member, another organizer having removed them first, answers 404 "They are no longer in this organization." before any write, as does a removal whose `$pull` finds them gone under it; nothing is recorded, and Manage organization reads that 404 as done ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)); a market role taken twice answers alike ([roles on a market](#roles-on-a-market)).
+Removing someone who is neither an admin nor a member, another organizer having removed them first, answers 404 "They are no longer in this organization." before any write, as does a removal whose write finds them gone under it; nothing is recorded, and Manage organization reads that 404 as done ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)); a market role taken twice answers alike ([roles on a market](#roles-on-a-market)).
 Deleting an organization is the owner's, deletes the drafts and archived markets it holds, and is refused while it holds a market mid-lifecycle ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md), through [market deletion](../modules/market-deletion.md)).
 What the owner and the admins do with these, screen by screen, is [the organizations flows](../../business/flows/organizations.md).
 
@@ -112,8 +112,10 @@ An organization with a map is never found by a stale list.
 `organization_documents_of`, `get_user_organizations` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py) and the account deletion use it, and [`test_a_persons_organizations_in_either_shape.py`](../../../back-end/tests/test_a_persons_organizations_in_either_shape.py) pins it finding both shapes alike, with its server twin in [the real-MongoDB suite](../testing/real-mongo-suite.md).
 It refuses, as a `RuntimeError`, an id that is not a non-empty string or that holds a `.` or starts with `$`, since the id becomes a dotted path; an id reaches it only from a stored account.
 
-**Every write keeps the map**: `create_organization` inserts `people: {<owner id>: "owner"}` beside the lists, and adding an admin or a member, removing someone, a transfer and an account's deletion each write the list they always wrote, then, on an organization that has a map, the person's key in it, in a second write ([`test_todays_writers_keep_the_people_map.py`](../../../back-end/tests/test_todays_writers_keep_the_people_map.py)).
-An organization stored before the map is written by its lists alone, and read folded.
+**One writer keeps the map, and the lists as its mirror**: `create_organization` inserts `people: {<owner id>: "owner"}` beside the lists, and adding an admin or a member, removing someone and an account's deletion go through [the organization's people](../modules/organization-people.md), each one conditional write holding the places it judged.
+On an organization with a map the write holds the requester's and the target's keys as read and moves one key, keeping `admins` and `members` in step with `$addToSet` and `$pull`; on one stored before the map it holds `owner`, `admins` and `members` as read and sets `people` whole beside the three lists as its mirror, so the first change to such an organization folds it.
+A write that met another change answers 404 when the organization or the person being removed is gone, else `OrganizationChanged`, 409, and Manage organization says its sentence where that control's refusal shows and reads the organization again.
+The transfer still writes its lists and then, on an organization with a map, the two keys in a second write, until it becomes one write of its own (T283's ticket 04).
 
 ## Its default table
 
@@ -133,7 +135,7 @@ Manage organization's "Default permissions for new markets" ([`OrganizationPermi
 ## The organization's history
 
 **Every change to the organization is recorded in [the history](history.md#what-an-organization-records)**, keyed by `organization_id` where a market's entry holds `market_id`: renaming it, an admin or a member added, a member made an admin, either removed, ownership handed on, a market created in it or deleted from it, a floorplan template filed under it added, changed, removed, or moved out of it or into it, and a row of its default table set or reset, or every row reset.
-Each is recorded once its change has landed, never fails it, and records nothing when nothing changed: an admin added again, a rename to the name it has.
+Each is recorded once its change has landed, never fails it, and records nothing when nothing changed: a rename to the name it has; an admin added again is refused, 400, and records nothing either.
 An organization has no table of who may do what, so its actions are the history's own verbs, one per kind of change; a change with an admin on either side of it is `manage-organization-admins`, a member added or removed `manage-organization-members`, as a market's role changes go under the row their check asked, and ownership handed on is `transfer-organization`.
 Creating the organization and deleting it record nothing here: its history starts empty, and the deletion takes the history with it after the [deletion trail](../../business/rules/when-an-organization-may-be-deleted.md) is written.
 

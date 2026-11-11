@@ -168,6 +168,7 @@ Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedE
 **Every other module's refusals** are client errors too, each with the status its routes answer today.
 
 - [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) raises `BadRequestError` and `ForbiddenError`, and `NotFoundError` for "Organization not found", which every organization route answers 404; `OrganizationHasLiveMarkets` is a 409 whose `body()` names the blocking markets ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)).
+- [`back-end/organization_people.py`](../../../back-end/organization_people.py), the one writer of an organization's people, raises the table's `BadRequestError`, `ForbiddenError` and `NotFoundError`, and `OrganizationChanged`, a 409 whose `body()` adds `code: "organization_changed"`, for a change that met another ([the organization's people](../modules/organization-people.md)).
 - [Placements](../modules/placements.md): `PlacementError` is a `BadRequestError`, `SeatTakenError` one with status 409, and `AssignPhaseError` a `ConflictError`.
 - `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError`, in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py) ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 - The vendor export's `ExportInvalid` is a `BadRequestError`, in [`back-end/api/vendor_export.py`](../../../back-end/api/vendor_export.py).
