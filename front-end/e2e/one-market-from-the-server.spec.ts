@@ -5,6 +5,7 @@ import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
 import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
 import { ChoiceField } from './pages/ChoiceField';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * Every market screen shows the market as the server last reported it (E21/F02).
@@ -121,22 +122,18 @@ test.describe('One market, from the server', () => {
     const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
       intakeMode: 'form',
     });
-    const form = await request.put(`${BACKEND_URL}/markets/${seed.marketId}/application-form`, {
-      headers: { 'Content-Type': 'application/json' },
-      data: {
-        fields: [
-          {
-            key: 'category',
-            label: 'Category',
-            type: 'select',
-            required: false,
-            options: ['Art', 'Food'],
-            order: 0,
-          },
-        ],
-      },
+    await saveApplicationForm(request, BACKEND_URL, seed.marketId, {
+      fields: [
+        {
+          key: 'category',
+          label: 'Category',
+          type: 'select',
+          required: false,
+          options: ['Art', 'Food'],
+          order: 0,
+        },
+      ],
     });
-    expect(form.ok()).toBe(true);
 
     // Straight to the Assignment tab, the way Assign and the links back from Tables arrive.
     await page.goto(marketSetupPath(seed.marketId, 'settings'));

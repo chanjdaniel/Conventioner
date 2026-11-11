@@ -11,6 +11,8 @@ export class PaymentsPage {
   readonly search: Locator;
   readonly summary: Locator;
   readonly noneShown: Locator;
+  /** "Loading vendors…", where the list stands until the vendors' names are read. */
+  readonly vendorsLoading: Locator;
   readonly rows: Locator;
   /** "Showing 50 of 120": there only while the cap leaves rows off. */
   readonly listCount: Locator;
@@ -24,6 +26,7 @@ export class PaymentsPage {
     this.search = page.getByTestId('payments-search');
     this.summary = page.getByTestId('payments-summary');
     this.noneShown = page.getByTestId('payments-none-shown');
+    this.vendorsLoading = page.getByTestId('payments-vendors-loading');
     this.rows = page.getByTestId('payments-row');
     this.listCount = page.getByTestId('payments-list-count');
     this.showMore = page.getByTestId('payments-list-more');

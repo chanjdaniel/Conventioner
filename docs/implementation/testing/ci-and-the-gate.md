@@ -29,6 +29,7 @@ sources:
   - T254
   - T263
   - T273
+  - T284
 ---
 
 # CI and the gate
@@ -72,6 +73,7 @@ It runs whatever the shards' result, so a failed shard fails it, but not on a ca
 
 **A flaky test fails the build.**
 Under `CI`, Playwright retries twice and sets `failOnFlakyTests` ([`front-end/playwright.config.ts`](../../../front-end/playwright.config.ts)), so a test that passes only on a retry still fails its shard.
+Every failed attempt and every retry keeps its trace, so the shard's `playwright-artifacts-shard-<n>` artifact, uploaded on that failure, holds every failed attempt's trace beside its passing retry's ([when a test fails](../../TESTING.md#when-a-test-fails)).
 Within a shard the tests share one database (`workers: 1`); never across shards.
 
 ## The e2e shards

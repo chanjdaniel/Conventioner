@@ -10,7 +10,7 @@ describes:
   - front-end/src/components/application/AutomaticRejections.vue
   - front-end/src/components/application/ChoiceConditions.vue
   - back-end/api/markets.py#may_overturn
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/november-2026-dry-run/map
   - wayfinding/rejection-visibility/map
@@ -24,6 +24,7 @@ sources:
   - E38/F06/S01
   - T206
   - T223
+  - T274
   - T263
 ---
 
@@ -84,6 +85,7 @@ The form tab's line and the import's done line name who may overturn from the ma
 - The same write is the one writer of `noAutomaticRejections`: `{rules: [], noAutomaticRejections: true}` decides that none rejects, under the same lock; a flag that is not a JSON boolean is refused, and so is the flag beside a rule, in the organizer's words; it answers `{rejectionRules, noAutomaticRejections}` as stored, and the market read serves the flag, false when absent (`back-end/tests/test_the_review_setup_decisions.py`).
 - The import judges at its end, and its preview judges without writing ([the CSV import](../../implementation/modules/csv-import.md)).
 - Review setup saves them as it saves the highlights, through one composable (`useSavedOnTheMarket`, `front-end/src/utils/savedOnTheMarket.ts`).
+- The write holds the phase it was judged on ([the market write](../../implementation/modules/market-write.md)): a save judged on an open review that lands after the review closed, or after an archive, is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers), stores no rule, judges no application and records nothing; the step then shows the rules the market holds.
 - The organizer sets them on the form tab's Review setup ([F3](../flows/form-tab.md#f3-what-a-reviewer-reads-first), [`AutomaticRejections.vue`](../../../front-end/src/components/application/AutomaticRejections.vue)), and reads and overturns them in [the review](../flows/review.md#i2-change-a-decision).
 - A rule is drawn by [`ChoiceConditions.vue`](../../../front-end/src/components/application/ChoiceConditions.vue), the one condition builder, comparing the answers its question offers with `COMBOBOX_PAST`: past it a `SearchPicker` of several capped at 50, and where the rule is shown fixed only its answers, as chips in the picker's look with nothing to remove them, or "No answer chosen", with no field under them (T263), and an answer the form no longer offers a chip of its own words, named by the line under it; "Add a rule on" is a [`ChoiceField`](../../../front-end/src/components/ChoiceField.vue) counting every question the rules may name.
   It is the builder a price group's conditions use too ([a price follows the table](a-price-follows-the-table.md#price-groups)); `Rulebook.met` judges a rule and a group's condition alike, and `Rulebook.broken` says a group's condition names a question or an answer the form no longer has, and the group keeps it, shown broken, where a rule's gone question or answer is simply left out.

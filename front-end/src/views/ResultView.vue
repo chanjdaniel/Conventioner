@@ -12,7 +12,7 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
+import { api, getApiErrorMessage, getApiErrorStatus, isMarketChanged } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { signedInEmail } from '@/utils/signedIn';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
@@ -358,6 +358,11 @@ const emptySeats = computed((): EmptySeat[] => {
   return emptySeatsOn(allRows.value, seat.row.date, market.value?.setupObject, seat.row.tableCode);
 });
 
+/** The tables and, when a vendor's details are open, those details, read again. */
+function rereadTheTables(): Promise<unknown> {
+  return Promise.all([loadTables(), details.loaded.value ? details.load() : Promise.resolve()]);
+}
+
 async function runPlacementChange(change: () => Promise<unknown>): Promise<void> {
   placementBusy.value = true;
   placementError.value = '';
@@ -368,17 +373,17 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
     // so one change can move other vendors, and a locally patched grid would show a floor plan
     // nobody is standing on. A placement is a write to the market's stored assignment, so the
     // store re-reads the market too (E21/F02/S04): anything else showing it follows.
-    await Promise.all([
-      loadTables(),
-      refreshMarket(),
-      details.loaded.value ? details.load() : Promise.resolve(),
-    ]);
+    await Promise.all([rereadTheTables(), refreshMarket()]);
   } catch (err: unknown) {
     placementError.value = getApiErrorMessage(err, 'That change could not be saved.');
-    // A conflict says the page held tables the server no longer does: a seat taken meanwhile, or a
-    // change landed over this one. The dialog stays open on its refusal, and the tables and the
-    // market are read again, so it offers only the seats that are free now.
-    if (getApiErrorStatus(err) === 409) await Promise.all([loadTables(), refreshMarket()]);
+    // A conflict says the page held tables the server no longer does: a seat taken meanwhile, or
+    // another change to the market landed first and this one stored nothing (ADR 0024). The dialog
+    // stays open on its refusal, and the tables are read again, so it shows who sits where now and
+    // offers only the seats that are free now. The store's market is read again too, by the
+    // market-changed interceptor when that is the refusal.
+    if (getApiErrorStatus(err) === 409) {
+      await Promise.all([rereadTheTables(), isMarketChanged(err) ? null : refreshMarket()]);
+    }
   } finally {
     placementBusy.value = false;
   }

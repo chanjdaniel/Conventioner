@@ -20,6 +20,7 @@ describes:
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
   - back-end/assignment/assignment.py#vendors_to_show
+  - front-end/src/views/ResultView.vue#runPlacementChange
 verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/08
@@ -88,8 +89,8 @@ Each also hands the days held in the assignment it read: a freed record on such 
 
 **All four ask the table's Assignment row** ([the market's actions](market-actions.md)), whose default is EDITOR, the bar every other market write sets, and deliberately not stricter: an EDITOR already owns the tiers, sections and table counts the whole assignment is computed from, so withholding "move one vendor between two seats" protects nothing.
 Each loads its market through `_load_market_to_change`, so an archived market is refused.
-A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant, the seat and the day as the screens say it (`_said_day`, "May 1, 2099"), and offering another seat or the swap; a run outside its phase is an `AssignPhaseError` (409); a change that would land over another is an `AssignmentChangedUnderRequest` (409), below.
-After a 409 from a change, the Assignments page (`runPlacementChange` in [`ResultView.vue`](../../../front-end/src/views/ResultView.vue)) keeps the dialog open on the refusal and reads the tables and the market again, so a seat taken meanwhile leaves the dialog's choices ([J19](../../business/flows/placing-by-hand.md#j19-move-a-vendor-to-an-empty-seat)).
+A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant, the seat and the day as the screens say it (`_said_day`, "May 1, 2099"), and offering another seat or the swap; a run outside its phase is an `AssignPhaseError` (409); a change that would land over another, or on a market that changed since the change read it, is a `MarketChanged` (409), below.
+After a 409 from a change, the Assignments page (`runPlacementChange` in [`ResultView.vue`](../../../front-end/src/views/ResultView.vue)) keeps the dialog open on the refusal and reads the tables again, so a seat taken meanwhile leaves the dialog's choices ([J19](../../business/flows/placing-by-hand.md#j19-move-a-vendor-to-an-empty-seat)).
 Each is a [client error](../conventions/an-exception-never-reaches-a-client.md) carrying that status.
 The routes catch nothing: each refusal reaches the handler with its own status and copy, and anything else answers the generic 500.
 Each reads its body with `json_object` ([a body that is not an object is refused in words](../conventions/an-exception-never-reaches-a-client.md)): a body that is not a JSON object answers `A JSON object is required`, 400, a placement with no body or an empty one `No data provided`, 400, and a swap or a freed seat with none is read as empty and refused by the API in its own words; a swap whose `emails` is not a list names no vendor, and is refused as such.
@@ -105,8 +106,11 @@ A swap is atomic because three separate operations invite a half-finished state,
 
 **No change lands over another.**
 Each of the four reads the whole assignment and writes it back whole (`_store_vendor_assignments`), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
-So the write lands only while `assignmentObject.revision` is still the one the change read, and counts it one more; otherwise it is refused, `AssignmentChangedUnderRequest` (409), "Someone else changed this market's tables while this change was being saved, so it was not saved. Reload the tables and try again.", before any history or payments line is recorded.
+So the write goes through [the market write](market-write.md), `_store_vendor_assignments` taking the market as the change read it: it lands only while the market is in the phase it was read in and `assignmentObject.revision` is still the one read (taken from the stored document, which a run's solver never touches), and counts the revision one more.
+A run also holds `resultsPublished` as read, so an allocation never lands after Publish results told applicants the one before it; and since the phase is held, no placement, free or swap lands on a market archived a moment before.
+Otherwise the change is refused with the market write's `MarketChanged` (409) and [its one sentence](market-write.md#what-it-answers), before any history or payments line is recorded.
 An assignment stored before the count existed has none, and reads as 0.
+On the Tables page (`runPlacementChange` in [`front-end/src/views/ResultView.vue`](../../../front-end/src/views/ResultView.vue)) a change refused this way reads the tables, and an open vendor's details, again as a success does, and the sentence stands in the seat dialog's error line; the market itself is read again by the market-changed interceptor, as for every refused write, and by the page after any other 409.
 A free refused this way puts back what it kept for the seat, its line and any $0 it set, unless a free of the same seat landed meanwhile and kept its own ([payments](../data/payments.md)).
 
 **A seat goes only to an applicant.**

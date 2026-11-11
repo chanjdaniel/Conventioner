@@ -28,6 +28,7 @@ from test_the_market_keeps_its_own_rows import (
 import app as app_module
 import api.market_actions as Actions
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import history as History
@@ -76,6 +77,7 @@ def world(monkeypatch):
     install_organizations(monkeypatch, organizations)
     monkeypatch.setattr(MarketsApi.PermissionsApi, "organizations_collection", organizations)
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
     monkeypatch.setattr(OrgsApi, "markets_collection", markets)
     monkeypatch.setattr(MarketsApi, "db", {"organizations": organizations})
     monkeypatch.setattr(History, "history_collection", history)

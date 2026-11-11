@@ -183,15 +183,15 @@ describe('one by one', () => {
     }
     /** Hold each hand-out from here on with its own promise: `release(n)` answers the nth. */
     function holdEachHandOut() {
-      const answers: Array<() => void> = [];
+      const answers: Array<(answer?: Application) => void> = [];
       handedOut.mockImplementation(
         () =>
-          new Promise<void>((resolve) => {
+          new Promise<Application | undefined>((resolve) => {
             answers.push(resolve);
           }),
       );
-      return async (n: number) => {
-        answers[n]!();
+      return async (n: number, answer?: Application) => {
+        answers[n]!(answer);
         await flushPromises();
       };
     }
@@ -323,6 +323,40 @@ describe('one by one', () => {
       expect(wrapper.text()).not.toContain('did not count');
     });
 
+    it('holds a key pressed after the verdict while a newer hand-out is still out', async () => {
+      const wrapper = await opened();
+      const release = holdEachHandOut();
+
+      await press('a');
+      await press('n');
+      // The verdict's own hand-out is overtaken by N's, so the write is done while N's is still out.
+      await release(0);
+      expect(wrapper.get('[data-testid="app-monitor-email"]').text()).toBe('kim@example.com');
+      await press('r');
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+
+      await release(1);
+      expect(verdictsOn()).toEqual([
+        ['jane', ApplicationStatus.ReviewerApproved],
+        ['kim', ApplicationStatus.ReviewerRejected],
+      ]);
+      expect(wrapper.text()).not.toContain('did not count');
+    });
+
+    it('says the key did not count when the newer hand-out puts another card up', async () => {
+      const wrapper = await opened();
+      const release = holdEachHandOut();
+
+      await press('a');
+      await press('n');
+      await release(0);
+      await press('r');
+      await release(1, application('lee', ApplicationStatus.Open));
+
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+      expect(wrapper.text()).toContain('That key did not count');
+    });
+
     it('lets a held Z go when the reviewer presses N, leaving the undo on offer', async () => {
       const wrapper = await opened();
       const release = holdEachHandOut();
@@ -340,7 +374,7 @@ describe('one by one', () => {
       expect(wrapper.text()).not.toContain('did not count');
     });
 
-    it('writes no verdict on a card a newer hand-out has overtaken', async () => {
+    it('waits for the newer hand-out, writing no verdict on a card it does not put up', async () => {
       const read = fetchMarketApplications.getMockImplementation()!;
       fetchMarketApplications.mockImplementation(async () => [
         ...(await read()),
@@ -354,11 +388,13 @@ describe('one by one', () => {
       await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(true);
       await release(0);
 
+      // The write is done, the card up only the queue's guess: the key waits for the newer hand-out.
+      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
+      expect(wrapper.text()).not.toContain('did not count');
+
+      await release(1, application('fay', ApplicationStatus.NeedsFollowUp));
       expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
       expect(wrapper.text()).toContain('That key did not count');
-
-      await release(1);
-      expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
     });
 
     it('decides no next card on a long press, once the hand-out has answered', async () => {
@@ -408,6 +444,18 @@ describe('one by one', () => {
       expect(verdictsOn()).toEqual([['jane', ApplicationStatus.ReviewerApproved]]);
       expect(wrapper.text()).not.toContain('did not count');
     });
+  });
+
+  it('announces a verdict that failed, on the line above the card', async () => {
+    const wrapper = await monitor();
+    reviewApplication.mockRejectedValue(new Error('down'));
+
+    await press('a');
+
+    const line = wrapper.get('[data-testid="app-monitor-error"]');
+    expect(line.text()).toBe('The verdict was not saved.');
+    expect(line.attributes('role')).toBe('alert');
+    wrapper.unmount();
   });
 
   it('names the applicant on the card, then their address', async () => {

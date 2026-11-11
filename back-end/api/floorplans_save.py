@@ -27,7 +27,7 @@ from datatypes import (
     SetupObject,
     TierObject,
 )
-from market_documents import market_doc_filter
+from market_write import write_market
 from utils.identity import authenticated_email
 from utils.request_body import NOT_AN_OBJECT, string_field
 
@@ -174,7 +174,9 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
       5. Write it through ``MarketsApi.prepared_plan``, the plan write's own judge, so what is
          stored is a plan that reads, held to every rule a plan write is: among them the
          floorplan's bounds (``floorplan_limits``) and its image, which must be one uploaded for
-         this market (400 with the sentence for each).
+         this market (400 with the sentence for each). The write goes through ``write_market``,
+         holding the phase and the plan's revision as read and counting it (409 ``MarketChanged``
+         when the market changed meanwhile).
 
     **Returns**::
 
@@ -234,7 +236,11 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
     # ── 5. Write it through the plan's own writer ──────────────────────
     plan, update = MarketsApi.prepared_plan(
         market, {"setupObject": convert_keys_to_camel_case(proposed.model_dump())})
-    MarketsApi.markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
+    # Built on the plan as read, so held at its revision as read, and counted, as every write of
+    # the plan is (T274): a plan saved meanwhile refuses this save, and a Market Setup page open
+    # from before is told the market changed (``MarketChanged``) rather than storing its older copy.
+    write_market(market, {"$set": update},
+                 revisions={MarketsApi.PLAN_REVISION_KEY: market.plan_revision})
     History.record(
         market_id, user_email, Actions.CHANGE_SETUP, kind=History.FLOORPLAN,
         subject={"floorplan_id": floorplan.id},

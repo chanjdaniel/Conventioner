@@ -28,6 +28,29 @@ export function watchTheBrowser(page: Page): () => string[] {
   return () => [...said];
 }
 
+/** Whether what a watched page's browser said holds the host's network changing under it. */
+export function saidTheNetworkChanged(lines: readonly string[]): boolean {
+  return lines.some((line) => line.includes('net::ERR_NETWORK_CHANGED'));
+}
+
+const NETWORK_CHANGED = 'network changed';
+
+/**
+ * Notes on a failed test that its browser saw the host's network change, once however many of its
+ * pages saw it: a stack starting or stopping on the machine fails what a browser has in flight, so
+ * the failure is the machine's, not the spec's (`e2e-patterns.md`, Sharp edges). Playwright cannot
+ * stage that error (`route.abort` has no such code), so this reads the browser's own words.
+ */
+export function annotateANetworkChange(testInfo: TestInfo, lines: readonly string[]): void {
+  if (!saidTheNetworkChanged(lines)) return;
+  if (testInfo.annotations.some((annotation) => annotation.type === NETWORK_CHANGED)) return;
+  testInfo.annotations.push({
+    type: NETWORK_CHANGED,
+    description:
+      "The host's network changed under the browser (a stack started or stopped on this machine), which fails requests in flight; see docs/implementation/testing/e2e-patterns.md, Sharp edges.",
+  });
+}
+
 /** Attaches what a watched page's browser said, when it said anything; `whose` heads it. */
 export async function attachWhatTheBrowserSaid(
   testInfo: TestInfo,

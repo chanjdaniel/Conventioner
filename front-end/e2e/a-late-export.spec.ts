@@ -82,7 +82,7 @@ test.describe('A late export', () => {
 
     // The new response waits for a verdict, and so does Nadia's: she was approved on answers the
     // assignment reads, and they have changed. Theo's verdict, on unchanged answers, is kept.
-    await expect(monitor.progress).toContainText('of 2 to review');
+    await expect(monitor.progress).toContainText('of 2 open');
     expect((await monitor.queuedEmails()).sort()).toEqual(['ines@loom.test', 'nadia@ember.test']);
     await expect(monitor.tally).toContainText('1 reviewed · 0 approved · 1 rejected');
     await monitor.openDecided();

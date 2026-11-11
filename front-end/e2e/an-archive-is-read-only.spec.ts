@@ -39,9 +39,11 @@ test('an archived market that ran is shown as a record, with nothing to change',
   await expect(page.getByTestId('market-read-only')).toHaveCount(0);
   const dates = page.getByTestId('plan-card-dates').getByRole('button');
   await expect(dates.first()).toBeDisabled();
-  // And the server is the rule, not the disabled control.
+  // And the server is the rule, not the disabled control: a save from the plan's own revision.
+  const read = await request.get(`${BACKEND_URL}/markets/${marketId}`);
+  const { planRevision } = ((await read.json()) as { market: { planRevision: number } }).market;
   const plan = await request.put(`${BACKEND_URL}/markets/${marketId}/plan`, {
-    data: { setupObject: { marketDates: [{ date: SEED_MARKET_DATE }] } },
+    data: { setupObject: { marketDates: [{ date: SEED_MARKET_DATE }] }, planRevision },
   });
   expect(plan.status()).toBe(403);
 

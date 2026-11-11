@@ -50,6 +50,7 @@ import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
 import db_config
+import market_write as MarketWrite
 import rejection_rules as RejectionRules
 import services.placement_service as PlacementService
 from client_errors import (
@@ -61,7 +62,6 @@ from client_errors import (
     traceback_without_messages,
 )
 from datatypes import MarketPhase, market_name_slug
-from guards import PreconditionResult
 from utils.request_body import NO_DATA_PROVIDED, NOT_AN_OBJECT
 
 
@@ -147,7 +147,7 @@ class TestTheTypes:
         (PlacementsApi.PlacementError, BadRequestError),
         (PlacementsApi.SeatTakenError, BadRequestError),
         (PlacementsApi.AssignPhaseError, ConflictError),
-        (PlacementsApi.AssignmentChangedUnderRequest, ConflictError),
+        (MarketsApi.MarketChanged, ConflictError),
         (AddedVendorsApi.AddVendorRefused, ConflictError),
         (AddedVendorsApi.AddVendorInvalid, BadRequestError),
         (CsvStart.ConfirmRefused, ConflictError),
@@ -1853,6 +1853,7 @@ PARSER_DETAIL = ("errors.pydantic.dev", "input_value", "input_type", "int_parsin
 def use_market(monkeypatch, doc):
     collection = FakeMarketsCollection(doc)
     monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+    monkeypatch.setattr(MarketWrite, "markets_collection", collection)
     return collection
 
 

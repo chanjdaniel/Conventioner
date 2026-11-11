@@ -1,13 +1,14 @@
 import { test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
 import { LoginPage } from '../pages/LoginPage';
-import { attachWhatTheBrowserSaid, watchTheBrowser } from './browserSaid';
+import { annotateANetworkChange, attachWhatTheBrowserSaid, watchTheBrowser } from './browserSaid';
 import { hideDevToolsPanel } from './hideDevToolsPanel';
 
 /**
  * Log a user in inside their own browser context, so no two users in a test ever share a
  * session cookie or the persisted `user` in localStorage. The context is closed afterwards.
  * `options` are the context's own, a phone's emulation say. When the sign-in or `body` throws, the
- * test gains what this page's browser said, if it said anything, as the fixture's page does (T263).
+ * test gains what this page's browser said, if it said anything, as the fixture's page does (T263),
+ * and the note that the host's network changed when the browser saw it (T284).
  */
 export async function withUser<T>(
   browser: Browser,
@@ -27,7 +28,9 @@ export async function withUser<T>(
       await loginPage.waitForMarkets();
       return await body(page);
     } catch (error) {
-      await attachWhatTheBrowserSaid(test.info(), said(), `the page of withUser(${email})`);
+      const lines = said();
+      await attachWhatTheBrowserSaid(test.info(), lines, `the page of withUser(${email})`);
+      annotateANetworkChange(test.info(), lines);
       throw error;
     }
   } finally {
