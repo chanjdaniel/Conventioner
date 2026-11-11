@@ -1,3 +1,4 @@
+// A trial of the e2e-repeat job: this line is the change.
 import { test, expect, TEST_USER, LoginPage } from './fixtures';
 import { MarketsPage } from './pages/MarketsPage';
 
