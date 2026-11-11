@@ -4,7 +4,7 @@ kind: data
 describes:
   - back-end/lookup_indexes.py
   - back-end/app.py#build_lookup_indexes
-verified: 2026-11-05
+verified: 2026-11-11
 sources:
   - E32/F03/S04
   - E40/F01/S03
@@ -12,6 +12,7 @@ sources:
   - E44/F01/S01
   - T204
   - T224
+  - T283
 ---
 
 # Lookup indexes
@@ -29,7 +30,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | Collection                 | Fields, one index each                                                                                                                                                                                                                                                                                                                                     |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `markets`                  | `id`; `organizationId`; `roles.$**`                                                                                                                                                                                                                                                                                                                        |
-| `organizations`            | `id`; `owner`; `admins`; `members`                                                                                                                                                                                                                                                                                                                         |
+| `organizations`            | `id`; `people.$**`; `owner`; `admins`; `members`                                                                                                                                                                                                                                                                                                           |
 | `users`                    | `id`; `verification_token`; `password_reset_token`; `login_id` (each signed-in request loads the account by it: [users and email](users-and-email.md#the-session-names-the-account-by-its-login-id))                                                                                                                                                       |
 | `applications`             | `id`; `market_id, arriving`, the applications waiting to be dealt as they arrived, read while a deal holds the market by `arriving` being an object (`$type: object`), which the index bounds tightly where `$exists` cannot, since a regular index stores a missing field as null ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)) |
 | `attendance`               | `market_id, vendor_email`                                                                                                                                                                                                                                                                                                                                  |
@@ -39,7 +40,8 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `deletion_trail`           | `organization_id` ([market deletion](../modules/market-deletion.md))                                                                                                                                                                                                                                                                                       |
 
 Market fields are named through `market_doc_key`, so the list holds the stored camelCase spelling ([the market document](market-document.md#key-spelling)).
-The three organization indexes serve "the organizations this person is in", an `$or` over `owner`, `admins` and `members`.
+"The organizations this person is in" is `organization_people.of_person`'s `$or`: the person's key in the organization's `people` map, `{"people.<user id>": {"$exists": true}}`, served by the wildcard index `people.$**`, and, on an organization stored before the map, its `owner`, `admins` or `members`, each indexed so the query can use all of them ([one map of people](organization-document.md#one-map-of-people)).
+The three list indexes go with the lists, a release after the map (T283's follow-up).
 The users' `id` index serves one account read alone and many read at once: `get_users_by_ids` reads every account a read names with one `$in` over it ([users and email](users-and-email.md#lookups)).
 
 **A role is a key of a market's `roles` map**, so "markets this person has a role on" is `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.

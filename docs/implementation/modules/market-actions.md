@@ -19,7 +19,7 @@ describes:
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/api/markets.py#read_refused
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E39
   - E39/F01/S01

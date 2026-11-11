@@ -23,7 +23,7 @@ describes:
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - bug/38
   - E26/F09/S01

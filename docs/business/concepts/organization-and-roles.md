@@ -1,12 +1,15 @@
 ---
 layer: business
 kind: concept
-verified: 2026-10-22
+verified: 2026-11-11
 ---
 
 # Organization and roles
 
 **Organization** and **Organizer** are defined in [the glossary](../../../CONTEXT.md#organizing), under Organizing; this node gathers what the graph says about an organization, its people, and the roles they hold on a market.
+
+An organization's people each hold one place in it: its one owner, an admin or a member.
+The place is one entry in one map, as a person's role on a market is, so nobody stands in two places, and an organization written before that map is read with the owner winning over any other place they were also listed in ([one map of people](../../implementation/data/organization-document.md#one-map-of-people)).
 
 ## Rules
 
@@ -26,5 +29,6 @@ verified: 2026-10-22
 
 - [The organization document, and roles](../../implementation/data/organization-document.md): organizations, a market's roles map, and what membership gives.
 - [Users, and the one spelling of an address](../../implementation/data/users-and-email.md): organizer accounts.
-- [Lookup indexes](../../implementation/data/lookup-indexes.md): the organization indexes and the wildcard over a market's roles.
+- [Lookup indexes](../../implementation/data/lookup-indexes.md): the wildcards over an organization's people and a market's roles, and the organization's list indexes.
+- [ADR 0025: An organization's people are one map](../../adr/0025-an-organizations-people-are-one-map.md): the map, the fold, and the lists kept beside it for one release.
 - [Market deletion, and the deletion trail](../../implementation/modules/market-deletion.md): an organization's deletion recorded before anything is destroyed.

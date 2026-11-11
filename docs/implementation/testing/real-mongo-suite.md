@@ -16,10 +16,11 @@ describes:
   - back-end/tests/conftest.py#FakeMarketsCollection
   - back-end/tests/conftest.py#FakeSlugMarketsCollection
   - back-end/db_config.py#uri_targets
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T244
   - T274
+  - T283
 ---
 
 # The real-MongoDB suite
@@ -137,6 +138,7 @@ Each test's name says what it proves.
 | The dealing lease is held by one deal at a time, and lapses | 10 `_hold` calls at once, on a market with a team and on one that never had one, leave one holding it; a held lease refuses 10 deals a second before it lapses, and one of 10 takes it a second after; `_let_go` by a deal whose lease lapsed and was taken leaves the market unchanged, and so does `_let_go` on a market nobody holds, with a team and with none |
 
 The lease tests set `review_team`'s clock rather than wait for a lease to run out.
+[`real_mongo/test_a_persons_organizations_on_the_server.py`](../../../back-end/tests/real_mongo/test_a_persons_organizations_on_the_server.py) runs `organization_people.of_person` over the organizations [`test_a_persons_organizations_in_either_shape.py`](../../../back-end/tests/test_a_persons_organizations_in_either_shape.py) finds through the fakes, those with a people map and those stored before it, and asks the server's plan for it over the boot's indexes: an index scan, never a collection scan ([one map of people](../data/organization-document.md#one-map-of-people)).
 [`real_mongo/test_every_order_of_a_deal_on_the_server.py`](../../../back-end/tests/real_mongo/test_every_order_of_a_deal_on_the_server.py) imports the cases of [`test_every_order_of_a_deal.py`](../../../back-end/tests/test_every_order_of_a_deal.py) ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)), every order of a change of reviewers against an arrival and of two arrivals, and runs them over a world whose markets, applications and history are the real collections, so its `Counted` wrapper steps over the server's own calls.
 Those cases read and write their world through collection calls alone (`find_one`, `find`, `insert_one`, `update_one`, `delete_many`), which is what lets one set of cases run over the fakes and over the server.
 
