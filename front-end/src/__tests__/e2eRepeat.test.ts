@@ -13,6 +13,7 @@ import {
   MIN_REPEATS,
   REPEAT_BUDGET_SECONDS,
   REPEAT_LIMIT_SECONDS,
+  repeatsAfter,
   repeatsFor,
 } from '../../scripts/e2e-repeat';
 
@@ -80,6 +81,28 @@ describe('repeatsFor', () => {
 
   it('runs enough times to catch a spec failing one run in three', () => {
     expect(MAX_REPEATS).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('repeatsAfter', () => {
+  it('runs light files again until they have run the most times', () => {
+    expect(repeatsAfter(3)).toBe(MAX_REPEATS - 1);
+  });
+
+  it('fits the runs after the first to the budget, the first counted in it', () => {
+    const seconds = REPEAT_BUDGET_SECONDS / 3;
+    expect(repeatsAfter(seconds)).toBe(2);
+    expect(repeatsAfter(seconds + 1)).toBe(1);
+  });
+
+  it('runs files heavier than the budget once more, so they run twice in all', () => {
+    expect(repeatsAfter(REPEAT_BUDGET_SECONDS * 1.5)).toBe(MIN_REPEATS - 1);
+    expect(repeatsAfter(REPEAT_LIMIT_SECONDS)).toBe(MIN_REPEATS - 1);
+  });
+
+  it('runs no more once the first run took past the limit', () => {
+    expect(repeatsAfter(REPEAT_LIMIT_SECONDS + 1)).toBe(0);
+    expect(repeatsAfter(REPEAT_LIMIT_SECONDS * 4)).toBe(0);
   });
 });
 

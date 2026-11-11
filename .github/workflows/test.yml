@@ -385,6 +385,8 @@ jobs:
     name: e2e-repeat
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # Two runs of up to 15 minutes each (e2e-repeat.ts) and the setup.
+    timeout-minutes: 40
     env:
       DISABLE_CAPTCHA: "true"
       DISABLE_EMAIL: "true"

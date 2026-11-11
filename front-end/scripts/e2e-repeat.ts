@@ -11,13 +11,17 @@
  *   node scripts/e2e-repeat.ts changed <base>   prints each file, one a line, and nothing for none
  *   node scripts/e2e-repeat.ts run <base>       runs them, passing at once when there is none
  *
- * Every file runs the same number of times, `repeatsFor` their seconds in `e2e-shard-timings.json`
- * (a new file weighs the median): as many as fit `REPEAT_BUDGET_SECONDS`, between `MIN_REPEATS`
- * and `MAX_REPEATS`. Past `REPEAT_LIMIT_SECONDS` a run, none: the job passes with a warning
- * annotation saying the files were too many to repeat.
+ * The files run once together, and that run's time decides how many more runs follow
+ * (`repeatsAfter`), so every file runs the same number of times in all: as many as fit
+ * `REPEAT_BUDGET_SECONDS`, between `MIN_REPEATS` and `MAX_REPEATS`. A first run past
+ * `REPEAT_LIMIT_SECONDS` gets no more. Timing the run, not reading `e2e-shard-timings.json`, bounds
+ * a new file, which has no timing yet. The timings only decide, before anything runs, whether the
+ * files are too many to run at all: past `REPEAT_LIMIT_SECONDS` a run by them (a new file weighing
+ * the median), none runs, and the job passes with a warning annotation.
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
 import { relative } from 'node:path';
 
 import {
@@ -51,6 +55,11 @@ export function repeatsFor(seconds: number): number {
   if (seconds > REPEAT_LIMIT_SECONDS) return 0;
   const fits = seconds > 0 ? Math.floor(REPEAT_BUDGET_SECONDS / seconds) : MAX_REPEATS;
   return Math.min(MAX_REPEATS, Math.max(MIN_REPEATS, fits));
+}
+
+/** How many more times to run files whose first run, all together, took `seconds`; 0 past the limit. */
+export function repeatsAfter(seconds: number): number {
+  return Math.max(0, repeatsFor(seconds) - 1);
 }
 
 /**
@@ -87,38 +96,14 @@ function changed(base: string): { rootDir: string; files: string[] } {
   return { rootDir, files: changedSpecFiles(paths, specFiles(suite), relative(top, rootDir)) };
 }
 
-/** Runs the changed files, each `repeatsFor` their seconds times, with no retry. */
-function run(base: string, playwrightArgs: readonly string[]): number {
-  const { rootDir, files } = changed(base);
-  if (files.length === 0) {
-    console.log(`e2e repeat: no spec file changed since ${base}; nothing to run.`);
-    return 0;
-  }
-  const timings = JSON.parse(readFileSync(timingsFile(), 'utf8')) as Timings;
-  const fallback = defaultSeconds(specFiles(list()), timings);
-  const seconds = files.reduce((sum, file) => sum + (timings[file] ?? fallback), 0);
-  const repeats = repeatsFor(seconds);
-  if (repeats === 0) {
-    console.log(
-      `::warning title=e2e repeat::${files.length} spec ${files.length === 1 ? 'file' : 'files'} changed, about ` +
-        `${duration(seconds)} a run by the timings, past the repeat's limit of ` +
-        `${duration(REPEAT_LIMIT_SECONDS)}; none is repeated, and the shards ran each once.`,
-    );
-    return 0;
-  }
-  console.log(
-    `e2e repeat: ${files.length} spec ${files.length === 1 ? 'file' : 'files'} changed since ${base}, about ` +
-      `${duration(seconds)} a run by the timings, each run ${repeats} times:`,
-  );
-  for (const file of files) console.log(`  ${file}${file in timings ? '' : ' (no timing yet)'}`);
-
-  const filters = files.map((file) => fileFilter(rootDir, file));
-  const selected = specFiles(list(filters));
-  if (JSON.stringify(selected) !== JSON.stringify(files)) {
-    console.error(`The filters select ${JSON.stringify(selected)}, not the changed spec files.`);
-    return 1;
-  }
-  const playwright = spawnSync(
+/** Runs Playwright on `filters` `repeats` times each, with no retry; its exit status and seconds. */
+function playwright(
+  filters: readonly string[],
+  repeats: number,
+  playwrightArgs: readonly string[],
+): { status: number; seconds: number } {
+  const started = performance.now();
+  const run = spawnSync(
     'npx',
     [
       'playwright',
@@ -132,7 +117,54 @@ function run(base: string, playwrightArgs: readonly string[]): number {
     ],
     { stdio: 'inherit' },
   );
-  return playwright.status ?? 1;
+  return { status: run.status ?? 1, seconds: (performance.now() - started) / 1000 };
+}
+
+/** Runs the changed files once, then `repeatsAfter` that run's seconds more times, with no retry. */
+function run(base: string, playwrightArgs: readonly string[]): number {
+  const { rootDir, files } = changed(base);
+  if (files.length === 0) {
+    console.log(`e2e repeat: no spec file changed since ${base}; nothing to run.`);
+    return 0;
+  }
+  const count = `${files.length} spec ${files.length === 1 ? 'file' : 'files'}`;
+  const timings = JSON.parse(readFileSync(timingsFile(), 'utf8')) as Timings;
+  const fallback = defaultSeconds(specFiles(list()), timings);
+  const estimate = files.reduce((sum, file) => sum + (timings[file] ?? fallback), 0);
+  if (estimate > REPEAT_LIMIT_SECONDS) {
+    console.log(
+      `::warning title=e2e repeat::${count} changed, about ${duration(estimate)} a run by the ` +
+        `timings, past the repeat's limit of ${duration(REPEAT_LIMIT_SECONDS)}; none is repeated, ` +
+        'and the shards ran each once.',
+    );
+    return 0;
+  }
+  console.log(
+    `e2e repeat: ${count} changed since ${base}, run once, then again by that run's time:`,
+  );
+  for (const file of files) console.log(`  ${file}${file in timings ? '' : ' (no timing yet)'}`);
+
+  const filters = files.map((file) => fileFilter(rootDir, file));
+  const selected = specFiles(list(filters));
+  if (JSON.stringify(selected) !== JSON.stringify(files)) {
+    console.error(`The filters select ${JSON.stringify(selected)}, not the changed spec files.`);
+    return 1;
+  }
+  const first = playwright(filters, 1, playwrightArgs);
+  if (first.status !== 0) return first.status;
+  const more = repeatsAfter(first.seconds);
+  if (more === 0) {
+    console.log(
+      `::warning title=e2e repeat::The first run of the ${count} took ${duration(first.seconds)}, ` +
+        `past the repeat's limit of ${duration(REPEAT_LIMIT_SECONDS)}; it ran once, as its shards did.`,
+    );
+    return 0;
+  }
+  console.log(
+    `e2e repeat: the first run took ${duration(first.seconds)}; running each ${more} more ` +
+      `${more === 1 ? 'time' : 'times'}, ${more + 1} in all.`,
+  );
+  return playwright(filters, more, playwrightArgs).status;
 }
 
 if (import.meta.main) {

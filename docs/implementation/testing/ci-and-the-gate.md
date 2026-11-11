@@ -102,6 +102,8 @@ The first timings came from run 42493172818's list-reporter times, before the re
 
 **Ten shards, since the suite is the run's critical path.**
 With six, the slowest shard ended a median 21.5 minutes into a run, while every other job was done by 2.7; a shard is about 3 minutes of setup and its share of the suite, so ten bring a shard to about 12 minutes at about 13 more runner-minutes of setup a run.
+That holds while runners are free: the account is on GitHub Free, which runs 20 jobs at once across the repository, and one pull request's run alone asks for about 25 (22 Test jobs, the ten shards among them, and CodeQL's three).
+With another run going, shards wait for a runner: on one such run four shards queued 9 to 12 minutes, and the run ended at 23 minutes while each shard's own time was 10.5 to 12.5.
 The matrix lists the shards and their `total`, which move together.
 
 ## The e2e stack and its caches
@@ -124,6 +126,7 @@ That is the rule by which every worktree and `nm-test.sh` stack shares its image
 Only shard 1 saves (`save-cache` and `save-caches`), and only what it did not restore, so ten shards never race to write one key; the first run of a new key installs and builds on every shard, as before.
 `docker-build` never uses the cache: it builds both images from nothing on every run, so a base image or a dependency that no longer builds still fails it.
 A cache written on `dev` is read by every pull request; one written on a pull request's run only by that pull request's later runs.
+The three caches are about 660 MB together (the images' archive about 340, the browsers about 280, `node_modules` about 40), saved once by each pull request that changes a key's files, against the repository's 10 GB of Actions cache, which GitHub evicts least recently used first and after 7 days unread.
 
 ## The e2e repeat
 
@@ -131,8 +134,10 @@ A cache written on `dev` is read by every pull request; one written on a pull re
 A shard runs each spec once, so a spec that fails only sometimes can pass on its own pull request and merge, then fail the shards of later ones: 13 of 21 shard failures from 2026-11-03 to 11-11 were tests that passed on a retry, which `failOnFlakyTests` fails ([above](#ci)), and three or four of the flaky specs fixed since 11-01 were races in the product that had merged on one green run.
 The `e2e-repeat` job runs [`front-end/scripts/e2e-repeat.ts`](../../../front-end/scripts/e2e-repeat.ts) `run HEAD^1`: the spec files that the diff from the merge commit's first parent, the base the pull request is tested against, adds, changes or renames to, kept where `playwright test --list` lists them, so a helper, a fixture or a deleted file never runs; `changed HEAD^1`, run first, prints them, and with none the job passes at once.
 The checkout fetches two commits of history for that parent.
-Every file runs the same number of times (`--repeat-each`), with `--retries=0` and `--trace=retain-on-failure`, on one stack, so any failed run fails the job: as many times as fit 10 minutes of tests by [the timings](#the-e2e-shards), at least 2 and at most 5; five runs catch a spec failing one run in three 87% of the time.
-Past 15 minutes for one run of the files, as on a change that sweeps through the suite, it repeats none and passes with a warning annotation, since its shards have still run each file once.
+Every file runs the same number of times (`--repeat-each`), with `--retries=0` and `--trace=retain-on-failure`, on one stack, so any failed run fails the job: as many times as fit 10 minutes of tests, at least 2 and at most 5; five runs catch a spec failing one run in three 87% of the time.
+**The files run once first, and that run's time decides how many more follow**, so a new file, which has no timing yet, is bounded by what it really takes rather than by a guess: a first run of 3 minutes gets two more, one past 5 minutes one more, one past 15 minutes none.
+Before anything runs, [the timings](#the-e2e-shards) (a new file weighing their median) decide only whether the files are too many to run at all: past 15 minutes a run, as on a change that sweeps through the suite, none runs and the job passes with a warning annotation, since its shards have still run each file once.
+So the tests take at most twice 15 minutes, and the job's `timeout-minutes: 40` covers that and its setup; a first run past the limit passes with the same warning, as its shards have run it once too.
 
 ## The bundle budget
 
