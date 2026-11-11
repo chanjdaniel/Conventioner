@@ -39,6 +39,7 @@ from datatypes import (
     VendorAssignmentResult,
     intake_mode_from_market_document,
     market_name_slug,
+    organization_people_of,
     phase_from_market_document,
     table_code_for,
     table_code_sort_key,
@@ -1467,13 +1468,7 @@ def organization_refusal(user_email: str, organization_id: Optional[str]) -> Opt
     if not organization:
         return "Organization not found"
     user = UsersApi.get_user(user_email)
-    user_id = user.id if user else None
-    if (
-        user_id is None
-        or user_id != organization.get("owner")
-        and user_id not in organization.get("admins", [])
-        and user_id not in organization.get("members", [])
-    ):
+    if user is None or user.id not in organization_people_of(organization):
         return "User is not a member of this organization"
     return None
 

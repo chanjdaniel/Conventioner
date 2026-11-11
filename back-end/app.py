@@ -736,8 +736,7 @@ def add_org_admin(org_id: str) -> Response:
     if not user_email:
         return jsonify({"error": "user_email required"}), 400
 
-    if not OrgsApi.add_org_admin(org_id, user_email, authenticated_email()):
-        return jsonify({"error": "Failed to add admin"}), 400
+    OrgsApi.add_org_admin(org_id, user_email, authenticated_email())
     return jsonify({"message": "Admin added successfully"}), 200
 
 @app.route('/organizations/<org_id>/members', methods=['POST'])
@@ -750,8 +749,7 @@ def add_org_member(org_id: str) -> Response:
     if not user_email:
         return jsonify({"error": "user_email required"}), 400
 
-    if not OrgsApi.add_org_member(org_id, user_email, authenticated_email()):
-        return jsonify({"error": "Failed to add member"}), 400
+    OrgsApi.add_org_member(org_id, user_email, authenticated_email())
     return jsonify({"message": "Member added successfully"}), 200
 
 @app.route('/organizations/<org_id>/users/<user_id>', methods=['DELETE'])
@@ -761,18 +759,27 @@ def remove_org_user(org_id: str, user_id: str) -> Response:
     OrgsApi.remove_org_user(org_id, user_id, authenticated_email())
     return jsonify({"message": "User removed successfully"}), 200
 
+@app.route('/organizations/<org_id>/users/<user_id>', methods=['PUT'])
+@login_required
+def change_org_place(org_id: str, user_id: str) -> Response:
+    """Make an admin of an organization a member, or a member an admin: the owner's to do. The body
+    is ``{"place": "admin" | "member"}``."""
+    data = json_object(required=True)
+    OrgsApi.change_org_place(org_id, user_id, string_field(data, 'place'), authenticated_email())
+    return jsonify({"message": "Place changed"}), 200
+
 @app.route('/organizations/<org_id>/transfer', methods=['POST'])
 @login_required
 def transfer_org_ownership(org_id: str) -> Response:
-    """Transfer organization ownership."""
+    """Hand the organization on to one of its admins or members: its owner's to do. The body is
+    ``{"new_owner_email": "<address>"}``."""
     data = json_object(required=True)
 
     new_owner_email = string_field(data, 'new_owner_email')
     if not new_owner_email:
         return jsonify({"error": "new_owner_email required"}), 400
 
-    if not OrgsApi.transfer_org_ownership(org_id, authenticated_email(), new_owner_email):
-        return jsonify({"error": "Failed to transfer ownership"}), 400
+    OrgsApi.transfer_org_ownership(org_id, authenticated_email(), new_owner_email)
     return jsonify({"message": "Ownership transferred successfully"}), 200
 
 # Market role management

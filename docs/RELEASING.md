@@ -7,19 +7,19 @@ describes:
   - release-please-config.json
   - back-end/app.py#check_public_endpoint_defenses
   - front-end/vite.config.ts#assertCaptchaSiteKey
-  - front-end/vite.config.ts#assertApiHost
-  - front-end/vite.config.ts#assertNoLocalHatchOnVercel
   - back-end/app.py#healthz
   - front-end/vite.config.ts#buildCommit
   - scripts/deploy_proof.py
+  - front-end/vite.config.ts#assertApiHost
+  - front-end/vite.config.ts#assertNoLocalHatchOnVercel
 verified: 2026-11-11
 sources:
   - T74
   - T254
   - T251
   - T263
-  - T273
   - T270
+  - T273
 ---
 
 # Release Process
@@ -178,6 +178,10 @@ A rollback does not move `main`, so revert the bad commit on `dev` and promote i
 That is how `api.conventioner.io` served an April build until 2026-10-18 while every later deploy went live nowhere.
 The Deploy workflow promotes explicitly, so its next run puts a project out of the rolled-back state by itself; a by-hand `vercel promote` is needed only when no deploy follows.
 A rollback cannot undo a migration, which is forward-only.
+**After a roll forward over a rollback past the release that keeps an organization's people as one map** ([ADR 0025](adr/0025-an-organizations-people-are-one-map.md)), run `migrate_organization_people.py --reconcile`, `--dry-run` first, as soon as that release is promoted again.
+The release before writes only an organization's three lists, so each map it left goes stale, and the map's release reads the map over the lists: until the reconcile has run, a person removed during the rollback keeps their roles through the organization, one added has none, and an organization handed on reads as its old owner's.
+The map's release also judges and writes every change on the stale map in that time, and the reconcile keeps what such a write left in the lists: an old owner can still hand the organization on, leaving its owner while rolled back with no place in it, and someone removed while rolled back can still remove a member.
+So run the reconcile before any organizer changes an organization's people, the first thing done after the roll forward.
 
 ### Bootstrapping Note
 
@@ -313,6 +317,8 @@ python migrations/check_vendor_day_duplicates.py      # reads only: names (by ma
 python migrations/migrate_placement_history.py        # AFTER the deploy, whenever: moves the placement history into the market's history
 python migrations/migrate_to_one_stage.py             # AFTER the deploy, whenever: moves the three old stage phases into `applications`
 python migrations/migrate_layouts.py                  # AFTER the deploy, whenever: ids on every section and location, the beta's floorplans and their images removed
+python migrations/migrate_organization_people.py      # AFTER the deploy, whenever, `--dry-run` first: folds each organization's three lists of people into its `people` map
+python migrations/migrate_organization_people.py --reconcile  # ONLY after a roll forward over a rollback past the map's release, `--dry-run` first: rebuilds each map from its lists
 ```
 
 `migrate_placement_history.py` runs **after** its deploy, not before (E40/F01/S01): it moves every `placement_history` entry into `history` with its fields unchanged and drops the old collection, and a run before the deploy leaves behind whatever the old build writes meanwhile.
@@ -331,6 +337,18 @@ That build reads an unmigrated market without failing: a section or location wit
 It gives every section and location without one that id, removes every floorplan with no `locationId` (every one the beta saved; none is kept), and deletes every file in the `floorplan_images` GridFS bucket that no remaining floorplan names, but one uploaded after the run began, printing each market it changes and the counts ([the market document](implementation/data/market-document.md#the-boot-refusal-and-the-migration)).
 Run `--dry-run` first and read it, then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says; take a `mongodump` first (below), since the images it deletes are gone.
 It is idempotent: a second run changes nothing, and a run that found a market changed under it says so and records no `layouts_v1` marker, so run it again.
+
+`migrate_organization_people.py` runs **after** the deploy that ships an organization's `people` map ([ADR 0025](adr/0025-an-organizations-people-are-one-map.md)), whenever the operator likes, never before it: the build before changes only the three lists, so a map written earlier goes stale under its writes, and the build after reads the map over the lists.
+That build reads an organization stored before the map by folding its three lists, the owner winning, and the first change to its people folds it in, so nothing waits on the script and the boot does not check for it.
+It writes `people` on every organization that has none, in one write held on the lists as read, and keeps `owner`, `admins` and `members` as the map's mirror, so the release before still reads the same people after a rollback.
+It leaves alone, and lists, an organization with no owner, one holding an id that cannot be a key of the map, and one that changed during the run (run it again for that one).
+Run `--dry-run` first: it writes nothing and prints each organization it would fold, whether it does not parse on the release before (its owner also an admin or a member) and whether it lists an admin also as a member, then the counts; [OPERATIONS.md](OPERATIONS.md#starting-a-database-and-migrations) says what of it goes into the team's records.
+Then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says.
+It is idempotent: a second run folds nothing.
+
+`migrate_organization_people.py --reconcile` runs only after a roll forward over a rollback past that release ([Rolling back](#rolling-back)), never otherwise, since on the map's release the map is the truth and its own writes keep the lists in step.
+It folds as above, and on every folded organization whose map and lists disagree it rebuilds the map from the lists (each person still in it keeping their position, those new to it after them), in one write held on the map and the three lists as read, setting the lists as the new map's mirror.
+Its `--dry-run` prints each organization it would rebuild and whose place would change; it too is idempotent, and lists one that changed during the run.
 
 `migrate_user_emails.py` **must** be run before the code that holds one account per address (E32/F03/S04).
 The back end builds a UNIQUE index on the stored, lowercased address at boot (`api.users.ensure_user_indexes`) and refuses to boot while any address is stored with capitals, naming this script, or while two accounts share an address, naming them by id.

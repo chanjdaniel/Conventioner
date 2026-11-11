@@ -17,24 +17,21 @@ import api.organizations as OrgsApi
 import api.users as UsersApi
 
 ORG_ID = "org-1"
-OWNER = "owner@example.com"
-ADMIN = "admin@example.com"
-MEMBER = "member@example.com"
-EDITOR_MEMBER = "editor-member@example.com"
+# A person's id is also their address here, so it is one without a dot, as a user id always is.
+OWNER = "user-owner"
+ADMIN = "user-admin"
+MEMBER = "user-member"
+EDITOR_MEMBER = "user-editor-member"
 
 
 class Organizations:
-    """The organizations collection, answering the list's ``$or`` of owner, admins and members."""
+    """The organizations collection, answering the list's filter as the server does."""
 
     def __init__(self, *docs):
         self.docs = [copy.deepcopy(doc) for doc in docs]
 
     def find(self, query):
-        user_id = query["$or"][0]["owner"]
-        return [
-            copy.deepcopy(doc) for doc in self.docs
-            if user_id in [doc["owner"], *doc["admins"], *doc["members"]]
-        ]
+        return [copy.deepcopy(doc) for doc in self.docs if mongo_matches(doc, query)]
 
 
 class Markets:

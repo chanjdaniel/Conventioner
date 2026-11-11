@@ -26,6 +26,7 @@ from conftest import (
     FakeMarketsCollection,
     FakeOrganizations,
     FakeTemplates,
+    install_organizations,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
     stored_market,
@@ -153,6 +154,7 @@ def _png():
 # the caller's role: with the default body it would answer 400 and never reach the role check.
 BODIES = {
     ("POST", "/markets/<market_id>/applications-stopped"): {"json": {"stopped": True}},
+    ("PUT", "/organizations/<org_id>/users/<user_id>"): {"json": {"place": "member"}},
     ("PUT", "/markets/<market_id>/plan"): {"json": {"setupObject": {}}},
     ("PUT", "/markets/<market_id>/table-types"): {"json": {"tableTypes": []}},
     ("PUT", "/markets/<market_id>/rejection-rules"): {"json": {"rules": []}},
@@ -333,7 +335,8 @@ def walked(monkeypatch):
         "_id": "mongo-org-1", "id": ORG_ID, "name": "Org", "owner": "user-owner", "admins": [],
         "members": [], "markets": [MARKET_ID],
     })
-    for module in (OrgsApi, PermissionsApi, TemplatesApi):
+    install_organizations(monkeypatch, organizations)
+    for module in (PermissionsApi, TemplatesApi):
         monkeypatch.setattr(module, "organizations_collection", organizations)
 
     images = FakeGridFS()

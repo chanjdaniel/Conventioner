@@ -49,6 +49,13 @@ def test_the_ids_every_screen_reads_by_are_among_them():
     assert ("market_id",) in LOOKUP_INDEXES["history"]
 
 
+def test_a_persons_organizations_are_found_by_an_index_in_either_shape():
+    """``organization_people.of_person`` asks a key of the people map, which only a wildcard index
+    covers, and on an organization stored before the map its three lists (T283)."""
+    for fields in [("people.$**",), ("owner",), ("admins",), ("members",)]:
+        assert fields in LOOKUP_INDEXES["organizations"]
+
+
 def test_the_login_id_every_request_loads_the_account_by_is_among_them():
     assert ("login_id",) in LOOKUP_INDEXES["users"]
 

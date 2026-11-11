@@ -197,6 +197,6 @@ The fix for each refusal is in [Operations](../../OPERATIONS.md#when-the-back-en
 ## Deleting an account
 
 A person deletes only their own account, and not while they own an organization: they transfer it first.
-Deleting it pulls them from every organization's `admins` and `members`; a role entry naming them on a market stays in that market's `roles`.
+Deleting it takes their place in every organization's people, the map and its `admins` and `members` mirror alike ([the organization's people](../modules/organization-people.md)); a role entry naming them on a market stays in that market's `roles`.
 
 What an organizer does with their account, from registering to resetting a password, is [the accounts flows](../../business/flows/accounts.md).

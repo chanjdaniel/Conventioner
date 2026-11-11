@@ -7,8 +7,6 @@ describes:
   - back-end/requirements-floorplan-solver.in
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
-  - back-end/floorplan_limits.py
-  - back-end/api/markets.py#_floorplans_refusal
   - back-end/api/floorplans_calibrate.py
   - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
@@ -17,11 +15,13 @@ describes:
   - back-end/services/gridfs_service.py
   - back-end/utils/pdf_converter.py
   - front-end/src/components/floorplan/FloorplanWorkflow.vue
-  - front-end/src/views/FloorplanEditorView.vue
-  - front-end/src/stores/floorplan.ts
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
+  - back-end/floorplan_limits.py
+  - back-end/api/markets.py#_floorplans_refusal
+  - front-end/src/views/FloorplanEditorView.vue
+  - front-end/src/stores/floorplan.ts
   - back-end/api/markets.py#_with_the_layouts
   - back-end/api/markets.py#release_removed_floorplans
   - back-end/layout.py
@@ -67,9 +67,9 @@ sources:
   - T221
   - T217
   - T263
+  - T271
   - T272
   - T257
-  - T271
 ---
 
 # Floorplan placement

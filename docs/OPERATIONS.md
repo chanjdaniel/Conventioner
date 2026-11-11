@@ -13,6 +13,7 @@ describes:
   - back-end/api/attendance.py#ensure_attendance_indexes
   - back-end/payments.py#ensure_payment_indexes
   - back-end/migrations/check_vendor_day_duplicates.py
+  - back-end/migrations/migrate_organization_people.py
 verified: 2026-11-11
 sources:
   - E32/F03/S03
@@ -188,6 +189,9 @@ The release carrying E40/F01/S01 moves the placement history into the market's h
 Until it runs, that release reads the old `placement_history` collection beside the new one, so the older placements still show in the Assignment history and a vendor's History tab, and nothing refuses to boot; a later release removes that fallback ([the market's history](implementation/data/history.md#the-move-from-placement_history)).
 The release that makes a floorplan a location's layout (T257) removes every floorplan the floorplan beta saved, with its image: once it is deployed, take a `mongodump`, then run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_layouts.py --dry-run` ([`migrate_layouts.py`](../back-end/migrations/migrate_layouts.py)), which names each market it would change and counts the floorplans and images it would remove, then without `--dry-run`.
 Until it runs, that release reads each market as the script would leave it and ignores the beta's floorplans, so nothing refuses to boot ([RELEASING.md](RELEASING.md#pre-deploy-database-migrations)).
+The release carrying T283 keeps an organization's people in one map: once it is deployed, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_organization_people.py --dry-run` ([`migrate_organization_people.py`](../back-end/migrations/migrate_organization_people.py)), then without `--dry-run`.
+The dry run is the read-only count of how many organizations do not parse on the release before (an owner also an admin or a member), and it writes nothing.
+It prints each organization's id and name; only its counts go into the team's records, never a name or an id.
 
 ### When the back end refuses to boot
 
