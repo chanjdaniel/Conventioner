@@ -162,6 +162,8 @@ Refused, naming each blocking market and its phase: "Archive or delete them firs
 
 **Status:** No screen (`POST /organizations/<id>/transfer` exists; no screen offers it).
 
+The owner hands the organization only to one of its admins or members, who becomes its owner while the old owner stays on as an admin, all at once; handing it to someone outside it is refused, "Hand the organization only to one of its admins or members.", and so is handing it to its own owner, "They already own this organization" ([the organization's people](../../implementation/modules/organization-people.md)).
+
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 
 ## B7. Read the organization's history

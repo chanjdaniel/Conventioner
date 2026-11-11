@@ -4,6 +4,8 @@ kind: module
 describes:
   - back-end/organization_people.py
   - back-end/tests/test_one_writer_holds_each_place_it_judged.py
+  - back-end/tests/test_an_organizations_people_stay_one_map.py
+  - back-end/tests/real_mongo/test_an_organizations_people_on_the_server.py
   - back-end/tests/test_the_shared_organizations_fake.py
   - back-end/tests/test_every_module_imports_first.py
   - front-end/src/views/ManageOrgOverlay.vue
@@ -28,6 +30,10 @@ It also builds the one filter that finds the organizations a person is in, `of_p
 - `change_place(org_id, user_id, place, requester)`: the owner makes an admin a member or a member an admin, `place` being the request's `"admin"` or `"member"` and anything else refused before the organization is read, 400 "A place is admin or member.".
   `api/organizations.py`'s `change_org_place` calls it, for `PUT /organizations/<org_id>/users/<user_id>`, which answers `{"message": "Place changed"}`.
   The account's copy is left alone, since the person was in the organization before and is after.
+- `transfer(org_id, requester, new_owner_email)`: the owner hands the organization on to one of its admins or members, and stays on it as an admin.
+  `api/organizations.py`'s `transfer_org_ownership` calls it, for `POST /organizations/<org_id>/transfer`, which answers `{"message": "Ownership transferred successfully"}`.
+  Anyone but the owner is refused first, 403 "Only current owner can transfer ownership", then an address with no account, 400 "New owner user not found".
+  The new owner's account gains the organization in its copy, and the history records `transfer-organization` with the owner's address before and after, as it always has.
 - `forget(user_id)`: an account's deletion takes its place in every organization it was an admin or a member of, by two `update_many`, one over the organizations with a map (their key, `$in` admin or member, unset and pulled from both lists) and one over those stored before it (pulled from both lists).
   An owner is matched by neither: `delete_user` refuses an owner before it deletes the account.
 - `next_people(people, event, requester_id, target_id)`: the map a change leaves, or the client error it answers, with no database; the writer and the tests both call it.
@@ -35,21 +41,20 @@ It also builds the one filter that finds the organizations a person is in, `of_p
 
 ## The table
 
-**`AUTHORITY` says who may ask for each change, by their place as read, and is checked first**: "Add admin" is the owner's ("Only organization owner can add admins"), "Add member" and "Remove" the owner's or an admin's ("Only organization owner or admin can add members", "... can remove users"), and a place change the owner's ("Only the organization's owner can change someone's place in it.").
+**`AUTHORITY` says who may ask for each change, by their place as read, and is checked first**: "Add admin" is the owner's ("Only organization owner can add admins"), "Add member" and "Remove" the owner's or an admin's ("Only organization owner or admin can add members", "... can remove users"), a place change the owner's ("Only the organization's owner can change someone's place in it."), and a transfer the owner's ("Only current owner can transfer ownership").
 **`TABLE` says what each change does to the target's place as read**:
 
-| Target's place | Add admin                                             | Add member                                            | Change place to admin | Change place to member | Remove                                                            | Forget        |
-| -------------- | ----------------------------------------------------- | ----------------------------------------------------- | --------------------- | ---------------------- | ----------------------------------------------------------------- | ------------- |
-| none           | admin                                                 | member                                                | 404 (as Remove)       | 404 (as Remove)        | 404 "They are no longer in this organization."                    | nothing       |
-| member         | admin                                                 | 400 "They are already a member of this organization." | admin                 | member, nothing done   | none                                                              | none          |
-| admin          | 400 "They are already an admin of this organization." | 400 "Admin cannot be added as member"                 | admin, nothing done   | member                 | none, the owner's alone (403 "Only owner can remove admins")      | none          |
-| owner          | 400 "Owner cannot be added as admin"                  | 400 "Owner cannot be added as member"                 | 400 (below)           | 400 (below)            | 400 "Cannot remove organization owner. Transfer ownership first." | never reached |
+| Target's place | Add admin                                             | Add member                                            | Change place to admin | Change place to member | Remove                                                            | Transfer to them                                                  | Forget        |
+| -------------- | ----------------------------------------------------- | ----------------------------------------------------- | --------------------- | ---------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- | ------------- |
+| none           | admin                                                 | member                                                | 404 (as Remove)       | 404 (as Remove)        | 404 "They are no longer in this organization."                    | 400 "Hand the organization only to one of its admins or members." | nothing       |
+| member         | admin                                                 | 400 "They are already a member of this organization." | admin                 | member, nothing done   | none                                                              | owner, and the giver admin                                        | none          |
+| admin          | 400 "They are already an admin of this organization." | 400 "Admin cannot be added as member"                 | admin, nothing done   | member                 | none, the owner's alone (403 "Only owner can remove admins")      | owner, and the giver admin                                        | none          |
+| owner          | 400 "Owner cannot be added as admin"                  | 400 "Owner cannot be added as member"                 | 400 (below)           | 400 (below)            | 400 "Cannot remove organization owner. Transfer ownership first." | 400 "They already own this organization"                          | never reached |
 
 "Add admin" of a member makes them an admin, as Manage organization's "Add admin" field always has, recorded as the place changed.
 A place set to the place held answers 200 and writes and records nothing; the owner's place is refused, 400 "The owner's place changes only when the organization is handed on.".
-A person changing place keeps their position in the map's order; someone added joins its end.
+A person changing place keeps their position in the map's order, the transfer's giver and new owner alike; someone added joins its end.
 A place change is recorded as the admins' `role_changed`, with the place before and after.
-The transfer joins the table in T283's ticket 04.
 
 ## Every write holds what it judged
 
@@ -59,17 +64,20 @@ Either way the lists stay an exact mirror of the map, for a rollback to the rele
 **A change that changes nothing writes and records nothing.**
 A user id reaches a path only from a stored account or the stored map: `remove`'s and `change_place`'s id comes from the request's address, and is looked up in the map as read before any path is built, so one the map does not hold, dotted or not, is a 404.
 
-**The transfer is not yet the module's**: `transfer_org_ownership` still writes its lists and then, on an organization with a map, the two keys in a second write, until ticket 04 makes it one write here.
+**Handing the organization on is one such write, filtered on the giver being owner** and the new owner at their place as read, so no cut and no read finds the organization with two owners, none, or an owner in a list.
+Its update sets both keys and `owner`; from a member it pulls them from `members` and adds the giver to `admins`; from an admin it sets `admins` to the list as read with the giver where the new owner stood, one path for both, and so also holds `admins` as read, lest an admin added meanwhile be dropped from the list while the map keeps them.
+On an organization stored before the map it is the fold's write, as for every change.
+It was four unconditional writes: cut between them, an organization stored its owner in its own `admins` and did not parse, or the person it was handed to had no place in it at all.
 
 ## A write that met a change
 
 **A write that matched nothing reads the organization once more to answer**: gone, 404 "Organization not found"; a removal whose target is now gone, 404 "They are no longer in this organization.", which Manage organization reads as done; anything else, `OrganizationChanged`, 409, "This organization changed while you were working on it, so your change was not saved. Check its people as they are now, then make your change again."
 Nothing is retried on the server: the person decides again on what is true.
-So an "Add member" judged before the owner handed the organization to that same person is refused, where it used to land the new owner in `members` and leave an organization that did not parse.
+So two transfers judged on one read land once, a transfer to someone removed meanwhile is the 409, and an "Add member" judged before the owner handed the organization to that same person is refused, where it used to land the new owner in `members` and leave an organization that did not parse.
 A place change of someone removed meanwhile is that 409 too, since only a removal reads the person gone as done.
 **Manage organization** ([`ManageOrgOverlay.vue`](../../../front-end/src/views/ManageOrgOverlay.vue)) tells the 409 apart by its code (`isOrganizationChanged` in [`api.ts`](../../../front-end/src/utils/api.ts)), shows its sentence where the control's refusal shows, under the add form or in the Remove or place-change confirmation, which stays open, and reads the organization again behind it, the list behind and the History with it.
 
-**The account's copy is written after the organization's write, best effort**, `$addToSet` on an add and `$pull` on a removal, and nothing on a place change, since no check reads it ([users and email](../data/users-and-email.md)).
+**The account's copy is written after the organization's write, best effort**, `$addToSet` on an add and on a transfer's new owner and `$pull` on a removal, and nothing on a place change, since no check reads it ([users and email](../data/users-and-email.md)).
 
 ## Make member and Make admin
 
@@ -90,7 +98,9 @@ A 404, someone removed meanwhile, is read as done, with focus on the list their 
 
 ## How it is tested
 
-[`test_one_writer_holds_each_place_it_judged.py`](../../../back-end/tests/test_one_writer_holds_each_place_it_judged.py): every cell of the table through `next_people`, every authority and refusal through the routes, each write's filter and update on both shapes with the lists a mirror after, the account's copy and the history, and each way a write meets a change, the add judged before a transfer among them.
+[`test_one_writer_holds_each_place_it_judged.py`](../../../back-end/tests/test_one_writer_holds_each_place_it_judged.py): every cell of the table through `next_people`, every authority and refusal through the routes, each write's filter and update on both shapes with the lists a mirror after, the account's copy and the history, and each way a write meets a change, the add judged before a transfer among them; the transfer's cells, authority and refusals, and its write to a member and to an admin.
+[`test_an_organizations_people_stay_one_map.py`](../../../back-end/tests/test_an_organizations_people_stay_one_map.py): the planner's two transfer-cut probes, asserting the organization reads as it was or as handed on; a cut at each write a transfer makes (the organization's, the account copy's, the history's), from a member and from an admin, on both shapes, leaving one owner; and the property, 50 seeds of 40 changes each (add admin, add member, change place, remove, transfer) by random requesters on random targets among six accounts, a third with a second change landing between the first's read and its write, asserting after each one owner, every value a place, the lists an exact mirror, the document parsing, and, for a change nothing met, the map `next_people` answers, in its order.
+[`test_an_organizations_people_on_the_server.py`](../../../back-end/tests/real_mongo/test_an_organizations_people_on_the_server.py), in [the real-MongoDB suite](../testing/real-mongo-suite.md): the races on a server, on both shapes.
 [`aChangeThatMetAnotherInAnOrganization.test.ts`](../../../front-end/src/__tests__/aChangeThatMetAnotherInAnOrganization.test.ts): the 409's sentence under each add form and in the Remove confirmation, with the re-read behind it, and no re-read for any other refusal.
 [`changingAPlaceAsksFirst.test.ts`](../../../front-end/src/__tests__/changingAPlaceAsksFirst.test.ts): the two buttons for the owner alone, the confirmations' words, Cancel and Escape, the request, the re-read and where focus goes, the 404 read as done, the 409 and any other refusal in the confirmation, and one request however often the confirm is pressed.
 [`an-organizations-people-change-place.spec.ts`](../../../front-end/e2e/an-organizations-people-change-place.spec.ts): the owner makes an admin a member and back on the stack, each asked first, with the buttons' names, the rows, the focus, the History and a reload, at a desk and on a phone.
