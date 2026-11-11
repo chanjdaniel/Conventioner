@@ -3,6 +3,12 @@ import { oneByOnePath } from '../helpers/marketScreens';
 import { PersonChooser } from './PersonChooser';
 
 /**
+ * The word a progress count ends in: the queue counted by what it holds (open, needing a
+ * follow-up, or both), or a chosen reviewer's share.
+ */
+const COUNTED = '(?:open|needing a follow-up|in your share)';
+
+/**
  * Page object for the application monitor: the Applications tab of Market Setup, where an
  * organizer reviews who has applied and decides who gets a table.
  *
@@ -15,13 +21,6 @@ import { PersonChooser } from './PersonChooser';
  * (`ApplicationsAllPage`); here, acting on a named applicant means moving the queue on until their
  * card is up.
  */
-
-/**
- * The word a progress count ends in: the queue counted by what it holds (open, needing a
- * follow-up, or both), or a chosen reviewer's share.
- */
-const COUNTED = '(?:open|needing a follow-up|in your share)';
-
 export class ApplicationMonitorPage {
   readonly page: Page;
 
