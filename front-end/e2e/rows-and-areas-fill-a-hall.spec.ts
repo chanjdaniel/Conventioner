@@ -265,6 +265,48 @@ test.describe('Rows fill a hall', () => {
     expect(leastSeparation(tables)).toBeGreaterThanOrEqual(-0.05);
   });
 
+  test("a Gap or an Aisle that is no length says what it takes, as Fill's Aisle does, and no row is shown or placed until it is mended", async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request);
+    const gapError = page.getByTestId('layout-row-gap-error');
+    const aisleError = page.getByTestId('layout-row-aisle-error');
+
+    await layout.rowGap.fill('-5');
+    await expect(layout.rowGap).toHaveAttribute('aria-invalid', 'true');
+    await expect(gapError).toHaveText("Type the gap's width in centimetres, 0 to 1,000.");
+    await expect(layout.rowGap).toHaveAttribute('aria-describedby', 'layout-row-gap-error');
+
+    await layout.clickAt([2000, 3000]);
+    await layout.clickAt([22_000, 3000]);
+    await expect(layout.rowPoints).toHaveCount(2);
+    await expect(layout.rowTables).toHaveCount(0);
+    await page.keyboard.press('Enter');
+    await expect(layout.announcement).toHaveText(
+      "Type the gap's width in centimetres, 0 to 1,000.",
+    );
+    // The path waits for the field to be mended; nothing was placed or stored.
+    await expect(layout.rowPoints).toHaveCount(2);
+    await expect(layout.tables).toHaveCount(0);
+
+    await layout.rowGap.fill('0');
+    await layout.rowAisle.fill('abc');
+    await expect(gapError).toHaveCount(0);
+    await expect(layout.rowGap).toHaveAttribute('aria-invalid', 'false');
+    await expect(aisleError).toHaveText("Type the aisle's width in centimetres, 0 to 1,000.");
+    await expect(layout.rowTables).toHaveCount(0);
+
+    await layout.rowAisle.fill('120');
+    await expect(aisleError).toHaveCount(0);
+    await expect(layout.rowTables).toHaveCount(10);
+    // Enter from the page, as after the clicks, places the path that waited.
+    await layout.rowAisle.blur();
+    await layout.saved(() => page.keyboard.press('Enter'));
+    await expect(layout.announcement).toHaveText('Added Gold row 1 to 10.');
+    expect(await stored(request, seeded.marketId)).toHaveLength(10);
+  });
+
   test('F and "Flip side" put the tables on the other side of the line, and "Centred on the line" centres them on it', async ({
     authenticatedPage: page,
     request,
@@ -950,7 +992,6 @@ test.describe('A row is drawn by hand', () => {
   }) => {
     const { layout, seeded } = await open(page, request);
     const sent = saves(page);
-    const zoom = await layout.zoom.textContent();
 
     // A press and a curved drag, the button still down.
     const from = await layout.onScreen([4000, 6000]);
@@ -966,7 +1007,9 @@ test.describe('A row is drawn by hand', () => {
     }
     await expect(layout.rowTables.first()).toBeVisible();
 
-    // The view holds still under the drag in hand.
+    // The view holds still under the drag in hand. Its zoom is read here, once the drag is in
+    // hand: before it, the hall is fitted again to the room the options strip leaves it.
+    const zoom = await layout.zoom.textContent();
     await page.keyboard.press('+');
     await page.keyboard.press('0');
     await expect(layout.zoom).toHaveText(zoom!);

@@ -119,19 +119,6 @@ export function countOf(typed: string): number | null {
   return count >= 1 && count <= MAX_FILL_TABLES ? count : null;
 }
 
-/** The aisle typed in centimetres, in millimetres: nothing for a field that holds no length. */
-/** The widest aisle the placement takes, in centimetres: the server's 10,000 mm. */
-export const MAX_FILL_AISLE_CM = 1000;
-
-/** The aisle typed, in millimetres: a number of centimetres from 0 to 1,000, a comma for the
- *  point taken; null for anything else, which the dialog says rather than reading as no aisle. */
-export function aisleMmOf(typed: string): number | null {
-  const text = String(typed).trim().replace(',', '.');
-  if (!/^\d+(\.\d+)?$/.test(text)) return null;
-  const cm = Number(text);
-  return cm <= MAX_FILL_AISLE_CM ? Math.round(cm * 10) : null;
-}
-
 const pair = (point: PointMm): Pair => [point.xMm, point.yMm];
 
 /**

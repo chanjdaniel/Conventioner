@@ -12,22 +12,17 @@ import { createPinia, setActivePinia } from 'pinia';
 import LayoutView from '@/components/layout/LayoutView.vue';
 import LayoutEditor from '@/components/layout/LayoutEditor.vue';
 import type { LayoutEditor as Editor } from '@/components/layout/useLayoutEditor';
+import { ROW_CHOICES_AT_FIRST, rowChoices } from '@/components/layout/layoutRow';
 import { useMarketStore } from '@/stores/market';
 import { MARKET_ID, marketRouter } from './support/marketScreen';
 import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), post: vi.fn() }));
-const routing = vi.hoisted(() => ({ router: null as unknown }));
+const routing = vi.hoisted(() => ({ router: null as unknown, route: null as unknown }));
 
 vi.mock('vue-router', () => ({
   useRouter: () => routing.router,
-  useRoute: () =>
-    reactive({
-      name: 'market-layout',
-      params: { marketId: 'market-1', locationId: 'loc-upper' },
-      query: {},
-      matched: [],
-    }),
+  useRoute: () => routing.route,
   onBeforeRouteLeave: () => {},
   onBeforeRouteUpdate: () => {},
 }));
@@ -127,6 +122,12 @@ beforeEach(() => {
   vi.useFakeTimers();
   setActivePinia(createPinia());
   routing.router = marketRouter();
+  routing.route = reactive({
+    name: 'market-layout',
+    params: { marketId: 'market-1', locationId: 'loc-upper' },
+    query: {},
+    matched: [],
+  });
   market = served();
   api.get.mockReset();
   api.post.mockReset();
@@ -145,6 +146,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  Object.assign(rowChoices, ROW_CHOICES_AT_FIRST);
 });
 
 describe('a phase move from the layout page', () => {
@@ -209,5 +211,65 @@ describe('a recalibration that would leave tables outside the floorplan', () => 
     expect(wrapper.findComponent({ name: 'LayoutCalibration' }).props('refusal')).toBe(
       'At this scale 1 table would stand outside the floorplan. Draw the line again, or move it in first.',
     );
+  });
+});
+
+describe("a recalibration's refusal", () => {
+  it('is not carried to another location', async () => {
+    const lower = { id: 'loc-lower', name: 'Lower Hall' };
+    const uncalibrated = {
+      ...STORED,
+      id: 'fp-lower',
+      locationId: lower.id,
+      imageGridfsId: 'img-2',
+      scalePxPerUnit: null,
+      tables: [],
+    };
+    const setup = served().setupObject;
+    market = served({
+      setupObject: {
+        ...setup,
+        locations: [UPPER, lower],
+        floorplans: [STORED, uncalibrated],
+      },
+    });
+    const wrapper = await mountPage();
+    await wrapper.get('[data-testid="layout-recalibrate"]').trigger('click');
+    await vi.advanceTimersByTimeAsync(0);
+    wrapper
+      .findComponent({ name: 'LayoutCalibration' })
+      .vm.$emit('set', { start: [0, 0], end: [800, 0], lengthMm: 5000 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(wrapper.findComponent({ name: 'LayoutCalibration' }).props('refusal')).not.toBe('');
+
+    (routing.route as { params: Record<string, string> }).params.locationId = lower.id;
+    await vi.advanceTimersByTimeAsync(0);
+
+    const calibration = wrapper.findComponent({ name: 'LayoutCalibration' });
+    expect(calibration.props('locationName')).toBe('Lower Hall');
+    expect(calibration.props('refusal')).toBe('');
+  });
+});
+
+describe('"Row of N…" with a gap that is no length', () => {
+  it('lays nothing and says what the gap takes, as the row tool does', async () => {
+    const wrapper = await mountPage();
+    const editor = editorOf(wrapper);
+    editor.select(['g-1']);
+    await vi.advanceTimersByTimeAsync(0);
+    rowChoices.gapCm = '-5';
+
+    wrapper.findComponent({ name: 'LayoutPanelSelection' }).vm.$emit('row', 3);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(editor.layout.value!.tables).toHaveLength(2);
+    expect(wrapper.get('[data-testid="layout-announcement"]').text()).toBe(
+      "Type the gap's width in centimetres, 0 to 1,000.",
+    );
+
+    rowChoices.gapCm = '0';
+    wrapper.findComponent({ name: 'LayoutPanelSelection' }).vm.$emit('row', 3);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(editor.layout.value!.tables.length).toBeGreaterThan(2);
   });
 });

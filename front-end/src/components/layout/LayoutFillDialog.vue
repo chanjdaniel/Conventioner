@@ -14,15 +14,14 @@ import { computed } from 'vue';
 import type { SectionObject, TableTypeObject } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
 import {
-  MAX_FILL_AISLE_CM,
   MAX_FILL_TABLES,
-  aisleMmOf,
   areaSaid,
   countOf,
   fillChoices,
   type FillArea,
   type FillChoice,
 } from './layoutFill';
+import { lengthMmOf, saidNoLength } from './layoutRow';
 
 const props = defineProps<{
   open: boolean;
@@ -51,12 +50,8 @@ const countError = computed(() =>
     ? `Type a whole number of tables, 1 to ${MAX_FILL_TABLES}.`
     : '',
 );
-const aisleMm = computed(() => aisleMmOf(fillChoices.aisleCm));
-const aisleError = computed(() =>
-  aisleMm.value === null
-    ? `Type the aisle's width in centimetres, 0 to ${MAX_FILL_AISLE_CM.toLocaleString('en')}.`
-    : '',
-);
+const aisleMm = computed(() => lengthMmOf(fillChoices.aisleCm));
+const aisleError = computed(() => (aisleMm.value === null ? saidNoLength('aisle') : ''));
 const areaText = computed(() =>
   inView.value || !props.area ? 'What is in view' : areaSaid(props.area),
 );

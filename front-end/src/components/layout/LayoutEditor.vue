@@ -134,6 +134,7 @@ import {
 import {
   keepSample,
   rowChoices,
+  rowFieldErrors,
   strokeFrom,
   strokeOptions,
   useRowTool,
@@ -232,6 +233,8 @@ const row = useRowTool({
   sectionId: () => addSectionId.value || null,
   tableTypeId: () => addTypeId.value || (props.tableTypes[0]?.id ?? ''),
 });
+/** What the strip's Gap and Aisle say of a value that is no length, each under its own id. */
+const rowErrors = computed(rowFieldErrors);
 /** The colours a row is shown in before it is placed: its section's. */
 const rowPaint = computed(
   () =>
@@ -657,6 +660,11 @@ function closeRow() {
  *  table and the view shows the row: a map that had no table loses its own stop once it has one. */
 function placeRow() {
   if (!row.pending.value) return;
+  // A gap or an aisle that is no length places nothing, the path kept for the field mended.
+  if (row.refusal.value) {
+    say(row.refusal.value);
+    return;
+  }
   const byKeys = keysOnMap.value && Boolean(stage.value?.contains(document.activeElement));
   const added = row.place();
   say(added.length ? saidRowAdded(added, drawnSections.value) : NO_TABLE_FITS);
@@ -2084,6 +2092,8 @@ watch(
             type="text"
             inputmode="decimal"
             autocomplete="off"
+            :aria-invalid="!!rowErrors.gap"
+            :aria-describedby="rowErrors.gap ? 'layout-row-gap-error' : undefined"
             data-testid="layout-row-gap"
           />
         </label>
@@ -2126,6 +2136,8 @@ watch(
             type="text"
             inputmode="decimal"
             autocomplete="off"
+            :aria-invalid="!!rowErrors.aisle"
+            :aria-describedby="rowErrors.aisle ? 'layout-row-aisle-error' : undefined"
             data-testid="layout-row-aisle"
           />
         </label>
@@ -2138,6 +2150,22 @@ watch(
           />
           <span class="layout-option__name">Spread evenly to the ends</span>
         </label>
+        <p v-if="rowErrors.gap || rowErrors.aisle" class="layout-options__error">
+          <span
+            v-if="rowErrors.gap"
+            id="layout-row-gap-error"
+            role="alert"
+            data-testid="layout-row-gap-error"
+            >{{ rowErrors.gap }}</span
+          >
+          <span
+            v-if="rowErrors.aisle"
+            id="layout-row-aisle-error"
+            role="alert"
+            data-testid="layout-row-aisle-error"
+            >{{ rowErrors.aisle }}</span
+          >
+        </p>
       </template>
       <button
         v-if="tool === 'fill'"
@@ -2158,6 +2186,7 @@ watch(
         'layout-stage--drawing': tool !== 'select' && tool !== 'zone',
         'layout-stage--zone': tool === 'zone',
         'layout-stage--row': tool === 'row',
+        'layout-stage--row-said': tool === 'row' && Boolean(rowErrors.gap || rowErrors.aisle),
         'layout-stage--hand': spaceHeld,
         'layout-stage--dragging': dragging,
       }"
@@ -2339,6 +2368,18 @@ watch(
   gap: var(--space-3) var(--space-4);
 }
 
+/* A field of the strip that holds no length says so on a line of its own, under the fields, the
+   Gap's and the Aisle's sentences side by side when both stand. */
+.layout-options__error {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-red);
+}
+
 .layout-option {
   display: flex;
   align-items: center;
@@ -2394,6 +2435,11 @@ watch(
 /* A row's strip, of eight controls, takes a second line. */
 .layout-stage--row {
   max-height: max(20rem, calc(100vh - 29.5rem));
+}
+
+/* And a third while a field of it says it holds no length. */
+.layout-stage--row-said {
+  max-height: max(20rem, calc(100vh - 31.5rem));
 }
 
 .layout-stage :deep(.layout-map) {

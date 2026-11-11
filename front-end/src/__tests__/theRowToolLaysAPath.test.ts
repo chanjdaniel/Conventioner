@@ -21,7 +21,7 @@ import { separation, tableCorners } from '@/components/layout/layoutGeometry';
 import {
   MAX_LAYOUT_TABLES,
   ROW_CHOICES_AT_FIRST,
-  gapMmOf,
+  lengthMmOf,
   rowChoices,
   rowOnFrom,
   standingShapes,
@@ -130,12 +130,33 @@ describe('a path being drawn', () => {
     expect(row.poses.value[1].xMm - row.poses.value[0].xMm).toBeCloseTo(2130, 3);
   });
 
-  it('reads a gap that is no length as none', () => {
-    expect(gapMmOf('30')).toBe(300);
-    expect(gapMmOf('2,5')).toBe(25);
-    expect(gapMmOf('')).toBe(0);
-    expect(gapMmOf('-4')).toBe(0);
-    expect(gapMmOf('wide')).toBe(0);
+  it('reads a gap or an aisle as Fill reads its aisle: centimetres from 0 to 1,000, else nothing', () => {
+    expect(lengthMmOf('30')).toBe(300);
+    expect(lengthMmOf('2,5')).toBe(25);
+    expect(lengthMmOf(' 0 ')).toBe(0);
+    expect(lengthMmOf('1000')).toBe(10_000);
+    expect(lengthMmOf('')).toBeNull();
+    expect(lengthMmOf('-4')).toBeNull();
+    expect(lengthMmOf('wide')).toBeNull();
+    expect(lengthMmOf('1001')).toBeNull();
+  });
+
+  it('shows no row while the gap or the aisle is no length, and says which, as Fill says its aisle', () => {
+    const { row } = aTool();
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
+    expect(row.refusal.value).toBe('');
+
+    rowChoices.gapCm = '-5';
+    expect(row.poses.value).toEqual([]);
+    expect(row.refusal.value).toBe("Type the gap's width in centimetres, 0 to 1,000.");
+
+    rowChoices.gapCm = '0';
+    rowChoices.aisleCm = 'abc';
+    expect(row.poses.value).toEqual([]);
+    expect(row.refusal.value).toBe("Type the aisle's width in centimetres, 0 to 1,000.");
+
+    rowChoices.aisleCm = '120';
+    expect(row.poses.value).toHaveLength(10);
   });
 
   it('stands its tables on the right of the line drawn, the left once flipped, or on it', () => {
@@ -295,6 +316,18 @@ describe('a row placed', () => {
       [null, null],
       [null, null],
     ]);
+  });
+
+  it('adds nothing while a field is no length, and keeps the path to place once it is', () => {
+    const { row, editor } = aTool();
+    row.addPoint(p(2000, 3000));
+    row.addPoint(p(22_000, 3000));
+    rowChoices.gapCm = 'wide';
+    expect(row.place()).toEqual([]);
+    expect(row.pending.value).toBe(true);
+    expect(editor.canUndo.value).toBe(false);
+    rowChoices.gapCm = '0';
+    expect(row.place()).toHaveLength(10);
   });
 
   it('adds nothing where no table fits, and the path is gone', () => {

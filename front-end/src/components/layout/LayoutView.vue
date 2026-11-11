@@ -66,7 +66,14 @@ import {
 import { layoutSections } from './layoutDrawing';
 import { LAYOUT_IS_FULL, placeTables } from './layoutFill';
 import { STANDARD_TABLE, hallOf } from './layoutGeometry';
-import { MAX_LAYOUT_TABLES, gapMmOf, rowChoices, rowOnFrom, standingShapes } from './layoutRow';
+import {
+  MAX_LAYOUT_TABLES,
+  lengthMmOf,
+  rowChoices,
+  rowOnFrom,
+  saidNoLength,
+  standingShapes,
+} from './layoutRow';
 import { saveLayout, saveLayoutOnUnload, type UploadedFloorplan } from './layoutSave';
 import { turnSelection } from './layoutSelection';
 import {
@@ -152,6 +159,7 @@ watch(editable, (may) => {
 watch(locationId, () => {
   editor.reload(stored.value);
   recalibrating.value = false;
+  calibrationRefusal.value = '';
   stopReplacing();
 });
 
@@ -212,6 +220,7 @@ const replaceError = ref('');
 
 function startReplacing() {
   recalibrating.value = false;
+  calibrationRefusal.value = '';
   dropReplacement();
   replacing.value = true;
 }
@@ -322,10 +331,16 @@ function rowOnFromTheSelection(count: number) {
   const [table] = tablesOf(editor.selection.value);
   const layout = floorplan.value;
   if (!table || !layout || editor.selection.value.length !== 1) return;
+  // The gap of Row of tables, as its field reads it: one that is no length lays nothing.
+  const gapMm = lengthMmOf(rowChoices.gapCm);
+  if (gapMm === null) {
+    say(saidNoLength('gap'));
+    return;
+  }
   const sizeOf = (one: FloorplanTable) =>
     tableTypes.value.find((type) => type.id === one.tableTypeId) ?? STANDARD_TABLE;
   const poses = rowOnFrom(table, sizeOf(table), count, {
-    gapMm: gapMmOf(rowChoices.gapCm),
+    gapMm,
     obstacles: standingShapes(layout, sizeOf),
     hall: hallOf(layout),
   }).slice(0, Math.max(0, MAX_LAYOUT_TABLES - layout.tables.length));

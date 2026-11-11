@@ -148,10 +148,29 @@ export function rowsOf(typed: string): number {
   return Number.isFinite(rows) && rows >= 1 ? Math.min(rows, MAX_ROWS) : 1;
 }
 
-/** The gap typed in centimetres, in millimetres: nothing for a field that holds no length. */
-export function gapMmOf(typed: string): number {
-  const cm = Number(String(typed).trim().replace(',', '.'));
-  return Number.isFinite(cm) && cm > 0 ? Math.min(cm, 10_000) * 10 : 0;
+/** The widest gap or aisle a row or a fill takes, in centimetres: the placement's 10,000 mm. */
+export const MAX_LENGTH_CM = 1000;
+
+/** A gap or an aisle typed, in millimetres: a number of centimetres from 0 to 1,000, a comma for
+ *  the point taken; null for anything else, which its field says rather than reading as none. */
+export function lengthMmOf(typed: string): number | null {
+  const text = String(typed).trim().replace(',', '.');
+  if (!/^\d+(\.\d+)?$/.test(text)) return null;
+  const cm = Number(text);
+  return cm <= MAX_LENGTH_CM ? Math.round(cm * 10) : null;
+}
+
+/** What a gap's or an aisle's field says of a value that is no length. */
+export const saidNoLength = (what: 'gap' | 'aisle') =>
+  `Type the ${what}'s width in centimetres, 0 to ${MAX_LENGTH_CM.toLocaleString('en')}.`;
+
+/** What the options strip's Gap and Aisle say of themselves: each one's sentence where it holds
+ *  no length, else ''. */
+export function rowFieldErrors() {
+  return {
+    gap: lengthMmOf(rowChoices.gapCm) === null ? saidNoLength('gap') : '',
+    aisle: lengthMmOf(rowChoices.aisleCm) === null ? saidNoLength('aisle') : '',
+  };
 }
 
 /** What a row is never laid over: the tables as they stand turned, and the no-table zones. */
@@ -247,8 +266,11 @@ export interface RowTool {
   closeAt: ComputedRef<PointMm | null>;
   /** The smooth path through the points, and the pointer's place while it is over the map. */
   runs: ComputedRef<Run[]>;
-  /** The row that placing would add. */
+  /** The row that placing would add: none while the gap or the aisle is no length. */
   poses: ComputedRef<PathPose[]>;
+  /** Why no row is shown or placed: the sentence of the gap or the aisle that is no length, else
+   *  ''. */
+  refusal: ComputedRef<string>;
   /** The size of the tables it would add. */
   size: ComputedRef<SizeMm>;
   /** Where the count is written: at the pointer, else at the last point; of a closed shape, at
@@ -341,19 +363,24 @@ export function useRowTool(options: RowToolOptions): RowTool {
   const runs = computed(() =>
     read.value ? strokeRuns(read.value) : smoothRuns(path.value, { closed: drawnClosed.value }),
   );
+  // While the gap or the aisle is no length, no row is shown or placed: the field says why.
+  const refusal = computed(() => {
+    const errors = rowFieldErrors();
+    return errors.gap || errors.aisle;
+  });
   const poses = computed(() => {
     const now = layout();
-    if (!now || !runs.value.length) return [];
+    if (!now || !runs.value.length || refusal.value) return [];
     // The rows in order, the first whole and then the next: the order they are numbered in.
     return placeRows(runs.value, {
       ...size.value,
-      gapMm: gapMmOf(rowChoices.gapCm),
+      gapMm: lengthMmOf(rowChoices.gapCm) ?? 0,
       side: side.value,
       obstacles: shapes.value,
       extent: extentOf(hallOf(now)),
       maxCount: Math.max(0, MAX_LAYOUT_TABLES - now.tables.length),
       rows: rowsOf(rowChoices.rows),
-      aisleMm: gapMmOf(rowChoices.aisleCm),
+      aisleMm: lengthMmOf(rowChoices.aisleCm) ?? 0,
       // A closed shape's tables are always spread round it; an open path's where asked.
       spread: drawnClosed.value || rowChoices.spread,
     }).flat();
@@ -369,6 +396,8 @@ export function useRowTool(options: RowToolOptions): RowTool {
   }
 
   function place(): FloorplanTable[] {
+    // A row refused for a field that is no length is kept, to be placed once the field is mended.
+    if (refusal.value) return [];
     const sectionId = options.sectionId();
     const tableTypeId = options.tableTypeId();
     const added: NewTable[] = poses.value.map((pose) => ({
@@ -400,6 +429,7 @@ export function useRowTool(options: RowToolOptions): RowTool {
     }),
     runs,
     poses,
+    refusal,
     size,
     // A closed shape's count stands at its first point, where the click that closed it was.
     countAt: computed(() => {
