@@ -50,7 +50,6 @@ export class OrganizationsPage {
   readonly placeChangeText: Locator;
   readonly placeChangeConfirmButton: Locator;
   readonly placeChangeCancelButton: Locator;
-  readonly placeChangeError: Locator;
   readonly deleteButton: Locator;
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
@@ -137,7 +136,6 @@ export class OrganizationsPage {
     this.placeChangeText = page.getByTestId('manage-org-place-change-text');
     this.placeChangeConfirmButton = page.getByTestId('manage-org-place-change-submit-button');
     this.placeChangeCancelButton = page.getByTestId('manage-org-place-change-cancel-button');
-    this.placeChangeError = page.getByTestId('manage-org-place-change-error');
     this.deleteButton = page.getByTestId('manage-org-delete-button');
     this.deleteConfirmButton = page.getByTestId('delete-org-submit-button');
     this.deleteCancelButton = page.getByTestId('delete-org-cancel-button');
@@ -291,18 +289,6 @@ export class OrganizationsPage {
   placeChangeButton(email: string, to: 'admin' | 'member'): Locator {
     const buttons = to === 'member' ? this.makeMemberButtons : this.makeAdminButtons;
     return buttons.filter({ hasText: email });
-  }
-
-  /** Asks to change this person's place from their row; nothing changes until it is confirmed. */
-  async askToChangePlace(email: string, to: 'admin' | 'member'): Promise<void> {
-    await this.placeChangeButton(email, to).click();
-    await this.placeChange.waitFor();
-  }
-
-  /** Confirms the place change asked about, and waits for its confirmation to close. */
-  async confirmPlaceChange(): Promise<void> {
-    await this.placeChangeConfirmButton.click();
-    await this.placeChange.waitFor({ state: 'detached' });
   }
 
   // ── History ──
