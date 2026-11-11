@@ -9,9 +9,13 @@ import MeterBar from '@/components/charts/MeterBar.vue';
 
 type Props = InstanceType<typeof MeterBar>['$props'];
 
-function mountMeter(props: Partial<Props> & Pick<Props, 'value' | 'scale'>) {
+function mountMeter(
+  props: Partial<Props> & Pick<Props, 'value' | 'scale'>,
+  slots: Record<string, string> = {},
+) {
   return mount(MeterBar, {
     props: { label: 'Saturday', words: '42 asking, 30 tables', testid: 'meter', ...props },
+    slots,
   });
 }
 
@@ -64,5 +68,21 @@ describe('MeterBar', () => {
 
     expect(meter.find('[data-testid="meter-bar"]').exists()).toBe(false);
     expect(meter.find('[data-testid="meter-words"]').text()).toBe('30 tables');
+  });
+
+  it('reads what the caller puts beside the words after them, parted for a reader', () => {
+    const meter = mountMeter(
+      { value: 18, mark: 24, scale: 24, words: '18 of 24 checked in' },
+      { default: '<a href="/attendance">6 not yet</a>' },
+    );
+
+    expect(meter.find('[data-testid="meter-after"]').text()).toBe(', 6 not yet');
+    expect(meter.text()).toBe('Saturday: 18 of 24 checked in, 6 not yet');
+  });
+
+  it('puts nothing beside the words when the caller gives nothing', () => {
+    expect(mountMeter({ value: 1, scale: 2 }).find('[data-testid="meter-after"]').exists()).toBe(
+      false,
+    );
   });
 });

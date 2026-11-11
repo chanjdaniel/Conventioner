@@ -6,11 +6,16 @@
  *
  * Given a `mark`, a 2px `--mm-black` line stands where it falls, and the part of the value past it
  * is drawn in the chart's attention fill, `--mm-chart-yellow`, the rest in `--mm-green`. The Stats
- * tab's Room draws each day's and tier's tables asked with it, the mark at the tables.
+ * tab draws with it its Room, each day's and tier's tables asked with the mark at the tables; its
+ * Money, paid with the mark at owed; and its Check-in, each day's checked in with the mark at those
+ * expected.
  *
  * The bar is hidden from assistive technology; the label and the words are the text, so the
  * caller's words carry every figure the bar draws. Without a value there is no bar, the words
  * alone: a room before anyone applies reads its tables.
+ *
+ * What the caller puts in the default slot stands after the words, on their line: Check-in's
+ * "6 not yet", a link to the day at Attendance. A reader hears it after a comma.
  */
 import { computed } from 'vue';
 
@@ -44,7 +49,11 @@ const past = computed(() => value.value - within.value);
   <div class="meter-bar">
     <span class="meter-bar-label" :data-testid="`${testid}-label`">{{ label }}</span
     ><span class="visually-hidden">: </span
-    ><span class="meter-bar-words" :data-testid="`${testid}-words`">{{ words }}</span>
+    ><span class="meter-bar-figures"
+      ><span class="meter-bar-words" :data-testid="`${testid}-words`">{{ words }}</span
+      ><span v-if="$slots.default" class="meter-bar-after" :data-testid="`${testid}-after`"
+        ><span class="visually-hidden">, </span><slot /></span
+    ></span>
     <div
       v-if="props.value !== null"
       class="meter-bar-bar"
@@ -92,13 +101,23 @@ const past = computed(() => value.value - within.value);
   overflow-wrap: anywhere;
 }
 
-/* Weight does not inherit here (the design language), so the figures carry their own. At the row's
-   end, so every row's figures stand in one column, on the label's line or wrapped under it. */
-.meter-bar-words {
+/* At the row's end, so every row's figures stand in one column, on the label's line or wrapped
+   under it; what the caller puts after the words stays with them, wrapping under them at the end
+   too when the card is narrower still. */
+.meter-bar-figures {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0 var(--space-3);
   margin-left: auto;
   text-align: end;
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* Weight does not inherit here (the design language), so the figures carry their own. */
+.meter-bar-words {
+  font-weight: 600;
 }
 
 /* The mark stands a hairline taller than the track at each edge, so it reads on a full bar too. */

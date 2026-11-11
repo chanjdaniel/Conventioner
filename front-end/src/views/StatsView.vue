@@ -18,14 +18,19 @@
  * tier's table-days the same way (`MeterBar`, `utils/roomRows.ts`); before anyone applies, the
  * tables alone, so a draft shows its capacity. Then, once an assignment is stored, how full each
  * section is on each market day, a table of its tables used shaded by how full, with a total row
- * (`FillGrid`, `utils/fillGrid.ts`). Then what they answered: a card per choice question of the form
+ * (`FillGrid`, `utils/fillGrid.ts`). Then the money, where the market sets prices and the Payments
+ * page has someone to count: owed, paid and still owed, that page's figures, and one bar of paid
+ * against owed (`MeterBar`, `utils/moneyCard.ts`). Then, from Market Days on, who has come: a row
+ * per market day of its vendors checked in of those expected, as the door counts its day, and
+ * beside it how many are not yet in, a link to Attendance on that day (`MeterBar`,
+ * `utils/checkInRows.ts`). Then what they answered: a card per choice question of the form
  * (`utils/answerCounts.ts`), its answers most chosen first and folded past `ANSWERS_SHOWN` (T201),
  * narrowed by a switch, kept in the address as `among`, to the approved or the assigned
  * (E45/F01/S02). Stats reads; it changes nothing, so a Viewer sees all of it and nothing here is
  * disabled.
  *
- * Its sections keep one order, the market's life's (T201): who applied, the room, how full, then
- * what they answered.
+ * Its sections keep one order, the market's life's (T201): who applied, the room, how full, the
+ * money, check-in, then what they answered.
  * Their cards stand two to a row while the page's content is 48rem wide or more, one below it; a
  * chart that reads as one line of a whole, over time or across the review, and the How full table
  * span the row.
@@ -37,7 +42,9 @@ import { applicantStats } from '@/utils/applicantStats';
 import { appliedOverTime } from '@/utils/appliedOverTime';
 import { ANSWER_GROUPS, answerGroup, questionLedgers } from '@/utils/answerCounts';
 import { fetchMarketStats, type MarketStats } from '@/utils/marketStats';
+import { checkInRows } from '@/utils/checkInRows';
 import { fillGrid } from '@/utils/fillGrid';
+import { moneyCard } from '@/utils/moneyCard';
 import { roomCards } from '@/utils/roomRows';
 import { statsHeadlines } from '@/utils/statsHeadlines';
 import { useOpenMarket } from '@/utils/openMarket';
@@ -85,6 +92,16 @@ const room = computed(() =>
 );
 /** How full each section is each day; none until an assignment is stored. */
 const fill = computed(() => (figures.value ? fillGrid(figures.value.fill) : null));
+/** Where the money stands; none where the market sets no prices or nobody is counted. */
+const moneyFigures = computed(() =>
+  figures.value ? moneyCard(figures.value.headlines.money, marketId.value) : null,
+);
+/** Who has come each day; none before Market Days. */
+const checkIn = computed(() =>
+  figures.value && market.value
+    ? checkInRows(figures.value.checkIn, marketId.value, market.value.phase ?? '')
+    : null,
+);
 const answers = computed(() => figures.value?.answers ?? null);
 const headlines = computed(() =>
   figures.value ? statsHeadlines(figures.value.headlines, marketId.value) : [],
@@ -224,6 +241,83 @@ const NOBODY: Record<string, string> = {
           :grid="fill"
           testid="stats-fill"
         />
+      </section>
+      <section
+        v-if="moneyFigures"
+        class="stats-section"
+        aria-labelledby="stats-money-title"
+        data-testid="stats-money"
+      >
+        <h2 id="stats-money-title" class="stats-title">Money</h2>
+        <div class="stats-ledgers">
+          <div class="stats-card stats-money-card" data-testid="stats-money-card">
+            <h3>Owed and paid</h3>
+            <dl class="stats-money">
+              <div
+                v-for="figure in moneyFigures.figures"
+                :key="figure.id"
+                class="stats-money-figure"
+                :data-testid="`stats-money-${figure.id}`"
+              >
+                <dt>{{ figure.label }}</dt>
+                <dd>
+                  <RouterLink v-if="figure.to" :to="figure.to" class="stats-money-link">{{
+                    figure.amount
+                  }}</RouterLink>
+                  <template v-else>{{ figure.amount }}</template>
+                </dd>
+              </div>
+            </dl>
+            <MeterBar
+              label="Collected"
+              :words="moneyFigures.bar.words"
+              :value="moneyFigures.bar.value"
+              :mark="moneyFigures.bar.mark"
+              :scale="moneyFigures.bar.scale"
+              testid="stats-money-bar"
+            />
+          </div>
+        </div>
+      </section>
+      <section
+        v-if="checkIn"
+        class="stats-section"
+        aria-labelledby="stats-check-in-title"
+        data-testid="stats-check-in"
+      >
+        <h2 id="stats-check-in-title" class="stats-title">Check-in</h2>
+        <div class="stats-ledgers">
+          <div class="stats-card" data-testid="stats-check-in-card">
+            <h3>Checked in each day</h3>
+            <ul class="stats-meters">
+              <li v-for="row in checkIn.rows" :key="row.key">
+                <MeterBar
+                  :label="row.label"
+                  :words="row.words"
+                  :value="row.checkedIn"
+                  :mark="row.expected"
+                  :scale="checkIn.scale"
+                  testid="stats-check-in-row"
+                  data-testid="stats-check-in-row"
+                  :data-key="row.key"
+                >
+                  <template v-if="row.missing" #default>
+                    <RouterLink
+                      v-if="row.missing.to"
+                      :to="row.missing.to"
+                      class="link-alone stats-missing"
+                      data-testid="stats-check-in-missing"
+                      >{{ row.missing.words }}</RouterLink
+                    >
+                    <span v-else class="stats-missing" data-testid="stats-check-in-missing">{{
+                      row.missing.words
+                    }}</span>
+                  </template>
+                </MeterBar>
+              </li>
+            </ul>
+          </div>
+        </div>
       </section>
       <!-- Nobody applied: the section above says so, and a chart of noughts says nothing more. -->
       <section
@@ -393,6 +487,74 @@ const NOBODY: Record<string, string> = {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* The money's three figures, the Payments page's, in its look: each small label over its amount,
+   three side by side on a card wide enough for a large amount in each; on a narrower one, a phone's,
+   one to a line, the label at its start and the amount at its end, rather than two and one. */
+.stats-money-card {
+  container: stats-money / inline-size;
+}
+
+.stats-money {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.stats-money-figure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--space-3);
+}
+
+/* The label beside its amount on a line reads at the row's size; over it, small. */
+.stats-money-figure dt {
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
+}
+
+.stats-money-figure dd {
+  margin: 0;
+  font-family: 'Merge One', sans-serif;
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+@container stats-money (width >= 24rem) {
+  .stats-money {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .stats-money-figure {
+    display: block;
+  }
+
+  .stats-money-figure dt {
+    font-size: var(--text-xs);
+  }
+}
+
+/* A figure on a line of its own is a target, in the link ink, underlined under the pointer. */
+.stats-money-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  color: var(--mm-text-link);
+  text-decoration: none;
+}
+
+.stats-money-link:hover {
+  text-decoration: underline;
+}
+
+/* Who is missing, after the day's figures, in their weight, not the label's. */
+.stats-missing {
+  font-weight: 600;
 }
 
 .stats-card-note {

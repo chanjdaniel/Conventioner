@@ -5,8 +5,9 @@ import type { Locator, Page } from '@playwright/test';
  * Page object for a market's Stats tab (/markets/:marketId/stats): who applied, a column a day (or
  * week) and the review as one split bar (E45/F01/S01, T201), and a chart per choice question,
  * narrowed to the approved or the assigned (E45/F01/S02); between them the room, the tables asked
- * against the plan's per day and per tier (T201), and how full each section is each day (T201); above
- * them the placement and money headlines (E45/F01/S03).
+ * against the plan's per day and per tier (T201), how full each section is each day (T201), where the
+ * money stands and who has come each day (T201); above them the placement and money headlines
+ * (E45/F01/S03).
  */
 export class StatsPage {
   readonly page: Page;
@@ -26,6 +27,12 @@ export class StatsPage {
   readonly room: Locator;
   /** The How full section: its table of sections against days. */
   readonly fill: Locator;
+  /** The Money section: owed, paid and still owed, and a bar of paid against owed. */
+  readonly money: Locator;
+  readonly moneyBar: Locator;
+  /** The Check-in section's rows, a market day each, in order. */
+  readonly checkIn: Locator;
+  readonly checkInRows: Locator;
   readonly answers: Locator;
   readonly questions: Locator;
   /** "N of M": how many of every application the charts count. */
@@ -45,6 +52,10 @@ export class StatsPage {
     this.statusBarParts = page.getByTestId('stats-status-bar-part');
     this.room = page.getByTestId('stats-room');
     this.fill = page.getByTestId('stats-fill');
+    this.money = page.getByTestId('stats-money');
+    this.moneyBar = page.getByTestId('stats-money-bar-bar');
+    this.checkIn = page.getByTestId('stats-check-in');
+    this.checkInRows = page.getByTestId('stats-check-in-row');
     this.answers = page.getByTestId('stats-answers');
     this.questions = page.getByTestId('stats-question');
     this.amongCount = page.getByTestId('stats-among-count');
@@ -97,6 +108,16 @@ export class StatsPage {
           cell.getAttribute('data-step') ?? '',
         ]),
       ) as Promise<[string, string][]>;
+  }
+
+  /** A Money figure, its label over its amount: `owed`, `paid` or `stillOwed`. */
+  moneyFigure(id: 'owed' | 'paid' | 'stillOwed'): Locator {
+    return this.money.getByTestId(`stats-money-${id}`);
+  }
+
+  /** A market day's Check-in row, by its date. */
+  checkInRow(date: string): Locator {
+    return this.page.locator(`[data-testid="stats-check-in-row"][data-key="${date}"]`);
   }
 
   /** The switch's button for a group: `all`, `approved` or `assigned`. */

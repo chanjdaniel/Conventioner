@@ -21,6 +21,10 @@ Room: per market date, and per tier over the dates, the tables asked against the
 How full: per section and market date, the tables used of the section's tables, from the same
 counted rows as the placements (``count_fill``, T201), ``None`` until an assignment is stored.
 
+Check-in: per market date, the vendors checked in of those expected, and how many came on any date,
+counted as the Attendance roster reads them (``count_check_in``, T201), ``None`` until the market
+has reached Market Days.
+
 What they answered, as the organizer reads it, each organizer's update of an answer in its place
 (``effective_answers``): each select, multi-select and checkbox question of the form gets a row per
 option it offers, in the form's order, with how many applicants gave it; a multi-select counts
@@ -35,6 +39,7 @@ assignment, a table on any date, verdict or not, as their outcome reads: ``resul
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import api.applications as ApplicationsApi
+import api.attendance as AttendanceApi
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
 import essential_fields as EF
@@ -44,6 +49,7 @@ from datatypes import (
     LEGACY_STAGE_PHASES, Application, ApplicationStatus, ApplicationType, FormField, Market,
     MarketPhase, MarketTableRow, PhaseEntry, SetupObject,
 )
+from assignment.utils import convert_keys_to_camel_case
 from utils.email_address import normalized_email
 
 CHOICE_TYPES = ("select", "multi_select", "checkbox")
@@ -64,6 +70,7 @@ def stats_for_market(market: Market) -> Dict[str, Any]:
             form.fields if form else [], applications, ResultOutcome.seated_addresses(market),
         ),
         "room": count_room(market, applications),
+        "checkIn": count_check_in(market),
     }
     # Last: counting the assignment describes it on the market in hand.
     counted = _counted(market)
@@ -141,6 +148,17 @@ def _in_order(planned: List[str], found: List[str]) -> List[str]:
     """Each of ``found`` once, those the plan names in its order, then the rest as found."""
     present = set(found)
     return list(dict.fromkeys([name for name in planned if name in present] + found))
+
+
+def count_check_in(market: Market) -> Optional[Dict[str, Any]]:
+    """Each market date's vendors checked in of those expected, and ``came``, the vendors checked in
+    on any date, as the Attendance roster reads them (``AttendanceApi.check_in_counts``); ``None``
+    until the market has reached Market Days (its phase record's ``ran``), as nobody checks in
+    before, so an archived market that never ran says nothing either."""
+    document = convert_keys_to_camel_case(market.model_dump())
+    if not AttendanceApi.market_ran(document):
+        return None
+    return AttendanceApi.check_in_counts(document)
 
 
 def count_money(market: Market) -> Optional[Dict[str, Any]]:

@@ -43,6 +43,7 @@ sources:
   - T202
   - T251
   - T270
+  - T201
 ---
 
 # Attendance and the door
@@ -89,6 +90,7 @@ Never derive who is expected from check-in records: that list is who came, and i
 The roster, the vendor's own read and the check-in all read the same stored rows, so who is expected where can never disagree with where a vendor is sent; the public lookup once ran the solver afresh and sent a vendor moved by hand to their old seat (bug 1).
 A row's status says who checked the vendor in: "Scanned in at 9:41 AM" for the vendor's own (`checkedInVia: door_code`), "9:41 AM by you" or "by <organizer>" for an organizer's, and the time alone for one made on the old public page.
 A vendor's own check-in times are `check_ins_of`, which the vendor page's own read uses, so each seat a vendor reads carries when they checked in to it ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)); whether a market ran is `market_ran`.
+The Stats tab's Check-in is `check_in_counts`, beside the roster: the same stored rows and attendance records, counted per date as the door's "18/24" counts them and with `came`, the vendors in on any date, but reading no names and sending no row ([who has come](../../business/flows/stats.md#n6-see-who-has-come)).
 
 **A check-in needs a stored placement for that vendor on that date** (`seated_on`), or it is a 404.
 A placement is dated by the market date itself, so no reader maps anything back to a date.

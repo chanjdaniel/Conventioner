@@ -11,6 +11,8 @@ describes:
   - front-end/src/utils/appliedOverTime.ts
   - front-end/src/utils/roomRows.ts
   - front-end/src/utils/fillGrid.ts
+  - front-end/src/utils/moneyCard.ts
+  - front-end/src/utils/checkInRows.ts
   - front-end/src/components/charts/
 verified: 2026-11-12
 sources:
@@ -27,10 +29,10 @@ sources:
 **Who:** anyone who can read the market, a Viewer included; the page changes nothing ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Stats tab, last on the market bar, at `/markets/<id>/stats`, open in every phase from draft to the archive.
 
-The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as charts drawn in the app's own HTML and CSS ([`components/charts/`](../../../front-end/src/components/charts/)), each with its figures as text, rather than a chart library: applications over time as columns, the review as one split bar, the room as a meter bar a day and a tier, how full as a table of sections against days, and the answers as cards of bars, each row an answer with its count, its share of the whole and a bar against the largest in its card.
+The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as charts drawn in the app's own HTML and CSS ([`components/charts/`](../../../front-end/src/components/charts/)), each with its figures as text, rather than a chart library: applications over time as columns, the review as one split bar, the room as a meter bar a day and a tier, how full as a table of sections against days, the money and each day's check-in as meter bars, and the answers as cards of bars, each row an answer with its count, its share of the whole and a bar against the largest in its card.
 Before anyone applies it says "Nobody has applied yet." and shows the room alone, so a draft already shows its capacity.
 Every figure is counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
-Its sections keep one order, the market's life's: who applied, the room, how full, then what they answered (T201).
+Its sections keep one order, the market's life's: who applied, the room, how full, the money, check-in, then what they answered (T201).
 Their cards stand two to a row while the page's content is 48rem wide or more, one below it, so a lone card stays half the page at a desk and no bar runs the frame's width; the chart over time and the review's split bar, each one line of a whole, and the How full table span the row.
 The page fits a phone, so how the day stands is read at the market (T180): its headlines stand one to a line, each link a thumb's target, and the switch and the cards stay inside the window ([the design language](../../design-system.md#layout)).
 
@@ -116,7 +118,41 @@ Covered by:
 - `the-component-library-charts.spec.ts` (the fixture's seats every table taken, a cell at each step and its shade, nine days scrolling in their box on a phone)
 - `the-stats-tab.spec.ts` ("how full reads each section on each day as its tables used, totalled, and scrolls in its own box on a phone")
 
-## N5. See what they answered
+## N5. See where the money stands
+
+**Status:** Works (read from the code as of T201 ticket 05: `the-stats-headlines.spec.ts`, `test_the_stats_headlines.py`).
+
+1. "Money" shows where the market sets prices and the [Payments](payments.md) page has someone to count, as the money headlines do, in any phase.
+2. "Owed and paid" tells "Owed", "Paid" and "Still owed", each to the cent ([an amount reads to the cent](../rules/an-amount-reads-to-the-cent.md)), the Payments page's own figures, counted on the server by that page's code (`count_money`, by `market_money`: [payments, and what a vendor owes](../../implementation/data/payments.md)).
+   "Still owed" opens Payments on "Owes" (`?show=owes`); at "$0.00" it is told but not linked, as nobody owes.
+3. Under them one meter bar, "Collected", reads "$900.00 of $1,450.00 paid": paid drawn against a black line at what is owed, so a payment beyond it is drawn past the line in the attention fill; a refund beyond what was paid leaves the bar empty, its words still saying it.
+   The bar is hidden from a screen reader, which reads the words.
+4. On a card wide enough for a large amount in each, the three stand side by side, each its label over its amount; on a narrower one, a phone's, one to a line, the label at its start and the amount at its end.
+
+[`moneyCard.ts`](../../../front-end/src/utils/moneyCard.ts) makes the card from the answer's `headlines.money`.
+Covered by:
+
+- `test_the_stats_headlines.py` (the money is the Payments page's figures, and absent without prices)
+- `the-stats-headlines.spec.ts` ("the money reads the Payments page's figures, a bar of paid against owed, and still owed opens Owes", "check-in reads each day's vendors in of those expected from Market Days, and who is not yet in opens that day": no money on an unpriced market)
+
+## N6. See who has come
+
+**Status:** Works (read from the code as of T201 ticket 05: `the-stats-headlines.spec.ts`, `test_the_stats_check_in.py`).
+
+1. "Check-in" shows from Market Days on, in Market Days and in the archive of a market that ran ([the phase record](../../implementation/modules/phase-record.md)'s `ran`); an archived market that never reached its days has none.
+2. "Checked in each day" is a row per market date: the date, "18 of 24 checked in", and a bar of those checked in against a black line at those expected.
+   Expected and checked in are the door's own count of the day, [Attendance](../../implementation/modules/attendance-and-door.md)'s "18/24": a row each for every seat the stored assignment holds that day, here when its vendor has checked in, by an organizer at the door or by the vendor on their vendor page.
+3. Beside the figures, how many are missing: "6 not yet" while the day may still come, "6 did not come" once it is over, past or the market archived, as the door words a row; either opens Attendance on that day (`?date=`).
+   A day with nobody missing says "Everyone is in" and links nowhere; a day nobody is assigned to says "Nobody is assigned" with no bar.
+4. Every row is drawn on one scale, the card's largest expected, so the days compare; the bar is hidden from a screen reader, which hears the row as "Friday, May 8, 2099: 1 of 2 checked in, 1 not yet".
+
+The server counts it (`count_check_in` in [`back-end/market_stats.py`](../../../back-end/market_stats.py), the answer's `checkIn`, `null` until the market has reached Market Days) by `check_in_counts` beside the Attendance roster, which also counts `came`, the vendors checked in on any date, each once; [`checkInRows.ts`](../../../front-end/src/utils/checkInRows.ts) makes the rows and their links.
+Covered by:
+
+- `test_the_stats_check_in.py`
+- `the-stats-headlines.spec.ts` ("check-in reads each day's vendors in of those expected from Market Days, and who is not yet in opens that day")
+
+## N7. See what they answered
 
 **Status:** Works (read from the code as of T201 ticket 01: `the-stats-tab.spec.ts`, `test_the_stats_tab.py`).
 

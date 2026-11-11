@@ -5,6 +5,8 @@ import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
+import { publishResults } from './helpers/seeds';
+import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 import { StatsPage } from './pages/StatsPage';
 import { VendorsPage } from './pages/VendorsPage';
 
@@ -13,6 +15,8 @@ import { VendorsPage } from './pages/VendorsPage';
  * each the figure the page it links to shows, and the link opens that page with its filter - the
  * table-days used and free (Assignments), the vendors unassigned (Vendors, "Unassigned only"), and
  * what is owed, paid and still owed (Payments), the money only where the market sets prices.
+ * Below them the Money section tells the same three figures with a bar of paid against owed, and
+ * from Market Days on the Check-in section tells each day's vendors in of those expected (T201).
  */
 const SECOND_DATE = '2099-05-08';
 const GOLD = { id: 1, name: 'Gold' };
@@ -229,4 +233,93 @@ test('placements are told once an assignment is stored, and money only with pric
   await expect(stats.headline('used')).toHaveText('4 of 8 table-days used');
   await expect(stats.headline('owed')).toHaveCount(0);
   await expect(stats.headline('stillOwed')).toHaveCount(0);
+});
+
+test("the money reads the Payments page's figures, a bar of paid against owed, and still owed opens Owes", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const marketId = await fourVendors(request, PRICING);
+  await seatAndPay(request, marketId);
+  const stats = await openStats(page, marketId);
+
+  await expect(stats.money.getByRole('heading', { level: 2 })).toHaveText('Money');
+  await expect(stats.moneyFigure('owed')).toHaveText('Owed$117.50');
+  await expect(stats.moneyFigure('paid')).toHaveText('Paid$90.00');
+  await expect(stats.moneyFigure('stillOwed')).toHaveText('Still owed$35.00');
+  await expect(stats.money.getByTestId('stats-money-bar-words')).toHaveText(
+    '$90.00 of $117.50 paid',
+  );
+  // The bar is drawn for the eye; the words carry its figures. Nobody paid past what is owed.
+  await expect(stats.moneyBar).toHaveAttribute('aria-hidden', 'true');
+  await expect(stats.money.getByTestId('stats-money-bar-mark')).toBeVisible();
+  await expect(stats.money.getByTestId('stats-money-bar-past')).toHaveCount(0);
+  // Only still owed is worked on somewhere of its own.
+  await expect(stats.moneyFigure('owed').getByRole('link')).toHaveCount(0);
+  await expect(stats.moneyFigure('paid').getByRole('link')).toHaveCount(0);
+
+  for (const [id, total] of [
+    ['owed', 'owedCents'],
+    ['paid', 'paidCents'],
+    ['stillOwed', 'stillOwedCents'],
+  ] as const) {
+    const amount = await figureOf(stats.moneyFigure(id).locator('dd'));
+    await stats.page.goto(marketScreenPath(marketId, 'payments'));
+    await expect(page.getByTestId(`payments-total-${total}`).locator('dd')).toHaveText(amount, {
+      timeout: 15000,
+    });
+    await openStats(page, marketId);
+  }
+
+  await stats.moneyFigure('stillOwed').getByRole('link', { name: '$35.00' }).click();
+  await expect(page).toHaveURL(/\/payments\?show=owes$/);
+  await expect(page.getByTestId('payments-show-owes')).toHaveAttribute('aria-pressed', 'true', {
+    timeout: 15000,
+  });
+});
+
+test("check-in reads each day's vendors in of those expected from Market Days, and who is not yet in opens that day", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const marketId = await fourVendors(request, null);
+  await seatAndPay(request, marketId);
+  let stats = await openStats(page, marketId);
+  // Nobody checks in before Market Days, and an unpriced market has no money to tell.
+  await expect(stats.fill).toBeVisible();
+  await expect(stats.checkIn).toHaveCount(0);
+  await expect(stats.money).toHaveCount(0);
+
+  await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
+  await call(request, 'post', `/markets/${marketId}/transition`, { toPhase: 'market_days' });
+  // Alice and Bob are in on the first day; Carol is in on the second, where Alice is not yet.
+  for (const [email, date] of [
+    [ALICE, SEED_MARKET_DATE],
+    [BOB, SEED_MARKET_DATE],
+    [CAROL, SECOND_DATE],
+  ]) {
+    await call(request, 'post', `/markets/${marketId}/attendance`, { vendorEmail: email, date });
+  }
+  stats = await openStats(page, marketId);
+
+  await expect(stats.checkIn.getByRole('heading', { level: 2 })).toHaveText('Check-in');
+  await expect(stats.checkInRows).toHaveCount(2);
+  const first = stats.checkInRow(SEED_MARKET_DATE);
+  const second = stats.checkInRow(SECOND_DATE);
+  await expect(first.getByTestId('stats-check-in-row-label')).toHaveText('Friday, May 1, 2099');
+  await expect(first.getByTestId('stats-check-in-row-words')).toHaveText('2 of 2 checked in');
+  await expect(second.getByTestId('stats-check-in-row-words')).toHaveText('1 of 2 checked in');
+  // Nobody missing is said, not linked; a reader hears the row as one line.
+  await expect(first.getByTestId('stats-check-in-missing')).toHaveText('Everyone is in');
+  await expect(first.getByRole('link')).toHaveCount(0);
+  await expect(second).toHaveText('Friday, May 8, 2099: 1 of 2 checked in, 1 not yet');
+  await expect(second.getByTestId('stats-check-in-row-bar')).toHaveAttribute('aria-hidden', 'true');
+
+  await second.getByRole('link', { name: '1 not yet' }).click();
+  await expect(page).toHaveURL(new RegExp(`/attendance\\?date=${SECOND_DATE}$`));
+  const door = new AttendanceStatusPage(page);
+  await expect(door.date(SECOND_DATE)).toHaveAttribute('aria-pressed', 'true', {
+    timeout: 15000,
+  });
+  await expect(door.date(SECOND_DATE)).toContainText('1/2');
 });
