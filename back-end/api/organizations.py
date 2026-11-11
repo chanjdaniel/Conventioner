@@ -11,8 +11,10 @@ from client_errors import BadRequestError, ConflictError, ForbiddenError, NotFou
 from datatypes import (
     MarketPhase,
     MarketRole,
+    OrganizationRole,
     intake_mode_from_market_document,
     market_name_slug,
+    organization_people_of,
     phase_from_market_document,
     phase_label,
 )
@@ -21,6 +23,7 @@ from market_documents import market_doc_field, market_doc_filter, market_doc_key
 import deletion_trail as DeletionTrail
 import history as History
 import market_deletion as MarketDeletion
+import organization_people as OrganizationPeople
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
 import api.users as UsersApi
@@ -48,6 +51,8 @@ def create_organization(owner_email: str, name: str) -> str:
     org_dict = {
         "id": org_id,
         "name": name,
+        # Its people as one map (T283, ADR 0025), the lists beside it its mirror for one release.
+        "people": {owner_id: OrganizationRole.OWNER.value},
         "owner": owner_id,
         "admins": [],
         "members": [],
@@ -89,7 +94,8 @@ def _what_removing_takes(org: Dict[str, Any]) -> Dict[str, Any]:
     held = Counter(
         user_id for document in documents for user_id in (market_doc_field(document, "roles") or {})
     )
-    people = [*org.get("admins", []), *org.get("members", [])]
+    people = [user_id for user_id, place in organization_people_of(org).items()
+              if place != OrganizationRole.OWNER]
     return {
         "marketCount": len(documents),
         "marketsWithOwnRole": {user_id: held[user_id] for user_id in people if held[user_id]},
@@ -111,16 +117,15 @@ def organization_documents_of(user_id: str) -> List[Dict[str, Any]]:
     The Markets list reads these alone: it needs an organization's id, name, people and rows, never
     the people's addresses or what removing them takes, which ``get_organizations_for_user`` adds.
     """
-    orgs = list(organizations_collection.find({
-        "$or": [
-            {"owner": user_id},
-            {"admins": user_id},
-            {"members": user_id}
-        ]
-    }))
+    orgs = list(organizations_collection.find(OrganizationPeople.of_person(user_id)))
     for org in orgs:
         org['_id'] = str(org['_id'])
     return orgs
+
+
+def _placed(people: Dict[str, Any], place: OrganizationRole) -> List[str]:
+    """The ids holding ``place`` in the map, in the map's order."""
+    return [user_id for user_id, held in people.items() if held == place]
 
 
 def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
@@ -128,21 +133,26 @@ def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
 
     Every owner, admin and member of all of them is read in one ``get_users_by_ids`` (T204), never
     one account at a time: the Organizations page and Manage organization make this read on open.
+
+    Each is served with ``owner``, ``admins`` and ``members`` derived from its people map, in the
+    map's order, whatever its stored lists hold (T283): a member made an admin is listed once.
     """
     user = UsersApi.get_user(user_email)
     if not user:
         return []
     user_id = user.id
     orgs = organization_documents_of(user_id)
+    people_of = {org["id"]: organization_people_of(org) for org in orgs}
     accounts = UsersApi.get_users_by_ids(
-        person_id
-        for org in orgs
-        for person_id in [org.get("owner"), *org.get("admins", []), *org.get("members", [])]
-        if person_id
-    )
+        person_id for people in people_of.values() for person_id in people)
 
     result = []
     for org in orgs:
+        people = people_of[org["id"]]
+        owners = _placed(people, OrganizationRole.OWNER)
+        org["owner"] = owners[0] if owners else None
+        org["admins"] = _placed(people, OrganizationRole.ADMIN)
+        org["members"] = _placed(people, OrganizationRole.MEMBER)
         owner = accounts.get(org.get("owner"))
         if owner:
             org["ownerEmail"] = owner.email
@@ -157,15 +167,7 @@ def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
         org["defaultPermissionTable"] = Actions.default_table(org.get(DEFAULT_PERMISSIONS))
         org.update(_what_removing_takes(org))
         # Add user's role so frontend can show Manage button for owner/admin
-        if org.get("owner") == user_id:
-            org["userRole"] = "owner"
-            org["user_role"] = "owner"
-        elif user_id in org.get("admins", []):
-            org["userRole"] = "admin"
-            org["user_role"] = "admin"
-        else:
-            org["userRole"] = "member"
-            org["user_role"] = "member"
+        org["userRole"] = org["user_role"] = _role_in(org, user_id) or "member"
         result.append(org)
     
     return result
@@ -184,7 +186,7 @@ def update_organization(org_id: str, requesting_user_email: str, name: str) -> U
     requesting_user = UsersApi.get_user(requesting_user_email)
     if not requesting_user:
         raise ForbiddenError("User not found")
-    if org.get("owner") != requesting_user.id:
+    if _role_in(org, requesting_user.id) != OrganizationRole.OWNER:
         raise ForbiddenError("Only organization owner can update organization")
     
     result = organizations_collection.update_one(
@@ -202,36 +204,11 @@ def update_organization(org_id: str, requesting_user_email: str, name: str) -> U
 
 
 def _role_in(org: Dict[str, Any], user_id: str) -> Optional[str]:
-    """The person's place in the organization: ``owner``, ``admin``, ``member``, or None.
-
-    An admin made from a member stays in ``members`` too, so ``admins`` is asked first.
-    """
-    if org.get("owner") == user_id:
-        return "owner"
-    if user_id in org.get("admins", []):
-        return "admin"
-    if user_id in org.get("members", []):
-        return "member"
-    return None
-
-
-def _record_role(
-    org_id: str, requesting_user_email: str, kind: str, user_id: str,
-    before: Optional[str], after: Optional[str],
-) -> None:
-    """A person given, changed or taken a place in the organization, under the admins' action
-    when an admin is either side of it, as the market's role changes are recorded."""
-    action = (History.MANAGE_ORGANIZATION_ADMINS if "admin" in (before, after)
-              else History.MANAGE_ORGANIZATION_MEMBERS)
-
-    def person() -> Dict[str, Any]:
-        user = UsersApi.get_user_by_id(user_id)
-        return {"user_id": user_id, "email": user.email if user else None}
-
-    History.record_for_organization(
-        org_id, requesting_user_email, action, kind=kind, subject=person,
-        detail=lambda: History.changes({"role": before}, {"role": after}),
-    )
+    """The person's place in the organization: ``owner``, ``admin``, ``member``, or None, read
+    from its people map, or its old lists folded when it has none (T283)."""
+    place = organization_people_of(org).get(user_id)
+    return place if place in (OrganizationRole.OWNER, OrganizationRole.ADMIN,
+                              OrganizationRole.MEMBER) else None
 
 
 def _readable(org_id: str, requesting_user_email: str) -> Dict[str, Any]:
@@ -476,7 +453,7 @@ def organization_deletion_preview(org_id: str, requesting_user_email: str) -> Di
     requesting_user = UsersApi.get_user(requesting_user_email)
     if not requesting_user:
         raise ForbiddenError("User not found")
-    if org.get("owner") != requesting_user.id:
+    if _role_in(org, requesting_user.id) != OrganizationRole.OWNER:
         raise ForbiddenError("Only organization owner can delete organization")
 
     summaries = [
@@ -554,186 +531,31 @@ def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult
     return organizations_collection.delete_one({"id": org_id})
 
 
-def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> bool:
-    """Add a user as admin to organization. Only owner can add admins."""
-    org = organizations_collection.find_one({"id": org_id})
-    if not org:
-        raise NotFoundError("Organization not found")
-    
-    requesting_user = UsersApi.get_user(requesting_user_email)
-    if not requesting_user:
-        raise ForbiddenError("User not found")
-    if org.get("owner") != requesting_user.id:
-        raise ForbiddenError("Only organization owner can add admins")
-    
-    user = UsersApi.get_user(user_email)
-    if not user:
-        raise BadRequestError("User not found")
-    
-    if org.get("owner") == user.id:
-        raise BadRequestError("Owner cannot be added as admin")
-    
-    result = organizations_collection.update_one(
-        {"id": org_id},
-        {"$addToSet": {"admins": user.id}}
-    )
-    
-    users_collection.update_one(
-        {"id": user.id},
-        {"$addToSet": {"organizations": org_id}}
-    )
-    
-    if result.modified_count > 0:
-        before = _role_in(org, user.id)
-        _record_role(org_id, requesting_user_email,
-                     History.ROLE_CHANGED if before else History.ROLE_GIVEN, user.id, before,
-                     "admin")
-    return result.modified_count > 0
+def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> None:
+    """Make someone an admin of the organization, as its owner (``organization_people``)."""
+    OrganizationPeople.add_admin(org_id, user_email, requesting_user_email)
 
 
-def add_org_member(org_id: str, user_email: str, requesting_user_email: str) -> bool:
-    """Add a user as member to organization. Owner or admin can add members."""
-    org = organizations_collection.find_one({"id": org_id})
-    if not org:
-        raise NotFoundError("Organization not found")
-    
-    requesting_user = UsersApi.get_user(requesting_user_email)
-    if not requesting_user:
-        raise ForbiddenError("User not found")
-    if (org.get("owner") != requesting_user.id and
-            requesting_user.id not in org.get("admins", [])):
-        raise ForbiddenError("Only organization owner or admin can add members")
-    
-    user = UsersApi.get_user(user_email)
-    if not user:
-        raise BadRequestError("User not found")
-    
-    if org.get("owner") == user.id:
-        raise BadRequestError("Owner cannot be added as member")
-    if user.id in org.get("admins", []):
-        raise BadRequestError("Admin cannot be added as member")
-    
-    result = organizations_collection.update_one(
-        {"id": org_id},
-        {"$addToSet": {"members": user.id}}
-    )
-    
-    users_collection.update_one(
-        {"id": user.id},
-        {"$addToSet": {"organizations": org_id}}
-    )
-    
-    if result.modified_count > 0:
-        _record_role(org_id, requesting_user_email, History.ROLE_GIVEN, user.id, None, "member")
-    return result.modified_count > 0
-
-
-NO_LONGER_IN_THE_ORGANIZATION = "They are no longer in this organization."
+def add_org_member(org_id: str, user_email: str, requesting_user_email: str) -> None:
+    """Make someone a member of the organization, as its owner or an admin
+    (``organization_people``)."""
+    OrganizationPeople.add_member(org_id, user_email, requesting_user_email)
 
 
 def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> None:
-    """Remove a user from organization. Owner can remove anyone, admin can remove members.
-
-    Removing someone neither an admin nor a member, another organizer having removed them first,
-    is a 404 saying so, written and recorded as nothing, and Manage organization reads it as done.
-    """
-    org = organizations_collection.find_one({"id": org_id})
-    if not org:
-        raise NotFoundError("Organization not found")
-    
-    requesting_user = UsersApi.get_user(requesting_user_email)
-    if not requesting_user:
-        raise ForbiddenError("User not found")
-    is_owner = org.get("owner") == requesting_user.id
-    is_admin = requesting_user.id in org.get("admins", [])
-    
-    if not is_owner and not is_admin:
-        raise ForbiddenError("Only organization owner or admin can remove users")
-    
-    if org.get("owner") == user_id:
-        raise BadRequestError("Cannot remove organization owner. Transfer ownership first.")
-    if user_id not in org.get("admins", []) and user_id not in org.get("members", []):
-        raise NotFoundError(NO_LONGER_IN_THE_ORGANIZATION)
-
-    removed = False
-    if user_id in org.get("admins", []):
-        if not is_owner:
-            raise ForbiddenError("Only owner can remove admins")
-        result = organizations_collection.update_one(
-            {"id": org_id},
-            {"$pull": {"admins": user_id}}
-        )
-        removed = result.modified_count > 0
-    
-    if user_id in org.get("members", []):
-        result = organizations_collection.update_one(
-            {"id": org_id},
-            {"$pull": {"members": user_id}}
-        )
-        removed = removed or result.modified_count > 0
-    # Nothing pulled: someone else removed them between the read and these writes.
-    if not removed:
-        raise NotFoundError(NO_LONGER_IN_THE_ORGANIZATION)
-
-    users_collection.update_one(
-        {"id": user_id},
-        {"$pull": {"organizations": org_id}}
-    )
-
-    _record_role(org_id, requesting_user_email, History.ROLE_TAKEN, user_id,
-                 _role_in(org, user_id), None)
+    """Take someone's place in the organization: the owner removes anyone but themselves, an
+    admin a member (``organization_people``). Someone already gone is a 404 saying so, which
+    Manage organization reads as done."""
+    OrganizationPeople.remove(org_id, user_id, requesting_user_email)
 
 
-def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_email: str) -> bool:
-    """Transfer organization ownership. Only current owner can transfer."""
-    org = organizations_collection.find_one({"id": org_id})
-    if not org:
-        raise NotFoundError("Organization not found")
-    
-    current_owner = UsersApi.get_user(current_owner_email)
-    if not current_owner or org.get("owner") != current_owner.id:
-        raise ForbiddenError("Only current owner can transfer ownership")
-    
-    new_owner = UsersApi.get_user(new_owner_email)
-    if not new_owner:
-        raise BadRequestError("New owner user not found")
-    # Refused before any write: handing it to its own owner went on to add them to its admins.
-    if new_owner.id == current_owner.id:
-        raise BadRequestError("They already own this organization")
-    
-    pull_updates = {}
-    if new_owner.id in org.get("admins", []):
-        pull_updates["admins"] = new_owner.id
-    if new_owner.id in org.get("members", []):
-        pull_updates["members"] = new_owner.id
-    
-    if pull_updates:
-        organizations_collection.update_one(
-            {"id": org_id},
-            {"$pull": pull_updates}
-        )
-    
-    if current_owner.id not in org.get("admins", []):
-        organizations_collection.update_one(
-            {"id": org_id},
-            {"$addToSet": {"admins": current_owner.id}}
-        )
-    
-    result = organizations_collection.update_one(
-        {"id": org_id},
-        {"$set": {"owner": new_owner.id}}
-    )
-    
-    users_collection.update_one(
-        {"id": new_owner.id},
-        {"$addToSet": {"organizations": org_id}}
-    )
-    
-    if result.modified_count > 0:
-        History.record_for_organization(
-            org_id, current_owner_email, History.TRANSFER_ORGANIZATION,
-            subject={"user_id": new_owner.id, "email": new_owner.email},
-            detail=lambda: History.changes(
-                {"owner": current_owner.email}, {"owner": new_owner.email}),
-        )
-    return result.modified_count > 0
+def change_org_place(org_id: str, user_id: str, place: Any, requesting_user_email: str) -> None:
+    """Make an admin a member or a member an admin, as the organization's owner
+    (``organization_people``). Setting the place held writes nothing."""
+    OrganizationPeople.change_place(org_id, user_id, place, requesting_user_email)
+
+
+def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_email: str) -> None:
+    """Hand the organization on to one of its admins or members, as its owner, who stays on it as
+    an admin: one write (``organization_people``)."""
+    OrganizationPeople.transfer(org_id, current_owner_email, new_owner_email)

@@ -4,7 +4,9 @@ import unicodedata
 import uuid
 from enum import Enum
 from typing import List, Literal, Optional, Union, Dict, Any, Tuple
-from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validator, model_validator
+from pydantic import (
+    BaseModel, ConfigDict, Field, PrivateAttr, computed_field, field_validator, model_validator,
+)
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -626,6 +628,16 @@ class Market(BaseModel):
     assignment_object: AssignmentObject
     phase: MarketPhase = MarketPhase.DRAFT  # Market lifecycle phase (single source of truth)
     application_form: Optional["ApplicationForm"] = None  # Application form definition
+    # How many times the form's questions were written (T274): a form save carries the revision its
+    # copy was read at and is refused when the stored one moved, so two people saving the form never
+    # replace each other's questions (``write_application_form``). Server-owned: counted by the form
+    # write and the CSV start, never taken from a body. Absent reads as 0.
+    form_revision: int = 0
+    # How many times the plan was written (T274): a plan save carries the revision its copy was read
+    # at and is refused when the stored one moved, so two people planning one market never erase
+    # each other's edits (``save_plan``). Server-owned: counted by every writer of ``setup_object``
+    # (the plan write, the CSV start, the floorplan save), never taken from a body. Absent reads as 0.
+    plan_revision: int = 0
     # Who reviews this market's applications, and whose turn the next arrival is (E38/F07/S02,
     # ADR 0020). Server-owned: only ``review_team.py`` writes it, never a market update body. Absent
     # is no reviewers chosen: first come, first served, as before it existed.
@@ -674,6 +686,10 @@ class Market(BaseModel):
     # The Discord server it is connected to (E46/F01/S02). Server-owned: only the Discord card's
     # routes write it. Absent is not connected.
     discord: Optional["DiscordConnection"] = None
+    # The stored document this market was parsed from, as it was read: what a write judged on this
+    # market holds (``market_write.write_market``). Set only by ``market_from_document``, carried by
+    # ``model_copy``, never served or dumped; None on a market built in code rather than read.
+    _stored_document: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
     @field_validator("permissions", mode="before")
     @classmethod
@@ -728,22 +744,84 @@ class Market(BaseModel):
         return self
 
 
+def _id_list(value: Any) -> List[Any]:
+    """A stored list of ids as a list, anything else read as an empty one."""
+    return list(value) if isinstance(value, list) else []
+
+
+def people_from_lists(owner: Any, admins: Any, members: Any) -> Dict[str, str]:
+    """An organization's three old lists folded into one map of people (T283, ADR 0025).
+
+    The owner gets ``owner``, then each id in ``admins`` not yet placed gets ``admin``, then each
+    id in ``members`` not yet placed gets ``member``, in list order, so a person has one place and
+    the owner wins over any list they also stand in. A value that is not a list reads as an empty
+    list; a missing or empty ``owner`` gives a map with no owner, which the model refuses.
+    """
+    people: Dict[str, str] = {}
+    if owner:
+        people[owner] = OrganizationRole.OWNER.value
+    for ids, place in ((admins, OrganizationRole.ADMIN), (members, OrganizationRole.MEMBER)):
+        for user_id in _id_list(ids):
+            people.setdefault(user_id, place.value)
+    return people
+
+
+def organization_people_of(document: Dict[str, Any]) -> Dict[str, Any]:
+    """A stored organization's people: its ``people`` map when it holds one, else its three old
+    lists folded by ``people_from_lists``. Every reader of a raw document reads its people here.
+
+    A ``people`` that is not a map reads as nobody, so a malformed document grants no place; the
+    model refuses it, as it refuses any malformed document."""
+    if "people" in document:
+        people = document["people"]
+        return people if isinstance(people, dict) else {}
+    return people_from_lists(
+        document.get("owner"), document.get("admins"), document.get("members"))
+
+
 class Organization(BaseModel):
     id: str  # UUID, immutable primary key
     name: str
-    owner: str  # User id (uuid)
-    admins: List[str] = []  # 0+ admin user ids
-    members: List[str] = []  # 0+ member user ids
+    # Its people, user id (uuid) to place, exactly one ``owner`` (T283, ADR 0025): the one source
+    # of who is in it. ``owner``, ``admins`` and ``members`` are derived from it, in its order.
+    people: Dict[str, OrganizationRole]
+    owner: str  # User id (uuid), derived from ``people``
+    admins: List[str] = []  # 0+ admin user ids, derived from ``people``
+    members: List[str] = []  # 0+ member user ids, derived from ``people``
     markets: List[str]  # List of market ids
     theme: Optional[ThemeObject] = None  # Organization theming
-    
+
+    @model_validator(mode='before')
+    @classmethod
+    def derive_lists_from_people(cls, data: Any) -> Any:
+        """Fill ``people`` from the old lists when the input holds none, then set the lists from
+        ``people`` whatever the input's lists held: a stored organization whose owner is also an
+        admin or a member parses, the owner winning, and the lists can never overlap."""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        if "people" not in data:
+            data["people"] = people_from_lists(
+                data.get("owner"), data.get("admins"), data.get("members"))
+        people = data["people"]
+        if isinstance(people, dict):
+            placed = {
+                place: [user_id for user_id, held in people.items() if held == place]
+                for place in OrganizationRole
+            }
+            owners = placed[OrganizationRole.OWNER]
+            # No owner reads as an empty one, so the single-owner check below is what refuses it.
+            data["owner"] = owners[0] if owners else ""
+            data["admins"] = placed[OrganizationRole.ADMIN]
+            data["members"] = placed[OrganizationRole.MEMBER]
+        return data
+
     @model_validator(mode='after')
-    def validate_owner_not_in_other_roles(self):
-        """Ensure owner is not in admins or members lists."""
-        if self.owner in self.admins:
-            raise ValueError("Owner cannot be in admins list")
-        if self.owner in self.members:
-            raise ValueError("Owner cannot be in members list")
+    def validate_single_owner(self):
+        """Ensure exactly one owner in the people map."""
+        owners = sum(1 for place in self.people.values() if place == OrganizationRole.OWNER)
+        if owners != 1:
+            raise ValueError("An organization has exactly one owner")
         return self
 
 
@@ -1361,6 +1439,8 @@ class DiscordConnectionContract(ContractModel):
 
 class MarketSchemaContract(ContractModel):
     application_form: Optional[ApplicationFormContract] = None
+    form_revision: Optional[int] = None
+    plan_revision: Optional[int] = None
     discord: Optional[DiscordConnectionContract] = None
     discord_vendors: Optional[List[ServedDiscordVendorContract]] = None
     example_columns: Optional[List[ExampleColumnContract]] = None

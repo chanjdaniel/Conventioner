@@ -19,6 +19,7 @@ import {
 } from './seeds';
 import { uniqueMarketName } from './uniqueName';
 import { ensureVerifiedUser } from './verifiedUser';
+import { saveApplicationForm } from './saveApplicationForm';
 
 /**
  * The markets the sweeps walk (`screens.ts`): one in every phase, and each as full as a real one.
@@ -238,11 +239,7 @@ async function createMarket(
   });
   if (!res.ok()) throw new Error(`Market creation failed: ${res.status()} ${await res.text()}`);
   const { market_id: marketId } = (await res.json()) as { market_id: string };
-  const form = await api.put(`${backend}/markets/${marketId}/application-form`, {
-    headers: { 'Content-Type': 'application/json' },
-    data: { fields: FIELDS },
-  });
-  if (!form.ok()) throw new Error(`Form save failed: ${form.status()} ${await form.text()}`);
+  await saveApplicationForm(api, backend, marketId, { fields: FIELDS });
   // And its review setup decided (T206): Review waits on it.
   await decideReviewSetup(api, backend, marketId);
   return { marketId, marketName: name, marketSlug: marketNameToSlug(name) };

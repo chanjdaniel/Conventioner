@@ -94,8 +94,8 @@ describes:
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
   - back-end/api/applicant_auth.py#_send_code_email
-  - back-end/utils/email.py#send_mail
   - back-end/tests/test_account_emails_log_no_address.py
+  - back-end/utils/email.py#send_mail
   - back-end/api/applicant_auth.py#request_login_code
   - back-end/api/markets.py#take_move
   - back-end/utils/captcha.py#verify_recaptcha
@@ -114,6 +114,7 @@ sources:
   - T251
   - T263
   - T273
+  - T274
 ---
 
 # An exception never reaches a client
@@ -162,12 +163,22 @@ An internal invariant (a guard's own consistency check, a model validator) stays
 
 **The markets API's refusals** ([`back-end/api/markets.py`](../../../back-end/api/markets.py)) are client errors.
 Every refusal it words raises `BadRequestError` or `ForbiddenError`, and a market the URL names that does not exist raises `MarketNotFoundError`, a `NotFoundError`, in the role writes and the deletion as everywhere else.
-Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedError` 403 ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)), `MoveUnavailable` 400, `ApplicationFormLockedError` 409, and `PhaseChangedUnderRequest` 409, whose `body()` is the transition's `phase_changed` payload ([the guards](../modules/guards.md)).
+Its own types are client errors too:
+
+- `MarketNotFoundError` 404 (held in [`back-end/market_write.py`](../../../back-end/market_write.py), which answers it for a market gone under a write).
+- `MarketChanged` 409, a write over a market that changed since the request read it, whose `body()` is `{"error": <the one sentence>, "code": "market_changed"}` ([the market write](../modules/market-write.md#what-it-answers)).
+- `RolesGivenOnAChangedMarket` 409, the Discord run's `MarketChanged`, with its own sentence beside the same code, since the roles it gave stay given.
+- `MarketArchivedError` 403 ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)).
+- `MoveUnavailable` 400.
+- `ApplicationFormLockedError` 409.
+- `PhaseChangedUnderRequest` 409, whose `body()` is the transition's `phase_changed` payload ([the guards](../modules/guards.md)).
+
 `create_market`'s "exactly one owner" stays a `ValueError`: `create_owned_market` sets the one owner, so it escaping is a bug, and it answers 500.
 
 **Every other module's refusals** are client errors too, each with the status its routes answer today.
 
 - [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) raises `BadRequestError` and `ForbiddenError`, and `NotFoundError` for "Organization not found", which every organization route answers 404; `OrganizationHasLiveMarkets` is a 409 whose `body()` names the blocking markets ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)).
+- [`back-end/organization_people.py`](../../../back-end/organization_people.py), the one writer of an organization's people, raises the table's `BadRequestError`, `ForbiddenError` and `NotFoundError`, and `OrganizationChanged`, a 409 whose `body()` adds `code: "organization_changed"`, for a change that met another ([the organization's people](../modules/organization-people.md)).
 - [Placements](../modules/placements.md): `PlacementError` is a `BadRequestError`, `SeatTakenError` one with status 409, and `AssignPhaseError` a `ConflictError`.
 - `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError`, in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py) ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 - The vendor export's `ExportInvalid` is a `BadRequestError`, in [`back-end/api/vendor_export.py`](../../../back-end/api/vendor_export.py).
@@ -302,6 +313,9 @@ It clears `localStorage` and the market store, as signing out does, and goes to 
 It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself, through `keepsTheSession`) and from any `/public/...` request, which carries no organizer session (a vendor signs in on their own vendor page, where they also check in), and any 401 while the page is public.
 The request still fails as it would have, so the screen's own catch runs too.
 `aSessionThatEnded.test.ts` holds each of those exemptions, the sign-in endpoints' included, though no screen sends them through `api` today.
+
+**A write over a market that changed** answers `MarketChanged`'s 409, which `isMarketChanged` in `api.ts` tells apart by its `code`.
+A second response interceptor, `installMarketChanged` in [`front-end/src/stores/market.ts`](../../../front-end/src/stores/market.ts), installed from `main.ts` beside the session's, re-reads the open market on it, and the screen's own catch shows the server's sentence through `getApiErrorMessage`, as any refusal's ([the market write](../modules/market-write.md#on-the-screen)).
 
 **The shell's session probe at load ends a session only on an answer that says so.**
 No answer, or a 5xx, says nothing of the session, so `keepsTheSession` keeps the stored user and the page, whose own read says what went wrong; any other failure goes to sign in carrying the page, with `ended=1` on a 401.

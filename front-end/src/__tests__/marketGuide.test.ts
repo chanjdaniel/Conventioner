@@ -170,14 +170,14 @@ describe('the next step', () => {
           {
             id: 'all_applications_reviewed',
             passed: false,
-            message: '2 applications are still awaiting review.',
+            message: '2 applications are still open.',
             resolutionLink: 'applications',
           },
         ],
       },
     };
     expect(nextStep(market(MarketPhase.Applications, undecided), TODAY)).toMatchObject({
-      text: 'Applications are open on your vendor page: review them as they arrive. Finish deciding: 2 applications are still awaiting review.',
+      text: 'Applications are open on your vendor page: review them as they arrive. Finish deciding: 2 applications are still open.',
       page: 'applications',
     });
     const stopped = market(MarketPhase.Applications, { ...undecided, applicationsStopped: true });
@@ -339,7 +339,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     id: 'all_applications_reviewed',
     passed: false,
     message:
-      '1 application is still awaiting review. Every application must be approved or rejected before the market can enter Assignment.',
+      '1 application is still open. Every application must be approved or rejected before the market can enter Assignment.',
     resolutionLink: 'applications',
     resolutionLabel: 'Finish deciding',
     resolutionAction: MarketAction.GiveVerdicts,

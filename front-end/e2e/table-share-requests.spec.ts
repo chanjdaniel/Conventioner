@@ -7,6 +7,7 @@ import { seedApplication, seedApprovedVendor } from './helpers/seedApplication';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { VendorsPage } from './pages/VendorsPage';
 import type { APIRequestContext, Page } from '@playwright/test';
+import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * A table-share request that pairs nobody is shown to the organizer (E27/F01/S03).
@@ -74,15 +75,17 @@ async function seedOpenMarketWithAForm(request: APIRequestContext): Promise<stri
   expect(created.ok(), await created.text()).toBeTruthy();
   const { market_id: marketId } = (await created.json()) as { market_id: string };
 
-  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    headers,
-    data: {
+  await saveApplicationForm(
+    request,
+    BACKEND_URL,
+    marketId,
+    {
       fields: [
         { key: 'business_name', label: 'Business name', type: 'text', required: true, order: 0 },
       ],
     },
-  });
-  expect(form.ok(), await form.text()).toBeTruthy();
+    headers,
+  );
   await decideReviewSetup(request, BACKEND_URL, marketId);
   const opened = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
     headers,

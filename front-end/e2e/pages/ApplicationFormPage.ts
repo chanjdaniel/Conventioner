@@ -35,6 +35,8 @@ export class ApplicationFormPage {
   // Save row
   readonly saveButton: Locator;
   readonly saveSuccess: Locator;
+  /** Where a refused save says why, the server's own words. */
+  readonly saveError: Locator;
   readonly saveHint: Locator;
   readonly validationError: Locator;
 
@@ -75,6 +77,7 @@ export class ApplicationFormPage {
 
     this.saveButton = page.getByTestId('form-builder-save-button');
     this.saveSuccess = page.getByTestId('form-builder-save-success');
+    this.saveError = page.getByTestId('form-builder-save-error');
     this.saveHint = page.getByTestId('form-builder-save-hint');
     this.validationError = page.getByTestId('form-builder-validation-error');
 

@@ -16,6 +16,7 @@ skip_without_real_dependencies()
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import history as History
+import market_write as MarketWrite
 from test_an_exception_never_reaches_a_client import NEW_MARKET, client, organization  # noqa: F401
 from test_the_market_list_shows_what_the_read_serves import (  # noqa: F401
     MEMBER, READABLE_BY_ORGANIZATION, listed, signed_in, world,
@@ -44,6 +45,7 @@ def markets(client, organization, monkeypatch):  # noqa: F811
     organization()
     collection = CapturingMarkets([stored_market(name="Spring Market", id="market-123")])
     monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+    monkeypatch.setattr(MarketWrite, "markets_collection", collection)
     monkeypatch.setattr(MarketsApi, "db", {"organizations": SimpleNamespace(
         update_one=lambda *_args, **_kwargs: None)})
     monkeypatch.setattr(MarketsApi, "_organization_default_rows", lambda _org: {})

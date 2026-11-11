@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/openMarket.ts
   - front-end/src/utils/lastMarket.ts
   - front-end/src/utils/marketActions.ts
-verified: 2026-11-05
+verified: 2026-11-11
 sources:
   - E38/F04/S02
   - wayfinding/the-market-frame/03
@@ -23,6 +23,7 @@ sources:
   - T205
   - T217
   - T263
+  - T274
 ---
 
 # The market store
@@ -38,6 +39,7 @@ The rules it keeps for all code are [one market, from the server](../conventions
 - `refresh()` re-reads the open market with `GET /markets/:id` and takes what it says.
   Every write that changes the market is followed by a call to it; it is also the retry after a failed arrival.
 - `clear()` forgets the market entirely; signing out calls it, so one account is never shown another's market.
+- `installMarketChanged()`, exported beside the store and installed once from `main.ts`, calls `refresh()` whenever a write answers that the market changed under it, so every screen follows the market as it now stands ([the market write](market-write.md#on-the-screen)).
 - `market` is the held market, and only while its id is the open id; `status` is `idle`, `loading`, `loaded`, `failed` or `missing`; `stale` is true when the last re-read failed in transit.
 
 Screens do not call the store directly: [`useOpenMarket`](../../../front-end/src/utils/openMarket.ts) takes the route's market id, opens the market on arrival and whenever the id changes, re-reads it when the organizer comes back to the browser tab (`visibilitychange`), and returns `{ market, status, refresh }`.

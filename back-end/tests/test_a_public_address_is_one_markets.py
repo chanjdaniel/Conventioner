@@ -14,6 +14,7 @@ import pytest
 from conftest import FakeSlugMarketsCollection, stored_market
 
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.permissions as PermissionsApi
 from client_errors import BadRequestError
 from datatypes import Market
@@ -47,6 +48,7 @@ def two_markets(monkeypatch):
         ]
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+    monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     return collection
 
@@ -181,8 +183,12 @@ class TestTheRaceTheIndexCatches:
             def update_one(self, _filter, _update):
                 raise DuplicateKeyError("E11000 duplicate key error collection: markets index: market_slug")
 
+            def find_one_and_update(self, _filter, _update, **_kwargs):
+                raise DuplicateKeyError("E11000 duplicate key error collection: markets index: market_slug")
+
         collection = LosesTheRace([stored_market(name="Spring Market", id="market-123")])
         monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+        monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
         return collection
 

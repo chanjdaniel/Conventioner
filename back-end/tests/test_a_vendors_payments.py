@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import FakeApplicationsCollection, FakeMarketsCollection, stored_market
+from conftest import FakeMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
@@ -21,6 +21,7 @@ import history as History
 import payments as Payments
 from client_errors import BadRequestError, ForbiddenError, NotFoundError
 from datatypes import MarketPhase, MarketRole, VendorAssignmentResult
+import market_write as MarketWrite
 
 MARKET = "market-123"
 ANA = "ana@example.com"
@@ -44,26 +45,12 @@ PLAN = {
 }
 
 
-class LiveMarket(FakeMarketsCollection):
-    """The one market, applying each ``$set`` the way Mongo does, so a placement written is the
-    placement the next read finds."""
-
-    def update_one(self, _filter, update):
-        result = super().update_one(_filter, update)
-        for key, value in (update.get("$set") or {}).items():
-            *parents, last = key.split(".")
-            target = self.doc
-            for part in parents:
-                target = target.setdefault(part, {})
-            target[last] = copy.deepcopy(value)
-        return result
-
-
 @pytest.fixture
 def market(monkeypatch, applications):
     """A priced market in market days, Ana holding a Gold full table on both days."""
-    live = LiveMarket(stored_market(phase=MarketPhase.MARKET_DAYS, setupObject=copy.deepcopy(PLAN)))
+    live = FakeMarketsCollection(stored_market(phase=MarketPhase.MARKET_DAYS, setupObject=copy.deepcopy(PLAN)))
     monkeypatch.setattr(MarketsApi, "markets_collection", live)
+    monkeypatch.setattr(MarketWrite, "markets_collection", live)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     applications.insert_one({"id": "app-ana", "market_id": MARKET, "applicant_email": ANA,
                              "form_data": {}, "status": "reviewer_approved",

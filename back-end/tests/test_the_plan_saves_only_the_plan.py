@@ -13,6 +13,7 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 from client_errors import BadRequestError, ForbiddenError
 from datatypes import IntakeMode, MarketPhase, MarketRole
+import market_write as MarketWrite
 
 PLAN = {
     "priority": [],
@@ -36,6 +37,7 @@ def market(monkeypatch):
     def at(phase=MarketPhase.DRAFT, **stored):
         fake = FakeMarketsCollection(stored_market(phase=phase, **stored))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(MarketWrite, "markets_collection", fake)
         return fake
 
     monkeypatch.setattr(PermissionsApi, "user_has_permission", permission)
@@ -46,7 +48,7 @@ def market(monkeypatch):
 def test_it_writes_the_plan_and_nothing_else(market):
     collection = market()
 
-    MarketsApi.save_plan("market-123", {"setupObject": PLAN}, "user-1")
+    MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": PLAN}, "user-1")
 
     written = collection.last_update["$set"]
     assert set(written) == {"setupObject"}
@@ -58,7 +60,7 @@ def test_it_writes_the_intake_mode_of_a_draft(market):
     collection = market()
 
     MarketsApi.save_plan(
-        "market-123", {"setupObject": PLAN, "intakeMode": IntakeMode.FORM.value}, "user-1"
+        "market-123", {"planRevision": 0, "setupObject": PLAN, "intakeMode": IntakeMode.FORM.value}, "user-1"
     )
 
     assert collection.last_update["$set"]["intakeMode"] == IntakeMode.FORM.value
@@ -67,7 +69,7 @@ def test_it_writes_the_intake_mode_of_a_draft(market):
 def test_it_requires_the_same_role_every_market_write_does(market):
     market()
 
-    MarketsApi.save_plan("market-123", {"setupObject": PLAN}, "user-1")
+    MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": PLAN}, "user-1")
 
     assert market.checked["role"] == MarketRole.EDITOR
 
@@ -77,7 +79,7 @@ def test_a_body_naming_anything_else_is_refused(market, field):
     collection = market()
 
     with pytest.raises(BadRequestError, match=field):
-        MarketsApi.save_plan("market-123", {"setupObject": PLAN, field: "anything"}, "user-1")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": PLAN, field: "anything"}, "user-1")
 
     assert collection.last_update is None
 
@@ -98,7 +100,7 @@ def test_the_intake_mode_cannot_change_after_draft(market, phase):
 
     with pytest.raises(BadRequestError, match="draft"):
         MarketsApi.save_plan(
-            "market-123", {"setupObject": PLAN, "intakeMode": IntakeMode.FORM.value}, "user-1"
+            "market-123", {"planRevision": 0, "setupObject": PLAN, "intakeMode": IntakeMode.FORM.value}, "user-1"
         )
 
     assert collection.last_update is None
@@ -110,7 +112,7 @@ def test_restating_the_intake_mode_after_draft_is_not_a_change(market):
     collection = market(phase=MarketPhase.APPLICATIONS, intakeMode=IntakeMode.CSV.value, setupObject=PLAN)
 
     MarketsApi.save_plan(
-        "market-123", {"setupObject": PLAN, "intakeMode": IntakeMode.CSV.value}, "user-1"
+        "market-123", {"planRevision": 0, "setupObject": PLAN, "intakeMode": IntakeMode.CSV.value}, "user-1"
     )
 
     assert collection.last_update["$set"]["setupObject"]["tiers"] == [{"id": 0, "name": "Gold"}]
@@ -120,7 +122,7 @@ def test_a_malformed_plan_is_refused(market):
     collection = market()
 
     with pytest.raises(BadRequestError):
-        MarketsApi.save_plan("market-123", {"setupObject": {"tiers": "not a list"}}, "user-1")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": {"tiers": "not a list"}}, "user-1")
 
     assert collection.last_update is None
 
@@ -134,7 +136,7 @@ def test_a_half_table_proportion_out_of_range_is_refused(market, share):
         "assignmentOptions": {"maxHalfTableProportionPerSection": share},
     }
     with pytest.raises(BadRequestError, match="0 and 100"):
-        MarketsApi.save_plan("market-123", {"setupObject": plan}, "user-1")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": plan}, "user-1")
 
     assert collection.last_update is None
 
@@ -147,7 +149,7 @@ def test_a_half_table_proportion_in_range_or_blank_saves(market, share):
         **PLAN,
         "assignmentOptions": {"maxHalfTableProportionPerSection": share},
     }
-    MarketsApi.save_plan("market-123", {"setupObject": plan}, "user-1")
+    MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": plan}, "user-1")
 
     written = collection.last_update["$set"]["setupObject"]["assignmentOptions"]
     assert written["maxHalfTableProportionPerSection"] == share
@@ -184,7 +186,7 @@ def test_after_the_assignment_a_rule_cannot_change(market, phase, change):
     collection = market(phase=phase, setupObject=STORED_RULES)
 
     with pytest.raises(BadRequestError, match="settled"):
-        MarketsApi.save_plan("market-123", {"setupObject": {**STORED_RULES, **change}}, "user-1")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": {**STORED_RULES, **change}}, "user-1")
 
     assert collection.last_update is None
 
@@ -195,7 +197,7 @@ def test_after_the_assignment_restating_the_rules_is_not_a_change(market, phase)
     collection = market(phase=phase, setupObject=STORED_RULES)
 
     # Restated whole: the setup beside the rules is settled too after draft (E31/F01/S02).
-    MarketsApi.save_plan("market-123", {"setupObject": STORED_RULES}, "user-1")
+    MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": STORED_RULES}, "user-1")
 
     assert collection.last_update is not None
 
@@ -205,7 +207,7 @@ def test_up_to_and_including_the_assignment_the_rules_save(market, phase):
     collection = market(phase=phase, setupObject=STORED_RULES)
 
     changed = {**STORED_RULES, "priority": []}
-    MarketsApi.save_plan("market-123", {"setupObject": changed}, "user-1")
+    MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": changed}, "user-1")
 
     assert collection.last_update["$set"]["setupObject"]["priority"] == []
 
@@ -239,6 +241,7 @@ class TestTheAssignmentRowIsAskedOnlyOfAChange:
                 organizationId="org-1",
                 permissions={"assign": {"role": "admin", "source": "market"}}, **stored))
             monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+            monkeypatch.setattr(MarketWrite, "markets_collection", fake)
             return fake
 
         at.organization_reads = reads
@@ -247,7 +250,7 @@ class TestTheAssignmentRowIsAskedOnlyOfAChange:
     def test_a_first_plan_keeping_the_default_rules_saves(self, an_editor_the_assignment_row_refuses):
         collection = an_editor_the_assignment_row_refuses()
 
-        MarketsApi.save_plan("market-123", {"setupObject": {**PLAN, **self.DEFAULT_RULES}}, "user-1")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": {**PLAN, **self.DEFAULT_RULES}}, "user-1")
 
         assert collection.last_update["$set"]["setupObject"]["marketDates"] == [{"date": "2026-08-01"}]
 
@@ -256,7 +259,7 @@ class TestTheAssignmentRowIsAskedOnlyOfAChange:
         collection = an_editor_the_assignment_row_refuses()
 
         with pytest.raises(ForbiddenError, match="allocate this market's tables"):
-            MarketsApi.save_plan("market-123", {"setupObject": PLAN}, "user-1")
+            MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": PLAN}, "user-1")
 
         assert collection.last_update is None
 
@@ -266,6 +269,6 @@ class TestTheAssignmentRowIsAskedOnlyOfAChange:
 
         with pytest.raises(ForbiddenError):
             MarketsApi.save_plan(
-                "market-123", {"setupObject": {**STORED_RULES, "priority": []}}, "user-1")
+                "market-123", {"planRevision": 0, "setupObject": {**STORED_RULES, "priority": []}}, "user-1")
 
         assert an_editor_the_assignment_row_refuses.organization_reads == ["org-1"]

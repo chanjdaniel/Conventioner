@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import COMPLETE_PLAN, client_market, stored_market
+from conftest import COMPLETE_PLAN, FakeMarketsCollection, client_market, stored_market
 import api.added_vendors as AddedVendorsApi
 import api.discord_connection as DiscordConnectionApi
 import api.door as DoorApi
@@ -20,6 +20,7 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import api.vendor_export as VendorExportApi
+import market_write as MarketWrite
 from client_errors import ForbiddenError
 from datatypes import MarketPerson, MarketPhase, MarketRole
 
@@ -152,7 +153,7 @@ class TestARefusalIsASentence:
 EACH_LOAD_ASKS = [
     (lambda: MarketsApi.rename_market("market-123", "Spring Market", "u@x.test"),
      Actions.CHANGE_SETUP),
-    (lambda: MarketsApi.save_plan("market-123", {"setupObject": {}}, "u@x.test"),
+    (lambda: MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": {}}, "u@x.test"),
      Actions.CHANGE_SETUP),
     (lambda: MarketsApi.save_application_form("market-123", {}, "u@x.test"), Actions.CHANGE_FORM),
     (lambda: MarketsApi.save_review_highlights("market-123", [], "u@x.test"), Actions.CHANGE_FORM),
@@ -260,15 +261,16 @@ class TestThePlanWrite:
         stored = stored_market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN)
         monkeypatch.setattr(MarketsApi, "_load_market_and_organization_to_change", lambda *_a: (
             MarketsApi.LoadedMarket(MarketsApi.market_from_document(stored), None)))
-        monkeypatch.setattr(
-            MarketsApi, "markets_collection", SimpleNamespace(update_one=lambda *_a, **_k: None))
+        # No markets collection here, so the write itself is stubbed: what is asked is the test.
+        monkeypatch.setattr(MarketsApi, "write_market",
+                            lambda *_a, **_k: MarketWrite.Written({"planRevision": 1}))
         monkeypatch.setattr(Actions, "refusal", lambda action, *_a: rows.append(action))
         return stored, rows
 
     def test_restating_the_rules_does_not_ask_the_assignment_row(self, asked):
         stored, rows = asked
 
-        MarketsApi.save_plan("market-123", {"setupObject": stored["setupObject"]}, "u@x.test")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": stored["setupObject"]}, "u@x.test")
 
         assert rows == []
 
@@ -277,7 +279,7 @@ class TestThePlanWrite:
         plan = {**stored["setupObject"], "assignmentOptions": {
             "maxAssignmentsPerVendor": 1, "maxHalfTableProportionPerSection": None}}
 
-        MarketsApi.save_plan("market-123", {"setupObject": plan}, "u@x.test")
+        MarketsApi.save_plan("market-123", {"planRevision": 0, "setupObject": plan}, "u@x.test")
 
         assert rows == [Actions.ASSIGN]
 
@@ -308,19 +310,23 @@ class TestRolesAskTheirRows:
             roles = {"user-1": "owner"}
             if target_role is not None:
                 roles["target"] = target_role.value
-            doc = stored_market(MarketPhase.APPLICATIONS, roles=roles)
-            monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: (
-                MarketsApi.MarketContext(doc, MarketsApi.market_from_document(doc), None, None)))
-            monkeypatch.setattr(MarketsApi, "markets_collection", SimpleNamespace(
-                update_one=lambda _q, update: doc.update(roles=update["$set"]["roles"])
-                or SimpleNamespace(modified_count=1)))
+            markets = FakeMarketsCollection(stored_market(MarketPhase.APPLICATIONS, roles=roles))
+
+            def load(_id):
+                stored = markets.find_one({"id": markets.doc["id"]})
+                return MarketsApi.MarketContext(
+                    stored, MarketsApi.market_from_document(stored), None, None)
+
+            monkeypatch.setattr(MarketsApi, "load_market_context", load)
+            monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+            monkeypatch.setattr(MarketWrite, "markets_collection", markets)
             monkeypatch.setattr(MarketsApi.UsersApi, "get_user", lambda email: SimpleNamespace(
                 id=email, email=email))
             asked = []
             refusal = Actions.refusal
             monkeypatch.setattr(Actions, "refusal", lambda row, *a: asked.append(row) or refusal(
                 row, *a))
-            return (lambda: dict(doc["roles"])), asked
+            return (lambda: dict(markets.doc["roles"])), asked
         return make
 
     @pytest.mark.parametrize("asker", LADDER, ids=str)

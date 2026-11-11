@@ -16,6 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from conftest import mongo_matches
 import api.organizations as OrgsApi
 import api.users as UsersApi
 
@@ -30,17 +31,13 @@ PEOPLE = (READER, OWNER, ADA, BEA, CAL, DEV)
 
 
 class Organizations:
-    """The organizations collection, answering the list's ``$or`` of owner, admins and members."""
+    """The organizations collection, answering the list's filter as the server does."""
 
     def __init__(self, *docs):
         self.docs = [copy.deepcopy(doc) for doc in docs]
 
     def find(self, query):
-        user_id = query["$or"][0]["owner"]
-        return [
-            copy.deepcopy(doc) for doc in self.docs
-            if user_id in [doc["owner"], *doc["admins"], *doc["members"]]
-        ]
+        return [copy.deepcopy(doc) for doc in self.docs if mongo_matches(doc, query)]
 
 
 class Markets:
@@ -53,6 +50,17 @@ def organization(org_id, owner, admins, members):
         "_id": f"mongo-{org_id}", "id": org_id, "name": f"Example {org_id}", "owner": owner.id,
         "admins": [person.id for person in admins], "members": [person.id for person in members],
         "markets": [], "theme": None,
+    }
+
+
+def folded(org_id, people, **lists):
+    """An organization stored with its people map (T283), ``lists`` what its old lists hold."""
+    return {
+        "_id": f"mongo-{org_id}", "id": org_id, "name": f"Example {org_id}",
+        "people": {person.id: place for person, place in people},
+        "markets": [], "theme": None,
+        **{key: [person.id for person in value] if isinstance(value, list) else value.id
+           for key, value in lists.items()},
     }
 
 
@@ -151,3 +159,39 @@ def test_a_reader_in_no_organization_reads_no_account_by_id(reads):
     assert OrgsApi.get_organizations_for_user(READER.email) == []
     assert counted.by_id == []
     assert not any(counted.batches)
+
+
+def test_a_folded_organization_serves_its_people_from_the_map_in_its_order(reads):
+    """Its lists only mirror the map, so a stale one is never served: a member made an admin
+    keeps their place in the map's order and is listed once, among the admins (T283)."""
+    reads(folded(
+        "org-1", [(CAL, "member"), (OWNER, "owner"), (ADA, "admin"), (READER, "member"),
+                  (BEA, "admin")],
+        owner=OWNER, admins=[ADA], members=[CAL, READER, BEA],
+    ))
+
+    [listed] = OrgsApi.get_organizations_for_user(READER.email)
+
+    assert (listed["owner"], listed["admins"], listed["members"]) == (
+        OWNER.id, [ADA.id, BEA.id], [CAL.id, READER.id])
+    assert listed["adminPeople"] == [
+        {"userId": ADA.id, "email": ADA.email}, {"userId": BEA.id, "email": BEA.email},
+    ]
+    assert listed["memberPeople"] == [
+        {"userId": CAL.id, "email": CAL.email}, {"userId": READER.id, "email": READER.email},
+    ]
+    assert listed["ownerEmail"] == OWNER.email
+    assert listed["userRole"] == "member"
+
+
+def test_an_unfolded_organization_whose_lists_overlap_serves_each_person_once(reads):
+    """Stored before the map, its owner also an admin and an admin also a member: served folded,
+    the owner winning, then the admins, so nobody is listed twice."""
+    reads(organization("org-1", READER, [READER, ADA], [ADA, READER, BEA]))
+
+    [listed] = OrgsApi.get_organizations_for_user(READER.email)
+
+    assert (listed["owner"], listed["admins"], listed["members"]) == (READER.id, [ADA.id], [BEA.id])
+    assert listed["adminPeople"] == [{"userId": ADA.id, "email": ADA.email}]
+    assert listed["memberPeople"] == [{"userId": BEA.id, "email": BEA.email}]
+    assert listed["userRole"] == "owner"

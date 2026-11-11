@@ -12,7 +12,9 @@ from types import SimpleNamespace
 import pytest
 
 from conftest import (
+    FakeOrganizations,
     accounts_by_id,
+    install_organizations,
     mongo_matches,
     mongo_project,
     sessions_load_through_get_user,
@@ -26,6 +28,7 @@ from test_the_market_keeps_its_own_rows import (
 import app as app_module
 import api.market_actions as Actions
 import api.markets as MarketsApi
+import market_write as MarketWrite
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import history as History
@@ -35,39 +38,6 @@ from datatypes import MarketPhase
 ORG_MEMBER = "org-member@example.com"
 OUTSIDER = "outsider@example.com"
 NOT_THEIRS = "Only the organization's owner or its admins may change its default permissions."
-
-
-class FakeOrganizations:
-    """The organizations collection, holding one document and applying ``$set``, ``$unset`` and
-    ``$addToSet`` on dotted paths, so a read after a write sees what it stored."""
-
-    def __init__(self, doc):
-        self.doc = copy.deepcopy(doc)
-        self.updates = []
-
-    def find_one(self, query, projection=None):
-        if self.doc is None or not mongo_matches(self.doc, query):
-            return None
-        return mongo_project(copy.deepcopy(self.doc), projection)
-
-    def find(self, query):
-        """The organizations list's ``$or`` of owner, admins and members, the one ``find`` sent."""
-        user_id = query["$or"][0]["owner"]
-        people = [self.doc["owner"], *self.doc["admins"], *self.doc["members"]]
-        return [copy.deepcopy(self.doc)] if user_id in people else []
-
-    def update_one(self, query, update):
-        if not mongo_matches(self.doc, query):
-            return SimpleNamespace(matched_count=0, modified_count=0)
-        self.updates.append(update)
-        for path, value in (update.get("$set") or {}).items():
-            _set_path(self.doc, path, copy.deepcopy(value))
-        for path in update.get("$unset") or {}:
-            _unset_path(self.doc, path)
-        for key, value in (update.get("$addToSet") or {}).items():
-            if value not in self.doc.setdefault(key, []):
-                self.doc[key].append(value)
-        return SimpleNamespace(matched_count=1, modified_count=1)
 
 
 class Markets(FakeMarkets):
@@ -104,11 +74,10 @@ def world(monkeypatch):
     organizations = FakeOrganizations(organization())
     markets = Markets(market_doc("market-123"))
     history = FakeHistoryCollection()
-    monkeypatch.setattr(OrgsApi, "organizations_collection", organizations)
-    monkeypatch.setattr(OrgsApi, "users_collection", SimpleNamespace(
-        update_one=lambda *_a, **_k: None, update_many=lambda *_a, **_k: None))
+    install_organizations(monkeypatch, organizations)
     monkeypatch.setattr(MarketsApi.PermissionsApi, "organizations_collection", organizations)
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", MarketsApi.markets_collection)
     monkeypatch.setattr(OrgsApi, "markets_collection", markets)
     monkeypatch.setattr(MarketsApi, "db", {"organizations": organizations})
     monkeypatch.setattr(History, "history_collection", history)
@@ -175,15 +144,18 @@ class TestTheOrganizationsDefault:
 
     def test_the_organizations_list_carries_its_default_table(self, world):
         OrgsApi.set_default_permission(ORG_ID, "check-in", "admin", ORG_ADMIN)
+        # The list finds a person's organizations by a dotted path of their id, which never holds
+        # a dot as these addresses do: a reader whose id has none.
+        world.organizations.doc["members"].append("a-member")
 
-        [listed] = OrgsApi.get_organizations_for_user(ORG_MEMBER)
+        [listed] = OrgsApi.get_organizations_for_user("a-member")
 
         assert row(listed["defaultPermissionTable"], "check-in")["role"] == "admin"
 
     def test_setting_the_role_a_row_already_asks_stores_and_records_nothing(self, world):
         OrgsApi.set_default_permission(ORG_ID, "check-in", "editor", ORG_ADMIN)
 
-        assert world.organizations.updates == []
+        assert world.organizations.writes == []
         assert default_entries(world) == []
 
     def test_resetting_a_row_unsets_it_and_records_its_before_and_after(self, world):
@@ -202,18 +174,18 @@ class TestTheOrganizationsDefault:
     def test_resetting_a_row_it_does_not_set_records_nothing(self, world):
         OrgsApi.reset_default_permission(ORG_ID, "check-in", ORG_ADMIN)
 
-        assert world.organizations.updates == []
+        assert world.organizations.writes == []
         assert default_entries(world) == []
 
     def test_resetting_every_row_is_one_write_and_one_entry(self, world):
         OrgsApi.set_default_permission(ORG_ID, "check-in", "admin", ORG_ADMIN)
         OrgsApi.set_default_permission(ORG_ID, "export-csv", "editor", ORG_ADMIN)
-        writes = len(world.organizations.updates)
+        writes = len(world.organizations.writes)
 
         table = OrgsApi.reset_default_permissions(ORG_ID, ORG_ADMIN)
 
         assert all(entry["source"] == "built-in" for entry in table)
-        assert len(world.organizations.updates) == writes + 1
+        assert len(world.organizations.writes) == writes + 1
         assert world.organizations.doc["default_permissions"] == {}
         newest = default_entries(world)[-1]
         assert newest["kind"] == History.PERMISSION_TABLE_RESET
@@ -236,7 +208,7 @@ class TestTheOrganizationsDefault:
     def test_resetting_every_row_when_none_is_set_records_nothing(self, world):
         OrgsApi.reset_default_permissions(ORG_ID, ORG_ADMIN)
 
-        assert world.organizations.updates == []
+        assert world.organizations.writes == []
         assert default_entries(world) == []
 
     def test_its_history_is_newest_first_and_holds_only_the_defaults_changes(self, world):
@@ -263,8 +235,8 @@ class TestAStoredDefaultThatIsNotAMap:
 
         table = OrgsApi.set_default_permission(ORG_ID, "check-in", "admin", ORG_ADMIN)
 
-        assert world.organizations.updates == [
-            {"$set": {"default_permissions": {"check-in": {"role": "admin"}}}}]
+        assert world.organizations.writes == [(
+            {"id": ORG_ID}, {"$set": {"default_permissions": {"check-in": {"role": "admin"}}}})]
         assert row(table, "check-in")["role"] == "admin"
 
     def test_a_map_keeps_its_other_rows(self, world):
@@ -288,7 +260,7 @@ class TestTheWriteRefuses:
                 write()
             assert refused.value.message == NOT_THEIRS
 
-        assert world.organizations.updates == []
+        assert world.organizations.writes == []
         assert world.history.docs == []
 
     @pytest.mark.parametrize("action_id, role", [
@@ -304,7 +276,7 @@ class TestTheWriteRefuses:
                 write()
             assert refused.value.message == NOT_THEIRS
 
-        assert world.organizations.updates == []
+        assert world.organizations.writes == []
         assert world.history.docs == []
 
     @pytest.mark.parametrize("action_id", ["delete-market", "read", "change-the-table"])
@@ -313,7 +285,7 @@ class TestTheWriteRefuses:
             OrgsApi.set_default_permission(ORG_ID, action_id, "admin", ORG_ADMIN)
 
         assert "is fixed, so it cannot be changed" in refused.value.message
-        assert world.organizations.updates == []
+        assert world.organizations.writes == []
 
     @pytest.mark.parametrize("action_id", ["no-such-row", None, 3])
     def test_an_unknown_row(self, world, action_id):
@@ -327,7 +299,7 @@ class TestTheWriteRefuses:
         with pytest.raises(BadRequestError):
             OrgsApi.set_default_permission(ORG_ID, "check-in", role, ORG_ADMIN)
 
-        assert world.organizations.updates == []
+        assert world.organizations.writes == []
         assert world.history.docs == []
 
     def test_an_organization_nobody_has(self, world):
@@ -526,7 +498,7 @@ class TestTheRoutes:
 
         assert response.status_code == 403
         assert response.get_json() == {"error": NOT_THEIRS}
-        assert world.organizations.updates == []
+        assert world.organizations.writes == []
 
     def test_an_outsider_cannot_read_the_changes(self, client, world):
         response = client(OUTSIDER).get(f"/organizations/{ORG_ID}/default-permission-history")

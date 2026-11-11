@@ -17,6 +17,7 @@ sources:
   - T92
   - E38/F04/S01
   - T263
+  - T274
 status: accepted
 ---
 
@@ -48,6 +49,7 @@ It is a copy, not a live link: a market created from it holds its rows from then
 **Only the market's owner changes its rows**, through the fixed row "Change this table": one write sets a row's role, another returns it to its built-in default, another returns every row the market holds at once, and another copies the organization's default again (`set_permission`, `reset_permission`, `reset_permissions` and `copy_organization_default` in [`back-end/api/markets.py`](../../back-end/api/markets.py)).
 The owner is the market's single owner; an organization's owner and admins hold Admin on its markets, never Owner, so a market's own rows are not theirs to change (the organization's default is).
 An archived market's table is part of its record, and is not changed.
+Each write holds the rows it changes as it read them ([ADR 0024](0024-a-market-write-holds-what-it-read.md)), so two tabs changing one row never both land, and the record's "before" is the row that stood.
 
 **Every change is recorded** in [the market's history](../implementation/data/history.md) ([ADR 0017](0017-one-history-for-every-change.md)): who, when, the row, and its role and source before and after.
 

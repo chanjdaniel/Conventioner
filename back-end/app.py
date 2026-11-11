@@ -735,8 +735,7 @@ def add_org_admin(org_id: str) -> Response:
     if not user_email:
         return jsonify({"error": "user_email required"}), 400
 
-    if not OrgsApi.add_org_admin(org_id, user_email, authenticated_email()):
-        return jsonify({"error": "Failed to add admin"}), 400
+    OrgsApi.add_org_admin(org_id, user_email, authenticated_email())
     return jsonify({"message": "Admin added successfully"}), 200
 
 @app.route('/organizations/<org_id>/members', methods=['POST'])
@@ -749,8 +748,7 @@ def add_org_member(org_id: str) -> Response:
     if not user_email:
         return jsonify({"error": "user_email required"}), 400
 
-    if not OrgsApi.add_org_member(org_id, user_email, authenticated_email()):
-        return jsonify({"error": "Failed to add member"}), 400
+    OrgsApi.add_org_member(org_id, user_email, authenticated_email())
     return jsonify({"message": "Member added successfully"}), 200
 
 @app.route('/organizations/<org_id>/users/<user_id>', methods=['DELETE'])
@@ -760,18 +758,27 @@ def remove_org_user(org_id: str, user_id: str) -> Response:
     OrgsApi.remove_org_user(org_id, user_id, authenticated_email())
     return jsonify({"message": "User removed successfully"}), 200
 
+@app.route('/organizations/<org_id>/users/<user_id>', methods=['PUT'])
+@login_required
+def change_org_place(org_id: str, user_id: str) -> Response:
+    """Make an admin of an organization a member, or a member an admin: the owner's to do. The body
+    is ``{"place": "admin" | "member"}``."""
+    data = json_object(required=True)
+    OrgsApi.change_org_place(org_id, user_id, string_field(data, 'place'), authenticated_email())
+    return jsonify({"message": "Place changed"}), 200
+
 @app.route('/organizations/<org_id>/transfer', methods=['POST'])
 @login_required
 def transfer_org_ownership(org_id: str) -> Response:
-    """Transfer organization ownership."""
+    """Hand the organization on to one of its admins or members: its owner's to do. The body is
+    ``{"new_owner_email": "<address>"}``."""
     data = json_object(required=True)
 
     new_owner_email = string_field(data, 'new_owner_email')
     if not new_owner_email:
         return jsonify({"error": "new_owner_email required"}), 400
 
-    if not OrgsApi.transfer_org_ownership(org_id, authenticated_email(), new_owner_email):
-        return jsonify({"error": "Failed to transfer ownership"}), 400
+    OrgsApi.transfer_org_ownership(org_id, authenticated_email(), new_owner_email)
     return jsonify({"message": "Ownership transferred successfully"}), 200
 
 # Market role management
@@ -795,8 +802,7 @@ def add_market_role(market_id: str) -> Response:
     if role is None:
         return jsonify({"error": f"Invalid role: {role_str}"}), 400
 
-    if not MarketsApi.add_market_role(market_id, user_email, role, authenticated_email()):
-        return jsonify({"error": "Failed to add role"}), 400
+    MarketsApi.add_market_role(market_id, user_email, role, authenticated_email())
     return jsonify({"message": "Role added successfully"}), 200
 
 @app.route('/markets/<market_id>/roles/<user_id>', methods=['DELETE'])
@@ -894,12 +900,15 @@ def rename_market(market_id: str) -> Response:
 def save_plan(market_id: str) -> Response:
     """Write the market plan, and while it is a draft how vendors reach it (E21/F03/S02).
 
-    Body: { "setupObject": {...}, "intakeMode": "csv" | "form" }. Anything else is refused by
-    name: the plan's autosave sends what the plan owns, not the whole market.
+    Body: { "setupObject": {...}, "intakeMode": "csv" | "form", "planRevision": <int> }. Anything
+    else is refused by name: the plan's autosave sends what the plan owns, not the whole market.
+    ``planRevision`` is the revision the page's copy of the plan was read at (the market read
+    serves it); a copy older than the stored plan, or a body naming none, is refused with the 409
+    ``MarketChanged``. The answer carries the revision now stored, for the next save.
     """
     data = json_object(required=True)
-    MarketsApi.save_plan(market_id, data, authenticated_email())
-    return jsonify({"message": "Plan saved"}), 200
+    revision = MarketsApi.save_plan(market_id, data, authenticated_email())
+    return jsonify({"message": "Plan saved", "planRevision": revision}), 200
 
 
 @app.route('/markets/<market_id>/discord/authorization', methods=['POST'])
@@ -1210,6 +1219,10 @@ def save_application_form(market_id: str) -> Response:
     The only writer of the application form on an existing market.
     Only allowed in ``draft`` phase.  Once any application exists for the market
     the form is locked (D9) and further edits are refused.
+
+    Body: the form, and ``formRevision``, the revision the page's copy was read at (the form read
+    answers it). A copy older than the stored form, or a body naming none, is refused with the
+    409 ``MarketChanged``; the answer carries the revision now stored, for the next save.
     """
     data = json_object(required=True)
 
@@ -1222,10 +1235,7 @@ def save_application_form(market_id: str) -> Response:
     data = convert_keys_to_snake_case(data)
     result = MarketsApi.save_application_form(market_id, data, requesting_user)
 
-    return jsonify({
-        "message": "Application form saved successfully",
-        "application_form": result,
-    }), 200
+    return jsonify({"message": "Application form saved successfully", **result}), 200
 
 
 @app.route('/markets/<market_id>/application-form', methods=['GET'])

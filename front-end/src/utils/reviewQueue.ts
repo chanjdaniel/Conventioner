@@ -106,6 +106,18 @@ export function reviewQueue(applications: Application[], includeFollowUps: boole
 }
 
 /**
+ * The word One by one counts a stretch of the queue in, from what it holds: "open", as the Open
+ * filter lists them, "needing a follow-up" for follow-ups alone, and both for a stretch of both, so
+ * a follow-up taken into the walk is never called open.
+ */
+export function queueCountWord(queue: Pick<Application, 'status'>[]): string {
+  const following = queue.some((a) => a.status === ApplicationStatus.NeedsFollowUp);
+  const open = queue.some((a) => a.status !== ApplicationStatus.NeedsFollowUp);
+  if (!following) return 'open';
+  return open ? 'open or needing a follow-up' : 'needing a follow-up';
+}
+
+/**
  * Reviewed: everything the queue is done with, whatever became of it since, newest verdict first.
  *
  * Deliberately "neither awaiting nor followed up" rather than "approved or rejected". An

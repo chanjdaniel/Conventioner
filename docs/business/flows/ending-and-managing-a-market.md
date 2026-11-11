@@ -42,6 +42,7 @@ sources:
   - T204
   - T224
   - T263
+  - T274
   - T273
 ---
 
@@ -121,10 +122,12 @@ Covered by:
    It asks first, in a destructive confirmation that opens on Cancel (E38/F15/S01): "Remove walk390@example.com from Spring Market?", then "They lose their Editor role on it." and, for someone in the organization, "They can still view it as a member of <organization>." ("run it as an admin of" for an admin).
    Cancel and Escape change nothing and give focus back to that Remove; "Remove" takes the market role, the list re-reads in place with the dialog open, and focus goes to the list; a refusal is said in the confirmation, whose Remove may be pressed again.
    A role another organizer took meanwhile is taken all the same: the server answers "They no longer have a role on this market.", a 404, and the dialog reads it as done, closing the confirmation and re-reading the list without them (T181).
+   A role another organizer changed meanwhile, or the requester's own, is not taken, nor one whose market moved to another phase: the server answers with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers), which the confirmation says, and the list behind it is re-read (T274).
    Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
 5. Under the list, when a row comes through the organization: "Organization admins and members are managed in Manage organization.", "Manage organization" a link to `/organizations?manage=<id>`, which opens that organization's dialog, for a reader who belongs to it, and plain words for anyone else.
 6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
    An address that already has a role on the market is refused beneath the row, brought into view as the row may be the last in the body, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
+   When the roles the add stood on changed meanwhile (the requester's own, or the person's, given by another organizer), or the market moved to another phase, the add is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers) beneath the row, the address kept, and the list is re-read (T274).
    On a list with a find field, or words in it, the field then takes the added address, so their row is the one shown and their role reads at once; clearing the field shows the whole list.
 7. A refused change of role closes the confirmation, re-reads the list and is said beneath that person's row, which states the role the server holds, since someone else may have moved it first.
    When that moved the row past those shown, the find field takes their address, so the refusal is still read.
@@ -138,6 +141,7 @@ Covered by:
 - [`an-address-breaks-only-before-its-at.spec.ts`](../../../front-end/e2e/an-address-breaks-only-before-its-at.spec.ts) (its rows)
 - [`changing-a-role-asks-first.spec.ts`](../../../front-end/e2e/changing-a-role-asks-first.spec.ts) (the confirmation's words, its closes, one write on confirm and where focus goes, a table whose owner moved a row, a refusal, one after someone else moved or removed them first, the arrow keys, and Viewer to Admin in sight at 1280 and 390)
 - [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge)
+- `manageMarketMeetsAChangedMarket.test.ts` (a role's add, change and take refused over a changed market)
 - [`people-at-scale-market.spec.ts`](../../../front-end/e2e/people-at-scale-market.spec.ts) (the list at 154 people: a page at a time, finding one person, the place kept, someone just added; on a phone at 390 and 320)
 - [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390)
 - `the-manage-market-dialog-holds-together.spec.ts`
@@ -153,6 +157,8 @@ Covered by:
 3. For the owner each row that is not fixed is a dropdown of those four, named by the row's label, whose arrow keys open its list rather than step it, since each step would be a change to confirm; a fixed row ("Read the market...", "Give and take Admin roles", "Delete the market", "Change this table") states its role with "Always" and no control.
    "Give and take Editor and Viewer roles" says beside it that at "Viewer and above" any Viewer can make themself an Editor, since one row asks for both the role given and the role taken.
 4. Choosing a role asks first, in words naming who may after it and who loses or gains it ("Let only Admins and the owner check vendors in at this market?", "Editors lose this."), and for that row lowered to Viewer adds "A Viewer could then make themself an Editor."; "Change" saves that row alone, Cancel puts the dropdown back, and a refusal is said in the confirmation.
+   A change, a reset or a copy over a table that changed since Manage market read it, or a market that moved to another phase, is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers) in its confirmation, and the market is read again, so the rows behind it are the ones stored (T274).
+   The confirmation then asks about the row as it now stands, its words and Cancel following the role the row holds, and a reset lists the rows it would return now; one the re-read left with nothing to change (the row already at the role chosen, or every row at its default) closes, and the sentence stands in Permissions until the next change is asked for.
 5. "Reset to built-in defaults" lists each row it returns, from its role now to its default, opens on Cancel since it throws away every row the owner set, and resets them all in one write, recorded as one change; it is disabled while every row is at its default, so after a reset focus goes to the dialog's first control rather than back to it.
 6. "Copy the organization's defaults again", beside it for the owner of a market that belongs to an organization, asks first ("Copy the organization's defaults again?", saying every row takes the organization's default as it is now, a row it does not set returns to its built-in default, and rows changed on this market are replaced), opens on Cancel, and copies them in one write, recorded as one change; each copied row then says "Copied from the organization".
 7. "Changes" lists the market's history narrowed to the table, newest first, in a box of bounded height that shows 25 more as its end scrolls into view, as the market's History does: the row, its role before and after ("Editor to Admin"), or "Reset to built-in defaults" or "Copied the organization's defaults" with each row it changed, and who made it and when, by their address, as "Users with access" names people.
@@ -171,6 +177,7 @@ Covered by:
 - `*-sweep.spec.ts`, which walk the dialog open
 - `every-control-is-named.spec.ts`, which walks the dialog open
 - `manageIsOfferedToWhoeverReads.test.ts`
+- `manageMarketMeetsAChangedMarket.test.ts` (a row's change, Reset and Copy refused over a changed market)
 - `marketPermissions.test.ts`
 - `permissionTable.test.ts`
 - `the-markets-history.spec.ts` for a long record of its changes, in their box
@@ -182,9 +189,11 @@ Covered by:
 **Status:** Works (walked live in Draft).
 "Rename market", with the name and "Save", in Draft only; afterwards "This market's public web address comes from its name, and it has already been shared, so its name can no longer change.", and an archived market says it is archived.
 The new name is stored without the spaces at its ends, and holds the rule a new market's does ([D6](creating-a-market.md#d6-a-name-of-at-most-100-characters-on-one-line)): the field takes at most 100 characters, and the server's refusal ("A market's name can be at most 100 characters.", "A market's name must be on one line.", "A market needs a name.") shows under it.
+A rename that lands after the market left draft is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers) under the name, and the market is read again, so the field gives way to why the name can no longer change (T274).
 Covered by:
 
 - `a-market-name-fits-one-line.spec.ts`
+- `manageMarketMeetsAChangedMarket.test.ts` (a rename refused over a market that left draft)
 - `public-address.spec.ts`
 
 ## L5. Delete a market

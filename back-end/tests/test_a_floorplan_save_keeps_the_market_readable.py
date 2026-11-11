@@ -34,6 +34,7 @@ import history as History
 from datatypes import MarketPhase
 from market_documents import market_from_document
 from utils.request_body import NOT_AN_OBJECT
+import market_write as MarketWrite
 
 MARKET_ID = "market-123"
 ACCOUNTS = {
@@ -92,6 +93,7 @@ def market(monkeypatch):
     """The market every save names, a draft with no plan, as the new-market dialog leaves it."""
     markets = FakeMarketsCollection(stored_market(MarketPhase.DRAFT, roles=dict(ROLES)))
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(MarketWrite, "markets_collection", markets)
     return markets
 
 
@@ -169,8 +171,9 @@ class TestAMarketWithNoPlan:
     def test_it_writes_the_whole_plan_in_one_set(self, client, market):
         _save(client, _floorplan())
 
-        assert set(market.last_update) == {"$set"}
         assert set(market.last_update["$set"]) == {"setupObject"}
+        # And counts the plan's revision, as every write of the plan does (T274).
+        assert market.doc["planRevision"] == 1
 
 
 class TestASectionsTypedTier:
@@ -674,7 +677,7 @@ class TestThePlanWriteHoldsFloorplansToTheSameBounds:
 
     def _put_plan(self, client, floorplans):
         return client.put(f"/markets/{MARKET_ID}/plan",
-                          json={"setupObject": {**copy.deepcopy(FULL_PLAN),
+                          json={"planRevision": 0, "setupObject": {**copy.deepcopy(FULL_PLAN),
                                                 "floorplans": floorplans}})
 
     def test_a_changed_floorplan_over_a_bound_is_refused(self, client, market):
@@ -688,7 +691,7 @@ class TestThePlanWriteHoldsFloorplansToTheSameBounds:
 
     def test_a_changed_floorplan_holding_nan_is_refused(self, client, market):
         market.doc["setupObject"] = copy.deepcopy(FULL_PLAN)
-        body = {"setupObject": {**copy.deepcopy(FULL_PLAN),
+        body = {"planRevision": 0, "setupObject": {**copy.deepcopy(FULL_PLAN),
                                 "floorplans": [_floorplan(scalePxPerUnit="@@")]}}
 
         response = client.put(f"/markets/{MARKET_ID}/plan",

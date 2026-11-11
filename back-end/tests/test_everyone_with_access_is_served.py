@@ -44,6 +44,11 @@ ORGANIZATION = Organization(
 )
 
 
+def _with_lists(**lists):
+    """The organization with these lists in place of its own, its people map folded from them."""
+    return Organization(**{**ORGANIZATION.model_dump(exclude={"people"}), **lists})
+
+
 def _person(user_id, role, market_role, organization_role, from_organization=False):
     return {"userId": user_id, "email": EMAILS[user_id], "role": role,
             "marketRole": market_role, "organizationRole": organization_role,
@@ -172,10 +177,10 @@ def test_someone_in_both_is_listed_once_at_the_higher_role(lookups):
 @pytest.mark.parametrize(("market_role", "organization", "served_as"), [
     # A tie: the market's Admin adds nothing to the organization's, so the organization counts.
     ("admin", ORGANIZATION, _person("org-admin", "admin", "admin", "admin", True)),
-    ("viewer", ORGANIZATION.model_copy(update={"admins": [], "members": ["org-admin"]}),
+    ("viewer", _with_lists(admins=[], members=["org-admin"]),
      _person("org-admin", "viewer", "viewer", "member", True)),
     # The market's role is the higher: it counts, and the place is still named.
-    ("editor", ORGANIZATION.model_copy(update={"admins": [], "members": ["org-admin"]}),
+    ("editor", _with_lists(admins=[], members=["org-admin"]),
      _person("org-admin", "editor", "editor", "member", False)),
 ])
 def test_the_organization_counts_when_its_role_reaches_the_markets(

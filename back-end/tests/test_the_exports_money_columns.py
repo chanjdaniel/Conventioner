@@ -32,6 +32,7 @@ from assignment.csv_output import FORMULA_LEADS
 from client_errors import BadRequestError
 from datatypes import MarketPhase, PaymentEntry
 from test_price_groups import CLUBS, EXAMPLE_TABLE, FIELDS, STUDENT
+import market_write as MarketWrite
 
 MARKET = "market-123"
 EDITOR = "editor@example.com"
@@ -57,20 +58,6 @@ PLAN = {
 NAMES = {ANA: "Ana Lima", BEN: "Ben Okafor", CY: "Cy Tan", DEE: "Dee Park", EVE: "Eve Moss"}
 
 
-class LiveMarket(FakeMarketsCollection):
-    """The one market, applying each ``$set`` as Mongo does, so a placement written is read back."""
-
-    def update_one(self, _filter, update):
-        result = super().update_one(_filter, update)
-        for key, value in (update.get("$set") or {}).items():
-            *parents, last = key.split(".")
-            target = self.doc
-            for part in parents:
-                target = target.setdefault(part, {})
-            target[last] = copy.deepcopy(value)
-        return result
-
-
 def _seat(email, date, table_code, choice="Full Table"):
     PlacementsApi.write_placement(
         MARKET, {"email": email, "date": date, "table_code": table_code, "table_choice": choice},
@@ -92,10 +79,11 @@ def market(monkeypatch, applications):
     - Dee, no table and nothing paid: nothing owed.
     - Eve, a Gold table freed on Saturday, its $35 line kept, $10 paid: owes $25.
     """
-    live = LiveMarket(stored_market(
+    live = FakeMarketsCollection(stored_market(
         phase=MarketPhase.ASSIGNMENT, setupObject=copy.deepcopy(PLAN),
         applicationForm={"fields": copy.deepcopy(FIELDS)}))
     monkeypatch.setattr(MarketsApi, "markets_collection", live)
+    monkeypatch.setattr(MarketWrite, "markets_collection", live)
     monkeypatch.setattr(MarketsApi, "_load_organization", lambda _org_id: None)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     for email, name in NAMES.items():

@@ -17,7 +17,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
-import { api, getApiErrorMessage } from '@/utils/api';
+import { api, getApiErrorMessage, isMarketChanged } from '@/utils/api';
 import {
   ESSENTIAL_KEY_PREFIX,
   SECTION_RANKING_KEY,
@@ -37,6 +37,11 @@ const props = defineProps<{
   marketId: string;
   /** The form as stored, which is what this dialog edits a copy of. */
   applicationForm: ApplicationForm | null;
+  /**
+   * The revision of that form, as the form read answered it: the save sends it, so one made from
+   * a copy older than the stored form is refused rather than replacing it (ADR 0024).
+   */
+  formRevision: number | null;
   essentialOptions: EssentialFormOptions;
   /** Prefilled when the dialog was opened from a column with nowhere to go. */
   suggestedFieldLabel?: string;
@@ -44,7 +49,11 @@ const props = defineProps<{
   suggestedUnasked?: string;
 }>();
 
-const emit = defineEmits<{ close: []; amended: [form: ApplicationForm] }>();
+/**
+ * `changed` is the save refused because the form changed since it was read: the import reads it
+ * again, and the dialog stays open on the sentence with the form as it now stands.
+ */
+const emit = defineEmits<{ close: []; amended: [form: ApplicationForm]; changed: [] }>();
 
 const newFieldLabel = ref('');
 const newFieldKey = ref('');
@@ -63,19 +72,36 @@ watch(newFieldLabel, (label) => {
     .slice(0, 40);
 });
 
+/** The questions turned off: the form's, and the one the import suggested turning off. */
+function seedUnasked() {
+  unasked.value = [...(props.applicationForm?.unaskedEssentials ?? [])];
+  if (props.suggestedUnasked && !unasked.value.includes(props.suggestedUnasked)) {
+    unasked.value.push(props.suggestedUnasked);
+  }
+}
+
 watch(
   () => props.open,
   (open) => {
     if (!open) return;
     newFieldLabel.value = props.suggestedFieldLabel ?? '';
     keyTouched.value = false;
-    unasked.value = [...(props.applicationForm?.unaskedEssentials ?? [])];
-    if (props.suggestedUnasked && !unasked.value.includes(props.suggestedUnasked)) {
-      unasked.value.push(props.suggestedUnasked);
-    }
+    seedUnasked();
     errorMessage.value = '';
   },
   { immediate: true },
+);
+
+/**
+ * The form read again after a save refused as the market changed (ADR 0024): the questions turned
+ * off follow it, as the questions do, so the next Save never sends the refused copy's list with the
+ * new revision over a colleague's change. The question being added is kept.
+ */
+watch(
+  () => props.formRevision,
+  () => {
+    if (props.open) seedUnasked();
+  },
 );
 
 /** Only the rankings and the request may be turned off, and only what this market's plan offers. */
@@ -166,11 +192,15 @@ async function save() {
   saving.value = true;
   errorMessage.value = '';
   try {
-    const { data } = await api.put(`/markets/${props.marketId}/application-form`, proposed.value);
+    const { data } = await api.put(`/markets/${props.marketId}/application-form`, {
+      ...proposed.value,
+      formRevision: props.formRevision,
+    });
     emit('amended', (data?.application_form ?? proposed.value) as ApplicationForm);
     emit('close');
   } catch (err: unknown) {
     errorMessage.value = getApiErrorMessage(err, 'Could not save the form.');
+    if (isMarketChanged(err)) emit('changed');
   } finally {
     saving.value = false;
   }

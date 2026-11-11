@@ -320,14 +320,14 @@ def reject_malformed_update(update):
             )
 
 
-def _update_first(docs: list, query, update) -> SimpleNamespace:
-    """``update_one`` over ``docs`` as MongoDB runs it, for the two markets fakes.
+def _write_first(docs: list, query, update):
+    """One update over ``docs`` as MongoDB runs it, for the two markets fakes: the document before
+    and after, or ``(None, None)`` when nothing matched.
 
     The first document ``query`` matches (by ``mongo_matches``) is replaced in ``docs`` by the
-    update applied to it (by ``mongo_update``), and the answer carries the server's counts:
-    matched and modified ``0`` when nothing matches, modified ``0`` when the update changed no
-    value. The filter and the update are read over ``{}`` first, so one the shared fakes do not
-    model is refused even when nothing is stored.
+    update applied to it (by ``mongo_update``). The filter and the update are read over ``{}``
+    first, so one the shared fakes do not model is refused even when nothing is stored, and an
+    update that matches nothing is still run over ``{}``, so a refused one is refused either way.
     """
     reject_malformed_update(update)
     mongo_matches({}, query)
@@ -335,10 +335,28 @@ def _update_first(docs: list, query, update) -> SimpleNamespace:
         if doc is not None and mongo_matches(doc, query):
             after = mongo_update(doc, update)
             docs[index] = after
-            return SimpleNamespace(matched_count=1, modified_count=int(not _identical(doc, after)),
-                                   upserted_id=None)
+            return doc, after
     mongo_update({}, update)
-    return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
+    return None, None
+
+
+def _update_first(docs: list, query, update) -> SimpleNamespace:
+    """``update_one`` over ``docs`` (``_write_first``), answering the server's counts: matched and
+    modified ``0`` when nothing matches, modified ``0`` when the update changed no value."""
+    before, after = _write_first(docs, query, update)
+    if before is None:
+        return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
+    return SimpleNamespace(matched_count=1, modified_count=int(not _identical(before, after)),
+                           upserted_id=None)
+
+
+def _find_one_and_update_first(docs: list, query, update, projection, return_document):
+    """``find_one_and_update`` over ``docs`` (``_write_first``): the document before, or after when
+    ``return_document`` is the driver's ``ReturnDocument.AFTER`` (``True``), projected, as a copy;
+    None when nothing matched."""
+    before, after = _write_first(docs, query, update)
+    returned = after if return_document else before
+    return None if returned is None else mongo_project(copy.deepcopy(returned), projection)
 
 
 class FakeMarketsCollection:
@@ -350,7 +368,9 @@ class FakeMarketsCollection:
     test of that write fails when the server would refuse it. A write that lands replaces ``doc``
     with the market after it, a new dict, so the document a test built the fake from is not the
     store; ``last_update`` keeps the update document sent, matched or not, for a test asserting
-    what was written. ``find_one`` applies its filter and projection and hands back a copy.
+    what was written. ``find_one_and_update`` writes as ``update_one`` does and answers the market
+    as the driver does (``_find_one_and_update_first``), which ``market_write.write_market`` reads.
+    ``find_one`` applies its filter and projection and hands back a copy.
     """
 
     def __init__(self, doc):
@@ -372,6 +392,13 @@ class FakeMarketsCollection:
         [self.doc] = docs
         return result
 
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
+        self.last_update = update
+        docs = [self.doc]
+        found = _find_one_and_update_first(docs, query, update, projection, return_document)
+        [self.doc] = docs
+        return found
+
     def insert_one(self, document):
         self.inserted = document
         return SimpleNamespace(inserted_id="mongo-id")
@@ -390,8 +417,9 @@ class FakeSlugMarketsCollection:
     one is a market Mongo would never return. It applies the projection for the same reason, one
     step on: the applicant endpoints fetch the fields they read and no others, and a fake that
     served the whole document would let a read of the rest pass here and find nothing in production.
-    ``update_one`` applies its filter and its update to the first market matched, as
-    ``FakeMarketsCollection``'s does and for the same reason, and keeps ``last_update``.
+    ``update_one`` and ``find_one_and_update`` apply their filter and their update to the first
+    market matched, as ``FakeMarketsCollection``'s do and for the same reason, and keep
+    ``last_update``.
 
     It lives here, and not in the two suites that need it, because it did live in both of them: the
     same fake written twice is the same fix applied once.
@@ -413,6 +441,10 @@ class FakeSlugMarketsCollection:
     def update_one(self, query, update):
         self.last_update = update
         return _update_first(self.docs, query, update)
+
+    def find_one_and_update(self, query, update, projection=None, return_document=False):
+        self.last_update = update
+        return _find_one_and_update_first(self.docs, query, update, projection, return_document)
 
     def insert_one(self, _document):
         return SimpleNamespace(inserted_id="fake-id")
@@ -1323,12 +1355,36 @@ class FakeTemplates:
         return SimpleNamespace(deleted_count=before - len(self.docs))
 
 
+class WriteCut(Exception):
+    """The connection lost at a write ``FakeOrganizations.cut_at`` names: nothing of it stored."""
+
+
 class FakeOrganizations:
-    """The organizations collection, read only, recording every filter it is asked with."""
+    """The organizations collection as MongoDB answers it, recording every filter it is asked with.
+
+    A read hands back a copy, so a caller's change to what it read never reaches what is stored. A
+    write filters through ``mongo_matches`` and applies its update through ``mongo_update``, both
+    checked against the server by ``tests/mongo_cases.py``, and answers the server's counts.
+
+    ``before_write``, when set, runs once before the next write is matched, as another request
+    landing between this one's read and its write; the writes it makes itself land first.
+    ``cut_at``, when set, is the write (counted from 1 over ``update_one``, ``update_many`` and
+    ``insert_one``) at which the connection is lost: ``WriteCut`` is raised and nothing of it is
+    stored. ``writes`` holds every filter and update it was sent, in order.
+    """
 
     def __init__(self, *docs):
-        self.docs = [dict(doc) for doc in docs]
+        self.docs = [copy.deepcopy(dict(doc)) for doc in docs]
         self.queries = []
+        self.writes = []
+        self.before_write = None
+        self.cut_at = None
+
+    @property
+    def doc(self):
+        """The one organization it holds, for a test that installs one."""
+        [doc] = self.docs
+        return doc
 
     def find_one(self, query, projection=None):
         return next(self.find(query, projection), None)
@@ -1336,8 +1392,84 @@ class FakeOrganizations:
     def find(self, query, projection=None):
         self.queries.append(query)
         return iter([
-            mongo_project(dict(doc), projection) for doc in self.docs if mongo_matches(doc, query)
+            mongo_project(copy.deepcopy(doc), projection)
+            for doc in self.docs if mongo_matches(doc, query)
         ])
+
+    def _writing(self, query, update):
+        if self.before_write:
+            hook, self.before_write = self.before_write, None
+            hook()
+        self.writes.append((query, update))
+        if self.cut_at == len(self.writes):
+            raise WriteCut(f"the connection was lost at write {len(self.writes)}")
+
+    def insert_one(self, doc):
+        """Stored with an ``_id`` the driver gives it, as the driver sets it on ``doc`` too."""
+        self._writing(None, doc)
+        doc.setdefault("_id", _new_object_id())
+        self.docs.append(copy.deepcopy(doc))
+        return SimpleNamespace(inserted_id=doc["_id"])
+
+    def update_one(self, query, update):
+        reject_malformed_update(update)
+        self._writing(query, update)
+        return _update_first(self.docs, query, update)
+
+    def update_many(self, query, update):
+        reject_malformed_update(update)
+        self._writing(query, update)
+        mongo_matches({}, query)
+        matched = modified = 0
+        for index, doc in enumerate(self.docs):
+            if mongo_matches(doc, query):
+                after = mongo_update(doc, update)
+                matched += 1
+                modified += int(not _identical(doc, after))
+                self.docs[index] = after
+        if not matched:
+            mongo_update({}, update)
+        return SimpleNamespace(matched_count=matched, modified_count=modified, upserted_id=None)
+
+    def delete_one(self, query):
+        self._writing(query, None)
+        for index, doc in enumerate(self.docs):
+            if mongo_matches(doc, query):
+                del self.docs[index]
+                return SimpleNamespace(deleted_count=1)
+        return SimpleNamespace(deleted_count=0)
+
+
+class FakeAccountCopies:
+    """The users collection as the organization writers touch it: each account's own copy of its
+    organizations, written best effort. Records every write; stores nothing."""
+
+    def __init__(self):
+        self.writes = []
+
+    def update_one(self, query, update, **_kwargs):
+        reject_malformed_update(update)
+        self.writes.append((query, update))
+        return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
+
+    def update_many(self, query, update, **_kwargs):
+        return self.update_one(query, update)
+
+
+def install_organizations(monkeypatch, organizations, accounts=None):
+    """Make ``organizations`` (a ``FakeOrganizations``) the organizations collection for every
+    reader and for ``organization_people``, the one writer, and ``accounts`` (by default a new
+    ``FakeAccountCopies``) the users collection both write the account's copy to. Answers
+    ``organizations``, with ``organizations.accounts`` set."""
+    import api.organizations as OrgsApi
+    import organization_people as OrganizationPeople
+
+    accounts = FakeAccountCopies() if accounts is None else accounts
+    for module in (OrgsApi, OrganizationPeople):
+        monkeypatch.setattr(module, "organizations_collection", organizations)
+        monkeypatch.setattr(module, "users_collection", accounts)
+    organizations.accounts = accounts
+    return organizations
 
 # app.py refuses to boot unless the market-key migration is recorded as applied, and it fails
 # closed when it cannot read the marker at all -- which is exactly what would happen here, since
