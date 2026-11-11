@@ -10,6 +10,7 @@ import { fitsAPhone as routeFitsAPhone } from '@/utils/fitsAPhone';
 import { endSession, keepsTheSession } from '@/utils/sessionEnded';
 import { signedInEmail } from '@/utils/signedIn';
 import ReadFailed from '@/components/ReadFailed.vue';
+import UnsavedWorkDialog from '@/components/UnsavedWorkDialog.vue';
 import { PAGE_FAILED, openAfresh } from '@/utils/pageFailed';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
@@ -101,6 +102,10 @@ onMounted(async () => {
       />
       <RouterView class="router-view" />
     </main>
+
+    <!-- The leave question a screen holding unsaved work asks through (`utils/useUnsavedWork.ts`),
+         once for every screen, since the move it answers may unmount the screen that asked. -->
+    <UnsavedWorkDialog />
   </div>
 </template>
 
