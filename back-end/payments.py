@@ -11,10 +11,14 @@ outside the app, by e-transfer or cash (Q7), and an organizer records each payme
 - **Freeing a table never changes either amount by itself** (Q26: after the cancellation deadline
   "the amount owed and amount paid dont change even though the table did"): the seat's line is kept
   as it stood when it was freed (``keep_freed_line``), still owed, until someone sets the amount.
+  A free that asks "Also remove its $35.00 from what they owe?" sets the day's $0 in that same
+  write, marked as the free's; a seat held on the day always wins over it (``lines``, T270).
 - **The amount paid is the sum of the vendor's entries still standing**, each with who recorded it
   and when (Q15): a payment, or a refund an Admin records as a negative entry once it is given back
   (Q26). An edit or a removal keeps what the entry read before in its own ``changes``, and a removed
   entry is kept, marked, rather than deleted.
+- **An entry is recorded once per press of Record** (T270): it keeps the ``request_key`` the dialog
+  sent, unique on the market, so a press repeated after its answer was lost records nothing new.
 
 Two collections, each a record kind keyed by market: ``payments``, one document per payment, and
 ``amounts_owed``, one document per vendor per table-day that holds something the seat cannot say -
@@ -31,18 +35,45 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
+from pymongo.errors import DuplicateKeyError
+
 from datatypes import PaymentEntry
 from db_config import get_database
+from unique_indexes import ensure_unique_index, ensure_vendor_day_index
 from utils.email_address import normalized_email
 
 PAYMENTS_COLLECTION = "payments"
 AMOUNTS_OWED_COLLECTION = "amounts_owed"
 MARKET_ID_FIELD = "market_id"
 VENDOR_EMAIL_FIELD = "vendor_email"
+#: The key the Record payment dialog made when it opened, sent on each press of that opening.
+REQUEST_KEY_FIELD = "request_key"
+REQUEST_KEY_INDEX = "payments_request_key_unique"
 
 db = get_database()
 payments_collection = db[PAYMENTS_COLLECTION]
 amounts_owed_collection = db[AMOUNTS_OWED_COLLECTION]
+
+
+def ensure_payment_indexes() -> None:
+    """One owed record per vendor's day, and one entry per request key, held by the database
+    (T270).
+
+    The freed line and an amount set by hand are each written by an upsert by market, vendor and
+    date, and two that land at once - an Admin setting the amount as an Editor frees the seat -
+    both match nothing and both insert, so only a unique index keeps the day one record: with two,
+    whichever the server found first won, and the amount set did not stick or the freed line was
+    lost. ``app.py`` builds it at boot and refuses to start without it (``unique_indexes``).
+    """
+    ensure_vendor_day_index(amounts_owed_collection, AMOUNTS_OWED_COLLECTION)
+    # One entry per press of Record payment: pressing it again after the first answer never came
+    # back recorded the payment twice. Partial to string keys, since an entry recorded before the
+    # key, or by a tab on an older bundle, has none.
+    ensure_unique_index(
+        payments_collection, (MARKET_ID_FIELD, REQUEST_KEY_FIELD), REQUEST_KEY_INDEX,
+        shown=(MARKET_ID_FIELD,), one="one request key",
+        partial={REQUEST_KEY_FIELD: {"$type": "string"}},
+    )
 
 
 @dataclass(frozen=True)
@@ -86,8 +117,13 @@ def _signed(entry: PaymentEntry, kind: str) -> Dict[str, Any]:
 
 def record_payment(
     market_id: str, vendor_email: str, entry: PaymentEntry, by: str, kind: str = PAYMENT,
+    request_key: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Keep one payment, or a refund, with who recorded it and when. Returns it as stored."""
+    """Keep one payment, or a refund, with who recorded it and when. Returns it as stored.
+
+    With a ``request_key``, the market's unique index refuses a second entry with that key by
+    raising ``DuplicateKeyError``; the caller looks the first up (``entry_with_request_key``).
+    """
     stored = {
         "id": str(uuid.uuid4()),
         **_vendor(market_id, vendor_email),
@@ -96,8 +132,24 @@ def record_payment(
         "recorded_by": by,
         "recorded_at": _now(),
     }
+    if request_key is not None:
+        stored[REQUEST_KEY_FIELD] = request_key
     payments_collection.insert_one(dict(stored))
     return stored
+
+
+def entry_with_request_key(market_id: str, request_key: str) -> Optional[Dict[str, Any]]:
+    """The entry this market recorded with ``request_key``, removed or not, or None."""
+    return payments_collection.find_one({MARKET_ID_FIELD: market_id,
+                                         REQUEST_KEY_FIELD: request_key})
+
+
+def same_entry(doc: Mapping[str, Any], vendor_email: str, entry: PaymentEntry, kind: str) -> bool:
+    """Whether a stored entry is the one ``entry`` would record: the same vendor, kind and
+    fields."""
+    return (doc.get(VENDOR_EMAIL_FIELD) == normalized_email(vendor_email)
+            and (doc.get("kind") or PAYMENT) == kind
+            and {key: doc.get(key) for key in ENTRY_FIELDS} == _signed(entry, kind))
 
 
 def payment(market_id: str, payment_id: str) -> Optional[Dict[str, Any]]:
@@ -164,74 +216,153 @@ def _owed_key(market_id: str, vendor_email: str, date: str) -> Dict[str, str]:
     return {**_vendor(market_id, vendor_email), "date": date}
 
 
-def keep_freed_line(
-    market_id: str, vendor_email: str, date: str, seat: Seat, by: str,
-) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
-    """Keep the line of a seat being freed, as it stood: its table and what it cost that day.
+def _upsert_owed(
+    market_id: str, vendor_email: str, date: str, update: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Write one vendor's day's owed record, creating it if there is none; returns what it held
+    before, if anything.
 
-    Returns the freed record the line held before, if any, and the one written, so a free that is
-    then refused can put the line back (``restore_freed_line``).
+    Two writes of a day with no record yet both match nothing and both insert, and the unique
+    index refuses the second (``ensure_payment_indexes``). The one refused runs once more, which
+    lands on the winner's record, so the day holds what each wrote; a second refusal is not this
+    race, and goes on as the error it is.
     """
-    written = {**asdict(seat), "by": by, "at": _now()}
-    before = amounts_owed_collection.find_one_and_update(
-        _owed_key(market_id, vendor_email, date),
-        {"$set": {"freed": written}},
-        upsert=True,
-    )
-    return (before or {}).get("freed"), written
+    key = _owed_key(market_id, vendor_email, date)
+    try:
+        return amounts_owed_collection.find_one_and_update(key, update, upsert=True)
+    except DuplicateKeyError:
+        return amounts_owed_collection.find_one_and_update(key, update, upsert=True)
+
+
+def _free_deduction(by: str) -> Dict[str, Any]:
+    """The $0 a free's deduction sets, marked as the free's: seating the day again takes it back."""
+    return {"cents": 0, "by": by, "at": _now(), "by_free": True}
+
+
+def _hand_amount(doc: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The amount an Admin set by hand on a record, whether it stands or a free's $0 replaced it."""
+    by_hand = (doc or {}).get("set_by_hand")
+    if not by_hand:
+        return None
+    return by_hand.get("replaced") if by_hand.get("by_free") else by_hand
+
+
+#: How many times a free reads the day again when its amount by hand moved under it.
+_FREE_TRIES = 3
+
+
+class OwedChangedUnderFree(Exception):
+    """The day's amount by hand kept changing while a free was writing its line."""
+
+
+def keep_freed_line(
+    market_id: str, vendor_email: str, date: str, seat: Seat, by: str, deduct: bool = False,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Keep the line of a seat being freed, as it stood: its table and what it cost that day, and
+    with ``deduct`` the free's $0 too, in one write before the seat goes (T270).
+
+    One write, so no stop between the seat and the deduction leaves the seat free and its full
+    amount owed. The $0 keeps an amount an Admin set by hand as ``replaced``: while the seat is
+    held, a free that stopped before its seat went leaves that amount what the day owes, and
+    seating the day again puts it back. The seat is held as this runs, so a free's $0 found on
+    the day is such a stopped free's, and a free without ``deduct`` puts its ``replaced`` back
+    (or nothing, with none), since freeing a table changes no amount (Q26).
+
+    The write lands only while the amount by hand is still the one read, so an Admin's amount set
+    in between is never written over unkept: the free reads the day again, and after
+    ``_FREE_TRIES`` raises ``OwedChangedUnderFree`` having written nothing. Returns what the
+    record held of each field written before, and what was written, so a free whose seat could
+    not be freed puts both back (``restore_freed_line``).
+    """
+    freed = {"freed": {**asdict(seat), "by": by, "at": _now()}}
+    key = _owed_key(market_id, vendor_email, date)
+    refused = False
+    for _ in range(_FREE_TRIES):
+        found = amounts_owed_collection.find_one(key)
+        standing = (found or {}).get("set_by_hand")
+        written = dict(freed)
+        if deduct:
+            deduction = _free_deduction(by)
+            replaced = _hand_amount(found)
+            if replaced:
+                deduction["replaced"] = replaced
+            written["set_by_hand"] = deduction
+        elif standing and standing.get("by_free"):
+            written["set_by_hand"] = standing.get("replaced")
+        try:
+            # With no record read, an upsert; one created since is refused by the unique index.
+            before = amounts_owed_collection.find_one_and_update(
+                {**key, "set_by_hand": standing}, {"$set": written}, upsert=found is None)
+        except DuplicateKeyError:
+            # Only an upsert races a record created since, and only once: any other refusal is
+            # not this race, and goes on as the error it is.
+            if found is not None or refused:
+                raise
+            refused = True
+            continue
+        if found is None or before is not None:
+            before = before or {}
+            return {field: before.get(field) for field in written}, written
+    raise OwedChangedUnderFree()
 
 
 def restore_freed_line(
     market_id: str, vendor_email: str, date: str,
-    written: Dict[str, Any], before: Optional[Dict[str, Any]],
+    written: Dict[str, Any], before: Dict[str, Any],
 ) -> None:
-    """Put a line back as it held before ``keep_freed_line`` wrote ``written``, for a free that was
-    then refused, and only while the line still holds ``written``: a free of the same seat that
-    landed meanwhile kept its own record over it, and that record is the line's now."""
+    """Put a record back as it held before ``keep_freed_line`` wrote ``written``, for a free whose
+    seat was not freed, and only while it still holds all of ``written``: a free of the same seat
+    that landed meanwhile kept its own record over it, and that record is the line's now."""
     amounts_owed_collection.update_one(
-        {**_owed_key(market_id, vendor_email, date), "freed": written},
-        {"$set": {"freed": before}},
+        {**_owed_key(market_id, vendor_email, date), **written}, {"$set": before},
     )
+
+
+def deduct_freed_day(market_id: str, vendor_email: str, date: str, by: str) -> bool:
+    """Set the free's $0 on a day whose line is freed and holds no amount set by hand at all, and
+    say whether it did: a free from before T270 set it after the seat, so a stop between left the
+    day freed and owing its full amount, and pressing Free again finishes it."""
+    return bool(amounts_owed_collection.update_one(
+        {**_owed_key(market_id, vendor_email, date), "freed": {"$type": "object"},
+         "set_by_hand": None},
+        {"$set": {"set_by_hand": _free_deduction(by)}},
+    ).matched_count)
 
 
 def clear_freed_lines(
     market_id: str, seated: Iterable[Tuple[str, str]],
 ) -> List[Tuple[str, str, int]]:
-    """Forget the freed line of each ``(vendor, date)`` seated again: the line reads the new seat,
-    and a freed record left behind would come back as the line if that seat went some other way
-    than a free. A $0 the free's deduction set goes with it, since it was about the freed table;
-    an amount an Admin set by hand stays, as it holds whatever the seat does.
+    """Forget the freed record of each ``(vendor, date)`` a write of the assignment touched: a day
+    seated again reads its new seat, and a freed record left behind would come back as the line
+    if that seat went some other way than a free. A $0 the free's deduction set goes with it,
+    since it was about the freed table, and stands only while the table is freed; an amount an
+    Admin set by hand belongs to the day, not the table, so it stays, and one the $0 replaced is
+    set by hand again.
 
-    Returns each deduction taken back, ``(vendor, date, cents)``, for the history to record.
+    Returns each deduction cleared, ``(vendor, date, cents)``, for the history to record where the
+    day really read as freed (``api.payments.seated_again``).
     """
     wanted = {(normalized_email(email), date) for email, date in seated}
     taken_back: List[Tuple[str, str, int]] = []
     if not wanted:
         return taken_back
-    for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id}):
+    for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id,
+                                             "freed": {"$type": "object"}}):
         key = (doc.get(VENDOR_EMAIL_FIELD), doc.get("date"))
-        if doc.get("freed") and key in wanted:
+        if key in wanted:
             cleared: Dict[str, Any] = {"freed": None}
             deduction = doc.get("set_by_hand") or {}
             if deduction.get("by_free"):
-                cleared["set_by_hand"] = None
+                cleared["set_by_hand"] = deduction.get("replaced")
                 taken_back.append((key[0], key[1], deduction.get("cents") or 0))
             amounts_owed_collection.update_one(_owed_key(market_id, *key), {"$set": cleared})
     return taken_back
 
 
-def set_amount_owed(
-    market_id: str, vendor_email: str, date: str, cents: int, by: str, by_free: bool = False,
-) -> None:
-    """Set what a vendor owes for one table-day by hand, over what the pricing calculates.
-    ``by_free`` marks the $0 a free's deduction sets, which seating the day again takes back."""
+def set_amount_owed(market_id: str, vendor_email: str, date: str, cents: int, by: str) -> None:
+    """Set what a vendor owes for one table-day by hand, over what the pricing calculates."""
     set_by_hand: Dict[str, Any] = {"cents": cents, "by": by, "at": _now()}
-    if by_free:
-        set_by_hand["by_free"] = True
-    amounts_owed_collection.find_one_and_update(
-        _owed_key(market_id, vendor_email, date), {"$set": {"set_by_hand": set_by_hand}},
-        upsert=True,
-    )
+    _upsert_owed(market_id, vendor_email, date, {"$set": {"set_by_hand": set_by_hand}})
 
 
 def use_calculated_price(market_id: str, vendor_email: str, date: str) -> None:
@@ -264,7 +395,12 @@ def lines(
 
     A day they hold a seat on reads that seat and its price; a day whose seat was freed reads the
     seat as it was freed, with who freed it and when, so the line says where its number came from.
-    Either way an amount set by hand is what they owe.
+    Either way an amount an Admin set by hand is what they owe.
+
+    A held seat always wins over a free (T270): on a day held, a freed record and a free's $0 are
+    what a free left that the seat since outlived, a seating again that stopped before it forgot
+    them, or a free that stopped before its seat went, so the day owes its seat's price, or the
+    amount an Admin set by hand that the free's $0 replaced.
     """
     found = []
     for date in sorted({*seats, *(day for day, doc in kept.items() if doc.get("freed"))}):
@@ -273,6 +409,8 @@ def lines(
         seat = held or Seat(**{key: freed.get(key)
                                for key in ("table_code", "tier", "table_choice", "cents", "group")})
         by_hand = (kept.get(date) or {}).get("set_by_hand")
+        if held and by_hand and by_hand.get("by_free"):
+            by_hand = by_hand.get("replaced")
         found.append({
             "date": date,
             "tableCode": seat.table_code,

@@ -38,6 +38,7 @@ sources:
   - T223
   - T263
   - T271
+  - T270
 ---
 
 # The CSV import
@@ -88,6 +89,12 @@ Every refusal is decided before anything is written: creating first and validati
 **One row per applicant.**
 A Google Form keeps every submission, so a vendor who applied twice is two rows; they are one application, judged on the latest row and dated by the first (`_latest_rows`), and the earlier rows are reported as repeats (bug 34).
 A re-import updates each applicant's main application by the market and the address, keeps every organizer's [update of an answer](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), which it never writes over, writes nothing for an unchanged applicant, returns an approved one to review only when their answers, normalised, changed something the solver reads, and leaves an application absent from the file exactly as it is ([ADR 0011](../../adr/0011-re-import-upserts-on-market-and-email.md)).
+
+**A row's answers and its "back to review" are one update, held to what the row's read found** (`_write_row`, T270).
+`record_application_answers` passes `held`, the application as read, and `back_to_review` to `update_application_form_data`, which writes only while the status and the verdict's time are still those, so a request cut short after the answers cannot leave a vendor approved on answers nobody saw, and importing the file again finds nothing left to repair.
+A held write that matches nothing answers `ANSWERS_MOVED`: a verdict was given between the read and the write, so the row is read and decided again on what is stored then, and an approval that landed first goes back to review.
+After `ROW_TRIES`, three tries in all, the row is a row failure: "This application changed while the file was imported, so its row was left out. Import the file again to bring it in."
+A new row's application is written held to the document `find_or_create_application` returned, and `returnedToReview` counts the rows written with `back_to_review`.
 
 **`submitted_at` is the form's own timestamp**, an ordinary mapping target, optional, and auto-detected from Google Forms' "Timestamp" heading; it is normalised to ISO 8601 at the boundary (`normalized_submitted_at`, [the application document](../data/application-document.md#the-fields-that-matter)).
 A row without one gets the import's moment, so the screen warns when the market orders by arrival and nothing maps it (`orders_by_submitted_at`, [priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md)); the warning, not a refusal, because a market with no rule on arrival does not need the column.
@@ -153,7 +160,7 @@ A first import's reviewers are chosen on its preview step, whose confirm, when t
 - [Priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md): a row must carry its own `submitted_at` for first come, first served to decide anything.
 - [A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md).
 
-`back-end/tests/test_csv_import.py`, `front-end/src/__tests__/aFileThatIsNotCsv.test.ts`, `front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts`, `front-end/e2e/csv-import.spec.ts`, `front-end/e2e/the-import-lines-up.spec.ts` and `front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts` pin it; the synthetic exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
+`back-end/tests/test_csv_import.py`, `back-end/tests/test_a_re_imports_back_to_review_lands_with_the_answers.py`, `front-end/src/__tests__/aFileThatIsNotCsv.test.ts`, `front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts`, `front-end/e2e/csv-import.spec.ts`, `front-end/e2e/the-import-lines-up.spec.ts` and `front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts` pin it; the synthetic exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
 
 What the organizer does on the import, step by step, is [importing a Google Form's responses](../../business/flows/import.md).
 

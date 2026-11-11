@@ -10,7 +10,7 @@ describes:
   - back-end/api/markets.py#_decorate_market_summary
   - back-end/api/markets.py#get_assigned_market
   - back-end/api/placements.py#run_assignment
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - T191
   - T213

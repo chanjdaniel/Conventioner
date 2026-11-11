@@ -11,26 +11,54 @@ changing a table-day's amount owed asks ``Actions.CHANGE_OWED``, and recording a
 or removing an entry ``Actions.ADJUST_PAID``, each an Admin's by default (Q26, E44/F01/S02). An
 archived market refuses every write.
 """
-from typing import Any, Callable, Dict, List, Optional, Tuple
+import uuid
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 from pydantic import ValidationError
+from pymongo.errors import DuplicateKeyError
 
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 from assignment.utils import convert_keys_to_snake_case
-from client_errors import BadRequestError, NotFoundError, field_named_copy
+from client_errors import BadRequestError, ConflictError, NotFoundError, field_named_copy
 from datatypes import Market, PaymentEntry
 import history as History
 import payments as Payments
 import pricing as Pricing
 from utils.email_address import normalized_email
+from utils.request_body import string_field
 
 #: The most a table-day may be set to owe: what a price cell may hold, $100,000.00.
 MOST_OWED_CENTS = 10_000_000
 
 NO_LINE = "That vendor holds no table that day, so nothing is owed for it."
 NO_ENTRY = "This market has no such payment standing."
+NOT_A_REQUEST_KEY = "A payment's request key must be a UUID."
+OWED_CHANGED_UNDER_FREE = ("What this vendor owes for that day changed as the seat was freed, so "
+                           "nothing was freed. Try again.")
+#: What a second press of one opening of the Record dialog is told when it differs from the entry
+#: the first press recorded, by the kind it asked.
+ALREADY_RECORDED = {
+    kind: f"This {kind} was already recorded, as it was first sent. Close this and edit it if it "
+          f"should read differently."
+    for kind in (Payments.PAYMENT, Payments.REFUND)
+}
+#: The request body's key for the one press of Record it carries (``RecordPaymentDialog``).
+REQUEST_KEY = "requestKey"
+
+
+class AlreadyRecorded(ConflictError):
+    """A press of Record whose key the market already holds, with fields that differ from the
+    entry recorded with it: a 409, with the vendor's account as it stands, so the dialog shows
+    the entry already recorded behind it."""
+
+    def __init__(self, kind: str, account: Dict[str, Any]):
+        super().__init__(ALREADY_RECORDED[kind])
+        self.account = account
+
+    def body(self) -> Dict[str, Any]:
+        return {"error": self.message, "account": self.account}
 
 
 def seats_by_vendor(market: Market) -> Dict[str, Dict[str, Payments.Seat]]:
@@ -127,14 +155,55 @@ def _fields(doc: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return {key: (doc or {}).get(key) or None for key in Payments.ENTRY_FIELDS}
 
 
+def _request_key(body: Any) -> Tuple[Optional[str], Any]:
+    """The press's request key, in the one lowercase spelling of its UUID, and the body without it,
+    for the entry's model, which forbids any other field. No key, or a null one, is None: a tab on
+    an older bundle sends none, and records as it did."""
+    if not isinstance(body, dict):
+        return None, body
+    rest = {key: value for key, value in body.items() if key != REQUEST_KEY}
+    if body.get(REQUEST_KEY) is None:
+        return None, rest
+    sent = string_field(body, REQUEST_KEY) or ""
+    try:
+        spelled = str(uuid.UUID(sent))
+    except ValueError:
+        raise BadRequestError(NOT_A_REQUEST_KEY) from None
+    if spelled != sent.lower():
+        # A UUID in braces or as a URN reads as one, but is no spelling a dialog sends.
+        raise BadRequestError(NOT_A_REQUEST_KEY)
+    return spelled, rest
+
+
+def _first_recorded(market_id: str, request_key: Optional[str]) -> Optional[Dict[str, Any]]:
+    """The entry the market recorded with this press's key, or None."""
+    return Payments.entry_with_request_key(market_id, request_key) if request_key else None
+
+
 def _record_entry(
     market_id: str, vendor_email: str, body: Any, requesting_user: str, kind: str,
 ) -> Dict[str, Any]:
+    """Record one entry, once per request key: a repeat of the key records nothing, and answers
+    the account when it is the entry first recorded, or ``AlreadyRecorded`` when it differs."""
     row = Actions.RECORD_PAYMENT if kind == Payments.PAYMENT else Actions.ADJUST_PAID
     market = MarketsApi._load_market_to_change(market_id, requesting_user, row)
     address = _applicant(market_id, vendor_email)
-    entry = _entry(body, kind)
-    stored = Payments.record_payment(market_id, address, entry, requesting_user, kind)
+    request_key, fields = _request_key(body)
+    entry = _entry(fields, kind)
+    first = _first_recorded(market_id, request_key)
+    if first is None:
+        try:
+            stored = Payments.record_payment(
+                market_id, address, entry, requesting_user, kind, request_key)
+        except DuplicateKeyError:
+            # Two presses at once: both found no entry, and the other's insert landed first.
+            first = _first_recorded(market_id, request_key)
+            if first is None:
+                raise
+    if first is not None:
+        if not Payments.same_entry(first, address, entry, kind):
+            raise AlreadyRecorded(kind, _account(market, address))
+        return _account(market, address)
     History.record(
         market_id, requesting_user, row,
         kind=None if kind == Payments.PAYMENT else History.REFUND_RECORDED, vendors=[address],
@@ -147,9 +216,9 @@ def _record_entry(
 def record_payment(
     market_id: str, vendor_email: str, body: Any, requesting_user: str,
 ) -> Dict[str, Any]:
-    """Record one payment a vendor made, ``{cents, method, paidOn, note}``, and answer their
-    account as it now reads. Asks ``Actions.RECORD_PAYMENT``; an archived market refuses it, and
-    so does a vendor it has no application from."""
+    """Record one payment a vendor made, ``{cents, method, paidOn, note}``, once per the press's
+    ``requestKey``, and answer their account as it now reads. Asks ``Actions.RECORD_PAYMENT``; an
+    archived market refuses it, and so does a vendor it has no application from."""
     return _record_entry(market_id, vendor_email, body, requesting_user, Payments.PAYMENT)
 
 
@@ -271,37 +340,78 @@ def use_calculated_price(
     return account
 
 
-def keep_freed_line(market: Market, vendor_email: str, date: str, by: str) -> Callable[[], None]:
+class KeptLine(NamedTuple):
+    """What a free kept of a seat's line before the seat goes (``keep_freed_line``)."""
+
+    #: Puts the record back as it was, for a free whose seat could not be freed.
+    undo: Callable[[], None]
+    #: Records the deduction the free made, if it made one, once the seat is freed.
+    record_deduction: Callable[[], None]
+
+
+def keep_freed_line(
+    market: Market, vendor_email: str, date: str, by: str, deduct: bool = False,
+) -> KeptLine:
     """Keep the line of the seat a vendor holds on ``date``, which is about to be freed: freeing a
-    table changes neither what they owe nor what they paid (Q26).
+    table changes neither what they owe nor what they paid (Q26). With ``deduct``, the free asked
+    "Also remove its $15.00 from what they owe?", and the same write sets the line's $0: the line
+    stays, owing $0.00, and the amount paid is untouched, so a vendor who paid shows paid more
+    than owed, a refund to issue by hand.
 
-    Returns what undoes it, for a free that is then refused (``Payments.restore_freed_line``).
+    The deduction's history entry runs from what the line owed as this request read it, while the
+    seat was held, to 0, and reads nothing again: a line read once the seat is freed, off the
+    market as this request read it, would say the seat's price.
     """
-    seat = seats_by_vendor(market).get(normalized_email(vendor_email), {}).get(date)
-    if seat is None:
-        return lambda: None
-    before, written = Payments.keep_freed_line(market.id, vendor_email, date, seat, by)
-    return lambda: Payments.restore_freed_line(market.id, vendor_email, date, written, before)
-
-
-def deduct_freed_line(market: Market, vendor_email: str, date: str, by: str) -> None:
-    """Free a seat's line of what it owed, as the free that asked it: "Also remove its $15.00
-    from what they owe?" (Q26). The line stays, owing $0.00, and the amount paid is untouched, so a
-    vendor who paid shows paid more than owed: a refund to issue by hand."""
     address = normalized_email(vendor_email)
-    before = _line(market, address, date)
-    if before is None:
+    seat = seats_by_vendor(market).get(address, {}).get(date)
+    if seat is None:
+        return KeptLine(lambda: None, lambda: None)
+    owed = _line(market, address, date) if deduct else None
+    try:
+        before, written = Payments.keep_freed_line(market.id, address, date, seat, by,
+                                                   deduct=deduct)
+    except Payments.OwedChangedUnderFree:
+        raise ConflictError(OWED_CHANGED_UNDER_FREE) from None
+
+    def record_deduction() -> None:
+        if owed is not None:
+            _record_owed(market, by, address, date, History.OWED_SET, owed, {"owedCents": 0})
+
+    return KeptLine(
+        lambda: Payments.restore_freed_line(market.id, address, date, written, before),
+        record_deduction,
+    )
+
+
+def deduct_freed_day(market: Market, vendor_email: str, date: str, by: str) -> None:
+    """The free's deduction on a day the vendor no longer holds, whose line is freed and holds no
+    amount set by hand: a free from before T270 that stopped between its seat and its deduction
+    left the day owing its full amount, and pressing Free again finishes it. Any other day is
+    left as it is."""
+    address = normalized_email(vendor_email)
+    owed = _line(market, address, date)
+    if owed is None or not owed["freed"] or owed["owedSetBy"] is not None:
         return
-    Payments.set_amount_owed(market.id, address, date, 0, by, by_free=True)
-    _record_owed(market, by, address, date, History.OWED_SET, before,
-                 _line(market, address, date))
+    if Payments.deduct_freed_day(market.id, address, date, by):
+        _record_owed(market, by, address, date, History.OWED_SET, owed, {"owedCents": 0})
 
 
-def seated_again(market_id: str, seated: List[Tuple[str, str]], by: str) -> None:
-    """Days seated again, by hand or by a run, forget their freed lines; each deduction a free set
-    that goes with them is recorded under the row the seating asked (``Actions.ASSIGN``), as the
-    amount it took back and what the day owes now, read off the market as it stands."""
-    for address, date, cents in Payments.clear_freed_lines(market_id, seated):
+def seated_again(
+    market_id: str, touched: List[Tuple[str, str]], held_before: List[Tuple[str, str]], by: str,
+) -> None:
+    """Every write of the assignment forgets the freed records of the vendor-days it touched
+    (T270): a day it seats reads its new seat, and a day that was held already carries a freed
+    record only when a free stopped before its seat went, which nothing must surface later.
+
+    A deduction a free set that goes with them is recorded only for a day not in ``held_before``,
+    the days held in the assignment the write read, since only such a day read as freed. It is
+    recorded under the row the seating asked (``Actions.ASSIGN``), as the amount it took back and
+    what the day owes now, read off the market as it stands."""
+    held = {(normalized_email(address), date) for address, date in held_before}
+    for address, date, cents in Payments.clear_freed_lines(market_id, touched):
+        if (address, date) in held:
+            continue
+
         def detail(address=address, date=date, cents=cents):
             market = MarketsApi.market_from_document(
                 MarketsApi.markets_collection.find_one({"id": market_id}))

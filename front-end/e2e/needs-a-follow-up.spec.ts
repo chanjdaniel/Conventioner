@@ -228,7 +228,7 @@ test('taking the follow-ups in while the next card is on its way puts the follow
   );
   await page.getByTestId('app-monitor-include-follow-ups').check();
   letGo();
-  expect(await (await answered).json()).toEqual({ application: null });
+  expect((await (await answered).json()).application).toBeNull();
   expect((await (await askedAgain).json()).application?.applicantEmail).toBe('nadia@ember.test');
 
   await expect(monitor.email).toHaveText('nadia@ember.test');

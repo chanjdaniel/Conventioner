@@ -199,9 +199,8 @@ class TestFreeingATable:
     def test_a_run_that_seats_a_freed_day_forgets_its_freed_line(self, market, stores, monkeypatch):
         """The run's own call (review 3, note 14): a run seats the days it seats, so a freed line
         on one of them goes, and one on a day it leaves empty stays."""
-        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR, deduct_owed=True)
         PlacementsApi.remove_placement(MARKET, ANA, SAT, EDITOR)
-        Payments.set_amount_owed(MARKET, ANA, SUN, 0, EDITOR, by_free=True)
         market.doc["phase"] = MarketPhase.ASSIGNMENT.value
         seated_on_sunday = VendorAssignmentResult(
             email=ANA, date=SUN, table_code="Landing 1", table_choice="Full Table",
