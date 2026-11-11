@@ -173,9 +173,10 @@ It adds `page.on('filechooser', () => {})` before it opens the page, then waits 
 
 A flake is chased the same way every time, so its report says what was tried; [when a test fails](../../TESTING.md#when-a-test-fails) is where each attempt's trace lands.
 
-**The load.** `stress-ng --cpu <n> --timeout <minutes>m`, always with `--timeout` so it ends by itself, with `<n>` chosen so `uptime` reads a load average of one to one and a half times the machine's cores (12 to 18 on the 12-core machine) once it runs, counting what already runs there.
+**The load.** `stress-ng --cpu <n> --timeout <minutes>m`, always with `--timeout` so it ends by itself, with `<n>` chosen so `uptime` reads a load average of one to one and a half times the machine's cores once it runs, counting what already runs there.
 Start it only while `uptime` reads below that band, never push it past the band's top, run one at a time, and stop it by its own timeout or the process id it started with.
-Note `uptime` before and during each run in the report.
+Where the load cannot be raised (a session not allowed to start `stress-ng`), run at the load the machine has.
+Note `uptime` before and during each run in the report, and report a run that ran below the band as below it.
 
 **A cold stack**, for a flake seen on a stack's first spec: stop the worktree's stack and start it again (a team worker with `team-stack stop` and `team-stack up`), then run the spec as the first thing after it is up.
 
@@ -184,4 +185,4 @@ Before a fix the run must fail at least once; one that does not fail in 20 repea
 After the fix the same run passes 30 of 30 under the same load.
 
 **A held route makes a race certain.** A `page.route` handler that awaits a promise the test releases holds one read while the page goes on, which turns a suspected race into a yes or no, as the second test of [`undoing-a-verdict.spec.ts`](../../../front-end/e2e/undoing-a-verdict.spec.ts) does.
-Release a held route before the page closes, since a request still held can keep `context.close()` waiting past the test's timeout, and never unroute it with a request still held.
+Never unroute it with a request still held: unrouting lets the held request go on, and the test's later release then throws "Route is already handled".

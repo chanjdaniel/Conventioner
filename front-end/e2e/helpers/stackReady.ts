@@ -7,9 +7,11 @@ import { chromium, request } from '@playwright/test';
  * `docker compose up --wait` returns once the back end and the dev server containers run, since
  * neither has a health check, which can be before the back end serves or the dev server has
  * transformed a page's modules. Three times a run's first spec on a just-started stack timed out at
- * the sign-in form or drew an empty `main`, and passed on the warm stack (T117). Waiting here, once
- * a run, makes the first spec meet the stack every later spec meets, and a stack that never gets
- * ready fails the run naming the part that did not, rather than its first spec.
+ * the sign-in form or drew an empty `main` (T117); those failures came before `networkSettles.ts`,
+ * whose wait after a stack's start has covered the stack's own start since, and they have not
+ * recurred. This wait is there so a stack that never gets ready fails the run naming the part that
+ * did not, rather than its first spec, and so a host where the network settle waits for nothing
+ * (CI) still waits for the stack.
  */
 const POLL_MS = 500;
 const BACK_END_MS = 60_000;
