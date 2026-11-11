@@ -21,7 +21,6 @@ from conftest import (
     FakeMarketsCollection,
     FakeOrganizations,
     install_organizations,
-    mongo_matches,
     reject_malformed_update,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
