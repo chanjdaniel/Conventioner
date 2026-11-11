@@ -102,7 +102,7 @@ export async function seedExampleMarket(
   password: string,
   label = 'E2E Price Groups',
 ) {
-  const userId = await loginViaApi(request, baseURL, email, password);
+  await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL);
   const name = uniqueMarketName(label);
   const created = await request.post(`${baseURL}/markets`, {
@@ -111,9 +111,6 @@ export async function seedExampleMarket(
       name,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [userId]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       setupObject: PLAN,
       intakeMode: 'form',
     },

@@ -29,9 +29,6 @@ export async function seedDraftMarket(
       name,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [userId]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       ...(intakeMode ? { intakeMode } : {}),
     },
   });

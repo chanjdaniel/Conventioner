@@ -39,9 +39,6 @@ test.describe('New market - organization is required', () => {
       data: {
         name: `No Org E2E ${Date.now()}`,
         creationDate: new Date().toISOString(),
-        roles: { [TEST_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(noOrgRes.ok()).toBe(false);
@@ -58,9 +55,6 @@ test.describe('New market - organization is required', () => {
         name: marketName,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [TEST_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(createRes.ok()).toBe(true);
@@ -92,9 +86,6 @@ test.describe('New market - organization is required', () => {
       data: {
         name: `Zero Org E2E ${Date.now()}`,
         creationDate: new Date().toISOString(),
-        roles: { [NO_ORG_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(createRes.ok()).toBe(false);

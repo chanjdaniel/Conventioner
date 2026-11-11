@@ -21,8 +21,6 @@ test('the signed-in creator is the market owner, whatever roles the body names',
         creationDate: new Date().toISOString(),
         organizationId: orgId,
         roles,
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(created.status(), await created.text()).toBe(201);

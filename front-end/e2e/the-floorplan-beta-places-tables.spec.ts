@@ -34,9 +34,6 @@ test('a floorplan is calibrated the right way round and Auto-Place places what i
       name: `Floorplan Places ${Date.now()}`,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [TEST_USER.email]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();

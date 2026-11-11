@@ -44,9 +44,6 @@ async function makeMarket(
       name,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [TEST_USER.email]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       intakeMode,
     },
   });

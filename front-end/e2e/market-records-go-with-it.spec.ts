@@ -129,8 +129,6 @@ test('deleting an organization deletes the records of the markets it held', asyn
       name: `E2E Records Draft ${Date.now()}`,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      modificationList: [],
-      assignmentObject: {},
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();

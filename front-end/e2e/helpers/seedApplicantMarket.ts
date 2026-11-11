@@ -114,7 +114,7 @@ export async function seedApplicantMarket(
     reviewSetupUndecided?: boolean;
   } = {},
 ): Promise<ApplicantMarketSeed> {
-  const userId = await loginViaApi(request, baseURL, email, password);
+  await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL);
 
   const marketName = options.name ?? uniqueMarketName('E2E Applicant');
@@ -124,9 +124,6 @@ export async function seedApplicantMarket(
       name: marketName,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [userId]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       // This market's vendors apply through the public form, so it has to say so: intake mode
       // defaults to `csv`, which switches the applicant surface off entirely. A spec that wants
       // that switched-off market asks for `csv` here.
