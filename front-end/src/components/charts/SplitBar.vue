@@ -120,9 +120,11 @@ function share(part: SplitPart): number {
   min-width: 2px;
 }
 
+/* Centred on a row, so a short line that tells stands level with a link's text beside it. */
 .split-bar-legend {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-1) var(--space-4);
   margin: 0;
   padding: 0;
@@ -133,7 +135,6 @@ function share(part: SplitPart): number {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--target-min);
   padding: 0 var(--space-1);
   border: 1px solid transparent;
   border-radius: var(--radius-control);
@@ -142,6 +143,11 @@ function share(part: SplitPart): number {
   text-decoration: none;
   /* A line shows its hover at once, as a ledger's row does. */
   transition: none;
+}
+
+/* A link is a thumb's height; a line that only tells, a zero say, is a line of text. */
+.split-bar-line--link {
+  min-height: var(--target-min);
 }
 
 .split-bar-line--link .split-bar-label {

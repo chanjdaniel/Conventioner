@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Route } from '@playwright/test';
+import type { Locator, Route } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
 import {
@@ -203,6 +203,15 @@ test('a review status with nobody in it is told, and not linked', async ({
     await expect(stats.status(empty).locator('xpath=self::a')).toHaveCount(0);
   }
   await expect(page.getByRole('link', { name: /^Approved/ })).toHaveCount(0);
+  // On a phone, where the lines stand one under another, only the link is a thumb's height; a
+  // zero told is a line of text.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const height = (line: Locator) => line.evaluate((element) => element.getBoundingClientRect().height);
+  expect(await height(stats.status('undecided'))).toBeGreaterThanOrEqual(44);
+  for (const empty of ['needs_follow_up', 'reviewer_approved', 'reviewer_rejected']) {
+    expect(await height(stats.status(empty))).toBeLessThan(32);
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
   // Applied today, so the chart is that one day: its column, and the day under it, in the middle
   // of the card.
   await expect(stats.overTimeColumns).toHaveCount(1);
