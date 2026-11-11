@@ -42,6 +42,7 @@ const GROUPS: readonly { title: string; keys: readonly (readonly [string[], stri
       [['F'], 'Swap the side of the line the tables stand on'],
       [['Ctrl+Enter'], 'Place the row; Enter places a closed shape'],
       [['Escape'], 'Drop the row'],
+      [['Shift'], 'While dragging: a straight row'],
     ],
   },
   {

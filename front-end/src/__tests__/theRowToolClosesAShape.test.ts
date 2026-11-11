@@ -13,6 +13,7 @@ import {
   ROW_CHOICES_AT_FIRST,
   rowChoices,
   rowsOf,
+  strokeOptions,
   useRowTool,
 } from '@/components/layout/layoutRow';
 import type { SavedLayout } from '@/components/layout/layoutSave';
@@ -20,6 +21,8 @@ import { useLayoutEditor } from '@/components/layout/useLayoutEditor';
 
 const SIX_FOOT = { id: 'six-foot', name: 'Standard 6 ft', widthMm: 1830, depthMm: 760 };
 const p = (xMm: number, yMm: number) => ({ xMm, yMm });
+/** How a drag is read at 100% zoom, 25 mm to the pixel, with Shift up. */
+const STROKE = strokeOptions(0.04, false);
 
 /** A hall 30 m by 22.5 m. */
 function aLayout(tables: FloorplanTable[]): FloorplanObject {
@@ -234,7 +237,7 @@ describe('several rows in one gesture', () => {
   it('places two straight rows an aisle apart, the first row numbered whole, then the next', () => {
     const { row } = aTool();
     rowChoices.rows = '2';
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     expect(row.poses.value).toHaveLength(20);
     const added = row.place();
     expect(added.map((table) => table.number)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
@@ -250,7 +253,7 @@ describe('several rows in one gesture', () => {
     const { row } = aTool();
     rowChoices.rows = '2';
     rowChoices.aisleCm = '200';
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     expect(row.poses.value[10].yMm - row.poses.value[0].yMm).toBeCloseTo(760 + 2000, 6);
     rowChoices.aisleCm = '0';
     expect(row.poses.value[10].yMm - row.poses.value[0].yMm).toBeCloseTo(760, 6);
@@ -260,7 +263,7 @@ describe('several rows in one gesture', () => {
     const { row } = aTool();
     rowChoices.rows = '2';
     rowChoices.side = 'left';
-    row.dragTo([p(2000, 9000), p(22_000, 9000)]);
+    row.strokeTo([p(2000, 9000), p(22_000, 9000)], STROKE);
     expect(row.poses.value[0].yMm).toBeCloseTo(9000 - 380, 6);
     expect(row.poses.value[10].yMm).toBeCloseTo(9000 - 380 - 1960, 6);
   });
@@ -294,7 +297,7 @@ describe('several rows in one gesture', () => {
     }));
     const { row } = aTool(standing);
     rowChoices.rows = '2';
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     expect(row.poses.value).toHaveLength(15);
   });
 });
@@ -302,7 +305,7 @@ describe('several rows in one gesture', () => {
 describe('an open path spread evenly to its ends', () => {
   it('ends its last table at the end of the path where that is asked, the gaps equal', () => {
     const { row } = aTool();
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     const packed = row.poses.value;
     expect(packed.at(-1)!.xMm).toBeCloseTo(2000 + 18_300 - 915, 3);
     rowChoices.spread = true;

@@ -4,12 +4,21 @@
  * holds (`LayoutRowPreview.vue`); the geometry is `layoutGeometry.ts`'s.
  *
  * A path is the points clicked so far, with the pointer's place after them while it is over the
- * map, or the two ends of a straight drag. The row shown is always the row that placing would
- * add: the smooth path through those points (`smoothRuns`), lined with tables of the options
- * strip's type on the side chosen (`placeRows`), clear of the tables and no-table zones that
- * stand already and inside the floorplan. Nothing of a pending path is in the layout: it is not
- * saved, not a step of undo, and it is dropped whole. Placed, the tables are ordinary tables,
- * numbered on in their section in the order drawn, selected, and one step of undo.
+ * map. The row shown is always the row that placing would add: the smooth path through those
+ * points (`smoothRuns`), lined with tables of the options strip's type on the side chosen
+ * (`placeRows`), clear of the tables and no-table zones that stand already and inside the
+ * floorplan. Nothing of a pending path is in the layout: it is not saved, not a step of undo, and
+ * it is dropped whole. Placed, the tables are ordinary tables, numbered on in their section in
+ * the order drawn, selected, and one step of undo.
+ *
+ * With no path pending, a press and a drag draw the row's line by hand: a stroke. While it is in
+ * hand the row is shown along the stroke as it reads (`readStroke`): the straight line between
+ * its ends where it is nearly straight or Shift is held, else its smoothed line, closed where it
+ * has come back to its start. Let go, a straight stroke is its two ends, for the editor to place
+ * at once; any other becomes the path's points, a few places chosen on the smoothed line
+ * (`fitStroke`), and waits as a clicked path does. Such a path is `drawn`: it is finished, so the
+ * pointer's place is no part of it and it takes no further point, until it is placed, dropped or
+ * taken back to one point.
  *
  * A path of three points or more can be closed: its last point joined to its first, smooth at
  * the seam as anywhere, its tables spread evenly round it. A closed path stays pending, to be
@@ -22,10 +31,13 @@ import {
   STANDARD_TABLE,
   cornersOf,
   hallOf,
+  fitStroke,
   placeAlongRuns,
   placeRows,
+  readStroke,
   smoothRuns,
   snapPoint,
+  strokeRuns,
   tableCorners,
   type Hall,
   type PathPose,
@@ -33,6 +45,7 @@ import {
   type RowSide,
   type Run,
   type SizeMm,
+  type StrokeOptions,
 } from './layoutGeometry';
 import type { LayoutEditor, NewTable } from './useLayoutEditor';
 
@@ -41,6 +54,46 @@ export const MAX_LAYOUT_TABLES = 1000;
 
 /** The most rows one gesture places. */
 export const MAX_ROWS = 10;
+
+/**
+ * How a line drawn by hand is read, in screen pixels: a hand's precision is a matter of pixels,
+ * and zooming in buys precision. `keep`: a pointer's move is kept as a sample when it is this
+ * far from the last kept. `step`: the spacing the stroke is resampled to. `smooth`: the deviation
+ * of the Gaussian that smooths it. `tolerance`: how far the fitted path may stand off the
+ * smoothed stroke. `gap`: the least room between two points of the answer, so each can be
+ * pressed. `close`: let go this near the press, having been twice as far from it, the stroke
+ * closes. `straight` to `straightMost`: a stroke is straight when every sample is within 4% of
+ * the chord of its line, never less than the one nor more than the other.
+ */
+export const STROKE_PX = {
+  keep: 2,
+  step: 4,
+  smooth: 16,
+  tolerance: 12,
+  gap: 8,
+  close: 24,
+  straight: 10,
+  straightMost: 24,
+} as const;
+
+/** The most samples a stroke keeps: at that many the editor drops every second one and keeps
+ *  them twice as far apart from there on. */
+export const MAX_STROKE_SAMPLES = 2000;
+
+/** `STROKE_PX` in the map's millimetres at a zoom; `straight` is Shift held. */
+export function strokeOptions(pxPerMm: number, straight: boolean): StrokeOptions {
+  const mm = (px: number) => px / pxPerMm;
+  return {
+    stepMm: mm(STROKE_PX.step),
+    smoothMm: mm(STROKE_PX.smooth),
+    toleranceMm: mm(STROKE_PX.tolerance),
+    gapMm: mm(STROKE_PX.gap),
+    closeWithinMm: mm(STROKE_PX.close),
+    straightWithinMm: mm(STROKE_PX.straight),
+    straightMostMm: mm(STROKE_PX.straightMost),
+    straight,
+  };
+}
 
 /**
  * What the options strip holds for a row, kept while the app is open, so the side chosen for one
@@ -147,8 +200,13 @@ export interface RowTool {
   points: Readonly<ShallowRef<PointMm[]>>;
   /** The crosshair the keys move; null until the keys are on the map. */
   crosshair: Readonly<ShallowRef<PointMm | null>>;
-  /** Whether a path is being drawn: a point is laid, or a straight drag is in hand. */
+  /** Whether a path is being drawn: a point is laid, or a stroke is in hand. */
   pending: ComputedRef<boolean>;
+  /** Whether a stroke is in hand: a line being drawn by a drag, not yet let go. */
+  stroking: ComputedRef<boolean>;
+  /** Whether the pending path came from a curved stroke: it takes no further point, and the
+   *  pointer's place is no part of it. */
+  drawn: Readonly<ShallowRef<boolean>>;
   /** Whether the path has been closed into a shape, its last point joined to its first. */
   closed: Readonly<ShallowRef<boolean>>;
   /** Whether the path can be closed: it has three points or more, and is open. */
@@ -156,6 +214,9 @@ export interface RowTool {
   /** Whether the pointer rests on the first point of a path that can be closed: the path is
    *  shown closed, as a click there would make it. */
   closing: Readonly<ShallowRef<boolean>>;
+  /** The point that wears a ring, since letting go there closes the path: the first point while
+   *  the pointer rests on it, or a stroke's press while it has come back to it; else null. */
+  closeAt: ComputedRef<PointMm | null>;
   /** The smooth path through the points, and the pointer's place while it is over the map. */
   runs: ComputedRef<Run[]>;
   /** The row that placing would add. */
@@ -163,7 +224,7 @@ export interface RowTool {
   /** The size of the tables it would add. */
   size: ComputedRef<SizeMm>;
   /** Where the count is written: at the pointer, else at the last point; of a closed shape, at
-   *  its first. */
+   *  its first; of a stroke in hand, at the pointer. */
   countAt: ComputedRef<PointMm | null>;
   side: ComputedRef<RowSide>;
   /** A point snapped to the tables near it, within `withinMm`: to a corner, else to the line of
@@ -183,8 +244,15 @@ export interface RowTool {
   movePoint(index: number, to: PointMm): void;
   /** Where the pointer is over the map; null once it has left, or the keys have the path. */
   hoverAt(at: PointMm | null): void;
-  /** A straight drag in hand, from its press to where it is now; null ends it unplaced. */
-  dragTo(ends: [PointMm, PointMm] | null): void;
+  /** The stroke in hand: its samples from the press to the pointer, read by `options`; null
+   *  drops it. Nothing while a path is pending. */
+  strokeTo(samples: readonly PointMm[] | null, options?: StrokeOptions): void;
+  /**
+   * Let the stroke go. `'none'`: there was none, or it was no line. `'straight'`: its two ends
+   * are the path, for the editor to place at once. `'curve'`: the points fitted to it are the
+   * path's, closed where it came back to its start, and the path is `drawn`.
+   */
+  endStroke(): 'none' | 'straight' | 'curve';
   moveCrosshair(to: PointMm): void;
   /** Swap the side of the line the tables stand on. */
   flip(): void;
@@ -200,7 +268,8 @@ export interface RowTool {
 export function useRowTool(options: RowToolOptions): RowTool {
   const points = shallowRef<PointMm[]>([]);
   const hover = shallowRef<PointMm | null>(null);
-  const drag = shallowRef<[PointMm, PointMm] | null>(null);
+  const stroke = shallowRef<{ samples: readonly PointMm[]; options: StrokeOptions } | null>(null);
+  const drawn = shallowRef(false);
   const crosshair = shallowRef<PointMm | null>(null);
   const closed = shallowRef(false);
   const closing = shallowRef(false);
@@ -212,8 +281,15 @@ export function useRowTool(options: RowToolOptions): RowTool {
     return own.length > 1 && !apart(own[0], own[own.length - 1]) ? own.length - 1 : own.length;
   });
   const closable = computed(() => places.value >= 3 && !closed.value);
-  /** The path is drawn closed: it is, or the pointer rests where a click would close it. */
-  const drawnClosed = computed(() => closed.value || (closing.value && closable.value));
+  /** The stroke in hand as it reads now. */
+  const read = computed(() =>
+    stroke.value ? readStroke(stroke.value.samples, stroke.value.options) : null,
+  );
+  /** The path is shown closed: it is, the pointer rests where a click would close it, or the
+   *  stroke in hand has come back to its start. */
+  const drawnClosed = computed(() =>
+    read.value ? read.value.kind === 'closed' : closed.value || (closing.value && closable.value),
+  );
 
   const layout = () => options.editor.layout.value;
   const typeSize = (id: string): SizeMm =>
@@ -229,11 +305,14 @@ export function useRowTool(options: RowToolOptions): RowTool {
   const tableShapes = computed(() => shapes.value.slice(0, layout()?.tables.length ?? 0));
 
   const path = computed<PointMm[]>(() => {
-    if (drag.value) return drag.value;
-    if (drawnClosed.value) return points.value;
+    if (drawnClosed.value || drawn.value) return points.value;
     return hover.value && points.value.length ? [...points.value, hover.value] : points.value;
   });
-  const runs = computed(() => smoothRuns(path.value, { closed: drawnClosed.value }));
+  // A stroke in hand is shown along its smoothed line itself, which holds still under the
+  // pointer; its points are chosen once, when it is let go.
+  const runs = computed(() =>
+    read.value ? strokeRuns(read.value) : smoothRuns(path.value, { closed: drawnClosed.value }),
+  );
   const poses = computed(() => {
     const now = layout();
     if (!now || !runs.value.length) return [];
@@ -255,7 +334,8 @@ export function useRowTool(options: RowToolOptions): RowTool {
   function clear() {
     points.value = [];
     hover.value = null;
-    drag.value = null;
+    stroke.value = null;
+    drawn.value = false;
     closed.value = false;
     closing.value = false;
   }
@@ -280,15 +360,24 @@ export function useRowTool(options: RowToolOptions): RowTool {
   return {
     points,
     crosshair,
-    pending: computed(() => points.value.length > 0 || drag.value !== null),
+    pending: computed(() => points.value.length > 0 || stroke.value !== null),
+    stroking: computed(() => stroke.value !== null),
+    drawn,
     closed,
     closable,
     closing,
+    closeAt: computed(() => {
+      if (read.value) return read.value.kind === 'closed' ? stroke.value!.samples[0] : null;
+      return closing.value && closable.value ? points.value[0] : null;
+    }),
     runs,
     poses,
     size,
     // A closed shape's count stands at its first point, where the click that closed it was.
-    countAt: computed(() => (drawnClosed.value ? points.value[0] : path.value.at(-1)) ?? null),
+    countAt: computed(() => {
+      if (stroke.value) return stroke.value.samples.at(-1) ?? null;
+      return (drawnClosed.value ? points.value[0] : path.value.at(-1)) ?? null;
+    }),
     side,
     snapped: (at, withinMm, reachMm = 0) => snapPoint(at, tableShapes.value, withinMm, reachMm),
     pointNear(at, withinMm) {
@@ -304,8 +393,9 @@ export function useRowTool(options: RowToolOptions): RowTool {
       return nearest;
     },
     addPoint(at) {
-      // A closed shape takes no further point: it is placed, or opened again first.
-      if (closed.value) return;
+      // A closed shape takes no further point: it is placed, or opened again first. Nor does a
+      // path drawn by hand, which is finished.
+      if (closed.value || drawn.value) return;
       points.value = [...points.value, at];
       // A point laid is no longer the pointer resting on the first.
       closing.value = false;
@@ -330,17 +420,45 @@ export function useRowTool(options: RowToolOptions): RowTool {
       points.value = points.value.slice(0, -1);
       // Fewer than three points are no shape.
       if (points.value.length < 3) closed.value = false;
+      // Taken back to one point, a path drawn by hand is a clicked path again.
+      if (points.value.length < 2) drawn.value = false;
       return true;
     },
     movePoint(index, to) {
       points.value = points.value.map((point, at) => (at === index ? to : point));
     },
     hoverAt(at) {
-      hover.value = at;
+      // A path drawn by hand is its points alone, wherever the pointer wanders after it.
+      hover.value = drawn.value ? null : at;
       closing.value = false;
     },
-    dragTo(ends) {
-      drag.value = ends;
+    strokeTo(samples, strokeOptions) {
+      if (!samples) {
+        stroke.value = null;
+        return;
+      }
+      const readBy = strokeOptions ?? stroke.value?.options;
+      // A stroke begins a path: one pending is not drawn over.
+      if (!readBy || points.value.length) return;
+      stroke.value = { samples, options: readBy };
+    },
+    endStroke() {
+      const held = stroke.value;
+      const was = read.value;
+      stroke.value = null;
+      if (!held || !was || was.kind === 'none') return 'none';
+      hover.value = null;
+      closing.value = false;
+      if (was.kind === 'straight') {
+        points.value = [...was.ends];
+        return 'straight';
+      }
+      const fit = fitStroke(held.samples, held.options);
+      if (fit.points.length < 2) return 'none';
+      points.value = fit.points;
+      closed.value = fit.closed && fit.points.length >= 3;
+      drawn.value = true;
+      return 'curve';
     },
     moveCrosshair(to) {
       crosshair.value = to;
@@ -352,7 +470,7 @@ export function useRowTool(options: RowToolOptions): RowTool {
       rowChoices.side = rowChoices.side === 'right' ? 'left' : 'right';
     },
     drop() {
-      const had = points.value.length > 0 || drag.value !== null;
+      const had = points.value.length > 0 || stroke.value !== null;
       clear();
       return had;
     },

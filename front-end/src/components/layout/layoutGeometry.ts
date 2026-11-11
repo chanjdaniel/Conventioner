@@ -1066,6 +1066,49 @@ export function smoothRuns(
   points: readonly PointMm[],
   options: { toleranceMm?: number; cornerDeg?: number; closed?: boolean } = {},
 ): Run[] {
+  const path = pathThrough(points, options);
+  if (!path) return [];
+  const runs: Vec[][] = [];
+  let run: Vec[] = [];
+  path.spans.forEach((span, k) => {
+    if (path.corner[(path.start + k) % path.at.length] && run.length) {
+      runs.push(run);
+      run = [];
+    }
+    run = run.length ? run.concat(span.slice(1)) : span;
+  });
+  runs.push(run);
+  return runs.map((one) => one.map(pointOf));
+}
+
+/** What the corner rule reads at a point b between its neighbours a and c: the circle through
+ *  the three, none where they stand in a line, and the greater of the two sweeps beside b on it,
+ *  in radians: half a turn where the path turns straight back, and 0 in a line. */
+function turnThrough(a: Vec, b: Vec, c: Vec): { circle: Circle | null; sweep: number } {
+  const circle = circleThrough(a, b, c);
+  if (!circle) return { circle, sweep: dot(minus(b, a), minus(c, b)) < 0 ? Math.PI : 0 };
+  return { circle, sweep: Math.max(sweepOn(circle, a, b), sweepOn(circle, b, c)) };
+}
+
+/** A path through points, span by span, for `smoothRuns` and the fit of a stroke. */
+interface PathThrough {
+  /** The points, less any within a millimetre of the one before. */
+  at: Vec[];
+  /** The point the first span leaves from: the last corner before the first point of a closed
+   *  path, else the first point. */
+  start: number;
+  /** Each stretch of the path between two points, in order from `start`: span k goes from point
+   *  `start + k` to the next, round a closed path. */
+  spans: Vec[][];
+  /** Whether each point is a corner. */
+  corner: boolean[];
+}
+
+/** The path `smoothRuns` describes, as its spans; null where the points make none. */
+function pathThrough(
+  points: readonly PointMm[],
+  options: { toleranceMm?: number; cornerDeg?: number; closed?: boolean },
+): PathThrough | null {
   const tolerance = options.toleranceMm ?? 2;
   const limit = ((options.cornerDeg ?? 70) * Math.PI) / 180;
   const at: Vec[] = [];
@@ -1077,7 +1120,7 @@ export function smoothRuns(
   if (options.closed && at.length > 1 && between(at[0], at[at.length - 1]) < SAME_POINT_MM) {
     at.pop();
   }
-  if (at.length < 2) return [];
+  if (at.length < 2) return null;
   const count = at.length;
   const closed = options.closed === true && count >= 3;
   const pointAt = (i: number) => at[((i % count) + count) % count];
@@ -1086,10 +1129,9 @@ export function smoothRuns(
    *  neighbours stand in a line with it; null at an end, which has one neighbour. */
   const turnAt = (i: number): Circle | 'corner' | 'straight' | null => {
     if (!closed && (i <= 0 || i >= count - 1)) return null;
-    const [a, b, c] = [pointAt(i - 1), pointAt(i), pointAt(i + 1)];
-    const circle = circleThrough(a, b, c);
-    if (!circle) return dot(minus(b, a), minus(c, b)) < 0 ? 'corner' : 'straight';
-    return Math.max(sweepOn(circle, a, b), sweepOn(circle, b, c)) > limit ? 'corner' : circle;
+    const { circle, sweep } = turnThrough(pointAt(i - 1), pointAt(i), pointAt(i + 1));
+    if (!circle) return sweep ? 'corner' : 'straight';
+    return sweep > limit ? 'corner' : circle;
   };
   const turns = at.map((_, i) => turnAt(i));
 
@@ -1097,19 +1139,12 @@ export function smoothRuns(
   // is on comes first; with no corner, at the first point itself.
   let start = 0;
   if (closed && turns[0] !== 'corner') start = Math.max(0, turns.lastIndexOf('corner'));
-  const spans = closed ? count : count - 1;
-
-  const runs: Vec[][] = [];
-  let run: Vec[] = [];
-  for (let k = 0; k < spans; k += 1) {
+  const spans: Vec[][] = [];
+  for (let k = 0; k < (closed ? count : count - 1); k += 1) {
     const i = (start + k) % count;
     const [p, q] = [pointAt(i), pointAt(i + 1)];
     const before = turns[i];
     const after = turns[(i + 1) % count];
-    if (before === 'corner' && run.length) {
-      runs.push(run);
-      run = [];
-    }
     const line = (t: number) => mix(p, q, t);
     /** How the path leaves or reaches a point: on its circle, along its line, or (null) however
      *  the span's other end has it. */
@@ -1126,10 +1161,9 @@ export function smoothRuns(
     // The clicked points themselves, not where a cosine put them.
     span[0] = p;
     span[span.length - 1] = q;
-    run = run.length ? run.concat(span.slice(1)) : span;
+    spans.push(span);
   }
-  runs.push(run);
-  return runs.map((one) => one.map(pointOf));
+  return { at, start, spans, corner: turns.map((turn) => turn === 'corner') };
 }
 
 /** A run with the length along it up to each point. */
@@ -2088,6 +2122,371 @@ export function snapPoint(
   }
   const to = corner ?? onEdge;
   return to ? pointOf(to) : point;
+}
+
+// ── A line drawn by hand ─────────────────────────────────────────────────────
+//
+// With Row of tables on, a press and a drag draw the row's line. The stroke is read on every move
+// (`readStroke`): a nearly straight one is the line between its ends, any other is resampled
+// evenly and smoothed, and the row is shown along that. On release the points are chosen
+// (`fitStroke`): a few places on the smoothed line whose path, by `smoothRuns`' own rules, has no
+// corner and stands within a tolerance of the line. The answer is points for `smoothRuns` and
+// nothing else, so a drawn path is a clicked path whose points the editor chose.
+
+/** How a stroke is read and fitted, in millimetres: the editor turns its screen pixels into them
+ *  by the view (`strokeOptions` in `layoutRow.ts`). */
+export interface StrokeOptions {
+  /** The spacing the stroke is resampled to. */
+  stepMm: number;
+  /** The deviation of the Gaussian that smooths it. */
+  smoothMm: number;
+  /** How far the fitted path may stand off the smoothed stroke. */
+  toleranceMm: number;
+  /** The least room between two points of the answer. */
+  gapMm: number;
+  /** Let go this near its start, having been twice as far from it, a stroke closes. */
+  closeWithinMm: number;
+  /** How far a straight stroke's samples may stand off its line: the least. */
+  straightWithinMm: number;
+  /** And the most: between the two, 4% of the line's length. */
+  straightMostMm: number;
+  /** A straight line whatever was drawn. */
+  straight?: boolean;
+}
+
+/** What a stroke is before any point is chosen: nothing, the straight line between its ends, or
+ *  its line resampled and smoothed, open or closed (a closed line does not repeat its first
+ *  point), with the spacing of its points. */
+export type StrokeRead =
+  | { kind: 'none' }
+  | { kind: 'straight'; ends: [PointMm, PointMm] }
+  | { kind: 'open' | 'closed'; line: PointMm[]; stepMm: number };
+
+/** A sample this near the one kept before it is dropped. */
+const STROKE_SAMPLE_MM = 1;
+/** The share of its line's length a straight stroke's samples may stand off it. */
+const STRAIGHT_SHARE = 0.04;
+/** The most points a stroke is resampled to: past them the step grows. */
+const MOST_RESAMPLED = 1000;
+/** The fewest spans a closed stroke is resampled to. */
+const LEAST_CLOSED_SPANS = 6;
+/** A chosen point's sweep over this, in degrees, is mended: 10° inside the corner rule's 70°, so
+ *  the path handed over does not turn into a corner at the first nudge of a point. */
+const SHARP_DEG = 60;
+/** Where a sharp point is mended: the line's direction has turned this far from it, in degrees. */
+const MEND_TURN_DEG = 30;
+/** The points a closed line begins on: at 45° each they stay smooth, where six stand on the
+ *  limit. */
+const CLOSED_START = 8;
+/** The most points a fit answers. */
+const MOST_POINTS = 48;
+/** The most rounds of adding points: a guard, never met by a stroke of `MOST_POINTS`. */
+const FIT_ROUNDS = 400;
+
+const wrapped = (i: number, n: number) => ((i % n) + n) % n;
+
+/** How far a point is from the stretch of a polyline between two of its points. */
+function toPolyline(point: Vec, line: readonly Vec[]): number {
+  let least = Infinity;
+  for (let i = 0; i + 1 < line.length; i += 1) {
+    const away = toSegment(point, line[i], line[i + 1]);
+    if (away < least) least = away;
+  }
+  return least;
+}
+
+/** Points one spacing apart along a stroke, the step stretched so they divide its length evenly.
+ *  An open stroke keeps both its ends; a closed one goes round from its first sample, through
+ *  the bridge from its last back to it. */
+function resampled(samples: readonly Vec[], stepMm: number, closed: boolean) {
+  const source = closed ? [...samples, samples[0]] : samples;
+  const along = [0];
+  for (let i = 1; i < source.length; i += 1) {
+    along.push(along[i - 1] + between(source[i - 1], source[i]));
+  }
+  const length = along[along.length - 1];
+  const spans = Math.min(
+    Math.max(closed ? LEAST_CLOSED_SPANS : 1, Math.round(length / stepMm)),
+    MOST_RESAMPLED,
+  );
+  const step = length / spans;
+  const points: Vec[] = [];
+  let j = 0;
+  for (let i = 0; i < (closed ? spans : spans + 1); i += 1) {
+    const s = Math.min(i * step, length);
+    while (j < along.length - 2 && along[j + 1] < s) j += 1;
+    points.push(mix(source[j], source[j + 1], (s - along[j]) / (along[j + 1] - along[j] || 1)));
+  }
+  if (!closed) {
+    points[0] = samples[0];
+    points[points.length - 1] = samples[samples.length - 1];
+  }
+  return { points, stepMm: step };
+}
+
+/** Each point as the Gaussian-weighted mean of its neighbours along the line, the deviation in
+ *  points, the kernel cut at three deviations. An open line is mirrored through each end, which
+ *  leaves its ends where they are and its direction there unbent; a closed one wraps round. */
+function gaussed(points: readonly Vec[], deviation: number, closed: boolean): Vec[] {
+  if (!(deviation > 0)) return [...points];
+  const n = points.length;
+  const reach = Math.ceil(3 * deviation);
+  const weights: number[] = [];
+  for (let k = 0; k <= reach; k += 1) {
+    weights.push(Math.exp(-(k * k) / (2 * deviation * deviation)));
+  }
+  const mirrored = (end: Vec, other: Vec): Vec => [2 * end[0] - other[0], 2 * end[1] - other[1]];
+  const at = (j: number): Vec => {
+    if (closed) return points[wrapped(j, n)];
+    if (j < 0) return mirrored(points[0], points[Math.min(-j, n - 1)]);
+    if (j > n - 1) return mirrored(points[n - 1], points[Math.max(2 * (n - 1) - j, 0)]);
+    return points[j];
+  };
+  return points.map((_, i) => {
+    let x = 0;
+    let y = 0;
+    let sum = 0;
+    for (let k = -reach; k <= reach; k += 1) {
+      const point = at(i + k);
+      const weight = weights[Math.abs(k)];
+      x += point[0] * weight;
+      y += point[1] * weight;
+      sum += weight;
+    }
+    return [x / sum, y / sum] as const;
+  });
+}
+
+type VecRead =
+  | { kind: 'none' }
+  | { kind: 'straight'; ends: [Vec, Vec] }
+  | { kind: 'open' | 'closed'; line: Vec[]; stepMm: number };
+
+function strokeRead(samples: readonly PointMm[], options: StrokeOptions): VecRead {
+  const kept: Vec[] = [];
+  for (const sample of samples) {
+    const next = vec(sample);
+    if (!kept.length || between(kept[kept.length - 1], next) >= STROKE_SAMPLE_MM) kept.push(next);
+  }
+  if (kept.length < 2) return { kind: 'none' };
+  const first = kept[0];
+  const last = kept[kept.length - 1];
+  const chord = between(first, last);
+  let far = 0;
+  for (const sample of kept) far = Math.max(far, between(first, sample));
+  const closed =
+    !options.straight && chord <= options.closeWithinMm && far >= 2 * options.closeWithinMm;
+  if (!closed) {
+    let off = 0;
+    for (const sample of kept) off = Math.max(off, toSegment(sample, first, last));
+    // A drag that doubles back along its own line is no straight row: its far point passes its
+    // end.
+    const along = far <= chord + options.straightWithinMm;
+    const within = Math.max(
+      options.straightWithinMm,
+      Math.min(options.straightMostMm, STRAIGHT_SHARE * chord),
+    );
+    if (options.straight || (along && off <= within))
+      return { kind: 'straight', ends: [first, last] };
+  }
+  const even = resampled(kept, options.stepMm, closed);
+  const line = gaussed(even.points, options.smoothMm / even.stepMm, closed);
+  if (!closed) {
+    // The press and the release themselves, not where a sum of weights left them.
+    line[0] = first;
+    line[line.length - 1] = last;
+  }
+  return { kind: closed ? 'closed' : 'open', line, stepMm: even.stepMm };
+}
+
+/**
+ * What a stroke is, read on every move of a drag and again by the fit. Samples within a
+ * millimetre of the one kept before are dropped, and fewer than two kept are nothing. It is
+ * closed when its last sample is within `closeWithinMm` of its first and some sample stood twice
+ * that from the first. Else it is straight when no sample is further from the first than the last
+ * is, by more than `straightWithinMm` (it does not double back along its own line), and every
+ * sample is within 4% of the chord of the line between its ends, never less than
+ * `straightWithinMm` nor more than `straightMostMm`. `straight` makes any stroke that line. Any
+ * other is resampled to `stepMm` (1,000 points at most) and smoothed by a Gaussian of
+ * `smoothMm`: an open line's first and last points are its first and last samples exactly.
+ */
+export function readStroke(samples: readonly PointMm[], options: StrokeOptions): StrokeRead {
+  const read = strokeRead(samples, options);
+  if (read.kind === 'none') return read;
+  if (read.kind === 'straight') {
+    return { kind: 'straight', ends: [pointOf(read.ends[0]), pointOf(read.ends[1])] };
+  }
+  return { kind: read.kind, line: read.line.map(pointOf), stepMm: read.stepMm };
+}
+
+/** What a drag shows its row along: no run, the line between a straight stroke's ends, the
+ *  smoothed line as one run, or a closed one ending on its first point. */
+export function strokeRuns(read: StrokeRead): Run[] {
+  if (read.kind === 'none') return [];
+  if (read.kind === 'straight') return smoothRuns(read.ends);
+  if (read.line.length < 2) return [];
+  return [read.kind === 'closed' ? [...read.line, read.line[0]] : read.line];
+}
+
+/**
+ * The points of a stroke's path, to hand to `smoothRuns`: none of no stroke, the two ends of a
+ * straight one, else places chosen on the smoothed line. They begin as the two ends of an open
+ * line, or eight evenly round a closed one. A chosen point the path would turn over 60° at, by
+ * the corner rule's own measure, is mended by a point each side of it where the line's direction
+ * has turned 30° from its direction there; with none sharp, the span whose smoothed points stand
+ * furthest off the path between its two chosen points, past the tolerance, takes a point at its
+ * furthest place. No two points are nearer than `gapMm` along the line, and there are 48 at
+ * most. Then each point the path holds without is taken back, an open line's ends apart.
+ *
+ * So the path has no corner and stands within the tolerance of the smoothed stroke, except
+ * where the hand turned tighter than the points can stand apart, or drew more than 48 points'
+ * worth. An open stroke's first and last points are its press and release exactly.
+ */
+export function fitStroke(
+  samples: readonly PointMm[],
+  options: StrokeOptions,
+): { points: PointMm[]; closed: boolean } {
+  const read = strokeRead(samples, options);
+  if (read.kind === 'none') return { points: [], closed: false };
+  if (read.kind === 'straight') return { points: read.ends.map(pointOf), closed: false };
+  const closed = read.kind === 'closed';
+  const chosen = chosenPoints(read.line, closed, {
+    toleranceMm: options.toleranceMm,
+    gap: Math.max(1, Math.round(options.gapMm / read.stepMm)),
+  });
+  return { points: chosen.map((i) => pointOf(read.line[i])), closed };
+}
+
+/** The places on a smoothed line the fit keeps, by their indices; `gap` is the least count of
+ *  the line's points between two of them. */
+function chosenPoints(
+  line: readonly Vec[],
+  closed: boolean,
+  options: { toleranceMm: number; gap: number },
+): number[] {
+  const n = line.length;
+  const { toleranceMm, gap } = options;
+  const turn = (MEND_TURN_DEG * Math.PI) / 180;
+  /** The count of the line's points from one chosen point to the next. */
+  const spanOf = (a: number, b: number) => (closed ? wrapped(b - a, n) || n : b - a);
+  /** The line's direction at a point: from the point before it to the point after. */
+  const directionAt = (i: number): Vec => {
+    const a = closed ? line[wrapped(i - 1, n)] : line[Math.max(0, i - 1)];
+    const b = closed ? line[wrapped(i + 1, n)] : line[Math.min(n - 1, i + 1)];
+    const length = between(a, b) || 1;
+    return [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
+  };
+  const turned = (u: Vec, v: Vec) => Math.acos(Math.max(-1, Math.min(1, dot(u, v))));
+
+  interface Furthest {
+    /** How far the span's furthest smoothed point stands off the path. */
+    off: number;
+    span: number;
+    /** That point's place in the span, counted from its first chosen point. */
+    t: number;
+    length: number;
+  }
+  /** What the path through some chosen points is: which of them are sharp, and where each span's
+   *  smoothed points stand furthest off it; `path` false where the points make no path. */
+  const judged = (chosen: readonly number[]) => {
+    const points = chosen.map((i) => line[i]);
+    const count = points.length;
+    const sharp: number[] = [];
+    points.forEach((b, i) => {
+      if (!closed && (i === 0 || i === count - 1)) return;
+      const { sweep } = turnThrough(
+        points[wrapped(i - 1, count)],
+        b,
+        points[wrapped(i + 1, count)],
+      );
+      if ((sweep * 180) / Math.PI > SHARP_DEG) sharp.push(i);
+    });
+    const path = pathThrough(points.map(pointOf), { closed });
+    const spans: Furthest[] = [];
+    let worst = 0;
+    // A point dropped as one with its neighbour leaves the spans untold.
+    const told =
+      path !== null &&
+      path.at.length === count &&
+      path.spans.length === (closed ? count : count - 1);
+    if (path && told) {
+      for (let k = 0; k < (closed ? count : count - 1); k += 1) {
+        const from = chosen[k];
+        const length = spanOf(from, chosen[(k + 1) % count]);
+        const stretch = path.spans[wrapped(k - path.start, count)];
+        const furthest: Furthest = { off: 0, span: k, t: Math.floor(length / 2), length };
+        for (let t = 1; t < length; t += 1) {
+          const off = toPolyline(line[wrapped(from + t, n)], stretch);
+          if (off > furthest.off) {
+            furthest.off = off;
+            furthest.t = t;
+          }
+        }
+        spans.push(furthest);
+        worst = Math.max(worst, furthest.off);
+      }
+    }
+    return { sharp, spans, path: told, holds: !sharp.length && told && worst <= toleranceMm };
+  };
+
+  let chosen: number[];
+  if (closed) {
+    const first = Math.min(CLOSED_START, Math.floor(n / gap));
+    chosen = [...new Set(Array.from({ length: first }, (_, i) => Math.round((i * n) / first)))];
+  } else {
+    chosen = [0, n - 1];
+  }
+  let now = judged(chosen);
+  for (let round = 0; round < FIT_ROUNDS && chosen.length < MOST_POINTS; round += 1) {
+    const add: number[] = [];
+    for (const c of now.sharp) {
+      const at = chosen[c];
+      const here = directionAt(at);
+      for (const way of [-1, 1]) {
+        if (!closed && ((way < 0 && c === 0) || (way > 0 && c === chosen.length - 1))) continue;
+        const other = chosen[wrapped(c + way, chosen.length)];
+        const length = way > 0 ? spanOf(at, other) : spanOf(other, at);
+        if (length < 2 * gap) continue;
+        // Where the line never turns that far within the span, its middle.
+        let t = Math.floor(length / 2);
+        for (let s = 1; s <= length - gap; s += 1) {
+          if (turned(here, directionAt(wrapped(at + way * s, n))) >= turn) {
+            t = Math.max(gap, s);
+            break;
+          }
+        }
+        add.push(wrapped(at + way * Math.min(t, length - gap), n));
+      }
+    }
+    if (!add.length) {
+      if (!now.path) break;
+      let furthest: Furthest | null = null;
+      for (const span of now.spans) {
+        if (span.off > toleranceMm && span.length >= 2 * gap && span.off > (furthest?.off ?? 0)) {
+          furthest = span;
+        }
+      }
+      if (!furthest) break;
+      const t = Math.max(gap, Math.min(furthest.length - gap, furthest.t));
+      add.push(wrapped(chosen[furthest.span] + t, n));
+    }
+    const next = new Set(chosen);
+    for (const one of add) if (next.size < MOST_POINTS) next.add(one);
+    if (next.size === chosen.length) break;
+    chosen = [...next].sort((a, b) => a - b);
+    now = judged(chosen);
+  }
+  if (now.holds) {
+    // Take back each point the path holds without, the ends of an open line apart.
+    const least = closed ? 3 : 2;
+    let k = closed ? 0 : 1;
+    while (k < (closed ? chosen.length : chosen.length - 1) && chosen.length > least) {
+      const without = chosen.filter((_, i) => i !== k);
+      if (judged(without).holds) chosen = without;
+      else k += 1;
+    }
+  }
+  return chosen;
 }
 
 // ── An area's outline ────────────────────────────────────────────────────────

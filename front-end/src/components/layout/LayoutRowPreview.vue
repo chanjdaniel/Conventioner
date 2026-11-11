@@ -4,7 +4,9 @@
  * row would place, in their section's colour and dashed, since they are not tables yet; the path
  * through the points; each point clicked, the first ringed while a click on it would close the
  * path into a shape; how many tables it holds, written at the pointer; and the crosshair the
- * keys move, with a lead from the last point to it. It is a picture of
+ * keys move, with a lead from the last point to it while the path takes a further point. A line
+ * being drawn by hand has no points yet: it is its line, its tables and its count, and a ring
+ * where it began while letting go would close it. It is a picture of
  * `layoutRow.ts`'s state, in the map's millimetres, and takes no press: the editor finds a point
  * under the pointer by where it is.
  */
@@ -22,8 +24,12 @@ const props = defineProps<{
   /** Where the count is written; null writes none. */
   countAt: PointMm | null;
   crosshair: PointMm | null;
-  /** Whether a click on the first point would close the path: that point wears a ring. */
-  closes?: boolean;
+  /** Where letting go would close the path, which wears a ring: its first point, or the place
+   *  a line drawn by hand began; null draws none. */
+  closeAt?: PointMm | null;
+  /** Whether the path takes no further point (a closed shape, a line drawn by hand): the
+   *  crosshair leads nowhere from it. */
+  finished?: boolean;
   /** The colours of the section the tables would join. */
   paint: Paint;
   /** A screen pixel in the map's millimetres. */
@@ -56,7 +62,7 @@ const count = computed(() => {
 const lead = computed(() => {
   const from = props.points.at(-1);
   const to = props.crosshair;
-  if (!from || !to || (from.xMm === to.xMm && from.yMm === to.yMm)) return null;
+  if (props.finished || !from || !to || (from.xMm === to.xMm && from.yMm === to.yMm)) return null;
   return { from, to };
 });
 </script>
@@ -103,9 +109,9 @@ const lead = computed(() => {
       vector-effect="non-scaling-stroke"
     />
     <circle
-      v-if="closes && points.length"
-      :cx="points[0].xMm"
-      :cy="points[0].yMm"
+      v-if="closeAt"
+      :cx="closeAt.xMm"
+      :cy="closeAt.yMm"
       :r="px(11)"
       fill="none"
       stroke="var(--mm-blue)"

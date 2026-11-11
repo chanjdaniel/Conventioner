@@ -25,6 +25,7 @@ import {
   rowChoices,
   rowOnFrom,
   standingShapes,
+  strokeOptions,
   useRowTool,
 } from '@/components/layout/layoutRow';
 import type { SavedLayout } from '@/components/layout/layoutSave';
@@ -34,6 +35,8 @@ const SIX_FOOT = { id: 'six-foot', name: 'Standard 6 ft', widthMm: 1830, depthMm
 const SQUARE = { id: 'square', name: 'Square 4 ft', widthMm: 1220, depthMm: 1220 };
 const TYPES = [SIX_FOOT, SQUARE];
 const p = (xMm: number, yMm: number) => ({ xMm, yMm });
+/** How a drag is read at 100% zoom, 25 mm to the pixel, with Shift up. */
+const STROKE = strokeOptions(0.04, false);
 
 function table(id: string, sectionId: string | null, number: number | null, x = 5000, y = 5000) {
   return { id, sectionId, number, tableTypeId: 'six-foot', xMm: x, yMm: y, rotation: 0 };
@@ -110,18 +113,18 @@ describe('a path being drawn', () => {
     expect(row.poses.value).toEqual([]);
   });
 
-  it('shows a straight drag from its press to where it is', () => {
+  it('shows a straight stroke from its press to where it is', () => {
     const { row } = aTool();
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     expect(row.pending.value).toBe(true);
     expect(row.poses.value).toHaveLength(10);
-    row.dragTo(null);
+    row.strokeTo(null);
     expect(row.pending.value).toBe(false);
   });
 
   it('holds the gap typed, in centimetres', () => {
     const { row } = aTool();
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     rowChoices.gapCm = '30';
     expect(row.poses.value).toHaveLength(9);
     expect(row.poses.value[1].xMm - row.poses.value[0].xMm).toBeCloseTo(2130, 3);
@@ -137,7 +140,7 @@ describe('a path being drawn', () => {
 
   it('stands its tables on the right of the line drawn, the left once flipped, or on it', () => {
     const { row } = aTool();
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     expect(row.poses.value[0].yMm).toBeCloseTo(3380, 6);
     row.flip();
     expect(row.side.value).toBe('left');
@@ -150,7 +153,7 @@ describe('a path being drawn', () => {
   it('takes the size of the type chosen', () => {
     const { row, chosen } = aTool();
     chosen.tableTypeId = 'square';
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     expect(row.size.value).toMatchObject({ widthMm: 1220, depthMm: 1220 });
     expect(row.poses.value).toHaveLength(16);
   });
@@ -159,7 +162,7 @@ describe('a path being drawn', () => {
     const standing = table('a', 'gold', 1, 8000, 3380);
     const stage = { id: 'z', label: 'Stage', xMm: 14_000, yMm: 2000, widthMm: 2000, depthMm: 3000 };
     const { row, editor } = aTool([standing], [stage]);
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     const shapes = standingShapes(editor.layout.value!, () => SIX_FOOT);
     expect(row.poses.value.length).toBeGreaterThan(0);
     for (const pose of row.poses.value) {
@@ -172,7 +175,7 @@ describe('a path being drawn', () => {
 
   it('leaves out what would stand outside the floorplan', () => {
     const { row } = aTool();
-    row.dragTo([p(20_000, 3000), p(40_000, 3000)]);
+    row.strokeTo([p(20_000, 3000), p(40_000, 3000)], STROKE);
     expect(row.poses.value).toHaveLength(5);
   });
 
@@ -181,7 +184,7 @@ describe('a path being drawn', () => {
       table(`t${i}`, null, null, 100 + (i % 100) * 10, 20_000),
     );
     const { row } = aTool(full);
-    row.dragTo([p(2000, 3000), p(22_000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(22_000, 3000)], STROKE);
     expect(row.poses.value).toHaveLength(2);
   });
 
@@ -232,7 +235,7 @@ describe('a path being drawn', () => {
 describe('a row placed', () => {
   it('adds the row shown, numbered on in its section in the order drawn, and selects it', () => {
     const { row, editor, tables } = aTool([table('a', 'gold', 1), table('b', 'gold', 2, 9000)]);
-    row.dragTo([p(22_000, 3000), p(2000, 3000)]);
+    row.strokeTo([p(22_000, 3000), p(2000, 3000)], STROKE);
     const shown = row.poses.value;
     const added = row.place();
     expect(added).toHaveLength(10);
@@ -286,7 +289,7 @@ describe('a row placed', () => {
   it('puts tables of no section in none, numberless', () => {
     const { row, chosen } = aTool();
     chosen.sectionId = null;
-    row.dragTo([p(2000, 3000), p(8000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(8000, 3000)], STROKE);
     expect(row.place().map((one) => [one.sectionId, one.number])).toEqual([
       [null, null],
       [null, null],
@@ -296,7 +299,7 @@ describe('a row placed', () => {
 
   it('adds nothing where no table fits, and the path is gone', () => {
     const { row, editor } = aTool();
-    row.dragTo([p(2000, 3000), p(3000, 3000)]);
+    row.strokeTo([p(2000, 3000), p(3000, 3000)], STROKE);
     expect(row.place()).toEqual([]);
     expect(row.pending.value).toBe(false);
     expect(editor.canUndo.value).toBe(false);

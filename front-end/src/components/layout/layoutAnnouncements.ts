@@ -164,6 +164,13 @@ export function saidOpened(count: number): string {
   return `Opened again. ${held(count)}`;
 }
 
+/** A curved stroke let go, smoothed into a path that waits: "Curve drawn through 6 points. 10
+ *  tables. Enter places it."; one that came back to its start, "Loop drawn through 8 points. 14
+ *  tables. Enter places it." */
+export function saidCurveDrawn(points: number, tables: number, closed: boolean): string {
+  return `${closed ? 'Loop' : 'Curve'} drawn through ${points} points. ${held(tables)} Enter places it.`;
+}
+
 /** Said when a path of fewer than three points is asked to close. */
 export const SHAPE_NEEDS_THREE = 'A shape takes three points or more.';
 

@@ -15,10 +15,15 @@
  * type at the point, and the tool stays on. A drag or a turn is one change, and Escape puts it
  * back.
  *
- * Row of tables (`layoutRow.ts`): a press and a drag place a straight row, the count following the
- * drag; clicks instead lay the points of a path, the row following a smooth curve through them (a
- * sharp turn is a corner), shown as it would be placed with its count at the pointer, and a click
- * on the last point (so a double-click) or Enter places it. A point laid can be dragged, Backspace
+ * Row of tables (`layoutRow.ts`): a press and a drag draw the row's line by hand, the row and its
+ * count following the stroke. A nearly straight drag, or any drag with Shift held, places a
+ * straight row when it is let go; any other is smoothed, when it is let go, into a path of a few
+ * points with no corner, closed where the drag came back to where it began, which waits: its
+ * points can be dragged, it takes no further point and a press on the floor does nothing to it,
+ * and Enter places it. A stroke cut short (a second finger, a cancelled pointer, a lost release,
+ * Escape) places nothing. Clicks instead lay the points of a path, the row following a smooth
+ * curve through them (a sharp turn is a corner), shown as it would be placed with its count at
+ * the pointer, and a click on the last point (so a double-click) or Enter places it. A point laid can be dragged, Backspace
  * or Ctrl+Z takes the last one back, F swaps the side of the line the tables stand on, and Escape,
  * another tool or another location drops the path: nothing of it is ever in the layout. Points
  * snap to the corners of the tables near them and the lines of their edges, and freely with Alt.
@@ -69,6 +74,7 @@ import {
   SHAPE_NEEDS_THREE,
   saidAdded,
   saidCrosshair,
+  saidCurveDrawn,
   saidDropped,
   saidMoved,
   saidPickedUp,
@@ -125,7 +131,7 @@ import {
   type FillChoice,
   type FillRequest,
 } from './layoutFill';
-import { rowChoices, useRowTool } from './layoutRow';
+import { MAX_STROKE_SAMPLES, STROKE_PX, rowChoices, strokeOptions, useRowTool } from './layoutRow';
 import { centreOf, selectionBounds, turnSelection } from './layoutSelection';
 import { MAX_ZONES, type LayoutEditor } from './useLayoutEditor';
 
@@ -287,10 +293,23 @@ const hint = computed(() => {
           'Shift and Enter selects it, and Delete removes the selection.';
   }
   if (tool.value === 'row') {
-    return (
-      'Click along a wall. A sharp turn makes a corner. Double-click or press Enter to place ' +
-      'the row, click the first point to close a shape, or drag for a straight row.'
-    );
+    if (row.stroking.value) {
+      return (
+        'Let go to finish the line. Hold Shift for a straight row, or come back to where you ' +
+        'began to close a loop.'
+      );
+    }
+    if (row.drawn.value) {
+      return (
+        'Drag a point to adjust the curve. Enter places the row, Escape drops it, and ' +
+        'Backspace takes its last point back.'
+      );
+    }
+    return row.pending.value
+      ? 'Click along a wall. A sharp turn makes a corner. Double-click or press Enter to place ' +
+          'the row, or click the first point to close a shape.'
+      : "Click along a wall. A sharp turn makes a corner. Or drag to draw the row's line: a " +
+          'straight drag places a straight row, and a curve is smoothed for you to adjust.';
   }
   if (tool.value === 'fill') {
     return (
@@ -464,6 +483,18 @@ type Gesture =
       /** The point of the pending path that was pressed, which a drag moves. */
       point: number | null;
       begun: boolean;
+      /**
+       * The line this drag is drawing by hand, where it began with no path pending: the places
+       * kept so far, the press first; the pointer's place now, snapped as a point is, which
+       * stands last among the samples; where on the screen the last place was kept, and how far
+       * from it the next is kept.
+       */
+      stroke: {
+        kept: PointMm[];
+        pointer: PointMm;
+        keptAt: { x: number; y: number };
+        keepPx: number;
+      } | null;
     }
   | {
       kind: 'fill';
@@ -577,6 +608,36 @@ function hoverRow(event: PointerEvent) {
     return;
   }
   row.hoverAt(points.length > 1 && on === points.length - 1 ? null : rowPointAt(event));
+}
+
+/** Hand the line a drag is drawing to the row, as it stands: the places kept and the pointer's
+ *  last, read as a straight line whatever was drawn while Shift is held. */
+function showStroke(straight: boolean) {
+  const cam = camera.value;
+  if (gesture?.kind !== 'row' || !gesture.stroke || !cam) return;
+  row.strokeTo(
+    [...gesture.stroke.kept, gesture.stroke.pointer],
+    strokeOptions(cam.pxPerMm, straight),
+  );
+}
+
+/** A drag drawing a row's line moved: its place is kept when it is far enough from the last
+ *  kept, and the pointer's place, snapped, stands last. A very long stroke is thinned by half,
+ *  and kept half as closely from there on. */
+function drawStroke(event: PointerEvent) {
+  if (gesture?.kind !== 'row' || !gesture.stroke) return;
+  const stroke = gesture.stroke;
+  const away = Math.hypot(event.clientX - stroke.keptAt.x, event.clientY - stroke.keptAt.y);
+  if (away >= stroke.keepPx) {
+    stroke.kept.push(toMm(event));
+    stroke.keptAt = { x: event.clientX, y: event.clientY };
+    if (stroke.kept.length >= MAX_STROKE_SAMPLES) {
+      stroke.kept = stroke.kept.filter((_, index) => index % 2 === 0);
+      stroke.keepPx *= 2;
+    }
+  }
+  stroke.pointer = rowPointAt(event);
+  showStroke(event.shiftKey);
 }
 
 /** Close the pending path into a shape, and say what it holds; of fewer than three points, say
@@ -713,7 +774,7 @@ function onPointerDown(event: PointerEvent) {
       if (gesture && 'begun' in gesture && gesture.begun) props.editor.cancel();
       if (gesture?.kind === 'floor' && gesture.begun) props.editor.select(gesture.base);
       if (gesture?.kind === 'row') {
-        row.dragTo(null);
+        row.strokeTo(null);
         row.hoverAt(null);
       }
       if (gesture?.kind === 'fill') {
@@ -762,6 +823,7 @@ function onPointerDown(event: PointerEvent) {
       fromMm: rowPointAt(event),
       point: row.pointNear(toMm(event), ROW_POINT_PX / cam.pxPerMm),
       begun: false,
+      stroke: null,
     };
   } else if (tool.value === 'fill') {
     gesture = {
@@ -876,13 +938,23 @@ function onPointerMove(event: PointerEvent) {
     props.editor.moveTables(gesture.ids, dxMm, dyMm);
   } else if (gesture.kind === 'row') {
     if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
-    gesture.begun = true;
-    const to = rowPointAt(event);
-    // A drag moves the point pressed; with no path yet it draws a straight row; else it carries
-    // the next point, laid where it is let go.
-    if (gesture.point !== null) row.movePoint(gesture.point, to);
-    else if (!row.points.value.length) row.dragTo([gesture.fromMm, to]);
-    else row.hoverAt(to);
+    if (!gesture.begun) {
+      gesture.begun = true;
+      // With no path yet, the drag draws the row's line by hand, from the press.
+      if (gesture.point === null && !row.points.value.length) {
+        gesture.stroke = {
+          kept: [gesture.fromMm],
+          pointer: gesture.fromMm,
+          keptAt: gesture.from,
+          keepPx: STROKE_PX.keep,
+        };
+      }
+    }
+    // A drag moves the point pressed, or draws the row's line; else it carries the next point,
+    // laid where it is let go, which a path drawn by hand does not take.
+    if (gesture.point !== null) row.movePoint(gesture.point, rowPointAt(event));
+    else if (gesture.stroke) drawStroke(event);
+    else row.hoverAt(rowPointAt(event));
   } else if (gesture.kind === 'fill') {
     if (!gesture.begun && Math.hypot(dx, dy) < DRAG_PX) return;
     gesture.begun = true;
@@ -983,7 +1055,22 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
   }
   if (done.kind === 'row') {
     if (cancelled) {
-      row.dragTo(null);
+      row.strokeTo(null);
+      return;
+    }
+    if (done.stroke) {
+      // The line as it is let go: a straight one is placed at once, as a row; a curve waits,
+      // smoothed, for a look and an adjustment.
+      done.stroke.pointer = rowPointAt(event);
+      row.strokeTo(
+        [...done.stroke.kept, done.stroke.pointer],
+        strokeOptions(camera.value!.pxPerMm, event.shiftKey),
+      );
+      const ended = row.endStroke();
+      if (ended === 'straight') placeRow();
+      else if (ended === 'curve') {
+        say(saidCurveDrawn(row.points.value.length, row.poses.value.length, row.closed.value));
+      }
       return;
     }
     const points = row.points.value;
@@ -1002,11 +1089,8 @@ function endGesture(event: PointerEvent, cancelled: boolean) {
         row.hoverAt(null);
         placeRow();
       }
-    } else if (row.closed.value) {
-      // A press on the floor adds nothing to a closed shape.
-    } else if (done.begun && !points.length) {
-      row.dragTo([done.fromMm, rowPointAt(event)]);
-      placeRow();
+    } else if (row.closed.value || row.drawn.value) {
+      // A press on the floor adds nothing to a closed shape, nor to a path drawn by hand.
     } else {
       row.addPoint(done.begun ? rowPointAt(event) : done.fromMm);
     }
@@ -1086,8 +1170,8 @@ function abandon() {
   zoneBox.value = null;
   dragging.value = false;
   if (done?.kind === 'row') {
-    // A straight drag is dropped; a point that was being moved stays where it was let go.
-    row.dragTo(null);
+    // A line being drawn is dropped; a point that was being moved stays where it was let go.
+    row.strokeTo(null);
     return;
   }
   if (done?.kind === 'fill') {
@@ -1169,6 +1253,8 @@ function turnByKey(degrees: number) {
 }
 
 function onWindowKeydown(event: KeyboardEvent) {
+  // Shift pressed under a line being drawn makes it a straight row, with no pointer move.
+  if (event.key === 'Shift') showStroke(true);
   if (event.defaultPrevented || inAField(event)) return;
   // A dialog over the page has the keys.
   if (document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
@@ -1281,8 +1367,9 @@ function rowKey(event: KeyboardEvent, onStage: boolean): boolean {
   if (event.shiftKey) return false;
   if (key === 'enter' && ours) {
     if (event.repeat || gesture) return true;
-    // A closed shape takes no further point: Enter places it, for the keys as for a pointer.
-    if (onStage && keysOnMap.value && !row.closed.value) {
+    // A closed shape takes no further point, nor does a path drawn by hand: Enter places it,
+    // for the keys as for a pointer.
+    if (onStage && keysOnMap.value && !row.closed.value && !row.drawn.value) {
       const at = row.crosshair.value ?? crosshairStart();
       const last = row.points.value.at(-1);
       row.moveCrosshair(at);
@@ -1440,6 +1527,8 @@ function zoomByKey(direction: 1 | -1) {
 
 function onWindowKeyup(event: KeyboardEvent) {
   if (event.key === ' ') spaceHeld.value = false;
+  // Shift let go under a line being drawn: it is read as drawn again, with no pointer move.
+  if (event.key === 'Shift') showStroke(false);
 }
 
 /** The pointer left the map: a pending row or area is shown through its points alone. */
@@ -2079,7 +2168,8 @@ watch(
             :size="row.size.value"
             :points="row.points.value"
             :countAt="row.pending.value ? (crosshair ?? row.countAt.value) : null"
-            :closes="row.closing.value && row.closable.value"
+            :closeAt="row.closeAt.value"
+            :finished="row.closed.value || row.drawn.value"
             :crosshair="crosshair"
             :paint="rowPaint"
             :mmPerPx="mmPerPx"
