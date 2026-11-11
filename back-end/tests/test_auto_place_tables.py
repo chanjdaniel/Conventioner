@@ -185,10 +185,10 @@ AISLE = {"wall_buffer_mm": 0, "table_spacing_mm": 1200}
 
 
 def fill(count, *, area_mm=None, area_polygon_mm=None, obstacles=(), existing_mm=(),
-         direction="across", room_mm=AREA_HALL):
+         direction="across", room_mm=AREA_HALL, aisle=AISLE):
     return Placement.auto_place_tables(
         walls=[], obstacles=list(obstacles), table_types=[SIX_FOOT], counts={"six": count},
-        scale_px_per_mm=0.02, room_mm=room_mm, aisle_config=AISLE, area_mm=area_mm,
+        scale_px_per_mm=0.02, room_mm=room_mm, aisle_config=aisle, area_mm=area_mm,
         area_polygon_mm=area_polygon_mm, existing_mm=list(existing_mm), direction=direction,
     )
 
@@ -256,6 +256,22 @@ class TestFillingABox:
         assert len(placed) == 15
         assert all(table["rotation"] == 90 for table in placed)
         assert sorted({round(table["x_mm"]) for table in placed}) == [375, 2325, 4275]
+
+    def test_a_wall_buffer_is_not_kept_inside_an_area(self, either_install):
+        """An area is where the organizer said the tables go: a wall buffer, asked for a whole
+        room, keeps nothing clear inside it, nor along the floorplan's edge."""
+        buffered = {**AISLE, "wall_buffer_mm": 1500}
+
+        inside = [_footprint(table) for table in
+                  fill(500, area_mm=[2000, 3000, 20000, 12000], aisle=buffered).placed]
+        at_the_edge = [_footprint(table) for table in
+                       fill(500, area_mm=[0, 0, 10000, 5000], aisle=buffered).placed]
+
+        assert min(f[0] for f in inside) == pytest.approx(2000, abs=0.01)
+        assert min(f[1] for f in inside) == pytest.approx(3000, abs=0.01)
+        assert min(f[0] for f in at_the_edge) == pytest.approx(0, abs=0.01)
+        assert min(f[1] for f in at_the_edge) == pytest.approx(0, abs=0.01)
+        assert len(at_the_edge) == 15
 
     def test_no_table_stands_on_a_no_table_zone(self, either_install):
         zone = {"polygon": [[6000, 0], [9000, 0], [9000, 20000], [6000, 20000]], "type": "no_table_zone"}
