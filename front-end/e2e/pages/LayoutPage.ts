@@ -482,6 +482,26 @@ export class LayoutPage {
   }
 
   /**
+   * Press at the first of some places of the hall, in millimetres, and drag through the rest in
+   * order, one move of the pointer to each, as a hand draws a line; `hold` runs at the last place
+   * while the button is still down, and `key` is held from before the press until after the
+   * release.
+   */
+  async drawThrough(
+    places: [number, number][],
+    options: { hold?: () => Promise<void>; key?: string } = {},
+  ): Promise<void> {
+    const [first, ...rest] = await Promise.all(places.map((place) => this.onScreen(place)));
+    if (options.key) await this.page.keyboard.down(options.key);
+    await this.page.mouse.move(first.x, first.y);
+    await this.page.mouse.down();
+    for (const at of rest) await this.page.mouse.move(at.x, at.y);
+    await options.hold?.();
+    await this.page.mouse.up();
+    if (options.key) await this.page.keyboard.up(options.key);
+  }
+
+  /**
    * Do something that changes the layout, and wait for the save it starts to be answered and the
    * page to say so. The wait is for the write itself: a change waits 600 ms before it is sent.
    */

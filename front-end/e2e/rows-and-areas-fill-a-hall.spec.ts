@@ -14,8 +14,9 @@ import {
 import { apart as separation, cornersOf as tableCorners } from './helpers/tableShapes';
 
 /**
- * Rows of tables and filled areas fill a hall (T257 tickets 07 to 09), on Upper Hall, 30 m by 22.5 m, with
- * six-foot tables, 1830 by 760 mm: a drag places a straight row, clicks along a wall place a row
+ * Rows of tables and filled areas fill a hall (T257 tickets 07 to 10 and 15), on Upper Hall, 30 m by 22.5 m, with
+ * six-foot tables, 1830 by 760 mm: a drag draws a row's line by hand, a straight one placed at
+ * once and a curved one smoothed for a look first; clicks along a wall place a row
  * that follows it, round a curve or a corner, on the side chosen, clear of what stands there; a
  * click on the first point closes the path into a shape, its tables spread evenly round it;
  * Rows and Aisle place several rows in the one gesture; and the crosshair lays the same rows and
@@ -741,6 +742,413 @@ function rowsOf(tables: StoredLayoutTable[]): StoredLayoutTable[][] {
 }
 
 const PLACE_TABLES = '**/floorplans/place-tables';
+
+/** Places along a circle about a centre, in millimetres, from one angle to another, the angle
+ *  growing clockwise on the page: what a hand drawing the arc passes through. */
+function alongArc(
+  centre: readonly [number, number],
+  radius: number,
+  fromDegrees: number,
+  toDegrees: number,
+  count: number,
+): [number, number][] {
+  return Array.from({ length: count + 1 }, (_, i) => {
+    const turn = ((fromDegrees + ((toDegrees - fromDegrees) * i) / count) * Math.PI) / 180;
+    return [centre[0] + radius * Math.cos(turn), centre[1] + radius * Math.sin(turn)];
+  });
+}
+
+const HINT_NOTHING_PENDING =
+  "Click along a wall. A sharp turn makes a corner. Or drag to draw the row's line: a straight " +
+  'drag places a straight row, and a curve is smoothed for you to adjust.';
+const HINT_STROKE_IN_HAND =
+  'Let go to finish the line. Hold Shift for a straight row, or come back to where you began to ' +
+  'close a loop.';
+const HINT_CLICKED_PATH =
+  'Click along a wall. A sharp turn makes a corner. Double-click or press Enter to place the ' +
+  'row, or click the first point to close a shape.';
+const HINT_DRAWN_PATH =
+  'Drag a point to adjust the curve. Enter places the row, Escape drops it, and Backspace takes ' +
+  'its last point back.';
+
+/**
+ * A row's line drawn by hand (T257 ticket 15): with Row of tables on, a press and a drag draw the
+ * line. A nearly straight drag, or any with Shift held, places a straight row on release; any
+ * other is smoothed on release into a pending path of a few points, a loop where it came back to
+ * its start, which is adjusted by its points and placed by Enter. The map is about 50 mm to the
+ * pixel here, so a quarter of a 5 m circle is some 160 px of stroke and fits to three points.
+ */
+test.describe('A row is drawn by hand', () => {
+  /** A wall of 5 m radius about (9, 8) m: its quarter from the east to the south, drawn
+   *  clockwise on the page, so the tables stand inside it. */
+  const centre = [9000, 8000] as const;
+  const quarter = () => alongArc(centre, 5000, 0, 90, 40);
+  const fromCentre = (point: { xMm: number; yMm: number }) =>
+    Math.hypot(point.xMm - centre[0], point.yMm - centre[1]);
+  /** How many places the line the preview draws goes through: two for a straight row. */
+  const linePlaces = async (layout: LayoutPage) =>
+    ((await layout.rowLines.first().getAttribute('points')) ?? '').trim().split(/\s+/).length;
+  const saves = (page: Page) => {
+    const sent: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/floorplans/save-to-market')) sent.push(request.url());
+    });
+    return sent;
+  };
+
+  test('a drag bowed 8 px over 400 px is still a straight row, placed on release', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request);
+    const { scale } = await layout.onScreen([0, 0]);
+    // 400 px along the hall from (4, 6) m, bowed 8 px to the south at its middle.
+    const chord = 400 / scale;
+    const bow = 8 / scale;
+    const places = Array.from({ length: 41 }, (_, i): [number, number] => {
+      const t = i / 40;
+      return [4000 + chord * t, 6000 + 4 * bow * t * (1 - t)];
+    });
+    const count = Math.floor(chord / SIX_FOOT.widthMm);
+
+    await layout.saved(() =>
+      layout.drawThrough(places, {
+        hold: async () => {
+          // Shown straight while the button is down: the line between the press and the pointer.
+          await expect(layout.rowCount).toHaveText(`${count} tables`);
+          expect(await linePlaces(layout)).toBe(2);
+          await expect(layout.rowPoints).toHaveCount(0);
+        },
+      }),
+    );
+    await expect(layout.rowPreview).toHaveCount(0);
+    await expect(layout.announcement).toHaveText(`Added Gold row 1 to ${count}.`);
+
+    const tables = await stored(request, seeded.marketId);
+    expect(tables).toHaveLength(count);
+    // One line: no table turned, each a table's width from the last, under the line drawn.
+    expect(new Set(tables.map((table) => table.rotation))).toEqual(new Set([0]));
+    for (const step of steps(tables)) expect(step).toBeCloseTo(1830, 1);
+    for (const table of tables) expect(Math.abs(table.yMm - 6380)).toBeLessThan(2 * A_PIXEL_MM);
+  });
+
+  test('a drag along a quarter of a 5 m circle waits as a path of three points with its count, stores nothing, and Enter places a row beside the circle that one Undo removes', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request);
+    const sent = saves(page);
+    await expect(layout.hint).toHaveText(HINT_NOTHING_PENDING);
+
+    const places = quarter();
+    await layout.drawThrough(places, {
+      hold: async () => {
+        // The row follows the line while the button is down, its count at the pointer, and the
+        // line has no points yet.
+        await expect(layout.hint).toHaveText(HINT_STROKE_IN_HAND);
+        await expect(layout.rowCount).toHaveText('3 tables');
+        await expect(layout.rowTables).toHaveCount(3);
+        await expect(layout.rowPoints).toHaveCount(0);
+        await expect(layout.rowClose).toHaveCount(0);
+        expect(await linePlaces(layout)).toBeGreaterThan(20);
+      },
+    });
+
+    // Let go, it is smoothed into a path that waits: three points, said, with its count at its
+    // end.
+    await expect(layout.rowPoints).toHaveCount(3);
+    await expect(layout.announcement).toHaveText(
+      'Curve drawn through 3 points. 3 tables. Enter places it.',
+    );
+    await expect(layout.hint).toHaveText(HINT_DRAWN_PATH);
+    await expect(layout.rowCount).toHaveText('3 tables');
+    await expect(layout.rowTables).toHaveCount(3);
+    const end = await layout.onScreen(places.at(-1)!);
+    const chip = (await layout.rowCount.boundingBox())!;
+    expect(Math.abs(chip.x - end.x)).toBeLessThan(40);
+    expect(Math.abs(chip.y - end.y)).toBeLessThan(40);
+
+    // Nothing of it is the layout's.
+    await expect(layout.tables).toHaveCount(0);
+    await expect(layout.undo).toBeDisabled();
+    expect(sent).toEqual([]);
+    expect(await stored(request, seeded.marketId)).toHaveLength(0);
+
+    await layout.saved(() => page.keyboard.press('Enter'));
+    await expect(layout.rowPreview).toHaveCount(0);
+    await expect(layout.announcement).toHaveText('Added Gold row 1 to 3.');
+    await expect(layout.hint).toHaveText(HINT_NOTHING_PENDING);
+    await expect(layout.selectionTitle).toHaveText('3 tables selected');
+
+    const tables = await stored(request, seeded.marketId);
+    expect(tables).toHaveLength(3);
+    // No two overlap, to a twentieth of a millimetre.
+    expect(leastSeparation(tables)).toBeGreaterThanOrEqual(-0.05);
+    for (const table of tables) {
+      // Beside the circle, inside it: no corner past it, and each middle about half a table's
+      // depth in, by no more than the line settled when it was let go.
+      for (const corner of tableCorners(table, SIX_FOOT)) {
+        expect(fromCentre(corner)).toBeLessThan(5000 + 200);
+      }
+      expect(fromCentre(table)).toBeLessThan(5000 - 300);
+      expect(fromCentre(table)).toBeGreaterThan(5000 - 760 - 200);
+    }
+    // Round the wall the way it was drawn.
+    const angles = tables.map((table) => Math.atan2(table.yMm - centre[1], table.xMm - centre[0]));
+    expect(angles).toEqual([...angles].sort((a, b) => a - b));
+
+    await layout.saved(() => layout.undo.click());
+    await expect(layout.tables).toHaveCount(0);
+    expect(await stored(request, seeded.marketId)).toHaveLength(0);
+  });
+
+  test('a drawn path is adjusted by its points alone: a point dragged moves the row, the floor adds nothing, Backspace takes its last point, and at one point it is a clicked path again; Escape drops it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request);
+    const sent = saves(page);
+    await layout.drawThrough(quarter());
+    await expect(layout.rowPoints).toHaveCount(3);
+    const tablesShown = () =>
+      layout.rowTables.evaluateAll((all) => all.map((one) => one.getAttribute('transform')));
+    const before = await tablesShown();
+
+    // A click on the floor, and a drag over it, add no point and move nothing.
+    await layout.clickAt([20_000, 16_000]);
+    await layout.drag([20_000, 16_000], [24_000, 18_000]);
+    await layout.hoverAt([22_000, 5000]);
+    await expect(layout.rowPoints).toHaveCount(3);
+    expect(await tablesShown()).toEqual(before);
+    await expect(layout.hint).toHaveText(HINT_DRAWN_PATH);
+
+    // Its middle point dragged 1 m outward: the row goes with it.
+    const { scale } = await layout.onScreen([0, 0]);
+    const middle = (await layout.rowPoints.nth(1).boundingBox())!;
+    const from = { x: middle.x + middle.width / 2, y: middle.y + middle.height / 2 };
+    const by = (1000 * scale) / Math.SQRT2;
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + by / 2, from.y + by / 2);
+    await page.mouse.move(from.x + by, from.y + by);
+    await page.mouse.up();
+    await expect(layout.rowPoints).toHaveCount(3);
+    const moved = (await layout.rowPoints.nth(1).boundingBox())!;
+    expect(Math.abs(moved.x + moved.width / 2 - (from.x + by))).toBeLessThan(2);
+    expect(Math.abs(moved.y + moved.height / 2 - (from.y + by))).toBeLessThan(2);
+    expect(await tablesShown()).not.toEqual(before);
+    await expect(layout.rowTables.first()).toBeVisible();
+
+    // Backspace takes its last point, and the next: the layout's own undo is left alone.
+    await page.keyboard.press('Backspace');
+    await expect(layout.rowPoints).toHaveCount(2);
+    await expect(layout.announcement).toHaveText(/^Point 3 taken back\. /);
+    await expect(layout.hint).toHaveText(HINT_DRAWN_PATH);
+    await page.keyboard.press('Backspace');
+    await expect(layout.rowPoints).toHaveCount(1);
+
+    // Taken back to one point it is a clicked path: the pointer has it, and a click lays a
+    // second point.
+    await expect(layout.hint).toHaveText(HINT_CLICKED_PATH);
+    await layout.hoverAt([20_000, 8000]);
+    await expect(layout.rowCount).toHaveText(/^\d+ tables$/);
+    await layout.clickAt([20_000, 8000]);
+    await expect(layout.rowPoints).toHaveCount(2);
+
+    // Escape drops it, with no table added and nothing sent.
+    await page.keyboard.press('Escape');
+    await expect(layout.rowPreview).toHaveCount(0);
+    await expect(layout.announcement).toHaveText('Row dropped. No table was added.');
+    await expect(layout.hint).toHaveText(HINT_NOTHING_PENDING);
+
+    // And a drawn one whole: Escape again.
+    await layout.drawThrough(quarter());
+    await expect(layout.rowPoints).toHaveCount(3);
+    await page.keyboard.press('Escape');
+    await expect(layout.rowPreview).toHaveCount(0);
+    await expect(layout.tables).toHaveCount(0);
+    expect(sent).toEqual([]);
+    expect(await stored(request, seeded.marketId)).toHaveLength(0);
+  });
+
+  test('Shift held through a curved drag places a straight row from the press to the release, and Shift pressed or let go mid-drag changes what is shown with no move of the pointer', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request);
+    const places = quarter();
+
+    // Shift pressed and let go under the button, the pointer still.
+    await layout.drawThrough(places, {
+      hold: async () => {
+        expect(await linePlaces(layout)).toBeGreaterThan(20);
+        await page.keyboard.down('Shift');
+        await expect.poll(() => linePlaces(layout)).toBe(2);
+        await page.keyboard.up('Shift');
+        await expect.poll(() => linePlaces(layout)).toBeGreaterThan(20);
+        // Escape with the button down drops the line: letting go then places nothing.
+        await page.keyboard.press('Escape');
+        await expect(layout.rowPreview).toHaveCount(0);
+      },
+    });
+    await expect(layout.rowPreview).toHaveCount(0);
+    await expect(layout.tables).toHaveCount(0);
+    await expect(layout.undo).toBeDisabled();
+
+    // Held through the whole drag: a straight row, placed at once.
+    await layout.saved(() =>
+      layout.drawThrough(places, {
+        key: 'Shift',
+        hold: async () => {
+          expect(await linePlaces(layout)).toBe(2);
+          await expect(layout.rowCount).toHaveText('3 tables');
+        },
+      }),
+    );
+    await expect(layout.rowPreview).toHaveCount(0);
+    await expect(layout.announcement).toHaveText('Added Gold row 1 to 3.');
+    const tables = await stored(request, seeded.marketId);
+    expect(tables).toHaveLength(3);
+    // From (14, 8) m to (9, 13) m: every table turned the one way, along that line, 1830 mm from
+    // the last, with its back on it.
+    expect(new Set(tables.map((table) => table.rotation))).toEqual(new Set([315]));
+    for (const step of steps(tables)) expect(step).toBeCloseTo(1830, 1);
+    for (const table of tables) {
+      // The line is x + y = 22 000: a middle stands half a table's depth off it.
+      const off = Math.abs(table.xMm + table.yMm - 22_000) / Math.SQRT2;
+      expect(Math.abs(off - 380)).toBeLessThan(2 * A_PIXEL_MM);
+    }
+  });
+
+  test("a ring drawn round a no-table zone and let go on its start closes into a loop of eight points, its start ringed while the button is down, and Enter places tables round it, every gap the same, the seam's too", async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // A stage 4 m square in the middle of the hall, and a ring drawn round it 4 m out, well
+    // clear of its corners: smoothed, a ring that small on the screen stands a pixel or two
+    // inside the hand's.
+    const stage = [15_000, 11_000] as const;
+    const { layout, seeded } = await open(
+      page,
+      request,
+      [],
+      [{ label: 'Stage', box: [13_000, 9000, 4000, 4000] }],
+    );
+    // Drawn clockwise on the page the tables would stand inside: Flip side puts them out.
+    await layout.rowFlip.click();
+    const ring = alongArc(stage, 4000, 0, 360, 72);
+
+    await layout.drawThrough(ring, {
+      hold: async () => {
+        // Back where it began, it is shown closed before it is let go.
+        await expect(layout.rowClose).toBeVisible();
+        await expect(layout.rowPoints).toHaveCount(0);
+        await expect(layout.rowCount).toHaveText('13 tables');
+      },
+    });
+    await expect(layout.rowPoints).toHaveCount(8);
+    await expect(layout.rowClose).toHaveCount(0);
+    await expect(layout.rowLines).toHaveCount(1);
+    await expect(layout.announcement).toHaveText(
+      'Loop drawn through 8 points. 13 tables. Enter places it.',
+    );
+    await expect(layout.hint).toHaveText(HINT_DRAWN_PATH);
+    // A loop is a closed shape: an open path's choice is not offered, and nothing is stored.
+    await expect(layout.rowSpread).toBeDisabled();
+    await expect(layout.tables).toHaveCount(0);
+
+    await layout.saved(() => page.keyboard.press('Enter'));
+    await expect(layout.announcement).toHaveText('Added Gold row 1 to 13.');
+    await expect(layout.tables).toHaveCount(13);
+
+    const tables = await stored(request, seeded.marketId);
+    expect(tables).toHaveLength(13);
+    expect(leastSeparation(tables)).toBeGreaterThanOrEqual(-0.05);
+    const fromStage = (point: { xMm: number; yMm: number }) =>
+      Math.hypot(point.xMm - stage[0], point.yMm - stage[1]);
+    for (const table of tables) {
+      // Outside the ring, clear of the stage, its back against the line as it settled.
+      for (const corner of tableCorners(table, SIX_FOOT)) {
+        expect(fromStage(corner)).toBeGreaterThan(4000 - 300);
+      }
+      expect(fromStage(table)).toBeLessThan(4000 + 380 + 200);
+    }
+    // Every table as far from the next as the last is from the first, to a millimetre.
+    const gaps = tables.map((table, i) =>
+      separation(
+        tableCorners(table, SIX_FOOT),
+        tableCorners(tables[(i + 1) % tables.length], SIX_FOOT),
+      ),
+    );
+    expect(Math.min(...gaps)).toBeGreaterThan(0);
+    expect(Math.max(...gaps) - Math.min(...gaps)).toBeLessThan(1);
+  });
+
+  test('a line cut short by a second finger, or by a touch the browser cancels, places nothing and leaves nothing pending', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout, seeded } = await open(page, request);
+    const sent = saves(page);
+    const places = await Promise.all(quarter().map((place) => layout.onScreen(place)));
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (
+      type: 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel',
+      points: { x: number; y: number; id: number }[],
+    ) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+    const finger = (at: { x: number; y: number }) => ({ x: at.x, y: at.y, id: 0 });
+
+    // One finger draws the line; a second makes it a pinch.
+    await touch('touchStart', [finger(places[0])]);
+    for (const at of places.slice(1)) await touch('touchMove', [finger(at)]);
+    await expect(layout.rowCount).toHaveText('3 tables');
+    await expect(layout.hint).toHaveText(HINT_STROKE_IN_HAND);
+    const last = places.at(-1)!;
+    await touch('touchStart', [finger(last), { x: last.x + 80, y: last.y - 60, id: 1 }]);
+    await expect(layout.rowPreview).toHaveCount(0);
+    await touch('touchEnd', []);
+    await expect(layout.rowPreview).toHaveCount(0);
+    await expect(layout.hint).toHaveText(HINT_NOTHING_PENDING);
+
+    // A touch cancelled under the line.
+    await touch('touchStart', [finger(places[0])]);
+    for (const at of places.slice(1)) await touch('touchMove', [finger(at)]);
+    await expect(layout.rowCount).toHaveText('3 tables');
+    await touch('touchCancel', []);
+    await expect(layout.rowPreview).toHaveCount(0);
+    await cdp.detach();
+
+    await expect(layout.tables).toHaveCount(0);
+    await expect(layout.undo).toBeDisabled();
+    expect(sent).toEqual([]);
+    expect(await stored(request, seeded.marketId)).toHaveLength(0);
+  });
+
+  test('the hint says each of the four ways the tool stands', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { layout } = await open(page, request);
+    await expect(layout.hint).toHaveText(HINT_NOTHING_PENDING);
+    await layout.clickAt([3000, 4000]);
+    await expect(layout.hint).toHaveText(HINT_CLICKED_PATH);
+    await page.keyboard.press('Escape');
+    await expect(layout.hint).toHaveText(HINT_NOTHING_PENDING);
+    await layout.drawThrough(quarter(), {
+      hold: async () => {
+        await expect(layout.hint).toHaveText(HINT_STROKE_IN_HAND);
+      },
+    });
+    await expect(layout.hint).toHaveText(HINT_DRAWN_PATH);
+    // The keys' own hint is as it was.
+    await layout.tabToTheMap();
+    await expect(layout.hint).toContainText('The arrow keys move the crosshair');
+    // And with the crosshair on the map, Enter places the drawn path and lays no point on it.
+    await layout.saved(() => page.keyboard.press('Enter'));
+    await expect(layout.announcement).toHaveText('Added Gold row 1 to 3.');
+    await expect(layout.tables).toHaveCount(3);
+  });
+});
 
 test.describe('Areas fill a hall', () => {
   test('a box dragged over empty floor and asked for 30 is filled with 30, in rows touching with the aisle between them, numbered as read, and one Undo takes them all', async ({

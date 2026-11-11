@@ -256,6 +256,7 @@ function layoutAt(
     | 'pickedUp'
     | 'keys'
     | 'row'
+    | 'drawn'
     | 'fillShape'
     | 'fillDialog'
     | 'typeDialog'
@@ -316,6 +317,19 @@ function layoutAt(
         await page.keyboard.press('Enter');
         await expect(layout.rowCount).toBeVisible();
         await expect(layout.rowTables.first()).toBeVisible();
+      }
+      if (stage === 'drawn') {
+        // Row of tables on, and a quarter of a 5 m circle drawn by hand over the clear floor
+        // south of the tables: let go, it waits as a path with its points, its row and its count.
+        await layout.toolRow.click();
+        const places = Array.from({ length: 41 }, (_, i): [number, number] => {
+          const turn = ((i / 40 - 1) * Math.PI) / 2;
+          return [13_000 + 5000 * Math.cos(turn), 20_500 + 5000 * Math.sin(turn)];
+        });
+        await layout.drawThrough(places);
+        await expect(layout.rowPoints.first()).toBeVisible();
+        await expect(layout.rowTables.first()).toBeVisible();
+        await expect(layout.hint).toContainText('Drag a point to adjust the curve.');
       }
       if (stage === 'fillShape' || stage === 'fillDialog') {
         // Fill an area on, and an L's corners clicked over the clear floor south of the tables.
@@ -1380,6 +1394,14 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     deskOnly: true,
     open: layoutAt('row'),
+  },
+  // A row's line drawn by hand (T257): the smoothed path waiting with its points.
+  {
+    name: 'the layout, a curve drawn by hand',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('drawn'),
   },
   // Fill an area (T257): a shape's corners clicked over the map, then its dialog.
   {
