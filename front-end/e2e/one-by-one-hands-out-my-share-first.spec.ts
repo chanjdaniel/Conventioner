@@ -81,7 +81,7 @@ test('a chosen reviewer decides their share, then helps with the others', async 
 
     await monitor.helpOthersButton.click();
     await expect(monitor.email).toHaveText(ANAS_FIRST);
-    await expect(monitor.progress).toHaveText('1 of 3 to review');
+    await expect(monitor.progress).toHaveText('1 of 3 open');
     await expect(monitor.dealtWarning).toHaveText(
       `This application is dealt to ${ANA}. If you decide it, its history will say you decided it for them.`,
     );
@@ -99,11 +99,11 @@ test('an Admin who is not a reviewer walks every application as before', async (
     await page.goto(oneByOnePath(marketId));
     await monitor.waitForLoaded();
 
-    await expect(monitor.progress).toHaveText('1 of 5 to review');
+    await expect(monitor.progress).toHaveText('1 of 5 open');
     expect(await monitor.queuedEmails()).toEqual(VENDORS);
 
     await monitor.approve(ANAS_FIRST);
-    await expect(monitor.progress).toContainText('of 4 to review');
+    await expect(monitor.progress).toContainText('of 4 open');
     await expect(monitor.shareDone).toHaveCount(0);
   });
 });

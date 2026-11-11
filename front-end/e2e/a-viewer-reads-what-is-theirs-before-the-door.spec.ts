@@ -118,7 +118,7 @@ for (const size of SIZES) {
 
       await page.goto(`/markets/${stageId}/applications`);
       await expect(railSentence(page)).toContainText(
-        'Applications are open on your vendor page: review them as they arrive. Finish deciding: 1 application is still awaiting review.',
+        'Applications are open on your vendor page: review them as they arrive. Finish deciding: 1 application is still open.',
         { timeout: 15000 },
       );
 

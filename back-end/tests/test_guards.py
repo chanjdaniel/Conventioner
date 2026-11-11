@@ -685,7 +685,17 @@ class TestAllApplicationsReviewedGuard:
         self._patch(monkeypatch, total=3, unreviewed=1)
         result = AllApplicationsReviewedGuard().evaluate(self._market(), None)
         assert result.passed is False
-        assert "still awaiting review" in result.message.lower()
+        # The patch counts every status alike, so the follow-ups are named beside the open ones.
+        assert result.message.startswith(
+            "1 application is still open and 1 application needs a follow-up. "
+        )
+
+    def test_counts_several_open_in_the_plural(self, monkeypatch):
+        self._patch(monkeypatch, total=3, unreviewed=2)
+        result = AllApplicationsReviewedGuard().evaluate(self._market(), None)
+        assert result.message.startswith(
+            "2 applications are still open and 2 applications need a follow-up. "
+        )
 
     def test_fails_when_some_apps_are_under_review(self, monkeypatch):
         self._patch(monkeypatch, total=1, unreviewed=1)
