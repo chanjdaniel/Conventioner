@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   changedSpecFiles,
+  duration,
   MAX_REPEATS,
   MIN_REPEATS,
   REPEAT_BUDGET_SECONDS,
@@ -79,5 +80,14 @@ describe('repeatsFor', () => {
 
   it('runs enough times to catch a spec failing one run in three', () => {
     expect(MAX_REPEATS).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('duration', () => {
+  it('reads seconds under a minute, and minutes to a tenth above it', () => {
+    expect(duration(2.7)).toBe('3 seconds');
+    expect(duration(59.4)).toBe('59 seconds');
+    expect(duration(60)).toBe('1.0 minutes');
+    expect(duration(389.7)).toBe('6.5 minutes');
   });
 });
