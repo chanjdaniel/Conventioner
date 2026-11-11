@@ -166,16 +166,33 @@ class TestWhatIsRecorded:
 
         assert entries(history) == []
 
-    def test_ownership_handed_on_names_the_owner_before_and_after(self, org, history):
-        OrgsApi.transfer_org_ownership(ORG, OWNER.email, ADMIN.email)
+    @pytest.mark.parametrize("new_owner", [ADMIN, MEMBER], ids=["to an admin", "to a member"])
+    def test_ownership_handed_on_names_the_owner_before_and_after(
+        self, org, history, new_owner,
+    ):
+        OrgsApi.transfer_org_ownership(ORG, OWNER.email, new_owner.email)
 
         entry = only(history)
+        assert entry["actor"] == OWNER.email
         assert entry["action"] == History.TRANSFER_ORGANIZATION
         assert entry["kind"] is None
-        assert entry["subject"] == {"user_id": ADMIN.id, "email": ADMIN.email}
+        assert entry["subject"] == {"user_id": new_owner.id, "email": new_owner.email}
         assert entry["detail"] == {
-            "before": {"owner": OWNER.email}, "after": {"owner": ADMIN.email},
+            "before": {"owner": OWNER.email}, "after": {"owner": new_owner.email},
         }
+
+    def test_ownership_handed_to_someone_outside_it_is_refused_and_records_nothing(
+        self, org, history,
+    ):
+        from client_errors import BadRequestError
+
+        with pytest.raises(BadRequestError) as refused:
+            OrgsApi.transfer_org_ownership(ORG, OWNER.email, OUTSIDER.email)
+
+        assert refused.value.message == (
+            "Hand the organization only to one of its admins or members.")
+        assert org.doc["owner"] == OWNER.id and org.writes == []
+        assert entries(history) == []
 
     def test_ownership_handed_to_its_own_owner_is_refused_before_anything_changes(
         self, org, history,

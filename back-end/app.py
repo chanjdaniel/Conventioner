@@ -731,15 +731,15 @@ def change_org_place(org_id: str, user_id: str) -> Response:
 @app.route('/organizations/<org_id>/transfer', methods=['POST'])
 @login_required
 def transfer_org_ownership(org_id: str) -> Response:
-    """Transfer organization ownership."""
+    """Hand the organization on to one of its admins or members: its owner's to do. The body is
+    ``{"new_owner_email": "<address>"}``."""
     data = json_object(required=True)
 
     new_owner_email = string_field(data, 'new_owner_email')
     if not new_owner_email:
         return jsonify({"error": "new_owner_email required"}), 400
 
-    if not OrgsApi.transfer_org_ownership(org_id, authenticated_email(), new_owner_email):
-        return jsonify({"error": "Failed to transfer ownership"}), 400
+    OrgsApi.transfer_org_ownership(org_id, authenticated_email(), new_owner_email)
     return jsonify({"message": "Ownership transferred successfully"}), 200
 
 # Market role management

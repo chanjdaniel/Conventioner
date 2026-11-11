@@ -41,6 +41,8 @@ from datatypes import organization_people_of
 from organization_people import (
     ALREADY_A_MEMBER,
     ALREADY_AN_ADMIN,
+    ALREADY_OWNS_IT,
+    HAND_IT_ONLY_TO_ITS_PEOPLE,
     NO_LONGER_IN_THE_ORGANIZATION,
     ORGANIZATION_CHANGED,
     THE_OWNERS_PLACE,
@@ -119,10 +121,17 @@ def places(doc):
 # ── Failing first: the planner's add-member interleaving probe ───────────────────────────────
 
 
+def owner_adds_and_hands_on_to_new():
+    """The owner adds NEW and hands them the organization: a transfer goes only to one of its
+    people (ticket 04), so on ``dev``, which handed it to anyone, it was the transfer alone."""
+    OrgsApi.add_org_admin(ORG, NEW.email, OWNER.email)
+    OrgsApi.transfer_org_ownership(ORG, OWNER.email, NEW.email)
+
+
 def test_an_add_member_judged_before_a_transfer_to_that_person_is_refused(stored, recorded):
     # The admin adds NEW as a member; between its read and its write the owner hands NEW the
     # organization. On dev the add landed: owner NEW and NEW in members, which does not parse.
-    stored.before_write = lambda: OrgsApi.transfer_org_ownership(ORG, OWNER.email, NEW.email)
+    stored.before_write = owner_adds_and_hands_on_to_new
 
     with pytest.raises(OrganizationChanged):
         OrgsApi.add_org_member(ORG, NEW.email, ADMIN.email)
@@ -130,8 +139,9 @@ def test_an_add_member_judged_before_a_transfer_to_that_person_is_refused(stored
     assert places(stored.doc)[NEW.id] == "owner"
     assert NEW.id not in stored.doc["members"]
     assert_one_map(stored.doc)
-    # Only the transfer is recorded: the refused add wrote and recorded nothing.
-    assert [args[2] for args, _ in recorded] == [History.TRANSFER_ORGANIZATION]
+    # Only the owner's changes are recorded: the refused add wrote and recorded nothing.
+    assert [args[2] for args, _ in recorded] == [
+        History.MANAGE_ORGANIZATION_ADMINS, History.TRANSFER_ORGANIZATION]
 
 
 # ── The table, cell by cell, through ``next_people`` ─────────────────────────────────────────
@@ -211,6 +221,33 @@ def test_someone_added_joins_the_map_at_its_end():
     assert list(after) == [OWNER.id, ADMIN.id, MEMBER.id, NEW.id]
 
 
+#: (the new owner's place as read, the map after, or the refusal): the giver, its owner,
+#: becomes an admin, both keeping their position in the map's order.
+TRANSFER_CELLS = [
+    (None, (BadRequestError, HAND_IT_ONLY_TO_ITS_PEOPLE)),
+    ("member", {OWNER.id: "admin", ADMIN.id: "admin", MEMBER.id: "owner"}),
+    ("admin", {OWNER.id: "admin", ADMIN.id: "owner", MEMBER.id: "member"}),
+    ("owner", (BadRequestError, ALREADY_OWNS_IT)),
+]
+
+
+@pytest.mark.parametrize("place,outcome", TRANSFER_CELLS,
+                         ids=[f"transfer to them of {p}" for p, _ in TRANSFER_CELLS])
+def test_a_transfer_cell_of_the_table(place, outcome):
+    as_read = dict(AS_READ)
+    target = TARGET_IN[place]
+
+    if isinstance(outcome, tuple):
+        error, sentence = outcome
+        with pytest.raises(error) as refused:
+            next_people(as_read, Event.TRANSFER, OWNER.id, target)
+        assert refused.value.message == sentence
+    else:
+        after = next_people(as_read, Event.TRANSFER, OWNER.id, target)
+        assert list(after.items()) == list(outcome.items())
+    assert as_read == AS_READ
+
+
 def test_forgetting_an_owner_is_never_reached():
     with pytest.raises(RuntimeError):
         next_people(AS_READ, Event.FORGET, None, OWNER.id)
@@ -229,6 +266,9 @@ AUTHORITY_CELLS = [
     (Event.CHANGE_TO_ADMIN, MEMBER, ONLY_THE_OWNER_CHANGES_A_PLACE),
     (Event.CHANGE_TO_MEMBER, ADMIN, ONLY_THE_OWNER_CHANGES_A_PLACE),
     (Event.CHANGE_TO_MEMBER, OUTSIDER, ONLY_THE_OWNER_CHANGES_A_PLACE),
+    (Event.TRANSFER, ADMIN, "Only current owner can transfer ownership"),
+    (Event.TRANSFER, MEMBER, "Only current owner can transfer ownership"),
+    (Event.TRANSFER, OUTSIDER, "Only current owner can transfer ownership"),
 ]
 
 
@@ -270,6 +310,11 @@ def remove(client, person, user_id):
 
 def change(client, person, user_id, body):
     return signed_in(client, person).put(f"/organizations/{ORG}/users/{user_id}", json=body)
+
+
+def hand_on(client, person, email):
+    return signed_in(client, person).post(
+        f"/organizations/{ORG}/transfer", json={"new_owner_email": email})
 
 
 ROUTE_AUTHORITY = [
@@ -411,6 +456,42 @@ def test_a_place_change_the_table_refuses_says_why_and_writes_nothing(
     assert stored.writes == [] and recorded == []
 
 
+@pytest.mark.parametrize("new_owner", [ADMIN, MEMBER], ids=["to an admin", "to a member"])
+def test_the_owner_hands_the_organization_on_and_stays_an_admin(
+        client, stored, recorded, new_owner):
+    response = hand_on(client, OWNER, new_owner.email)
+
+    assert (response.status_code, response.get_json()) == (
+        200, {"message": "Ownership transferred successfully"})
+    assert places(stored.doc)[new_owner.id] == "owner"
+    assert places(stored.doc)[OWNER.id] == "admin"
+    assert len(stored.writes) == 1 and len(recorded) == 1
+    assert_one_map(stored.doc)
+
+
+@pytest.mark.parametrize("requester", [ADMIN, MEMBER, OUTSIDER], ids=lambda p: p.id)
+def test_a_transfer_by_anyone_but_the_owner_is_a_403(client, stored, recorded, requester):
+    response = hand_on(client, requester, MEMBER.email)
+
+    assert (response.status_code, response.get_json()) == (
+        403, {"error": "Only current owner can transfer ownership"})
+    assert stored.writes == [] and stored.accounts.writes == [] and recorded == []
+
+
+@pytest.mark.parametrize("email,sentence", [
+    (OWNER.email, ALREADY_OWNS_IT),
+    (NEW.email, HAND_IT_ONLY_TO_ITS_PEOPLE),
+    (OUTSIDER.email, HAND_IT_ONLY_TO_ITS_PEOPLE),
+    ("nobody@example.com", "New owner user not found"),
+], ids=["to its own owner", "to someone outside it", "to another outside it", "to no account"])
+def test_a_transfer_the_table_refuses_says_why_and_writes_nothing(
+        client, stored, recorded, email, sentence):
+    response = hand_on(client, OWNER, email)
+
+    assert (response.status_code, response.get_json()) == (400, {"error": sentence})
+    assert stored.writes == [] and stored.accounts.writes == [] and recorded == []
+
+
 # ── What each write holds and writes ─────────────────────────────────────────────────────────
 
 
@@ -456,10 +537,24 @@ WRITES = [
      {"$set": {"people.user-member": "admin"}, "$addToSet": {"admins": MEMBER.id},
       "$pull": {"members": MEMBER.id}},
      {OWNER.id: "owner", ADMIN.id: "admin", MEMBER.id: "admin"}),
+    # Handed on: one write filtered on the giver being owner; to an admin, ``admins`` is set
+    # whole with the giver where the new owner stood, so the list as read is held too.
+    (lambda: OrganizationPeople.transfer(ORG, OWNER.email, MEMBER.email),
+     {"id": ORG, "people.user-owner": "owner", "people.user-member": "member"},
+     {"$set": {"people.user-owner": "admin", "people.user-member": "owner", "owner": MEMBER.id},
+      "$pull": {"members": MEMBER.id}, "$addToSet": {"admins": OWNER.id}},
+     {OWNER.id: "admin", ADMIN.id: "admin", MEMBER.id: "owner"}),
+    (lambda: OrganizationPeople.transfer(ORG, OWNER.email, ADMIN.email),
+     {"id": ORG, "people.user-owner": "owner", "people.user-admin": "admin",
+      "admins": [ADMIN.id]},
+     {"$set": {"people.user-owner": "admin", "people.user-admin": "owner", "owner": ADMIN.id,
+               "admins": [OWNER.id]}},
+     {OWNER.id: "admin", ADMIN.id: "owner", MEMBER.id: "member"}),
 ]
 WRITE_IDS = ["add admin of someone new", "add member of someone new",
              "add admin of a member", "remove an admin", "remove a member",
-             "an admin made a member", "a member made an admin"]
+             "an admin made a member", "a member made an admin",
+             "handed on to a member", "handed on to an admin"]
 
 
 @pytest.mark.parametrize("change,query,update,after", WRITES, ids=WRITE_IDS)
@@ -674,8 +769,64 @@ def test_a_place_change_by_an_owner_who_handed_the_organization_on_meanwhile_is_
     assert_one_map(stored.doc)
 
 
+def test_an_admin_handed_the_organization_keeps_the_others_in_admins_where_they_stood(
+        monkeypatch, accounts, recorded):
+    doc = {**FOLDED, "admins": [NEW.id, ADMIN.id, OUTSIDER.id],
+           "people": {OWNER.id: "owner", NEW.id: "admin", ADMIN.id: "admin",
+                      OUTSIDER.id: "admin", MEMBER.id: "member"}}
+    stored = install_organizations(monkeypatch, FakeOrganizations(doc))
+
+    OrganizationPeople.transfer(ORG, OWNER.email, ADMIN.email)
+
+    assert stored.doc["admins"] == [NEW.id, OWNER.id, OUTSIDER.id]
+    assert_one_map(stored.doc)
+
+
+def test_a_transfer_copies_the_organization_onto_the_new_owners_account(stored, recorded):
+    OrganizationPeople.transfer(ORG, OWNER.email, MEMBER.email)
+
+    assert stored.accounts.writes == [
+        ({"id": MEMBER.id}, {"$addToSet": {"organizations": ORG}})]
+
+
+def test_two_transfers_judged_on_one_read_land_once(stored, recorded):
+    # Two of the owner's tabs hand the organization to two people: the second meets the first,
+    # whose giver is no longer its owner, and stores nothing.
+    stored.before_write = lambda: OrganizationPeople.transfer(ORG, OWNER.email, ADMIN.email)
+
+    with pytest.raises(OrganizationChanged):
+        OrganizationPeople.transfer(ORG, OWNER.email, MEMBER.email)
+
+    assert places(stored.doc) == {OWNER.id: "admin", ADMIN.id: "owner", MEMBER.id: "member"}
+    assert len(recorded) == 1
+    assert_one_map(stored.doc)
+
+
+def test_a_transfer_to_an_admin_beside_an_add_admin_keeps_both_in_the_mirror(stored, recorded):
+    # The transfer sets ``admins`` whole from the list as read: an admin added meanwhile would be
+    # dropped from the list while the map kept them, so the transfer meets it and is refused.
+    stored.before_write = lambda: OrganizationPeople.add_admin(ORG, NEW.email, OWNER.email)
+
+    with pytest.raises(OrganizationChanged):
+        OrganizationPeople.transfer(ORG, OWNER.email, ADMIN.email)
+
+    assert places(stored.doc)[NEW.id] == "admin" and NEW.id in stored.doc["admins"]
+    assert places(stored.doc)[OWNER.id] == "owner"
+    assert_one_map(stored.doc)
+
+
+def test_a_transfer_to_someone_removed_meanwhile_is_refused(stored, recorded):
+    stored.before_write = lambda: OrganizationPeople.remove(ORG, MEMBER.id, OWNER.email)
+
+    with pytest.raises(OrganizationChanged):
+        OrganizationPeople.transfer(ORG, OWNER.email, MEMBER.email)
+
+    assert places(stored.doc) == {OWNER.id: "owner", ADMIN.id: "admin"}
+    assert_one_map(stored.doc)
+
+
 def test_the_409_answers_the_sentence_and_its_code(client, stored, recorded):
-    stored.before_write = lambda: OrgsApi.transfer_org_ownership(ORG, OWNER.email, NEW.email)
+    stored.before_write = owner_adds_and_hands_on_to_new
 
     response = add(client, ADMIN, "members", NEW.email)
 

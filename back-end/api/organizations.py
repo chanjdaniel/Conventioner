@@ -531,23 +531,6 @@ def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult
     return organizations_collection.delete_one({"id": org_id})
 
 
-def _keep_the_map_in_step(org: Dict[str, Any], places: Dict[str, Optional[str]]) -> None:
-    """Write these places, user id to place, into the organization's people map when it has one,
-    after the transfer's writes of its lists: the map is what every reader reads (T283).
-
-    A stopgap for the transfer alone, until ``organization_people`` hands an organization on in
-    one write holding what it judged (T283's ticket 04). An organization stored before the map has
-    none to keep, and is read from its lists.
-    """
-    if "people" not in org:
-        return
-    organizations_collection.update_one(
-        {"id": org["id"], "people": {"$exists": True}},
-        {"$set": {OrganizationPeople.people_key(user_id): place
-                  for user_id, place in places.items()}},
-    )
-
-
 def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> None:
     """Make someone an admin of the organization, as its owner (``organization_people``)."""
     OrganizationPeople.add_admin(org_id, user_email, requesting_user_email)
@@ -572,58 +555,7 @@ def change_org_place(org_id: str, user_id: str, place: Any, requesting_user_emai
     OrganizationPeople.change_place(org_id, user_id, place, requesting_user_email)
 
 
-def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_email: str) -> bool:
-    """Transfer organization ownership. Only current owner can transfer."""
-    org = organizations_collection.find_one({"id": org_id})
-    if not org:
-        raise NotFoundError("Organization not found")
-    
-    current_owner = UsersApi.get_user(current_owner_email)
-    if not current_owner or org.get("owner") != current_owner.id:
-        raise ForbiddenError("Only current owner can transfer ownership")
-    
-    new_owner = UsersApi.get_user(new_owner_email)
-    if not new_owner:
-        raise BadRequestError("New owner user not found")
-    # Refused before any write: handing it to its own owner went on to add them to its admins.
-    if new_owner.id == current_owner.id:
-        raise BadRequestError("They already own this organization")
-    
-    pull_updates = {}
-    if new_owner.id in org.get("admins", []):
-        pull_updates["admins"] = new_owner.id
-    if new_owner.id in org.get("members", []):
-        pull_updates["members"] = new_owner.id
-    
-    if pull_updates:
-        organizations_collection.update_one(
-            {"id": org_id},
-            {"$pull": pull_updates}
-        )
-    
-    if current_owner.id not in org.get("admins", []):
-        organizations_collection.update_one(
-            {"id": org_id},
-            {"$addToSet": {"admins": current_owner.id}}
-        )
-    
-    result = organizations_collection.update_one(
-        {"id": org_id},
-        {"$set": {"owner": new_owner.id}}
-    )
-    _keep_the_map_in_step(org, {
-        new_owner.id: OrganizationRole.OWNER.value, current_owner.id: OrganizationRole.ADMIN.value})
-
-    users_collection.update_one(
-        {"id": new_owner.id},
-        {"$addToSet": {"organizations": org_id}}
-    )
-    
-    if result.modified_count > 0:
-        History.record_for_organization(
-            org_id, current_owner_email, History.TRANSFER_ORGANIZATION,
-            subject={"user_id": new_owner.id, "email": new_owner.email},
-            detail=lambda: History.changes(
-                {"owner": current_owner.email}, {"owner": new_owner.email}),
-        )
-    return result.modified_count > 0
+def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_email: str) -> None:
+    """Hand the organization on to one of its admins or members, as its owner, who stays on it as
+    an admin: one write (``organization_people``)."""
+    OrganizationPeople.transfer(org_id, current_owner_email, new_owner_email)
