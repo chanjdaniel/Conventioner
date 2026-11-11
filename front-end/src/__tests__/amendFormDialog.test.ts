@@ -118,4 +118,48 @@ describe('AmendFormDialog', () => {
     expect(wrapper.emitted('close')).toBeUndefined();
     expect(wrapper.emitted('amended')).toBeUndefined();
   });
+
+  it('saves again from the form as re-read, its unasked questions included, not the copy refused', async () => {
+    api.put
+      .mockRejectedValueOnce(
+        Object.assign(new AxiosError('refused'), {
+          response: { status: 409, data: { error: SENTENCE, code: MARKET_CHANGED_CODE } },
+        }),
+      )
+      .mockResolvedValueOnce({ data: { application_form: { fields: [SHOP] }, formRevision: 3 } });
+    const wrapper = mount(AmendFormDialog, {
+      props: {
+        open: true,
+        marketId: 'market-1',
+        applicationForm: { fields: [SHOP], unaskedEssentials: [] },
+        formRevision: 1,
+        essentialOptions: EMPTY_ESSENTIAL_OPTIONS,
+        suggestedFieldLabel: 'Website',
+      },
+      global: { stubs: { teleport: true } },
+    });
+    await wrapper.vm.$nextTick();
+    await wrapper.get('[data-testid="amend-form-submit-button"]').trigger('submit');
+    await flushPromises();
+
+    // The import reads the form again: a colleague stopped asking the request meanwhile.
+    await wrapper.setProps({
+      applicationForm: { fields: [SHOP], unaskedEssentials: ['essential_request'] },
+      formRevision: 2,
+    });
+    expect(
+      (
+        wrapper.get('[data-testid="amend-form-unask-essential_request"] input')
+          .element as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+    await wrapper.get('[data-testid="amend-form-submit-button"]').trigger('submit');
+    await flushPromises();
+
+    expect(api.put).toHaveBeenCalledTimes(2);
+    const body = api.put.mock.calls[1]![1];
+    expect(body.formRevision).toBe(2);
+    expect(body.unaskedEssentials).toEqual(['essential_request']);
+    expect(body.fields.map((f: { key: string }) => f.key)).toEqual(['shop_name', 'website']);
+  });
 });

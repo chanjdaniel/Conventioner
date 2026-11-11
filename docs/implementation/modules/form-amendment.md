@@ -33,6 +33,7 @@ Once anything is imported the market is in Review and its questions are fixed; t
 
 **It sends the revision of the form it read** (`formRevision`, which the view's `readAmendForm` reads with the form), as the form tab does, so a save from a copy older than the stored form is refused rather than replacing it ([the form's revision](market-write.md#the-forms-revision)).
 On that refusal the dialog stays open on the server's sentence and emits `changed`, and the import reads the form again, so the dialog shows the questions as they now stand and its next save carries their revision.
+The questions turned off follow the form read again too, with the one the import suggested turning off, so the next save never sends the refused copy's list over a colleague's change; the question being added is kept.
 
 **It mirrors the one refusal an organizer can cause**: turning every question off while adding none leaves a form that asks nothing, which could not enter Review (`FormHasFieldsGuard`), so the dialog says so before Save.
 

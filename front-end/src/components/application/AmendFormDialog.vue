@@ -72,19 +72,36 @@ watch(newFieldLabel, (label) => {
     .slice(0, 40);
 });
 
+/** The questions turned off: the form's, and the one the import suggested turning off. */
+function seedUnasked() {
+  unasked.value = [...(props.applicationForm?.unaskedEssentials ?? [])];
+  if (props.suggestedUnasked && !unasked.value.includes(props.suggestedUnasked)) {
+    unasked.value.push(props.suggestedUnasked);
+  }
+}
+
 watch(
   () => props.open,
   (open) => {
     if (!open) return;
     newFieldLabel.value = props.suggestedFieldLabel ?? '';
     keyTouched.value = false;
-    unasked.value = [...(props.applicationForm?.unaskedEssentials ?? [])];
-    if (props.suggestedUnasked && !unasked.value.includes(props.suggestedUnasked)) {
-      unasked.value.push(props.suggestedUnasked);
-    }
+    seedUnasked();
     errorMessage.value = '';
   },
   { immediate: true },
+);
+
+/**
+ * The form read again after a save refused as the market changed (ADR 0024): the questions turned
+ * off follow it, as the questions do, so the next Save never sends the refused copy's list with the
+ * new revision over a colleague's change. The question being added is kept.
+ */
+watch(
+  () => props.formRevision,
+  () => {
+    if (props.open) seedUnasked();
+  },
 );
 
 /** Only the rankings and the request may be turned off, and only what this market's plan offers. */
