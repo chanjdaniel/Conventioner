@@ -154,14 +154,19 @@ test.describe('A layout exports as a PNG', () => {
       right: gold10.x + 40,
       bottom: gold10.y + 20,
     };
+    // The place is right-aligned at the head's right edge, and the market's name ends at least a
+    // legend gap before the place's words start. So the place's box starts a little before its
+    // words, which the name never reaches, whatever the name's random digits make it.
+    const headRight = (1600 - 56) * SCALE;
+    const outfit = await inkWidth(page, 'Upper Hall', `600 ${22 * SCALE}px Outfit`);
     const head = { top: MARGIN, bottom: MARGIN + 60 * SCALE };
-    const nameBox = { left: 0, right: 800 * SCALE, ...head };
     const placeBox = {
-      left: 800 * SCALE,
+      left: headRight - outfit - 32,
       right: 1600 * SCALE,
       top: MARGIN,
       bottom: MARGIN + 30 * SCALE,
     };
+    const nameBox = { left: 0, right: placeBox.left, ...head };
 
     const plain = await layout.exportPng({ image: false, numbers: true });
     expect(plain.name).toBe(nameOf(seeded));
@@ -188,7 +193,6 @@ test.describe('A layout exports as a PNG', () => {
     const serif = await inkWidth(page, seeded.marketName, `400 ${44 * SCALE}px serif`);
     expect(Math.abs(merge - serif)).toBeGreaterThan(40);
     expect(Math.abs(read.ink[1] - merge)).toBeLessThanOrEqual(12);
-    const outfit = await inkWidth(page, 'Upper Hall', `600 ${22 * SCALE}px Outfit`);
     expect(Math.abs(read.ink[2] - outfit)).toBeLessThanOrEqual(3);
 
     // With the floorplan, its line is under the tables; with no numbers, Gold row 10 carries none.
