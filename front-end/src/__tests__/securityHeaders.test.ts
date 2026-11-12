@@ -1,8 +1,7 @@
 // @vitest-environment node
 /**
  * Every page the front end serves carries the standard security headers and a tight
- * Content-Security-Policy, in report-only mode until it has run in production with no reports.
- * Promoting it is renaming its header to `Content-Security-Policy`, and nothing here changes.
+ * Content-Security-Policy, which the browser enforces.
  *
  * `vercel.json` is where they are declared, for every path, and `vite preview` serves the same
  * headers from it, so a production build can be walked locally under the policy production sends.
@@ -40,19 +39,12 @@ function directives(policy: string): Map<string, string[]> {
   );
 }
 
-const POLICY_HEADER = /^Content-Security-Policy(-Report-Only)?$/;
-
-function policyHeader(): string | undefined {
-  return Object.keys(declared()).find((key) => POLICY_HEADER.test(key));
-}
-
-const policy = () => directives(declared()[policyHeader() ?? ''] ?? '');
+const policy = () => directives(declared()['Content-Security-Policy'] ?? '');
 
 describe('the headers vercel.json sends on every path', () => {
-  it('are the standard security headers and a policy', () => {
-    expect(policyHeader()).toBeDefined();
+  it('are the standard security headers and an enforced policy', () => {
     expect(declared()).toEqual({
-      [policyHeader()!]: expect.any(String),
+      'Content-Security-Policy': expect.any(String),
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Frame-Options': 'DENY',

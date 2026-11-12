@@ -32,7 +32,7 @@ describes:
   - back-end/api/applicant_auth.py#_send_code_email
   - back-end/tests/test_the_code_mail_carries_only_words.py
   - front-end/vite.config.ts#assertNoLocalHatchOnVercel
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - T74
   - T109
@@ -270,8 +270,8 @@ The policy limits what script can run in the tab, the applicant's session includ
 There is no `'unsafe-inline'` and no `'unsafe-eval'`: the built `index.html` has no inline script, Vue sets a bound style through the CSSOM (which the policy does not govern), and a build that calls `eval` or `Function` fails CI's [eval check](../testing/ci-and-the-gate.md#no-string-evaluated-as-script).
 A new origin the app loads from (an analytics script, an image host) goes into its directive in the same PR.
 
-**It is report-only until it has run in production with no reports**, as `Content-Security-Policy-Report-Only`; promoting it is renaming that one header key to `Content-Security-Policy`.
-It has no reporting endpoint, so a report shows only in a browser's console; walk a production build under it with `npm run build-only && npm run preview`, since `vite preview` serves `vercel.json`'s headers ([`deployedHeaders`](../../../front-end/vite.config.ts)), and the dev server, whose styles are injected inline, is not a build the policy describes.
+**The browser enforces it**, as `Content-Security-Policy`: it ran in production as `Content-Security-Policy-Report-Only` first, and the Deploy workflow refuses a front end that sends the policy only as a report.
+It has no reporting endpoint, so a refusal shows only in a browser's console; walk a production build under it with `npm run build-only && npm run preview`, since `vite preview` serves `vercel.json`'s headers ([`deployedHeaders`](../../../front-end/vite.config.ts)), and the dev server, whose styles are injected inline, is not a build the policy describes.
 The preview sends `/api` where the dev server does, since Vite's preview takes `server.proxy` when it has no proxy of its own: to `VITE_BACKEND_URL`, else `https://127.0.0.1:5001`, the primary checkout's back end.
 So on a worktree's stack nobody can sign in under the preview unless `VITE_BACKEND_URL` names that stack's back end, and the config reads it from the shell, never from `front-end/.env`.
 `scripts/th-compose.sh ports` prints a running stack's back-end port as `TH_BACKEND_PORT`: on a treehouse slot that is 5001 plus ten for each slot ([the port map](../../../scripts/README-treehouse.md#port-map-per-worktree-slot)), and on a stack whose ports Docker picked (`TH_PORTS=auto`) only `ports` gives it.

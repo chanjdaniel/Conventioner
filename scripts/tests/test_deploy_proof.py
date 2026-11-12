@@ -499,14 +499,15 @@ def test_a_staged_front_end_of_this_commit_passes(stub, env):
     assert (stub.count("/version.json"), stub.count("/markets")) == (1, 1)
 
 
-def test_a_report_only_policy_counts(stub, env):
+def test_a_report_only_policy_does_not_stand_for_the_enforced_one(stub, env):
     headers = {name: value for name, value in FRONTEND_HEADERS.items() if name != "Content-Security-Policy"}
     stub.serve("/version.json", version())
     stub.serve("/markets", markets(headers={**headers, "Content-Security-Policy-Report-Only": "default-src 'self'"}))
 
     code, output = prove_own(env, "frontend")
 
-    assert code == 0
+    assert code == 1
+    assert errors(output) == [f"::error::{STAGED_HOST} sends no content-security-policy"]
 
 
 def test_a_staged_front_end_with_no_version_file_is_refused_at_once(stub, env):

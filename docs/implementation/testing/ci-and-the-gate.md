@@ -19,7 +19,7 @@ describes:
   - .github/actions/e2e-stack/action.yml
   - .github/actions/front-end-deps/action.yml
   - front-end/scripts/e2e-repeat.ts
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - T47
   - T53
@@ -158,7 +158,7 @@ The first fix to try is a lazily loaded route or component, which keeps the code
 ## No string evaluated as script
 
 **CI fails a build any of whose JavaScript calls `eval` or the `Function` constructor.**
-The front end's [Content-Security-Policy](../conventions/security-invariants.md#security-headers) has no `'unsafe-eval'`, so such a call is refused once the policy enforces and reported while it is report-only, and with no reporting endpoint a report in production reaches nobody.
+The front end's [Content-Security-Policy](../conventions/security-invariants.md#security-headers) has no `'unsafe-eval'`, so the browser refuses such a call, and with no reporting endpoint a refusal in production shows only in the console of the tab it broke.
 [`front-end/scripts/no-eval.ts`](../../../front-end/scripts/no-eval.ts) (`npm run no-eval`, after `npm run build-only`) reads every `.js` file under `dist/assets/`, prints each call with its file and a little context, and exits non-zero on any; it runs right after the bundle budget, on the same build, in `frontend-lint-and-types` and in `nm-test.sh`.
 The first one it would have caught was vuedraggable's UMD build, whose bundled core-js finds the global object with `Function('return this')()` and whose `require("vue")` pulled in a second Vue with its template compiler; `vite.config.ts` resolves `vuedraggable` to the ES source the package publishes beside its builds, which has neither.
 
