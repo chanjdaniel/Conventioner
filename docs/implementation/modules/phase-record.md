@@ -4,11 +4,12 @@ kind: module
 describes:
   - back-end/phase_record.py
   - back-end/datatypes.py#PhaseEntry
-verified: 2026-10-30
+verified: 2026-11-11
 sources:
   - wayfinding/claims-and-room/06
   - E26/F06/S03
   - bug/8
+  - T201
 ---
 
 # The phase record
@@ -49,5 +50,6 @@ Only a complete record may say a market never reached a phase; [the phase rail](
 
 [The phase rail](phase-rail.md) states what became of an archived market from its furthest phase here; it once read evidence instead, and told a market that ran that no check-in page ever went on the air (bug 8).
 [The door](attendance-and-door.md) keeps an archived market's vendor page as a record of its check-ins only if it ran, by the same answer (`ran`) ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)), and deleting an organization says which of its archived markets ran by it too ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)).
+The Stats tab reads when applications opened and closed from it, the first entry into applications and the first into assignment after it (`market_stats.intake_window`), to bound its chart of applications over time ([the market's statistics](../../business/flows/stats.md#n2-see-who-applied)).
 
 The glossary concept it serves: [Phase](../../business/concepts/phase.md).

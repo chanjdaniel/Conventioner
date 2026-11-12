@@ -12,15 +12,8 @@
  * and a flag saying "hand-placed" cannot answer it (`E11/F04/S01`), so each change is said in full.
  */
 import type { MarketHistoryEntry, MarketHistoryPart } from '@/utils/marketHistory';
-import {
-  asDetail,
-  day,
-  plural,
-  sentence,
-  str,
-  type HistoryReaders,
-  type ReaderContext,
-} from './shared';
+import { plural } from '@/utils/utils';
+import { asDetail, day, sentence, str, type HistoryReaders, type ReaderContext } from './shared';
 
 function table(value: unknown): string {
   const at = asDetail(value);

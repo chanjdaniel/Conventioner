@@ -208,6 +208,23 @@ describe('the palette carries a contrast contract', () => {
     expect(contrast(inkOn('--color-text', ground), ground)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 
+  /** The How full table's shades, emptiest first, after the card's white of an empty cell. */
+  const FILL_STEPS = [
+    '--mm-fill-third',
+    '--mm-fill-two-thirds',
+    '--mm-fill-nearly',
+    '--mm-fill-full',
+  ];
+
+  it('each How full step is visibly darker than the one before, from the white of an empty cell', () => {
+    const steps = [WHITE, ...FILL_STEPS.map(resolve)];
+    for (let i = 1; i < steps.length; i++) {
+      expect(alphaOf(tokens[FILL_STEPS[i - 1]!]!), FILL_STEPS[i - 1]).toBe(1);
+      expect(luminance(steps[i]!), FILL_STEPS[i - 1]).toBeLessThan(luminance(steps[i - 1]!));
+      expect(contrast(steps[i]!, steps[i - 1]!), FILL_STEPS[i - 1]).toBeGreaterThanOrEqual(1.15);
+    }
+  });
+
   // Fills carry text too, and the reciprocal check is what forces a darker green rather than a
   // per-button judgement call. Each fill declares which ink it is legible under.
   const FILLS: Array<[string, 'white' | '--mm-black']> = [
@@ -219,6 +236,8 @@ describe('the palette carries a contrast contract', () => {
     // unnoticed because a hardcoded colour has no name to hold to a contract.
     ['--mm-red', 'white'],
     ['--mm-blue', 'white'],
+    // How full a cell of the Stats tab's How full table is (T201), its figures in black.
+    ...FILL_STEPS.map((step): [string, '--mm-black'] => [step, '--mm-black']),
   ];
 
   for (const [fill, ink] of FILLS) {
@@ -280,6 +299,27 @@ describe('the palette carries a contrast contract', () => {
     });
   }
 
+  /*
+   * A chart's marks (T201): a bar's fill or a part of a split bar carries no text, so it is held to
+   * the 3:1 a graphic needs on the white card it is drawn on, laid over that white where it is
+   * translucent (the grey of a status no filter lists is the muted ink). Each is listed here, those
+   * it shares with the buttons and the text included, so a token retinted for one of those cannot
+   * fade a chart unseen.
+   */
+  const CHART_MARKS = [
+    '--mm-chart-yellow',
+    '--mm-blue',
+    '--mm-green',
+    '--mm-red',
+    '--mm-chart-grey',
+  ];
+
+  for (const mark of CHART_MARKS) {
+    it(`${mark} is visible as a chart mark on white`, () => {
+      expect(contrast(inkOn(mark, WHITE), WHITE)).toBeGreaterThanOrEqual(3);
+    });
+  }
+
   it('white is never put on --mm-yellow, which is a black-text fill', () => {
     // Stated as a test so the reason survives: white on this yellow is 2.15, and someone will
     // eventually reach for it because every other fill in the product takes white.
@@ -298,6 +338,7 @@ describe('the palette carries a contrast contract', () => {
       ...FILLS.map(([f]) => f),
       ...CHIPS.map(([ground]) => ground),
       ...BUTTON_STATES.flatMap(([, steps]) => steps),
+      ...CHART_MARKS,
       // Lines, hover states and a scroller's edge shades. These never sit under text.
       '--focus-border-on-fill',
       '--mm-border',

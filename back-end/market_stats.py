@@ -12,7 +12,18 @@ Who applied: every application by its stored status, how many were added by hand
 each of the others applied. Statuses go out as stored, and the page counts them into the
 Applications tab's All view filters, which are decided by status alone, so the two agree; times go
 out rather than days because the server keeps no time zone for a market, and a day is the
-reader's.
+reader's. Beside them, when applications opened and closed, from the phase record
+(``intake_window``), which bound the page's chart of applications over time (T201).
+
+Room: per market date, and per tier over the dates, the tables asked against the plan's tables
+(``count_room``, T201), from Draft on, so a draft shows its tables with nothing asked.
+
+How full: per section and market date, the tables used of the section's tables, from the same
+counted rows as the placements (``count_fill``, T201), ``None`` until an assignment is stored.
+
+Check-in: per market date, the vendors checked in of those expected, and how many came on any date,
+counted as the Attendance roster reads them (``count_check_in``, T201), ``None`` until the market
+has reached Market Days.
 
 What they answered, as the organizer reads it, each organizer's update of an answer in its place
 (``effective_answers``): each select, multi-select and checkbox question of the form gets a row per
@@ -25,13 +36,20 @@ comes three times, for each group the page can narrow to: every application, the
 (the All view's "Approved", those added by hand among them) and the assigned ones (anyone with an
 assignment, a table on any date, verdict or not, as their outcome reads: ``result_outcome.py``).
 """
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import api.applications as ApplicationsApi
+import api.attendance as AttendanceApi
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
+import essential_fields as EF
 import result_outcome as ResultOutcome
-from datatypes import ApplicationStatus, FormField, Market
+from assignment.vendor_input import SolverVendor, solver_vendors_from_applications
+from datatypes import (
+    LEGACY_STAGE_PHASES, Application, ApplicationStatus, ApplicationType, FormField, Market,
+    MarketPhase, MarketTableRow, PhaseEntry, SetupObject,
+)
+from assignment.utils import convert_keys_to_camel_case
 from utils.email_address import normalized_email
 
 CHOICE_TYPES = ("select", "multi_select", "checkbox")
@@ -47,22 +65,31 @@ def stats_for_market(market: Market) -> Dict[str, Any]:
     form = market.application_form
     applications = ApplicationsApi.list_applications_for_market(market.id)
     figures = {
-        "applicants": count_applicants(applications),
+        "applicants": {**count_applicants(applications), **intake_window(market.phase_history)},
         "answers": count_answers(
             form.fields if form else [], applications, ResultOutcome.seated_addresses(market),
         ),
+        "room": count_room(market, applications),
+        "checkIn": count_check_in(market),
     }
     # Last: counting the assignment describes it on the market in hand.
-    figures["headlines"] = {"placements": count_placements(market), "money": count_money(market)}
+    counted = _counted(market)
+    figures["fill"] = count_fill(counted)
+    figures["headlines"] = {"placements": count_placements(counted), "money": count_money(market)}
     return figures
 
 
-def count_placements(market: Market) -> Optional[Dict[str, int]]:
-    """The Assignments page's figures: its strip's table-days used of all and vendors unassigned,
-    and its grid's "Empty" count; ``None`` until an assignment is stored, as the strip is."""
+def _counted(market: Market) -> Optional[MarketsApi.CountedAssignment]:
+    """The stored assignment as the Assignments page counts it, read once for the placements and
+    How full; ``None`` until an assignment is stored, or where it could not be counted."""
     if not market.assignment_object.vendor_assignments:
         return None
-    counted = MarketsApi.counted_assignment(market)
+    return MarketsApi.counted_assignment(market)
+
+
+def count_placements(counted: Optional[MarketsApi.CountedAssignment]) -> Optional[Dict[str, int]]:
+    """The Assignments page's figures: its strip's table-days used of all and vendors unassigned,
+    and its grid's "Empty" count; ``None`` until an assignment is stored, as the strip is."""
     if counted is None:
         return None
     statistics = counted.statistics
@@ -72,6 +99,66 @@ def count_placements(market: Market) -> Optional[Dict[str, int]]:
         "tableDaysFree": MarketsApi.table_days_free(counted.rows),
         "unassigned": len(statistics.unassigned_vendors),
     }
+
+
+def count_fill(counted: Optional[MarketsApi.CountedAssignment]) -> Optional[Dict[str, Any]]:
+    """How full each section is on each market day: its tables used of its tables, from the stored
+    assignment's rows, one per table and date as the tables grid draws them, a table with anyone at
+    it used, half held included, as ``table_days_free`` counts it; so the cells add up to the
+    placements' table-days used, and their tables left to the table-days free. ``None`` until an
+    assignment is stored, as the placements are.
+
+    Sections and dates in the plan's order, as the Assignments page lists them, a section of no
+    tables left out, as it has nothing to fill; a section with no tier says ``None``.
+    """
+    if counted is None:
+        return None
+    return fill_of(counted.market.setup_object, counted.rows)
+
+
+def fill_of(setup: Optional[SetupObject], rows: Iterable[MarketTableRow]) -> Dict[str, Any]:
+    """``count_fill``'s grid from a plan and its rows (``derive_market_table_rows``)."""
+    tables: Dict[Tuple[str, str], int] = {}
+    used: Dict[Tuple[str, str], int] = {}
+    tiers: Dict[str, Optional[str]] = {}
+    for row in rows:
+        key = (row.section, row.date)
+        tables[key] = tables.get(key, 0) + 1
+        used[key] = used.get(key, 0) + (1 if any(row.assignment_slots) else 0)
+        tiers.setdefault(row.section, row.tier or None)
+    planned = setup.market_dates if setup else []
+    # A row outside the plan (a seat at a table since taken off) still counts, after the plan's.
+    dates = _in_order([entry.date for entry in planned], [date for _, date in tables])
+    sections = _in_order(
+        [section.name for section in setup.sections] if setup else [], list(tiers))
+    return {
+        "dates": dates,
+        "sections": [
+            {"section": section, "tier": tiers[section], "cells": [
+                {"date": date, "used": used.get((section, date), 0),
+                 "tables": tables.get((section, date), 0)}
+                for date in dates
+            ]}
+            for section in sections if section in tiers
+        ],
+    }
+
+
+def _in_order(planned: List[str], found: List[str]) -> List[str]:
+    """Each of ``found`` once, those the plan names in its order, then the rest as found."""
+    present = set(found)
+    return list(dict.fromkeys([name for name in planned if name in present] + found))
+
+
+def count_check_in(market: Market) -> Optional[Dict[str, Any]]:
+    """Each market date's vendors checked in of those expected, and ``came``, the vendors checked in
+    on any date, as the Attendance roster reads them (``AttendanceApi.check_in_counts``); ``None``
+    until the market has reached Market Days (its phase record's ``ran``), as nobody checks in
+    before, so an archived market that never ran says nothing either."""
+    document = convert_keys_to_camel_case(market.model_dump())
+    if not AttendanceApi.market_ran(document):
+        return None
+    return AttendanceApi.check_in_counts(document)
 
 
 def count_money(market: Market) -> Optional[Dict[str, Any]]:
@@ -108,6 +195,106 @@ def count_applicants(applications: List[Dict[str, Any]]) -> Dict[str, Any]:
         "statuses": statuses,
         "submittedAt": submitted,
     }
+
+
+def intake_window(record: Iterable[PhaseEntry]) -> Dict[str, Optional[str]]:
+    """When applications opened, the time of the record's first entry into them, and when they
+    closed, the time of the first entry into assignment after that; each ``None`` where the record
+    holds no such entry, or holds it undated (the first entry of a record begun partway through).
+
+    The first of each, so a market reopened or sent back to review keeps its first window: the
+    chart shows when its applications came in, and a reopening does not move that.
+    """
+    opened: Optional[PhaseEntry] = None
+    closed: Optional[PhaseEntry] = None
+    for entry in record:
+        # An entry still naming a phase E38/F04 folded into the stage reads as the stage.
+        phase = entry.phase
+        if phase in LEGACY_STAGE_PHASES:
+            phase = MarketPhase.APPLICATIONS.value
+        if opened is None:
+            if phase == MarketPhase.APPLICATIONS.value:
+                opened = entry
+        elif phase == MarketPhase.ASSIGNMENT.value:
+            closed = entry
+            break
+    return {
+        "openedAt": opened.entered_at if opened else None,
+        "closedAt": closed.entered_at if closed else None,
+    }
+
+
+def count_room(market: Market, applications: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The tables asked against the plan's tables, per market date and per tier over the dates;
+    ``None`` where the plan has no dates, so no room to tell. ``tiers`` is empty in a plan of
+    fewer than two tiers, where its rows would repeat the dates'.
+
+    Every section is there on every date, so a date has the sum of the sections' tables, and a tier
+    its own sections' tables times the dates. Asked counts every main application the review has
+    not rejected, those added by hand among them, on each date it is available: a half table as
+    0.5 and anything else as 1, "either" and an unanswered size included, since the figure is a
+    ceiling, as the dates are (someone available three days who wants two counts on all three).
+    Per tier, an application counts toward every tier it accepts on that date. The answers are read
+    as the solver reads them (``solver_vendors_from_applications``), an organizer's update in its
+    place, so a date or tier the plan no longer offers counts nowhere, and a vendor never asked
+    their tiers accepts every tier.
+    """
+    setup = market.setup_object
+    dates = list(dict.fromkeys(entry.date for entry in setup.market_dates)) if setup else []
+    if not dates:
+        return None
+    tiers = list(dict.fromkeys(tier.name for tier in setup.tiers))
+    vendors = _asking(market, applications)
+
+    def halves(date: str, tier: Optional[str] = None) -> int:
+        return sum(
+            _halves_wanted(vendor) for vendor in vendors
+            if date in vendor.available_dates
+            and (tier is None or vendor.accepts_tier_on(date, tier))
+        )
+
+    def tier_tables(tier: str) -> int:
+        return sum(
+            section.count for section in setup.sections
+            if section.tier is not None and section.tier.name == tier
+        )
+
+    return {
+        "dates": [
+            {"date": date, "asked": _tables(halves(date)),
+             "tables": sum(section.count for section in setup.sections)}
+            for date in dates
+        ],
+        "tiers": [
+            {"tier": tier, "asked": _tables(sum(halves(date, tier) for date in dates)),
+             "tables": tier_tables(tier) * len(dates)}
+            for tier in tiers
+        ] if len(tiers) >= 2 else [],
+    }
+
+
+def _asking(market: Market, applications: List[Dict[str, Any]]) -> List[SolverVendor]:
+    """The applications asking for room, read leniently, as the solver reads a stored assignment:
+    an answer missing refuses nothing here, it only asks for nothing."""
+    asking = [
+        Application(**document) for document in applications
+        if document.get("status") != ApplicationStatus.REVIEWER_REJECTED.value
+        and document.get("application_type") in (None, ApplicationType.MAIN.value)
+    ]
+    vendors, _incomplete = solver_vendors_from_applications(
+        asking, EF.effective_essential_options_for_market(market), lenient=True,
+    )
+    return vendors
+
+
+def _halves_wanted(vendor: SolverVendor) -> int:
+    """Counted in halves, so a sum of them is exact."""
+    return 1 if vendor.table_choice == EF.TABLE_CHOICE_HALF else 2
+
+
+def _tables(halves: int) -> Any:
+    """A count of halves as tables: a whole number where it is one, so it reads "42", not "42.0"."""
+    return halves // 2 if halves % 2 == 0 else halves / 2
 
 
 def count_answers(

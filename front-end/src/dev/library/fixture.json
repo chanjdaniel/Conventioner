@@ -6,6 +6,7 @@
       "email": "angela.lee0@example.com",
       "business": "Wren Press",
       "sells": "Stickers, Keychains, Clothing, Watercolour candles",
+      "submittedAt": "2024-02-25T09:28:56",
       "status": "open",
       "reviewer": "p150",
       "export": {
@@ -44,6 +45,7 @@
       "email": "philip.lopez1@example.com",
       "business": "Plum House",
       "sells": "Stickers, Art prints, Hand-painted journals",
+      "submittedAt": "2024-02-25T09:32:19",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -82,6 +84,7 @@
       "email": "brian.singh2@example.com",
       "business": "Wren Lab",
       "sells": "Jewellery, Pottery, Quilted enamel pins",
+      "submittedAt": "2024-02-25T12:40:56",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -119,6 +122,7 @@
       "email": "kara.sullivan3@example.com",
       "business": "Sage Press",
       "sells": "Stickers, Jewellery",
+      "submittedAt": "2024-02-25T20:08:41",
       "status": "needs_follow_up",
       "reviewer": "p034",
       "export": {
@@ -157,6 +161,7 @@
       "email": "sunny.walker4@example.com",
       "business": "Willow Press",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-02-25T21:03:36",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -196,6 +201,7 @@
       "email": "yara.wu5@example.com",
       "business": "Lantern Lab",
       "sells": "Hand-bound scarves, Quilted pouches",
+      "submittedAt": "2024-02-25T22:08:43",
       "status": "needs_follow_up",
       "reviewer": "p139",
       "export": {
@@ -232,6 +238,7 @@
       "email": "willa.watson6@example.com",
       "business": "Indigo Market",
       "sells": "Stickers, Art prints, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-02-25T23:15:29",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -272,6 +279,7 @@
       "email": "mae.wu7@example.com",
       "business": "Maple Co",
       "sells": "Stickers, Jewellery, Fibre arts (crochet, knitting, etc), Woodburned coasters",
+      "submittedAt": "2024-02-25T23:32:45",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -311,6 +319,7 @@
       "email": "peter.patel8@example.com",
       "business": "Thistle Press",
       "sells": "Keychains, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-02-25T23:35:53",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -348,6 +357,7 @@
       "email": "james.das9@example.com",
       "business": "Maple Corner",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-02-26T00:24:14",
       "status": "reviewer_rejected",
       "reviewer": "p091",
       "export": {
@@ -386,6 +396,7 @@
       "email": "dana.hughes10@example.com",
       "business": "Indigo Co",
       "sells": "Hand-bound scarves",
+      "submittedAt": "2024-02-26T00:35:18",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -422,6 +433,7 @@
       "email": "aisha.ahmed11@example.com",
       "business": "Thistle Goods",
       "sells": "Stickers, Keychains, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-02-26T01:05:27",
       "status": "open",
       "reviewer": "p054",
       "export": {
@@ -462,6 +474,7 @@
       "email": "elena.hall12@example.com",
       "business": "Nettle Supply",
       "sells": "Keychains, Jewellery, Felted scarves",
+      "submittedAt": "2024-02-26T01:19:30",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -499,6 +512,7 @@
       "email": "mary.li13@example.com",
       "business": "Pebble Goods",
       "sells": "Keychains, Upcycled journals",
+      "submittedAt": "2024-02-26T02:13:25",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -538,6 +552,7 @@
       "email": "javier.martinez14@example.com",
       "business": "Paper Press",
       "sells": "Stickers, Keychains, Jewellery, Riso-printed journals",
+      "submittedAt": "2024-02-26T07:24:20",
       "status": "needs_follow_up",
       "reviewer": "p054",
       "export": {
@@ -578,6 +593,7 @@
       "email": "marco.allen15@example.com",
       "business": "Ivy Crafts",
       "sells": "Stickers, Art prints, Keychains, Embroidered lanyards",
+      "submittedAt": "2024-02-26T07:26:37",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -617,6 +633,7 @@
       "email": "miles.singh16@example.com",
       "business": "Hazel Works",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-02-26T09:22:48",
       "status": "reviewer_rejected",
       "reviewer": "p150",
       "export": {
@@ -653,6 +670,7 @@
       "email": "andre.singh17@example.com",
       "business": "Cobalt Makery",
       "sells": "Stickers, Art prints, Watercolour mugs",
+      "submittedAt": "2024-02-26T11:19:04",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -691,6 +709,7 @@
       "email": "fiona.ho18@example.com",
       "business": "Linen Co",
       "sells": "Art prints, Keychains, Jewellery, Riso-printed rings",
+      "submittedAt": "2024-02-26T16:30:52",
       "status": "open",
       "reviewer": "p035",
       "export": {
@@ -729,6 +748,7 @@
       "email": "stella.kim19@example.com",
       "business": "Finch Collective",
       "sells": "Art prints, Keychains, Pottery",
+      "submittedAt": "2024-02-26T16:50:09",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -770,6 +790,7 @@
       "email": "eliza.singh20@example.com",
       "business": "Copper Corner",
       "sells": "Art prints, Keychains, Jewellery, Laser-cut postcards",
+      "submittedAt": "2024-02-26T17:13:50",
       "status": "reviewer_rejected",
       "reviewer": "p032",
       "export": {
@@ -808,6 +829,7 @@
       "email": "kate.lam21@example.com",
       "business": "Marigold Collective",
       "sells": "Keychains, Pottery, Resin postcards, Upcycled phone charms",
+      "submittedAt": "2024-02-26T18:26:18",
       "status": "reviewer_rejected",
       "reviewer": "p099",
       "export": {
@@ -847,6 +869,7 @@
       "email": "olive.das22@example.com",
       "business": "Thistle Lab",
       "sells": "Stickers, Art prints, Keychains, Woodburned patches",
+      "submittedAt": "2024-02-26T19:33:12",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -888,6 +911,7 @@
       "email": "daniela.smith23@example.com",
       "business": "Tidal Collective",
       "sells": "Stickers, Art prints, Keychains, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-02-26T21:27:06",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -926,6 +950,7 @@
       "email": "isabel.shah24@example.com",
       "business": "Oak Lab",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-02-26T21:34:58",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -963,6 +988,7 @@
       "email": "suki.thomas25@example.com",
       "business": "Cobalt Atelier",
       "sells": "Stickers, Clothing, Felted tote bags, Woodburned lanyards",
+      "submittedAt": "2024-02-26T22:56:56",
       "status": "reviewer_rejected",
       "reviewer": "p107",
       "export": {
@@ -1001,6 +1027,7 @@
       "email": "orla.cruz26@example.com",
       "business": "Tidal Goods",
       "sells": "Art prints, Woodburned scarves, Watercolour coasters",
+      "submittedAt": "2024-02-27T02:26:11",
       "status": "needs_follow_up",
       "reviewer": "p032",
       "export": {
@@ -1040,6 +1067,7 @@
       "email": "uma.hill27@example.com",
       "business": "Inkwell Corner",
       "sells": "Stickers, Art prints, Upcycled soaps",
+      "submittedAt": "2024-02-27T02:30:00",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -1080,6 +1108,7 @@
       "email": "catherine.taylor28@example.com",
       "business": "Pebble Workshop",
       "sells": "Stickers, Polymer clay earrings",
+      "submittedAt": "2024-02-27T03:15:27",
       "status": "reviewer_rejected",
       "reviewer": "p032",
       "export": {
@@ -1118,6 +1147,7 @@
       "email": "drew.diaz29@example.com",
       "business": "Amber Crafts",
       "sells": "Hand-bound scarves, Resin pouches",
+      "submittedAt": "2024-02-27T04:41:50",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -1155,6 +1185,7 @@
       "email": "jack.lam30@example.com",
       "business": "Acorn Goods",
       "sells": "Stickers, Art prints, Jewellery",
+      "submittedAt": "2024-02-27T04:59:36",
       "status": "reviewer_rejected",
       "reviewer": "p091",
       "export": {
@@ -1195,6 +1226,7 @@
       "email": "joseph.li31@example.com",
       "business": "Wren Crafts",
       "sells": "Stickers, Clothing",
+      "submittedAt": "2024-02-27T06:09:06",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -1232,6 +1264,7 @@
       "email": "aubrey.gray32@example.com",
       "business": "Hazel Crafts",
       "sells": "Jewellery, Lino-printed zines",
+      "submittedAt": "2024-02-27T08:34:11",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -1269,6 +1302,7 @@
       "email": "dina.kim33@example.com",
       "business": "Spool Goods",
       "sells": "Stickers, Art prints, Keychains",
+      "submittedAt": "2024-02-27T12:23:54",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -1307,6 +1341,7 @@
       "email": "alba.cook34@example.com",
       "business": "Fern Crafts",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-02-27T12:35:02",
       "status": "open",
       "reviewer": "p129",
       "export": {
@@ -1346,6 +1381,7 @@
       "email": "owen.stewart35@example.com",
       "business": "Paper Lab",
       "sells": "Stickers, Art prints, Keychains",
+      "submittedAt": "2024-02-27T15:25:27",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -1384,6 +1420,7 @@
       "email": "olivia.morgan36@example.com",
       "business": "Wren Works",
       "sells": "Art prints",
+      "submittedAt": "2024-02-27T15:38:03",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -1420,6 +1457,7 @@
       "email": "asha.jackson37@example.com",
       "business": "Linen Lab",
       "sells": "Stickers, Art prints, Keychains, Fibre arts (crochet, knitting, etc), Clothing, Polymer clay tote bags, Embroidered bookmarks, Watercolour bookmarks",
+      "submittedAt": "2024-02-27T16:17:08",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -1463,6 +1501,7 @@
       "email": "paul.james38@example.com",
       "business": "Meadow Workshop",
       "sells": "Stickers, Art prints, Keychains, Fibre arts (crochet, knitting, etc), Felted bookmarks, Woodburned tote bags",
+      "submittedAt": "2024-02-27T16:44:32",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -1505,6 +1544,7 @@
       "email": "bea.mitchell39@example.com",
       "business": "Inkwell Studio",
       "sells": "Jewellery, Fibre arts (crochet, knitting, etc), Clothing, Hand-bound enamel pins",
+      "submittedAt": "2024-02-27T17:50:54",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -1545,6 +1585,7 @@
       "email": "hal.evans40@example.com",
       "business": "Copper Studio",
       "sells": "Stickers, Lino-printed enamel pins",
+      "submittedAt": "2024-02-27T19:11:38",
       "status": "open",
       "reviewer": "p035",
       "export": {
@@ -1583,6 +1624,7 @@
       "email": "hana.ruiz41@example.com",
       "business": "Plum Crafts",
       "sells": "Keychains, Clothing",
+      "submittedAt": "2024-02-27T19:16:36",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -1619,6 +1661,7 @@
       "email": "bruno.scott42@example.com",
       "business": "Wren Corner",
       "sells": "Stickers, Keychains, Fibre arts (crochet, knitting, etc), Clothing",
+      "submittedAt": "2024-02-27T22:52:05",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -1659,6 +1702,7 @@
       "email": "victor.wilson43@example.com",
       "business": "Copper Press",
       "sells": "Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-02-28T01:00:58",
       "status": "reviewer_rejected",
       "reviewer": "p032",
       "export": {
@@ -1696,6 +1740,7 @@
       "email": "yusuf.morales44@example.com",
       "business": "Thread House",
       "sells": "Keychains, Fibre arts (crochet, knitting, etc), Clothing, Macrame patches",
+      "submittedAt": "2024-02-28T01:58:02",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -1734,6 +1779,7 @@
       "email": "brody.lam45@example.com",
       "business": "Spool Atelier",
       "sells": "Art prints, Jewellery, Upcycled patches, Lino-printed fridge magnets",
+      "submittedAt": "2024-02-28T02:29:34",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -1774,6 +1820,7 @@
       "email": "ida.brooks46@example.com",
       "business": "Quill Makery",
       "sells": "Stickers, Keychains, Laser-cut tote bags",
+      "submittedAt": "2024-02-28T04:38:38",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -1811,6 +1858,7 @@
       "email": "rafa.reed47@example.com",
       "business": "Thistle Co",
       "sells": "Art prints, Keychains, Fibre arts (crochet, knitting, etc), Hand-painted plushies",
+      "submittedAt": "2024-02-28T05:44:33",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -1850,6 +1898,7 @@
       "email": "zara.lopez48@example.com",
       "business": "Ember Studio",
       "sells": "Stickers, Art prints, Keychains, Jewellery, Pottery",
+      "submittedAt": "2024-02-28T05:57:58",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -1889,6 +1938,7 @@
       "email": "ana.davis49@example.com",
       "business": "Saffron Workshop",
       "sells": "Stickers, Art prints, Keychains",
+      "submittedAt": "2024-02-28T06:09:06",
       "status": "reviewer_rejected",
       "reviewer": "p051",
       "export": {
@@ -1927,6 +1977,7 @@
       "email": "vic.gonzalez50@example.com",
       "business": "Pine Collective",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc), Resin tote bags, Resin patches",
+      "submittedAt": "2024-02-28T06:34:22",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -1965,6 +2016,7 @@
       "email": "ryan.sullivan51@example.com",
       "business": "Amber Market",
       "sells": "Stickers, Art prints, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-02-28T06:47:07",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -2002,6 +2054,7 @@
       "email": "mona.morgan52@example.com",
       "business": "Plum Workshop",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-02-28T06:53:08",
       "status": "open",
       "reviewer": "p035",
       "export": {
@@ -2038,6 +2091,7 @@
       "email": "mateo.wilson53@example.com",
       "business": "Inkwell Workshop",
       "sells": "Art prints, Clothing",
+      "submittedAt": "2024-02-28T07:02:49",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -2075,6 +2129,7 @@
       "email": "diana.hill54@example.com",
       "business": "Button Makery",
       "sells": "Stickers, Art prints, Keychains",
+      "submittedAt": "2024-02-28T10:43:15",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -2113,6 +2168,7 @@
       "email": "diana.hill54@example.com",
       "business": "Yarrow Collective",
       "sells": "Stickers, Keychains, Pottery, Hand-bound journals",
+      "submittedAt": "2024-02-28T11:50:12",
       "status": "needs_follow_up",
       "reviewer": "p129",
       "export": {
@@ -2153,6 +2209,7 @@
       "email": "layla.li56@example.com",
       "business": "Saffron Works",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc), Lino-printed scarves",
+      "submittedAt": "2024-02-28T12:28:26",
       "status": "open",
       "reviewer": "p129",
       "export": {
@@ -2192,6 +2249,7 @@
       "email": "clara.lewis57@example.com",
       "business": "Pebble Supply",
       "sells": "Stickers, Art prints, Keychains, Macrame soaps",
+      "submittedAt": "2024-02-28T13:02:28",
       "status": "reviewer_rejected",
       "reviewer": "p034",
       "export": {
@@ -2229,6 +2287,7 @@
       "email": "lisa.brooks58@example.com",
       "business": "Ember Makery",
       "sells": "Keychains, Hand-painted fridge magnets, Hand-bound notebooks, Woodburned bookmarks, Hand-painted notebooks",
+      "submittedAt": "2024-02-28T14:28:48",
       "status": "open",
       "reviewer": "p129",
       "export": {
@@ -2268,6 +2327,7 @@
       "email": "noor.chang59@example.com",
       "business": "Glaze Crafts",
       "sells": "Keychains, Jewellery",
+      "submittedAt": "2024-02-28T17:25:36",
       "status": "open",
       "reviewer": "p054",
       "export": {
@@ -2306,6 +2366,7 @@
       "email": "naomi.williams60@example.com",
       "business": "Fig Studio",
       "sells": "Hand-bound scarves",
+      "submittedAt": "2024-02-28T17:48:16",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -2341,6 +2402,7 @@
       "email": "laura.morgan61@example.com",
       "business": "Juniper Press",
       "sells": "Keychains, Fibre arts (crochet, knitting, etc), Macrame journals",
+      "submittedAt": "2024-02-28T19:59:52",
       "status": "open",
       "reviewer": "p054",
       "export": {
@@ -2377,6 +2439,7 @@
       "email": "ivan.singh62@example.com",
       "business": "Linen House",
       "sells": "Stickers, Art prints, Keychains",
+      "submittedAt": "2024-02-28T21:58:56",
       "status": "needs_follow_up",
       "reviewer": "p054",
       "export": {
@@ -2416,6 +2479,7 @@
       "email": "ian.miller63@example.com",
       "business": "Meadow Makery",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-02-29T00:16:03",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -2454,6 +2518,7 @@
       "email": "odin.gupta64@example.com",
       "business": "Button Atelier",
       "sells": "Clothing",
+      "submittedAt": "2024-02-29T00:48:18",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -2491,6 +2556,7 @@
       "email": "amelia.roberts65@example.com",
       "business": "Honey Market",
       "sells": "Keychains, Jewellery, Macrame fridge magnets",
+      "submittedAt": "2024-02-29T01:31:42",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -2528,6 +2594,7 @@
       "email": "amir.sullivan66@example.com",
       "business": "Ivy Workshop",
       "sells": "Stickers, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-02-29T02:15:20",
       "status": "reviewer_approved",
       "reviewer": "p051",
       "export": {
@@ -2564,6 +2631,7 @@
       "email": "faith.smith67@example.com",
       "business": "Juniper Studio",
       "sells": "Stickers, Art prints, Keychains, Lino-printed candles",
+      "submittedAt": "2024-02-29T02:29:30",
       "status": "reviewer_rejected",
       "reviewer": "p054",
       "export": {
@@ -2604,6 +2672,7 @@
       "email": "bruno.zhang68@example.com",
       "business": "Paper Corner",
       "sells": "Stickers, Art prints, Keychains",
+      "submittedAt": "2024-02-29T04:18:03",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -2644,6 +2713,7 @@
       "email": "sam.hall69@example.com",
       "business": "Inkwell House",
       "sells": "Hand-bound scarves",
+      "submittedAt": "2024-02-29T05:34:24",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -2682,6 +2752,7 @@
       "email": "julian.castro70@example.com",
       "business": "Amber Goods",
       "sells": "Embroidered notebooks, Lino-printed soaps",
+      "submittedAt": "2024-02-29T05:39:26",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -2719,6 +2790,7 @@
       "email": "silas.ruiz71@example.com",
       "business": "Clover Atelier",
       "sells": "Art prints, Fibre arts (crochet, knitting, etc), Clothing",
+      "submittedAt": "2024-02-29T06:03:35",
       "status": "reviewer_rejected",
       "reviewer": "p099",
       "export": {
@@ -2758,6 +2830,7 @@
       "email": "heidi.park72@example.com",
       "business": "Kiln Works",
       "sells": "Stickers, Art prints, Jewellery",
+      "submittedAt": "2024-02-29T06:53:46",
       "status": "open",
       "reviewer": "p150",
       "export": {
@@ -2797,6 +2870,7 @@
       "email": "simon.reyes73@example.com",
       "business": "Daisy Goods",
       "sells": "Stickers, Keychains, Jewellery, Laser-cut earrings",
+      "submittedAt": "2024-02-29T08:25:00",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -2836,6 +2910,7 @@
       "email": "leon.liu74@example.com",
       "business": "Sprout Lab",
       "sells": "Art prints",
+      "submittedAt": "2024-02-29T09:14:46",
       "status": "reviewer_rejected",
       "reviewer": "p139",
       "export": {
@@ -2874,6 +2949,7 @@
       "email": "omar.gomez75@example.com",
       "business": "Pine Goods",
       "sells": "Fibre arts (crochet, knitting, etc), Clothing, Upcycled candles",
+      "submittedAt": "2024-02-29T12:35:43",
       "status": "reviewer_rejected",
       "reviewer": "p099",
       "export": {
@@ -2913,6 +2989,7 @@
       "email": "ola.rivera76@example.com",
       "business": "Honey Atelier",
       "sells": "Embroidered notebooks, Watercolour journals",
+      "submittedAt": "2024-02-29T14:10:26",
       "status": "reviewer_rejected",
       "reviewer": "p150",
       "export": {
@@ -2949,6 +3026,7 @@
       "email": "claire.wilson77@example.com",
       "business": "Thistle Corner",
       "sells": "Stickers, Jewellery",
+      "submittedAt": "2024-02-29T14:38:32",
       "status": "open",
       "reviewer": "p091",
       "export": {
@@ -2985,6 +3063,7 @@
       "email": "nick.rivera78@example.com",
       "business": "Clay Studio",
       "sells": "Art prints, Jewellery, Fibre arts (crochet, knitting, etc), Laser-cut hair clips, Riso-printed fridge magnets",
+      "submittedAt": "2024-02-29T16:31:21",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -3025,6 +3104,7 @@
       "email": "nick.rivera78@example.com",
       "business": "Tidal Supply",
       "sells": "Stickers, Keychains, Jewellery, Macrame plushies",
+      "submittedAt": "2024-02-29T17:41:18",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -3064,6 +3144,7 @@
       "email": "eric.lam80@example.com",
       "business": "Cedar Press",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-02-29T17:59:29",
       "status": "reviewer_rejected",
       "reviewer": "p150",
       "export": {
@@ -3104,6 +3185,7 @@
       "email": "chris.young81@example.com",
       "business": "Oak Crafts",
       "sells": "Jewellery",
+      "submittedAt": "2024-02-29T20:31:39",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -3139,6 +3221,7 @@
       "email": "caleb.cruz82@example.com",
       "business": "Honey Press",
       "sells": "Stickers, Art prints, Keychains, Clothing, Beaded tote bags",
+      "submittedAt": "2024-02-29T22:09:27",
       "status": "reviewer_rejected",
       "reviewer": "p034",
       "export": {
@@ -3178,6 +3261,7 @@
       "email": "frank.hughes83@example.com",
       "business": "Fig Works",
       "sells": "Embroidered notebooks, Quilted phone charms",
+      "submittedAt": "2024-02-29T23:36:33",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -3214,6 +3298,7 @@
       "email": "neha.garcia84@example.com",
       "business": "Cobalt House",
       "sells": "Stickers, Art prints, Jewellery, Upcycled notebooks",
+      "submittedAt": "2024-02-29T23:45:34",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -3254,6 +3339,7 @@
       "email": "isabel.shah85@example.com",
       "business": "Moss Co",
       "sells": "Stickers, Art prints, Keychains, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-01T01:07:24",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -3294,6 +3380,7 @@
       "email": "jules.wright86@example.com",
       "business": "Acorn Makery",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-01T03:33:24",
       "status": "open",
       "reviewer": "p054",
       "export": {
@@ -3331,6 +3418,7 @@
       "email": "wren.singh87@example.com",
       "business": "Pine Market",
       "sells": "Art prints, Keychains, Clothing",
+      "submittedAt": "2024-03-01T04:17:09",
       "status": "reviewer_approved",
       "reviewer": "p051",
       "export": {
@@ -3369,6 +3457,7 @@
       "email": "edgar.bailey88@example.com",
       "business": "Sprout Workshop",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-03-01T04:48:08",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -3405,6 +3494,7 @@
       "email": "kim.martin89@example.com",
       "business": "Nettle Co",
       "sells": "Stickers, Keychains, Jewellery",
+      "submittedAt": "2024-03-01T07:21:07",
       "status": "reviewer_rejected",
       "reviewer": "p150",
       "export": {
@@ -3443,6 +3533,7 @@
       "email": "mark.gray90@example.com",
       "business": "Linen Studio",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-01T10:11:49",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -3483,6 +3574,7 @@
       "email": "kit.sullivan91@example.com",
       "business": "Thistle Supply",
       "sells": "Stickers, Jewellery, Fibre arts (crochet, knitting, etc), Clothing, Watercolour tote bags",
+      "submittedAt": "2024-03-01T10:14:03",
       "status": "reviewer_rejected",
       "reviewer": "p107",
       "export": {
@@ -3523,6 +3615,7 @@
       "email": "goran.morales92@example.com",
       "business": "Cobalt Market",
       "sells": "Embroidered notebooks",
+      "submittedAt": "2024-03-01T10:16:48",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -3557,6 +3650,7 @@
       "email": "aiden.chan93@example.com",
       "business": "Daisy Works",
       "sells": "Stickers, Art prints, Keychains, Jewellery, Woodburned rings, Woodburned plushies",
+      "submittedAt": "2024-03-01T11:03:18",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -3600,6 +3694,7 @@
       "email": "jane.gray94@example.com",
       "business": "Finch Works",
       "sells": "Stickers, Art prints, Felted postcards",
+      "submittedAt": "2024-03-01T12:30:01",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -3638,6 +3733,7 @@
       "email": "dev.collins95@example.com",
       "business": "Fig Workshop",
       "sells": "Stickers",
+      "submittedAt": "2024-03-01T14:28:33",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -3673,6 +3769,7 @@
       "email": "wei.singh96@example.com",
       "business": "Juniper Makery",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc), Embroidered greeting cards",
+      "submittedAt": "2024-03-01T16:52:07",
       "status": "open",
       "reviewer": "p035",
       "export": {
@@ -3713,6 +3810,7 @@
       "email": "oliver.shah97@example.com",
       "business": "Ivy Makery",
       "sells": "Stickers, Jewellery, Clothing, Polymer clay rings",
+      "submittedAt": "2024-03-01T17:40:44",
       "status": "reviewer_approved",
       "reviewer": "p051",
       "export": {
@@ -3753,6 +3851,7 @@
       "email": "rumi.li98@example.com",
       "business": "Meadow Works",
       "sells": "Keychains",
+      "submittedAt": "2024-03-01T18:43:46",
       "status": "needs_follow_up",
       "reviewer": "p034",
       "export": {
@@ -3790,6 +3889,7 @@
       "email": "chloe.adams99@example.com",
       "business": "Button Supply",
       "sells": "Stickers, Keychains, Jewellery, Clothing",
+      "submittedAt": "2024-03-01T21:02:51",
       "status": "needs_follow_up",
       "reviewer": "p054",
       "export": {
@@ -3831,6 +3931,7 @@
       "email": "ryan.park100@example.com",
       "business": "Maple Makery",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc), Woodburned postcards",
+      "submittedAt": "2024-03-01T22:24:08",
       "status": "open",
       "reviewer": "p150",
       "export": {
@@ -3870,6 +3971,7 @@
       "email": "mohamed.taylor101@example.com",
       "business": "Saffron Collective",
       "sells": "Embroidered notebooks, Beaded fridge magnets",
+      "submittedAt": "2024-03-01T22:32:53",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -3907,6 +4009,7 @@
       "email": "teresa.garcia102@example.com",
       "business": "Bramble Market",
       "sells": "Jewellery, Fibre arts (crochet, knitting, etc), Polymer clay journals",
+      "submittedAt": "2024-03-02T01:25:25",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -3945,6 +4048,7 @@
       "email": "vera.garcia103@example.com",
       "business": "Bramble Supply",
       "sells": "Stickers, Keychains, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-02T01:54:43",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -3983,6 +4087,7 @@
       "email": "nate.lopez104@example.com",
       "business": "Pine Lab",
       "sells": "Pressed-flower phone charms, Beaded patches",
+      "submittedAt": "2024-03-02T01:56:03",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -4019,6 +4124,7 @@
       "email": "bianca.reyes105@example.com",
       "business": "Moss Studio",
       "sells": "Keychains, Clothing, Polymer clay mugs",
+      "submittedAt": "2024-03-02T02:22:20",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -4056,6 +4162,7 @@
       "email": "hugo.kumar106@example.com",
       "business": "Maple Collective",
       "sells": "Stickers, Fibre arts (crochet, knitting, etc), Watercolour hair clips",
+      "submittedAt": "2024-03-02T05:11:42",
       "status": "open",
       "reviewer": "p054",
       "export": {
@@ -4095,6 +4202,7 @@
       "email": "megan.cruz107@example.com",
       "business": "Wren Supply",
       "sells": "Art prints, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-02T05:41:28",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -4132,6 +4240,7 @@
       "email": "amara.watson108@example.com",
       "business": "Meadow Studio",
       "sells": "Pressed-flower phone charms, Watercolour mugs",
+      "submittedAt": "2024-03-02T06:49:44",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -4169,6 +4278,7 @@
       "email": "tom.gomez109@example.com",
       "business": "Acorn Market",
       "sells": "Art prints, Jewellery, Macrame rings, Laser-cut bookmarks",
+      "submittedAt": "2024-03-02T08:55:11",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -4207,6 +4317,7 @@
       "email": "matt.lin110@example.com",
       "business": "Fern Works",
       "sells": "Keychains, Clothing",
+      "submittedAt": "2024-03-02T11:03:16",
       "status": "open",
       "reviewer": "p091",
       "export": {
@@ -4244,6 +4355,7 @@
       "email": "kenji.watson111@example.com",
       "business": "Button Lab",
       "sells": "Stickers, Art prints, Jewellery, Hand-painted bookmarks, Macrame scarves",
+      "submittedAt": "2024-03-02T11:12:43",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -4285,6 +4397,7 @@
       "email": "cecilia.ho112@example.com",
       "business": "Marigold Works",
       "sells": "Pressed-flower phone charms",
+      "submittedAt": "2024-03-02T11:20:20",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -4321,6 +4434,7 @@
       "email": "greta.bailey113@example.com",
       "business": "Fig Goods",
       "sells": "Stickers, Keychains, Clothing",
+      "submittedAt": "2024-03-02T11:54:49",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -4359,6 +4473,7 @@
       "email": "carla.li114@example.com",
       "business": "Paper Workshop",
       "sells": "Art prints, Keychains, Fibre arts (crochet, knitting, etc), Clothing",
+      "submittedAt": "2024-03-02T13:30:35",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -4397,6 +4512,7 @@
       "email": "tony.chang115@example.com",
       "business": "Inkwell Crafts",
       "sells": "Stickers, Keychains, Jewellery, Riso-printed mugs",
+      "submittedAt": "2024-03-02T14:46:27",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -4437,6 +4553,7 @@
       "email": "joy.miller116@example.com",
       "business": "Willow Studio",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-03-02T15:23:48",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -4476,6 +4593,7 @@
       "email": "maria.gonzalez117@example.com",
       "business": "Copper Collective",
       "sells": "Stickers, Art prints, Jewellery, Fibre arts (crochet, knitting, etc), Beaded plushies, Hand-bound patches, Resin notebooks",
+      "submittedAt": "2024-03-02T15:39:37",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -4519,6 +4637,7 @@
       "email": "pia.ahmed118@example.com",
       "business": "Pebble Press",
       "sells": "Art prints, Keychains, Laser-cut fridge magnets",
+      "submittedAt": "2024-03-02T16:59:35",
       "status": "needs_follow_up",
       "reviewer": "p032",
       "export": {
@@ -4558,6 +4677,7 @@
       "email": "evan.taylor119@example.com",
       "business": "Sprout House",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-02T17:01:06",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -4596,6 +4716,7 @@
       "email": "cole.collins120@example.com",
       "business": "Sprout Market",
       "sells": "Stickers, Art prints, Keychains, Clothing, Resin greeting cards, Polymer clay hair clips",
+      "submittedAt": "2024-03-02T17:44:59",
       "status": "reviewer_rejected",
       "reviewer": "p011",
       "export": {
@@ -4637,6 +4758,7 @@
       "email": "lucy.collins121@example.com",
       "business": "Lantern Collective",
       "sells": "Stickers, Jewellery",
+      "submittedAt": "2024-03-02T20:09:57",
       "status": "needs_follow_up",
       "reviewer": "p091",
       "export": {
@@ -4673,6 +4795,7 @@
       "email": "agnes.baker122@example.com",
       "business": "Cobalt Corner",
       "sells": "Stickers, Art prints, Jewellery",
+      "submittedAt": "2024-03-02T20:51:15",
       "status": "reviewer_rejected",
       "reviewer": "p034",
       "export": {
@@ -4711,6 +4834,7 @@
       "email": "miriam.russell123@example.com",
       "business": "Maple Workshop",
       "sells": "Fibre arts (crochet, knitting, etc), Pottery, Upcycled hair clips",
+      "submittedAt": "2024-03-02T21:23:41",
       "status": "reviewer_rejected",
       "reviewer": "p051",
       "export": {
@@ -4748,6 +4872,7 @@
       "email": "carmen.robinson124@example.com",
       "business": "Thread Makery",
       "sells": "Stickers, Art prints, Clothing",
+      "submittedAt": "2024-03-02T22:51:21",
       "status": "reviewer_rejected",
       "reviewer": "p034",
       "export": {
@@ -4787,6 +4912,7 @@
       "email": "rebecca.evans125@example.com",
       "business": "Oak Studio",
       "sells": "Stickers, Art prints, Jewellery",
+      "submittedAt": "2024-03-03T02:13:19",
       "status": "needs_follow_up",
       "reviewer": "p129",
       "export": {
@@ -4825,6 +4951,7 @@
       "email": "liam.alvarez126@example.com",
       "business": "Daisy Collective",
       "sells": "Art prints, Pottery, Hand-bound phone charms, Beaded lanyards, Hand-painted hair clips",
+      "submittedAt": "2024-03-03T03:14:24",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -4865,6 +4992,7 @@
       "email": "alicia.lopez127@example.com",
       "business": "Honey Makery",
       "sells": "Art prints, Jewellery, Clothing, Felted enamel pins",
+      "submittedAt": "2024-03-03T03:20:55",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -4903,6 +5031,7 @@
       "email": "bo.harris128@example.com",
       "business": "Cobalt Supply",
       "sells": "Art prints, Keychains",
+      "submittedAt": "2024-03-03T03:40:22",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -4939,6 +5068,7 @@
       "email": "nico.singh129@example.com",
       "business": "Indigo Workshop",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc), Laser-cut notebooks",
+      "submittedAt": "2024-03-03T04:30:00",
       "status": "open",
       "reviewer": "p034",
       "export": {
@@ -4977,6 +5107,7 @@
       "email": "jenna.johnson130@example.com",
       "business": "Fig Supply",
       "sells": "Art prints, Keychains",
+      "submittedAt": "2024-03-03T05:44:26",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -5017,6 +5148,7 @@
       "email": "saul.kumar131@example.com",
       "business": "Quill Studio",
       "sells": "Keychains",
+      "submittedAt": "2024-03-03T06:02:12",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -5053,6 +5185,7 @@
       "email": "beatriz.brooks132@example.com",
       "business": "Clover Workshop",
       "sells": "Art prints, Pottery",
+      "submittedAt": "2024-03-03T07:07:01",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -5089,6 +5222,7 @@
       "email": "seth.walker133@example.com",
       "business": "Daisy House",
       "sells": "Jewellery, Polymer clay fridge magnets",
+      "submittedAt": "2024-03-03T11:51:10",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -5125,6 +5259,7 @@
       "email": "will.king134@example.com",
       "business": "Yarrow Market",
       "sells": "Stickers, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-03T11:55:00",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -5162,6 +5297,7 @@
       "email": "ingrid.cooper135@example.com",
       "business": "Copper Lab",
       "sells": "Stickers, Keychains, Laser-cut earrings, Lino-printed phone charms",
+      "submittedAt": "2024-03-03T12:54:37",
       "status": "open",
       "reviewer": "p034",
       "export": {
@@ -5202,6 +5338,7 @@
       "email": "jonah.price136@example.com",
       "business": "Hazel Workshop",
       "sells": "Stickers, Keychains, Jewellery, Pressed-flower hair clips",
+      "submittedAt": "2024-03-03T14:02:30",
       "status": "open",
       "reviewer": "p034",
       "export": {
@@ -5242,6 +5379,7 @@
       "email": "lia.rossi137@example.com",
       "business": "Marigold Supply",
       "sells": "Art prints, Jewellery, Hand-bound mugs",
+      "submittedAt": "2024-03-03T14:44:09",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -5279,6 +5417,7 @@
       "email": "gabriel.martin138@example.com",
       "business": "Pine Supply",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-03-03T15:32:30",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -5315,6 +5454,7 @@
       "email": "dean.ward139@example.com",
       "business": "Acorn Supply",
       "sells": "Stickers, Art prints, Clothing",
+      "submittedAt": "2024-03-04T01:42:15",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -5355,6 +5495,7 @@
       "email": "lily.perez140@example.com",
       "business": "Maple Works",
       "sells": "Stickers, Jewellery, Clothing, Pressed-flower zines",
+      "submittedAt": "2024-03-04T02:44:00",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -5393,6 +5534,7 @@
       "email": "mason.lewis141@example.com",
       "business": "Plum Market",
       "sells": "Keychains, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-04T03:37:44",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -5432,6 +5574,7 @@
       "email": "cleo.thomas142@example.com",
       "business": "Button Studio",
       "sells": "Art prints, Upcycled fridge magnets",
+      "submittedAt": "2024-03-04T03:42:08",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -5470,6 +5613,7 @@
       "email": "zeke.morgan143@example.com",
       "business": "Nettle Corner",
       "sells": "Jewellery",
+      "submittedAt": "2024-03-04T03:46:16",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -5507,6 +5651,7 @@
       "email": "nathan.chang144@example.com",
       "business": "Kiln House",
       "sells": "Stickers, Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-04T05:40:18",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -5546,6 +5691,7 @@
       "email": "jacob.carter145@example.com",
       "business": "Spool Crafts",
       "sells": "Art prints, Keychains, Hand-painted earrings",
+      "submittedAt": "2024-03-04T06:08:10",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -5583,6 +5729,7 @@
       "email": "kevin.gray146@example.com",
       "business": "Maple Goods",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-04T06:14:49",
       "status": "needs_follow_up",
       "reviewer": "p107",
       "export": {
@@ -5621,6 +5768,7 @@
       "email": "alan.shah147@example.com",
       "business": "Fig Co",
       "sells": "Art prints, Keychains, Jewellery, Clothing, Beaded soaps, Woodburned earrings",
+      "submittedAt": "2024-03-04T07:02:11",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -5662,6 +5810,7 @@
       "email": "ines.phillips148@example.com",
       "business": "Paper Supply",
       "sells": "Stickers, Art prints, Quilted earrings",
+      "submittedAt": "2024-03-04T07:20:08",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -5702,6 +5851,7 @@
       "email": "max.silva149@example.com",
       "business": "Button House",
       "sells": "Stickers",
+      "submittedAt": "2024-03-04T07:25:04",
       "status": "needs_follow_up",
       "reviewer": "p139",
       "export": {
@@ -5737,6 +5887,7 @@
       "email": "farah.kelly150@example.com",
       "business": "Hazel Goods",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-04T07:25:41",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -5775,6 +5926,7 @@
       "email": "lev.wood151@example.com",
       "business": "Lantern House",
       "sells": "Pressed-flower phone charms, Embroidered earrings",
+      "submittedAt": "2024-03-04T08:41:47",
       "status": "open",
       "reviewer": "p034",
       "export": {
@@ -5812,6 +5964,7 @@
       "email": "harper.rodriguez152@example.com",
       "business": "Honey Co",
       "sells": "Keychains, Riso-printed bookmarks",
+      "submittedAt": "2024-03-04T09:44:58",
       "status": "needs_follow_up",
       "reviewer": "p054",
       "export": {
@@ -5848,6 +6001,7 @@
       "email": "cara.sullivan153@example.com",
       "business": "Lantern Corner",
       "sells": "Keychains, Jewellery, Lino-printed lanyards",
+      "submittedAt": "2024-03-04T10:57:12",
       "status": "reviewer_approved",
       "reviewer": "p051",
       "export": {
@@ -5887,6 +6041,7 @@
       "email": "rita.turner154@example.com",
       "business": "Plum Supply",
       "sells": "Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-04T11:01:40",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -5928,6 +6083,7 @@
       "email": "ingrid.wong155@example.com",
       "business": "Linen Workshop",
       "sells": "Hand-bound earrings",
+      "submittedAt": "2024-03-04T11:07:48",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -5963,6 +6119,7 @@
       "email": "jason.rossi156@example.com",
       "business": "Moss Makery",
       "sells": "Art prints, Keychains",
+      "submittedAt": "2024-03-04T13:02:27",
       "status": "open",
       "reviewer": "p034",
       "export": {
@@ -6001,6 +6158,7 @@
       "email": "kira.adams157@example.com",
       "business": "Pebble Lab",
       "sells": "Stickers, Keychains, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-04T13:28:52",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -6039,6 +6197,7 @@
       "email": "ravi.campbell158@example.com",
       "business": "Indigo House",
       "sells": "Stickers, Art prints, Keychains, Upcycled bookmarks",
+      "submittedAt": "2024-03-04T13:35:38",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -6077,6 +6236,7 @@
       "email": "leila.white159@example.com",
       "business": "Clay Atelier",
       "sells": "Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-04T14:56:31",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -6114,6 +6274,7 @@
       "email": "abel.hussain160@example.com",
       "business": "Wren Workshop",
       "sells": "Stickers, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-04T15:22:10",
       "status": "open",
       "reviewer": "p091",
       "export": {
@@ -6153,6 +6314,7 @@
       "email": "ann.jensen161@example.com",
       "business": "Kiln Makery",
       "sells": "Art prints, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-04T15:27:47",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -6189,6 +6351,7 @@
       "email": "dante.hughes162@example.com",
       "business": "Amber Co",
       "sells": "Art prints, Jewellery, Clothing",
+      "submittedAt": "2024-03-04T17:46:24",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -6229,6 +6392,7 @@
       "email": "sol.alvarez163@example.com",
       "business": "Fern Atelier",
       "sells": "Keychains, Pressed-flower rings, Felted plushies",
+      "submittedAt": "2024-03-04T18:48:38",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -6266,6 +6430,7 @@
       "email": "selena.hill164@example.com",
       "business": "Ember Co",
       "sells": "Stickers, Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-04T19:23:06",
       "status": "reviewer_rejected",
       "reviewer": "p107",
       "export": {
@@ -6307,6 +6472,7 @@
       "email": "quinn.russell165@example.com",
       "business": "Honey Crafts",
       "sells": "Stickers, Art prints, Keychains, Macrame bookmarks",
+      "submittedAt": "2024-03-04T19:38:10",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -6345,6 +6511,7 @@
       "email": "daniela.garcia166@example.com",
       "business": "Bramble Works",
       "sells": "Art prints, Jewellery, Lino-printed scarves",
+      "submittedAt": "2024-03-04T19:45:02",
       "status": "open",
       "reviewer": "p054",
       "export": {
@@ -6383,6 +6550,7 @@
       "email": "jamie.martinez167@example.com",
       "business": "Plum Corner",
       "sells": "Hand-bound earrings",
+      "submittedAt": "2024-03-04T20:15:53",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -6421,6 +6589,7 @@
       "email": "rafael.wu168@example.com",
       "business": "Lantern Workshop",
       "sells": "Hand-bound earrings, Polymer clay plushies",
+      "submittedAt": "2024-03-04T20:16:19",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -6459,6 +6628,7 @@
       "email": "jade.murphy169@example.com",
       "business": "Cobalt Workshop",
       "sells": "Art prints, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-04T21:22:54",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -6497,6 +6667,7 @@
       "email": "hazel.collins170@example.com",
       "business": "Plum Studio",
       "sells": "Keychains, Watercolour notebooks",
+      "submittedAt": "2024-03-05T00:27:45",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -6532,6 +6703,7 @@
       "email": "jay.alvarez171@example.com",
       "business": "Quill Supply",
       "sells": "Art prints, Keychains",
+      "submittedAt": "2024-03-05T00:28:14",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -6569,6 +6741,7 @@
       "email": "ethan.cooper172@example.com",
       "business": "Copper House",
       "sells": "Clothing, Polymer clay phone charms",
+      "submittedAt": "2024-03-05T00:49:25",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -6608,6 +6781,7 @@
       "email": "george.clark173@example.com",
       "business": "Saffron Studio",
       "sells": "Stickers, Jewellery, Clothing",
+      "submittedAt": "2024-03-05T00:52:46",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -6646,6 +6820,7 @@
       "email": "isla.alvarez174@example.com",
       "business": "Hazel Makery",
       "sells": "Stickers, Embroidered coasters",
+      "submittedAt": "2024-03-05T02:57:45",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -6681,6 +6856,7 @@
       "email": "aaron.hussain175@example.com",
       "business": "Kiln Collective",
       "sells": "Stickers, Keychains, Jewellery, Riso-printed postcards",
+      "submittedAt": "2024-03-05T03:21:57",
       "status": "open",
       "reviewer": "p091",
       "export": {
@@ -6721,6 +6897,7 @@
       "email": "rumi.ng176@example.com",
       "business": "Plum Lab",
       "sells": "Art prints, Keychains, Laser-cut journals, Embroidered enamel pins",
+      "submittedAt": "2024-03-05T05:13:36",
       "status": "reviewer_rejected",
       "reviewer": "p051",
       "export": {
@@ -6761,6 +6938,7 @@
       "email": "yuki.alvarez177@example.com",
       "business": "Amber Makery",
       "sells": "Stickers, Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-05T05:43:34",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -6801,6 +6979,7 @@
       "email": "zane.das178@example.com",
       "business": "Meadow Atelier",
       "sells": "Stickers, Jewellery",
+      "submittedAt": "2024-03-05T06:44:18",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -6838,6 +7017,7 @@
       "email": "paige.hughes179@example.com",
       "business": "Pine Co",
       "sells": "Stickers, Jewellery",
+      "submittedAt": "2024-03-05T07:34:09",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -6876,6 +7056,7 @@
       "email": "henry.chen180@example.com",
       "business": "Cedar Studio",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc), Clothing, Pottery",
+      "submittedAt": "2024-03-05T08:38:17",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -6916,6 +7097,7 @@
       "email": "miriam.cooper181@example.com",
       "business": "Tidal House",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-05T08:40:38",
       "status": "reviewer_rejected",
       "reviewer": "p051",
       "export": {
@@ -6952,6 +7134,7 @@
       "email": "neha.hall182@example.com",
       "business": "Amber Supply",
       "sells": "Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-05T09:52:29",
       "status": "reviewer_approved",
       "reviewer": "p051",
       "export": {
@@ -6989,6 +7172,7 @@
       "email": "mina.smith183@example.com",
       "business": "Kiln Atelier",
       "sells": "Keychains, Pottery, Resin lanyards",
+      "submittedAt": "2024-03-05T10:16:44",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -7028,6 +7212,7 @@
       "email": "adrian.collins184@example.com",
       "business": "Meadow Crafts",
       "sells": "Art prints, Clothing, Felted phone charms",
+      "submittedAt": "2024-03-05T11:03:43",
       "status": "needs_follow_up",
       "reviewer": "p107",
       "export": {
@@ -7065,6 +7250,7 @@
       "email": "lola.novak185@example.com",
       "business": "Honey Works",
       "sells": "Art prints, Clothing, Upcycled postcards",
+      "submittedAt": "2024-03-05T11:06:19",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -7104,6 +7290,7 @@
       "email": "charles.ng186@example.com",
       "business": "Cedar House",
       "sells": "Stickers, Jewellery, Embroidered tote bags, Polymer clay notebooks, Upcycled tote bags",
+      "submittedAt": "2024-03-05T12:17:45",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -7143,6 +7330,7 @@
       "email": "wade.garcia187@example.com",
       "business": "Fern Collective",
       "sells": "Stickers, Keychains, Upcycled greeting cards",
+      "submittedAt": "2024-03-05T12:18:58",
       "status": "reviewer_rejected",
       "reviewer": "p034",
       "export": {
@@ -7182,6 +7370,7 @@
       "email": "nils.fischer188@example.com",
       "business": "Willow House",
       "sells": "Stickers, Art prints, Jewellery",
+      "submittedAt": "2024-03-05T13:25:24",
       "status": "open",
       "reviewer": "p091",
       "export": {
@@ -7219,6 +7408,7 @@
       "email": "luke.liu189@example.com",
       "business": "Sage Studio",
       "sells": "Stickers, Keychains, Jewellery",
+      "submittedAt": "2024-03-05T14:04:58",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -7257,6 +7447,7 @@
       "email": "riley.garcia190@example.com",
       "business": "Quill Goods",
       "sells": "Art prints, Keychains, Resin scarves",
+      "submittedAt": "2024-03-05T15:39:22",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -7294,6 +7485,7 @@
       "email": "lorenzo.ramirez191@example.com",
       "business": "Thistle Workshop",
       "sells": "Hand-bound earrings",
+      "submittedAt": "2024-03-05T17:06:01",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -7330,6 +7522,7 @@
       "email": "alex.rossi192@example.com",
       "business": "Finch Press",
       "sells": "Keychains, Clothing",
+      "submittedAt": "2024-03-05T17:31:15",
       "status": "open",
       "reviewer": "p034",
       "export": {
@@ -7368,6 +7561,7 @@
       "email": "rina.diaz193@example.com",
       "business": "Linen Market",
       "sells": "Stickers",
+      "submittedAt": "2024-03-05T20:24:13",
       "status": "reviewer_rejected",
       "reviewer": "p107",
       "export": {
@@ -7405,6 +7599,7 @@
       "email": "eva.khan194@example.com",
       "business": "Indigo Makery",
       "sells": "Woodburned enamel pins, Woodburned notebooks",
+      "submittedAt": "2024-03-05T21:49:57",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -7441,6 +7636,7 @@
       "email": "gus.chan195@example.com",
       "business": "Marigold Corner",
       "sells": "Art prints, Clothing",
+      "submittedAt": "2024-03-05T23:40:19",
       "status": "open",
       "reviewer": "p150",
       "export": {
@@ -7479,6 +7675,7 @@
       "email": "brandon.lin196@example.com",
       "business": "Meadow Supply",
       "sells": "Stickers",
+      "submittedAt": "2024-03-06T02:54:51",
       "status": "reviewer_approved",
       "reviewer": "p051",
       "export": {
@@ -7516,6 +7713,7 @@
       "email": "daniel.brown197@example.com",
       "business": "Ivy House",
       "sells": "Jewellery, Clothing, Pressed-flower scarves",
+      "submittedAt": "2024-03-06T04:27:34",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -7554,6 +7752,7 @@
       "email": "diego.collins198@example.com",
       "business": "Ember Atelier",
       "sells": "Stickers, Art prints, Polymer clay plushies, Polymer clay soaps",
+      "submittedAt": "2024-03-06T05:10:27",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -7593,6 +7792,7 @@
       "email": "hannah.morales199@example.com",
       "business": "Willow Makery",
       "sells": "Woodburned enamel pins, Riso-printed notebooks",
+      "submittedAt": "2024-03-06T05:24:34",
       "status": "reviewer_rejected",
       "reviewer": "p051",
       "export": {
@@ -7631,6 +7831,7 @@
       "email": "gemma.chen200@example.com",
       "business": "Fern Goods",
       "sells": "Art prints, Jewellery",
+      "submittedAt": "2024-03-06T05:31:54",
       "status": "reviewer_rejected",
       "reviewer": "p129",
       "export": {
@@ -7668,6 +7869,7 @@
       "email": "john.miller201@example.com",
       "business": "Sage Goods",
       "sells": "Woodburned enamel pins, Polymer clay greeting cards, Resin coasters",
+      "submittedAt": "2024-03-06T07:22:10",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -7706,6 +7908,7 @@
       "email": "bram.james202@example.com",
       "business": "Button Works",
       "sells": "Woodburned enamel pins",
+      "submittedAt": "2024-03-06T08:22:02",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -7741,6 +7944,7 @@
       "email": "elsa.hussain203@example.com",
       "business": "Kiln Supply",
       "sells": "Stickers, Keychains, Fibre arts (crochet, knitting, etc), Felted fridge magnets, Hand-painted greeting cards",
+      "submittedAt": "2024-03-06T09:38:23",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -7780,6 +7984,7 @@
       "email": "grace.reed204@example.com",
       "business": "Clover Makery",
       "sells": "Keychains, Jewellery",
+      "submittedAt": "2024-03-06T11:07:20",
       "status": "open",
       "reviewer": "p129",
       "export": {
@@ -7816,6 +8021,7 @@
       "email": "rhea.gomez205@example.com",
       "business": "Willow Supply",
       "sells": "Art prints, Jewellery",
+      "submittedAt": "2024-03-06T11:28:19",
       "status": "reviewer_rejected",
       "reviewer": "p099",
       "export": {
@@ -7852,6 +8058,7 @@
       "email": "priya.cook206@example.com",
       "business": "Glaze Workshop",
       "sells": "Jewellery",
+      "submittedAt": "2024-03-06T15:14:16",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -7890,6 +8097,7 @@
       "email": "kyle.thompson207@example.com",
       "business": "Thread Works",
       "sells": "Stickers, Art prints, Jewellery, Laser-cut pouches",
+      "submittedAt": "2024-03-06T18:08:01",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -7929,6 +8137,7 @@
       "email": "wendy.campbell208@example.com",
       "business": "Daisy Atelier",
       "sells": "Art prints, Keychains, Jewellery, Felted patches",
+      "submittedAt": "2024-03-06T19:13:37",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -7969,6 +8178,7 @@
       "email": "esme.allen209@example.com",
       "business": "Ember Corner",
       "sells": "Art prints, Jewellery",
+      "submittedAt": "2024-03-06T20:13:48",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -8005,6 +8215,7 @@
       "email": "robert.cooper210@example.com",
       "business": "Spool Supply",
       "sells": "Lino-printed coasters",
+      "submittedAt": "2024-03-06T20:48:03",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -8042,6 +8253,7 @@
       "email": "lionel.lin211@example.com",
       "business": "Ivy Corner",
       "sells": "Stickers, Art prints, Jewellery, Clothing",
+      "submittedAt": "2024-03-06T21:40:39",
       "status": "reviewer_rejected",
       "reviewer": "p129",
       "export": {
@@ -8081,6 +8293,7 @@
       "email": "petra.wright212@example.com",
       "business": "Acorn House",
       "sells": "Stickers, Art prints, Clothing, Lino-printed tote bags",
+      "submittedAt": "2024-03-06T21:42:34",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -8119,6 +8332,7 @@
       "email": "lara.campbell213@example.com",
       "business": "Indigo Crafts",
       "sells": "Stickers, Jewellery, Quilted hair clips",
+      "submittedAt": "2024-03-06T22:41:23",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -8158,6 +8372,7 @@
       "email": "bea.ahmed214@example.com",
       "business": "Willow Atelier",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-03-06T22:41:35",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -8196,6 +8411,7 @@
       "email": "lina.white215@example.com",
       "business": "Ember House",
       "sells": "Stickers, Keychains, Jewellery, Fibre arts (crochet, knitting, etc), Clothing, Quilted hair clips, Beaded hair clips",
+      "submittedAt": "2024-03-06T22:48:57",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -8238,6 +8454,7 @@
       "email": "jonah.price136@example.com",
       "business": "Sprout Collective",
       "sells": "Stickers, Art prints, Jewellery",
+      "submittedAt": "2024-03-06T23:08:28",
       "status": "reviewer_rejected",
       "reviewer": "p150",
       "export": {
@@ -8280,6 +8497,7 @@
       "email": "ava.green217@example.com",
       "business": "Finch Co",
       "sells": "Art prints, Keychains, Laser-cut rings, Beaded pouches",
+      "submittedAt": "2024-03-06T23:31:47",
       "status": "needs_follow_up",
       "reviewer": "p091",
       "export": {
@@ -8319,6 +8537,7 @@
       "email": "jada.roberts218@example.com",
       "business": "Meadow Corner",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-03-06T23:40:53",
       "status": "needs_follow_up",
       "reviewer": "p034",
       "export": {
@@ -8355,6 +8574,7 @@
       "email": "otto.ruiz219@example.com",
       "business": "Kiln Lab",
       "sells": "Art prints",
+      "submittedAt": "2024-03-06T23:43:21",
       "status": "open",
       "reviewer": "p150",
       "export": {
@@ -8390,6 +8610,7 @@
       "email": "andrew.jackson220@example.com",
       "business": "Linen Press",
       "sells": "Stickers, Art prints, Keychains",
+      "submittedAt": "2024-03-07T01:29:03",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -8428,6 +8649,7 @@
       "email": "arjun.watson221@example.com",
       "business": "Indigo Goods",
       "sells": "Stickers, Jewellery",
+      "submittedAt": "2024-03-07T02:20:37",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -8465,6 +8687,7 @@
       "email": "logan.morales222@example.com",
       "business": "Willow Corner",
       "sells": "Keychains, Clothing",
+      "submittedAt": "2024-03-07T02:53:05",
       "status": "reviewer_rejected",
       "reviewer": "p051",
       "export": {
@@ -8502,6 +8725,7 @@
       "email": "zoe.nelson223@example.com",
       "business": "Plum Atelier",
       "sells": "Art prints, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-07T03:06:50",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -8541,6 +8765,7 @@
       "email": "julia.yang224@example.com",
       "business": "Copper Goods",
       "sells": "Jewellery, Felted notebooks",
+      "submittedAt": "2024-03-07T03:28:36",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -8576,6 +8801,7 @@
       "email": "mabel.lam225@example.com",
       "business": "Ember Crafts",
       "sells": "Stickers",
+      "submittedAt": "2024-03-07T03:53:54",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -8612,6 +8838,7 @@
       "email": "ada.liu226@example.com",
       "business": "Quill Market",
       "sells": "Stickers, Art prints, Keychains",
+      "submittedAt": "2024-03-07T04:08:12",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -8649,6 +8876,7 @@
       "email": "tobias.sanchez227@example.com",
       "business": "Daisy Makery",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-07T07:09:56",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -8686,6 +8914,7 @@
       "email": "ellen.young228@example.com",
       "business": "Clay Workshop",
       "sells": "Stickers",
+      "submittedAt": "2024-03-07T07:19:34",
       "status": "reviewer_rejected",
       "reviewer": "p091",
       "export": {
@@ -8721,6 +8950,7 @@
       "email": "ugo.jones229@example.com",
       "business": "Meadow House",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-07T11:40:15",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -8758,6 +8988,7 @@
       "email": "val.brooks230@example.com",
       "business": "Acorn Co",
       "sells": "Stickers, Art prints, Riso-printed phone charms",
+      "submittedAt": "2024-03-07T12:38:34",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -8796,6 +9027,7 @@
       "email": "aria.williams231@example.com",
       "business": "Juniper Lab",
       "sells": "Lino-printed coasters, Felted coasters",
+      "submittedAt": "2024-03-07T13:31:52",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -8832,6 +9064,7 @@
       "email": "kofi.hall232@example.com",
       "business": "Lantern Collective",
       "sells": "Keychains, Jewellery, Macrame lanyards, Laser-cut soaps",
+      "submittedAt": "2024-03-07T13:52:53",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -8872,6 +9105,7 @@
       "email": "hassan.wu233@example.com",
       "business": "Spool Works",
       "sells": "Art prints, Keychains, Resin mugs",
+      "submittedAt": "2024-03-07T14:38:30",
       "status": "needs_follow_up",
       "reviewer": "p035",
       "export": {
@@ -8909,6 +9143,7 @@
       "email": "farah.king234@example.com",
       "business": "Amber Works",
       "sells": "Jewellery, Fibre arts (crochet, knitting, etc), Riso-printed patches",
+      "submittedAt": "2024-03-07T15:05:16",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -8946,6 +9181,7 @@
       "email": "anya.edwards235@example.com",
       "business": "Sage Makery",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-07T15:40:37",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -8982,6 +9218,7 @@
       "email": "freya.rodriguez236@example.com",
       "business": "Cobalt Collective",
       "sells": "Art prints, Jewellery",
+      "submittedAt": "2024-03-07T16:36:05",
       "status": "reviewer_rejected",
       "reviewer": "p051",
       "export": {
@@ -9018,6 +9255,7 @@
       "email": "anita.gomez237@example.com",
       "business": "Pine Crafts",
       "sells": "Keychains",
+      "submittedAt": "2024-03-07T19:08:22",
       "status": "needs_follow_up",
       "reviewer": "p011",
       "export": {
@@ -9054,6 +9292,7 @@
       "email": "mara.tran238@example.com",
       "business": "Glaze Studio",
       "sells": "Art prints, Watercolour postcards",
+      "submittedAt": "2024-03-07T20:51:15",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -9089,6 +9328,7 @@
       "email": "pip.ali239@example.com",
       "business": "Cobalt Crafts",
       "sells": "Lino-printed coasters",
+      "submittedAt": "2024-03-07T22:00:28",
       "status": "reviewer_rejected",
       "reviewer": "p034",
       "export": {
@@ -9124,6 +9364,7 @@
       "email": "iris.yang240@example.com",
       "business": "Tidal Workshop",
       "sells": "Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-07T22:23:59",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -9162,6 +9403,7 @@
       "email": "rachel.kelly241@example.com",
       "business": "Honey Lab",
       "sells": "Keychains, Upcycled earrings",
+      "submittedAt": "2024-03-07T23:47:37",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -9199,6 +9441,7 @@
       "email": "sofia.fischer242@example.com",
       "business": "Maple Press",
       "sells": "Stickers, Jewellery",
+      "submittedAt": "2024-03-07T23:52:24",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -9237,6 +9480,7 @@
       "email": "hazel.reyes243@example.com",
       "business": "Inkwell Goods",
       "sells": "Jewellery, Polymer clay pouches, Embroidered postcards",
+      "submittedAt": "2024-03-07T23:57:37",
       "status": "needs_follow_up",
       "reviewer": "p034",
       "export": {
@@ -9275,6 +9519,7 @@
       "email": "camila.roberts244@example.com",
       "business": "Cobalt Works",
       "sells": "Stickers, Keychains, Jewellery",
+      "submittedAt": "2024-03-08T01:32:14",
       "status": "reviewer_rejected",
       "reviewer": "p032",
       "export": {
@@ -9313,6 +9558,7 @@
       "email": "ezra.ward245@example.com",
       "business": "Button Collective",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-03-08T01:45:44",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -9353,6 +9599,7 @@
       "email": "lars.adams246@example.com",
       "business": "Linen Corner",
       "sells": "Art prints, Keychains",
+      "submittedAt": "2024-03-08T03:56:47",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -9390,6 +9637,7 @@
       "email": "luis.gonzalez247@example.com",
       "business": "Copper Co",
       "sells": "Macrame notebooks, Macrame earrings",
+      "submittedAt": "2024-03-08T04:16:11",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -9428,6 +9676,7 @@
       "email": "zane.li248@example.com",
       "business": "Indigo Atelier",
       "sells": "Stickers, Jewellery",
+      "submittedAt": "2024-03-08T04:31:14",
       "status": "reviewer_rejected",
       "reviewer": "p150",
       "export": {
@@ -9465,6 +9714,7 @@
       "email": "vivian.flores249@example.com",
       "business": "Sage House",
       "sells": "Art prints, Keychains, Pottery",
+      "submittedAt": "2024-03-08T05:34:59",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -9503,6 +9753,7 @@
       "email": "pablo.gonzalez250@example.com",
       "business": "Saffron Lab",
       "sells": "Stickers, Keychains, Jewellery, Hand-painted phone charms",
+      "submittedAt": "2024-03-08T08:07:05",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -9540,6 +9791,7 @@
       "email": "michael.cooper251@example.com",
       "business": "Nettle House",
       "sells": "Jewellery",
+      "submittedAt": "2024-03-08T10:01:49",
       "status": "reviewer_rejected",
       "reviewer": "p034",
       "export": {
@@ -9577,6 +9829,7 @@
       "email": "linda.russell252@example.com",
       "business": "Bramble Workshop",
       "sells": "Art prints, Keychains, Clothing, Embroidered pouches, Pressed-flower coasters",
+      "submittedAt": "2024-03-08T10:41:00",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -9615,6 +9868,7 @@
       "email": "blake.adams253@example.com",
       "business": "Clover Works",
       "sells": "Macrame notebooks",
+      "submittedAt": "2024-03-08T16:08:48",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -9649,6 +9903,7 @@
       "email": "nora.martin254@example.com",
       "business": "Paper Atelier",
       "sells": "Macrame notebooks",
+      "submittedAt": "2024-03-08T16:11:43",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -9685,6 +9940,7 @@
       "email": "anna.price255@example.com",
       "business": "Thread Co",
       "sells": "Stickers, Hand-painted lanyards",
+      "submittedAt": "2024-03-08T17:06:03",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -9722,6 +9978,7 @@
       "email": "colin.shah256@example.com",
       "business": "Plum Co",
       "sells": "Laser-cut patches, Hand-painted mugs",
+      "submittedAt": "2024-03-08T17:07:51",
       "status": "reviewer_rejected",
       "reviewer": "p034",
       "export": {
@@ -9758,6 +10015,7 @@
       "email": "mira.wood257@example.com",
       "business": "Finch House",
       "sells": "Art prints, Jewellery",
+      "submittedAt": "2024-03-08T17:15:25",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -9797,6 +10055,7 @@
       "email": "rex.gupta258@example.com",
       "business": "Fern Lab",
       "sells": "Laser-cut patches",
+      "submittedAt": "2024-03-08T17:31:13",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -9833,6 +10092,7 @@
       "email": "felix.flores259@example.com",
       "business": "Button Workshop",
       "sells": "Art prints, Embroidered zines",
+      "submittedAt": "2024-03-08T18:20:44",
       "status": "needs_follow_up",
       "reviewer": "p129",
       "export": {
@@ -9871,6 +10131,7 @@
       "email": "mila.wright260@example.com",
       "business": "Cedar House",
       "sells": "Stickers",
+      "submittedAt": "2024-03-08T19:01:35",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -9907,6 +10168,7 @@
       "email": "connor.shah261@example.com",
       "business": "Daisy Lab",
       "sells": "Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-08T19:10:13",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -9944,6 +10206,7 @@
       "email": "remy.baker262@example.com",
       "business": "Ember Collective",
       "sells": "Watercolour enamel pins",
+      "submittedAt": "2024-03-08T20:49:49",
       "status": "reviewer_rejected",
       "reviewer": "p107",
       "export": {
@@ -9982,6 +10245,7 @@
       "email": "tessa.hernandez263@example.com",
       "business": "Acorn Studio",
       "sells": "Stickers, Art prints, Jewellery, Riso-printed soaps",
+      "submittedAt": "2024-03-08T21:13:52",
       "status": "open",
       "reviewer": "p129",
       "export": {
@@ -10020,6 +10284,7 @@
       "email": "charlotte.nguyen264@example.com",
       "business": "Quill Press",
       "sells": "Stickers",
+      "submittedAt": "2024-03-08T22:30:10",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -10058,6 +10323,7 @@
       "email": "axel.young265@example.com",
       "business": "Quill Workshop",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-03-09T02:49:02",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -10095,6 +10361,7 @@
       "email": "nadia.perez266@example.com",
       "business": "Yarrow Co",
       "sells": "Stickers, Quilted postcards",
+      "submittedAt": "2024-03-09T05:18:53",
       "status": "reviewer_approved",
       "reviewer": "p051",
       "export": {
@@ -10132,6 +10399,7 @@
       "email": "flora.shah267@example.com",
       "business": "Sage Works",
       "sells": "Stickers, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-09T05:30:10",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -10170,6 +10438,7 @@
       "email": "jesse.santos268@example.com",
       "business": "Clover Goods",
       "sells": "Art prints, Keychains",
+      "submittedAt": "2024-03-09T05:53:13",
       "status": "needs_follow_up",
       "reviewer": "p150",
       "export": {
@@ -10207,6 +10476,7 @@
       "email": "eden.gonzalez269@example.com",
       "business": "Ember Goods",
       "sells": "Stickers, Jewellery, Laser-cut coasters",
+      "submittedAt": "2024-03-09T06:16:06",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -10245,6 +10515,7 @@
       "email": "ruth.tan270@example.com",
       "business": "Clover Collective",
       "sells": "Art prints, Jewellery, Fibre arts (crochet, knitting, etc), Quilted patches",
+      "submittedAt": "2024-03-09T06:54:54",
       "status": "reviewer_rejected",
       "reviewer": "p139",
       "export": {
@@ -10285,6 +10556,7 @@
       "email": "nina.carter271@example.com",
       "business": "Yarrow Press",
       "sells": "Art prints, Jewellery",
+      "submittedAt": "2024-03-09T08:38:22",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -10323,6 +10595,7 @@
       "email": "chen.robinson272@example.com",
       "business": "Clay Makery",
       "sells": "Art prints, Keychains, Resin phone charms",
+      "submittedAt": "2024-03-09T09:21:33",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -10362,6 +10635,7 @@
       "email": "dylan.santos273@example.com",
       "business": "Spool Co",
       "sells": "Stickers, Art prints, Pottery, Resin enamel pins",
+      "submittedAt": "2024-03-09T10:48:57",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -10402,6 +10676,7 @@
       "email": "adam.lee274@example.com",
       "business": "Paper Makery",
       "sells": "Art prints, Keychains, Fibre arts (crochet, knitting, etc), Clothing, Laser-cut enamel pins, Resin earrings",
+      "submittedAt": "2024-03-09T12:10:38",
       "status": "reviewer_rejected",
       "reviewer": "p107",
       "export": {
@@ -10442,6 +10717,7 @@
       "email": "sara.das275@example.com",
       "business": "Sage Atelier",
       "sells": "Art prints",
+      "submittedAt": "2024-03-09T12:20:58",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -10477,6 +10753,7 @@
       "email": "brody.tan276@example.com",
       "business": "Clay House",
       "sells": "Watercolour enamel pins, Quilted earrings",
+      "submittedAt": "2024-03-09T14:13:38",
       "status": "open",
       "reviewer": "p054",
       "export": {
@@ -10512,6 +10789,7 @@
       "email": "dara.rodriguez277@example.com",
       "business": "Sprout Atelier",
       "sells": "Stickers, Art prints, Keychains, Pressed-flower fridge magnets, Riso-printed plushies",
+      "submittedAt": "2024-03-09T14:43:54",
       "status": "open",
       "reviewer": "p150",
       "export": {
@@ -10551,6 +10829,7 @@
       "email": "ruby.fischer278@example.com",
       "business": "Cobalt Co",
       "sells": "Stickers, Art prints",
+      "submittedAt": "2024-03-09T15:23:06",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -10587,6 +10866,7 @@
       "email": "kian.martin279@example.com",
       "business": "Ivy Studio",
       "sells": "Stickers, Art prints, Jewellery, Hand-painted coasters",
+      "submittedAt": "2024-03-09T16:01:39",
       "status": "open",
       "reviewer": "p091",
       "export": {
@@ -10626,6 +10906,7 @@
       "email": "elio.bailey280@example.com",
       "business": "Daisy Market",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-09T16:02:36",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -10661,6 +10942,7 @@
       "email": "sana.rivera281@example.com",
       "business": "Acorn Collective",
       "sells": "Keychains, Jewellery, Fibre arts (crochet, knitting, etc), Quilted scarves, Laser-cut lanyards",
+      "submittedAt": "2024-03-09T17:23:11",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -10699,6 +10981,7 @@
       "email": "rami.reed282@example.com",
       "business": "Sprout Atelier",
       "sells": "Art prints, Fibre arts (crochet, knitting, etc), Beaded notebooks",
+      "submittedAt": "2024-03-09T18:51:59",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -10735,6 +11018,7 @@
       "email": "fern.ahmed283@example.com",
       "business": "Spool Market",
       "sells": "Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-09T19:08:04",
       "status": "open",
       "reviewer": "p054",
       "export": {
@@ -10774,6 +11058,7 @@
       "email": "tara.robinson284@example.com",
       "business": "Oak Goods",
       "sells": "Keychains, Hand-bound lanyards",
+      "submittedAt": "2024-03-09T21:22:42",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -10810,6 +11095,7 @@
       "email": "abby.price285@example.com",
       "business": "Quill Corner",
       "sells": "Stickers",
+      "submittedAt": "2024-03-09T22:47:39",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -10848,6 +11134,7 @@
       "email": "juno.zhang286@example.com",
       "business": "Finch Supply",
       "sells": "Keychains, Clothing, Hand-bound rings",
+      "submittedAt": "2024-03-09T23:08:03",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -10885,6 +11172,7 @@
       "email": "jin.kelly287@example.com",
       "business": "Inkwell Makery",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-10T00:18:33",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -10922,6 +11210,7 @@
       "email": "bella.bailey288@example.com",
       "business": "Cobalt Goods",
       "sells": "Upcycled rings, Laser-cut phone charms",
+      "submittedAt": "2024-03-10T02:18:51",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -10958,6 +11247,7 @@
       "email": "sean.wong289@example.com",
       "business": "Pine Atelier",
       "sells": "Stickers, Jewellery, Lino-printed patches, Polymer clay scarves",
+      "submittedAt": "2024-03-10T02:21:20",
       "status": "needs_follow_up",
       "reviewer": "p054",
       "export": {
@@ -10997,6 +11287,7 @@
       "email": "emma.hayes290@example.com",
       "business": "Pine Workshop",
       "sells": "Art prints, Keychains, Hand-bound bookmarks",
+      "submittedAt": "2024-03-10T03:30:14",
       "status": "open",
       "reviewer": "p150",
       "export": {
@@ -11034,6 +11325,7 @@
       "email": "ella.sanchez291@example.com",
       "business": "Moss Workshop",
       "sells": "Clothing",
+      "submittedAt": "2024-03-10T03:54:18",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -11072,6 +11364,7 @@
       "email": "leah.singh292@example.com",
       "business": "Plum Collective",
       "sells": "Art prints, Keychains",
+      "submittedAt": "2024-03-10T06:05:25",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -11108,6 +11401,7 @@
       "email": "elif.green293@example.com",
       "business": "Sage Workshop",
       "sells": "Stickers, Art prints, Keychains, Fibre arts (crochet, knitting, etc), Hand-bound coasters",
+      "submittedAt": "2024-03-10T06:11:48",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -11148,6 +11442,7 @@
       "email": "leo.shah294@example.com",
       "business": "Paper Market",
       "sells": "Keychains, Jewellery",
+      "submittedAt": "2024-03-10T06:57:03",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -11184,6 +11479,7 @@
       "email": "jose.zhou295@example.com",
       "business": "Linen Supply",
       "sells": "Art prints, Keychains, Watercolour earrings, Macrame candles",
+      "submittedAt": "2024-03-10T07:19:33",
       "status": "open",
       "reviewer": "p150",
       "export": {
@@ -11225,6 +11521,7 @@
       "email": "rahul.kelly296@example.com",
       "business": "Indigo Press",
       "sells": "Upcycled rings",
+      "submittedAt": "2024-03-10T10:31:38",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -11260,6 +11557,7 @@
       "email": "milo.roberts297@example.com",
       "business": "Willow Collective",
       "sells": "Stickers, Art prints, Watercolour phone charms, Woodburned pouches",
+      "submittedAt": "2024-03-10T11:00:34",
       "status": "open",
       "reviewer": "p035",
       "export": {
@@ -11298,6 +11596,7 @@
       "email": "yan.jackson298@example.com",
       "business": "Pine Works",
       "sells": "Stickers, Art prints, Keychains",
+      "submittedAt": "2024-03-10T11:17:46",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -11337,6 +11636,7 @@
       "email": "ben.wu299@example.com",
       "business": "Ivy Market",
       "sells": "Stickers, Art prints, Keychains, Fibre arts (crochet, knitting, etc), Laser-cut scarves",
+      "submittedAt": "2024-03-10T12:47:08",
       "status": "needs_follow_up",
       "reviewer": "p051",
       "export": {
@@ -11377,6 +11677,7 @@
       "email": "tina.chang300@example.com",
       "business": "Cedar Goods",
       "sells": "Stickers, Keychains, Jewellery, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-10T13:13:57",
       "status": "open",
       "reviewer": "p129",
       "export": {
@@ -11415,6 +11716,7 @@
       "email": "lucas.li301@example.com",
       "business": "Indigo Collective",
       "sells": "Keychains, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-10T14:41:43",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -11453,6 +11755,7 @@
       "email": "caroline.rivera302@example.com",
       "business": "Cedar Crafts",
       "sells": "Jewellery",
+      "submittedAt": "2024-03-10T14:50:24",
       "status": "reviewer_approved",
       "reviewer": "p150",
       "export": {
@@ -11488,6 +11791,7 @@
       "email": "nell.flores303@example.com",
       "business": "Inkwell Supply",
       "sells": "Keychains, Jewellery, Clothing",
+      "submittedAt": "2024-03-10T15:24:31",
       "status": "reviewer_rejected",
       "reviewer": "p139",
       "export": {
@@ -11526,6 +11830,7 @@
       "email": "steven.lam304@example.com",
       "business": "Wren Makery",
       "sells": "Stickers",
+      "submittedAt": "2024-03-10T15:46:54",
       "status": "open",
       "reviewer": "p034",
       "export": {
@@ -11563,6 +11868,7 @@
       "email": "noah.gonzalez305@example.com",
       "business": "Moss House",
       "sells": "Keychains, Jewellery",
+      "submittedAt": "2024-03-10T16:32:35",
       "status": "reviewer_approved",
       "reviewer": "p051",
       "export": {
@@ -11600,6 +11906,7 @@
       "email": "rosa.collins306@example.com",
       "business": "Clay Works",
       "sells": "Stickers, Art prints, Keychains, Fibre arts (crochet, knitting, etc), Upcycled lanyards",
+      "submittedAt": "2024-03-10T18:36:46",
       "status": "open",
       "reviewer": "p054",
       "export": {
@@ -11641,6 +11948,7 @@
       "email": "david.cook307@example.com",
       "business": "Daisy Crafts",
       "sells": "Art prints, Jewellery, Clothing",
+      "submittedAt": "2024-03-10T19:12:28",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -11679,6 +11987,7 @@
       "email": "xavier.stewart308@example.com",
       "business": "Ember Works",
       "sells": "Art prints, Fibre arts (crochet, knitting, etc), Clothing, Lino-printed pouches",
+      "submittedAt": "2024-03-10T19:39:06",
       "status": "open",
       "reviewer": "p129",
       "export": {
@@ -11717,6 +12026,7 @@
       "email": "malik.torres309@example.com",
       "business": "Bramble Makery",
       "sells": "Stickers, Jewellery, Resin hair clips",
+      "submittedAt": "2024-03-10T19:49:01",
       "status": "reviewer_rejected",
       "reviewer": "p139",
       "export": {
@@ -11755,6 +12065,7 @@
       "email": "amanda.lopez310@example.com",
       "business": "Hazel Lab",
       "sells": "Stickers, Keychains, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-10T20:16:08",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -11793,6 +12104,7 @@
       "email": "oscar.wu311@example.com",
       "business": "Kiln Co",
       "sells": "Stickers, Keychains",
+      "submittedAt": "2024-03-10T20:24:37",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -11830,6 +12142,7 @@
       "email": "emily.flores312@example.com",
       "business": "Marigold Press",
       "sells": "Art prints, Keychains, Upcycled pouches, Pressed-flower notebooks",
+      "submittedAt": "2024-03-10T20:37:17",
       "status": "needs_follow_up",
       "reviewer": "p035",
       "export": {
@@ -11869,6 +12182,7 @@
       "email": "ivy.brown313@example.com",
       "business": "Honey Collective",
       "sells": "Stickers, Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-10T20:42:34",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -11909,6 +12223,7 @@
       "email": "samir.thompson314@example.com",
       "business": "Hazel Corner",
       "sells": "Stickers, Art prints, Hand-painted tote bags",
+      "submittedAt": "2024-03-10T21:52:37",
       "status": "reviewer_rejected",
       "reviewer": "p035",
       "export": {
@@ -11947,6 +12262,7 @@
       "email": "maya.sullivan315@example.com",
       "business": "Thread Workshop",
       "sells": "Stickers, Keychains, Quilted fridge magnets",
+      "submittedAt": "2024-03-10T21:59:28",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -11986,6 +12302,7 @@
       "email": "alice.moore316@example.com",
       "business": "Fig Lab",
       "sells": "Art prints, Keychains, Clothing",
+      "submittedAt": "2024-03-10T22:48:33",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -12023,6 +12340,7 @@
       "email": "zuri.reed317@example.com",
       "business": "Meadow Co",
       "sells": "Stickers, Quilted rings",
+      "submittedAt": "2024-03-10T23:02:16",
       "status": "open",
       "reviewer": "p099",
       "export": {
@@ -12059,6 +12377,7 @@
       "email": "rory.torres318@example.com",
       "business": "Maple Market",
       "sells": "Art prints, Keychains",
+      "submittedAt": "2024-03-11T00:21:24",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -12096,6 +12415,7 @@
       "email": "jacob.thomas319@example.com",
       "business": "Oak Market",
       "sells": "Beaded enamel pins",
+      "submittedAt": "2024-03-11T01:00:30",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -12131,6 +12451,7 @@
       "email": "daisy.clark320@example.com",
       "business": "Glaze Corner",
       "sells": "Art prints, Keychains",
+      "submittedAt": "2024-03-11T02:12:10",
       "status": "reviewer_rejected",
       "reviewer": "p051",
       "export": {
@@ -12168,6 +12489,7 @@
       "email": "eli.lam321@example.com",
       "business": "Nettle Crafts",
       "sells": "Keychains, Pottery, Lino-printed bookmarks",
+      "submittedAt": "2024-03-11T02:34:03",
       "status": "reviewer_approved",
       "reviewer": "p032",
       "export": {
@@ -12208,6 +12530,7 @@
       "email": "mia.phillips322@example.com",
       "business": "Wren Studio",
       "sells": "Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-11T03:18:52",
       "status": "reviewer_approved",
       "reviewer": "p011",
       "export": {
@@ -12247,6 +12570,7 @@
       "email": "cyrus.mehta323@example.com",
       "business": "Kiln Crafts",
       "sells": "Stickers, Art prints, Fibre arts (crochet, knitting, etc), Quilted coasters",
+      "submittedAt": "2024-03-11T03:47:24",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -12285,6 +12609,7 @@
       "email": "erin.ramirez324@example.com",
       "business": "Maple Studio",
       "sells": "Stickers, Keychains, Pressed-flower bookmarks",
+      "submittedAt": "2024-03-11T03:52:14",
       "status": "reviewer_rejected",
       "reviewer": "p129",
       "export": {
@@ -12323,6 +12648,7 @@
       "email": "dylan.thompson325@example.com",
       "business": "Quill Atelier",
       "sells": "Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-11T04:47:55",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -12360,6 +12686,7 @@
       "email": "karen.sanchez326@example.com",
       "business": "Thread Press",
       "sells": "Stickers, Fibre arts (crochet, knitting, etc), Macrame plushies",
+      "submittedAt": "2024-03-11T08:34:47",
       "status": "open",
       "reviewer": "p129",
       "export": {
@@ -12398,6 +12725,7 @@
       "email": "harry.morgan327@example.com",
       "business": "Inkwell Market",
       "sells": "Beaded enamel pins",
+      "submittedAt": "2024-03-11T08:56:02",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -12433,6 +12761,7 @@
       "email": "jordan.ward328@example.com",
       "business": "Tidal Crafts",
       "sells": "Art prints",
+      "submittedAt": "2024-03-11T09:42:46",
       "status": "reviewer_rejected",
       "reviewer": "p054",
       "export": {
@@ -12470,6 +12799,7 @@
       "email": "derek.hughes329@example.com",
       "business": "Thistle Market",
       "sells": "Stickers, Art prints, Embroidered phone charms",
+      "submittedAt": "2024-03-11T11:02:25",
       "status": "reviewer_approved",
       "reviewer": "p099",
       "export": {
@@ -12510,6 +12840,7 @@
       "email": "joan.murphy330@example.com",
       "business": "Copper Atelier",
       "sells": "Pressed-flower postcards",
+      "submittedAt": "2024-03-11T13:05:11",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -12546,6 +12877,7 @@
       "email": "luis.thompson331@example.com",
       "business": "Finch Market",
       "sells": "Stickers, Keychains, Jewellery, Embroidered mugs",
+      "submittedAt": "2024-03-11T13:41:46",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -12586,6 +12918,7 @@
       "email": "deepa.nguyen332@example.com",
       "business": "Clay Press",
       "sells": "Art prints, Jewellery",
+      "submittedAt": "2024-03-11T15:30:42",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -12623,6 +12956,7 @@
       "email": "uri.patel333@example.com",
       "business": "Tidal Lab",
       "sells": "Stickers, Art prints, Jewellery, Clothing",
+      "submittedAt": "2024-03-11T16:00:56",
       "status": "open",
       "reviewer": "p011",
       "export": {
@@ -12662,6 +12996,7 @@
       "email": "jasmine.jensen334@example.com",
       "business": "Sprout Co",
       "sells": "Pressed-flower postcards",
+      "submittedAt": "2024-03-11T17:16:51",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -12700,6 +13035,7 @@
       "email": "hector.cruz335@example.com",
       "business": "Yarrow Corner",
       "sells": "Stickers, Art prints, Clothing",
+      "submittedAt": "2024-03-11T18:19:34",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -12740,6 +13076,7 @@
       "email": "nils.jones336@example.com",
       "business": "Thistle Studio",
       "sells": "Keychains, Jewellery",
+      "submittedAt": "2024-03-12T03:06:17",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -12777,6 +13114,7 @@
       "email": "elijah.russell337@example.com",
       "business": "Pebble House",
       "sells": "Stickers, Fibre arts (crochet, knitting, etc)",
+      "submittedAt": "2024-03-12T03:37:28",
       "status": "open",
       "reviewer": "p051",
       "export": {
@@ -12816,6 +13154,7 @@
       "email": "reza.das338@example.com",
       "business": "Oak Atelier",
       "sells": "Stickers, Fibre arts (crochet, knitting, etc), Embroidered soaps",
+      "submittedAt": "2024-03-12T03:57:05",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -12854,6 +13193,7 @@
       "email": "sadie.rossi339@example.com",
       "business": "Clover Supply",
       "sells": "Stickers, Keychains, Woodburned candles",
+      "submittedAt": "2024-03-12T04:50:40",
       "status": "open",
       "reviewer": "p091",
       "export": {
@@ -12890,6 +13230,7 @@
       "email": "gia.miller340@example.com",
       "business": "Maple House",
       "sells": "Stickers, Keychains, Jewellery",
+      "submittedAt": "2024-03-12T05:20:58",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -12926,6 +13267,7 @@
       "email": "emil.novak341@example.com",
       "business": "Daisy Co",
       "sells": "Keychains, Quilted plushies",
+      "submittedAt": "2024-03-12T05:45:06",
       "status": "reviewer_approved",
       "reviewer": "p035",
       "export": {
@@ -12963,6 +13305,7 @@
       "email": "rose.hall342@example.com",
       "business": "Acorn Press",
       "sells": "Stickers, Art prints, Jewellery, Embroidered fridge magnets",
+      "submittedAt": "2024-03-12T05:48:47",
       "status": "reviewer_rejected",
       "reviewer": "p107",
       "export": {
@@ -13001,6 +13344,7 @@
       "email": "marta.hayes343@example.com",
       "business": "Moss Corner",
       "sells": "Stickers, Art prints, Jewellery, Pottery, Upcycled scarves, Quilted mugs, Laser-cut zines",
+      "submittedAt": "2024-03-12T06:23:44",
       "status": "reviewer_rejected",
       "reviewer": "p150",
       "export": {
@@ -13044,6 +13388,7 @@
       "email": "mei.ho344@example.com",
       "business": "Glaze Supply",
       "sells": "Art prints, Jewellery, Quilted scarves, Quilted notebooks",
+      "submittedAt": "2024-03-12T06:32:06",
       "status": "open",
       "reviewer": "p139",
       "export": {
@@ -13081,6 +13426,7 @@
       "email": "anthony.martinez345@example.com",
       "business": "Marigold House",
       "sells": "Stickers, Clothing",
+      "submittedAt": "2024-03-12T07:31:06",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -13116,6 +13462,7 @@
       "email": "alma.garcia346@example.com",
       "business": "Lantern Market",
       "sells": "Stickers, Jewellery, Clothing, Watercolour rings, Quilted soaps",
+      "submittedAt": "2024-03-12T07:44:21",
       "status": "reviewer_rejected",
       "reviewer": "p051",
       "export": {
@@ -13155,6 +13502,7 @@
       "email": "robin.morales347@example.com",
       "business": "Linen Crafts",
       "sells": "Keychains",
+      "submittedAt": "2024-03-12T09:12:37",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -13192,6 +13540,7 @@
       "email": "tam.hill348@example.com",
       "business": "Bramble Goods",
       "sells": "Stickers, Clothing, Watercolour zines, Pressed-flower pouches, Hand-bound postcards, Beaded zines",
+      "submittedAt": "2024-03-12T10:10:24",
       "status": "open",
       "reviewer": "p032",
       "export": {
@@ -13232,6 +13581,7 @@
       "email": "helen.reed349@example.com",
       "business": "Bramble Press",
       "sells": "Keychains, Jewellery",
+      "submittedAt": "2024-03-12T11:19:54",
       "status": "open",
       "reviewer": "p107",
       "export": {
@@ -13268,6 +13618,7 @@
       "email": "enzo.zhang350@example.com",
       "business": "Marigold Market",
       "sells": "Stickers, Jewellery",
+      "submittedAt": "2024-03-12T16:16:47",
       "status": "reviewer_approved",
       "reviewer": "p091",
       "export": {
@@ -13304,6 +13655,7 @@
       "email": "isaac.lee351@example.com",
       "business": "Sage Supply",
       "sells": "Keychains",
+      "submittedAt": "2024-03-12T16:26:48",
       "status": "reviewer_rejected",
       "reviewer": "p091",
       "export": {
@@ -13341,6 +13693,7 @@
       "email": "edith.ruiz352@example.com",
       "business": "Juniper Market",
       "sells": "Stickers, Jewellery, Clothing, Macrame phone charms",
+      "submittedAt": "2024-03-12T16:49:09",
       "status": "reviewer_approved",
       "reviewer": "p034",
       "export": {
@@ -13378,6 +13731,7 @@
       "email": "theo.rodriguez353@example.com",
       "business": "Paper Studio",
       "sells": "Stickers, Clothing",
+      "submittedAt": "2024-03-12T17:53:28",
       "status": "reviewer_approved",
       "reviewer": "p107",
       "export": {
@@ -13416,6 +13770,7 @@
       "email": "amy.evans354@example.com",
       "business": "Honey Supply",
       "sells": "Jewellery, Fibre arts (crochet, knitting, etc), Clothing",
+      "submittedAt": "2024-03-12T19:16:47",
       "status": "reviewer_approved",
       "reviewer": "p129",
       "export": {
@@ -13455,6 +13810,7 @@
       "email": "zach.bailey355@example.com",
       "business": "Clay Crafts",
       "sells": "Art prints, Keychains, Polymer clay lanyards",
+      "submittedAt": "2024-03-12T19:31:39",
       "status": "reviewer_approved",
       "reviewer": "p054",
       "export": {
@@ -13492,6 +13848,7 @@
       "email": "thomas.martinez356@example.com",
       "business": "Thistle House",
       "sells": "Stickers, Art prints, Pottery, Beaded coasters",
+      "submittedAt": "2024-03-12T20:43:01",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -13529,6 +13886,7 @@
       "email": "june.smith357@example.com",
       "business": "Tidal Makery",
       "sells": "Art prints, Pressed-flower earrings, Woodburned mugs",
+      "submittedAt": "2024-03-12T20:48:12",
       "status": "reviewer_approved",
       "reviewer": "p139",
       "export": {
@@ -13569,6 +13927,7 @@
       "email": "carlos.hussain358@example.com",
       "business": "Bramble Collective",
       "sells": "Stickers, Art prints, Keychains, Jewellery",
+      "submittedAt": "2024-03-12T21:50:38",
       "status": "reviewer_approved",
       "reviewer": "p051",
       "export": {
@@ -17135,6 +17494,109 @@
       "application": "a341"
     }
   ],
+  "room": {
+    "dates": [
+      {
+        "date": "2024-04-22",
+        "asked": 190,
+        "tables": 59
+      },
+      {
+        "date": "2024-04-23",
+        "asked": 166.5,
+        "tables": 59
+      },
+      {
+        "date": "2024-04-24",
+        "asked": 184,
+        "tables": 59
+      },
+      {
+        "date": "2024-04-25",
+        "asked": 171,
+        "tables": 59
+      }
+    ],
+    "tiers": [
+      {
+        "tier": "Gold",
+        "asked": 538,
+        "tables": 124
+      },
+      {
+        "tier": "Silver",
+        "asked": 438.5,
+        "tables": 112
+      },
+      {
+        "tier": "Bronze",
+        "asked": 232,
+        "tables": 0
+      }
+    ]
+  },
+  "fill": {
+    "dates": [
+      "2024-04-22",
+      "2024-04-23",
+      "2024-04-24",
+      "2024-04-25"
+    ],
+    "sections": [
+      {
+        "section": "North Wing",
+        "tier": "Gold",
+        "cells": [
+          {
+            "date": "2024-04-22",
+            "used": 31,
+            "tables": 31
+          },
+          {
+            "date": "2024-04-23",
+            "used": 31,
+            "tables": 31
+          },
+          {
+            "date": "2024-04-24",
+            "used": 31,
+            "tables": 31
+          },
+          {
+            "date": "2024-04-25",
+            "used": 31,
+            "tables": 31
+          }
+        ]
+      },
+      {
+        "section": "South Wing",
+        "tier": "Silver",
+        "cells": [
+          {
+            "date": "2024-04-22",
+            "used": 28,
+            "tables": 28
+          },
+          {
+            "date": "2024-04-23",
+            "used": 28,
+            "tables": 28
+          },
+          {
+            "date": "2024-04-24",
+            "used": 28,
+            "tables": 28
+          },
+          {
+            "date": "2024-04-25",
+            "used": 28,
+            "tables": 28
+          }
+        ]
+      }
+    ]
+  },
   "export": {
     "groups": [
       {

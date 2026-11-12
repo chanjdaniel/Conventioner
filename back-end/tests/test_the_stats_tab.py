@@ -22,7 +22,7 @@ import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import market_stats as MarketStats
 import api.users as UsersApi
-from datatypes import FormField, MarketPhase
+from datatypes import FormField, MarketPhase, PhaseEntry
 
 SELLING = {
     "key": "selling", "label": "What will you sell at the fair?", "type": "multi_select",
@@ -88,6 +88,13 @@ def _market_doc(fields=FORM, seats=None):
         MarketPhase.ASSIGNMENT,
         roles={"user-1": "owner", "user-viewer": "viewer"},
         applicationForm={"fields": fields},
+        phaseHistory=[
+            {"phase": "draft", "enteredAt": "2026-08-01T10:00:00Z", "by": "owner@market.test"},
+            {"phase": "applications", "enteredAt": "2026-09-01T09:00:00Z",
+             "by": "owner@market.test"},
+            {"phase": "assignment", "enteredAt": "2026-10-15T18:00:00Z",
+             "by": "owner@market.test"},
+        ],
         # The address as the seat stores it may be spelled otherwise than the application's.
         assignmentObject={
             "vendorAssignments": seats if seats is not None else [
@@ -140,6 +147,88 @@ class TestWhoApplied:
     def test_a_market_nobody_applied_to_counts_nothing(self):
         assert MarketStats.count_applicants([]) == {
             "total": 0, "addedByHand": 0, "statuses": {}, "submittedAt": [],
+        }
+
+
+def _entry(phase, at):
+    return PhaseEntry(phase=phase, entered_at=at, by="owner@market.test")
+
+
+class TestWhenApplicationsOpenedAndClosed:
+    """The over-time chart's window, from the phase record: when applications opened, the first
+    entry into them, and when they closed, the first entry into assignment after it."""
+
+    def test_opened_and_closed_are_the_record_s_applications_and_assignment_entries(self):
+        record = [
+            _entry("draft", "2026-08-01T10:00:00Z"),
+            _entry("applications", "2026-09-01T09:00:00Z"),
+            _entry("assignment", "2026-10-15T18:00:00Z"),
+        ]
+
+        assert MarketStats.intake_window(record) == {
+            "openedAt": "2026-09-01T09:00:00Z", "closedAt": "2026-10-15T18:00:00Z",
+        }
+
+    def test_a_market_still_taking_applications_has_not_closed(self):
+        record = [_entry("draft", "2026-08-01T10:00:00Z"),
+                  _entry("applications", "2026-09-01T09:00:00Z")]
+
+        assert MarketStats.intake_window(record) == {
+            "openedAt": "2026-09-01T09:00:00Z", "closedAt": None,
+        }
+
+    def test_a_draft_has_neither(self):
+        assert MarketStats.intake_window([_entry("draft", "2026-08-01T10:00:00Z")]) == {
+            "openedAt": None, "closedAt": None,
+        }
+
+    def test_a_market_with_no_record_has_neither(self):
+        assert MarketStats.intake_window([]) == {"openedAt": None, "closedAt": None}
+
+    def test_a_reopened_market_keeps_the_first_opening_and_the_first_close_after_it(self):
+        record = [
+            _entry("draft", "2026-08-01T10:00:00Z"),
+            _entry("applications", "2026-09-01T09:00:00Z"),
+            _entry("draft", "2026-09-02T09:00:00Z"),
+            _entry("applications", "2026-09-05T09:00:00Z"),
+            _entry("assignment", "2026-10-15T18:00:00Z"),
+            _entry("applications", "2026-10-16T08:00:00Z"),
+            _entry("assignment", "2026-10-20T08:00:00Z"),
+        ]
+
+        assert MarketStats.intake_window(record) == {
+            "openedAt": "2026-09-01T09:00:00Z", "closedAt": "2026-10-15T18:00:00Z",
+        }
+
+    def test_an_assignment_entry_before_the_opening_does_not_close_it(self):
+        """A record begun partway through a market's life opens with the phase it was in, undated:
+        an assignment there came before any opening the record holds."""
+        record = [
+            _entry("assignment", None),
+            _entry("applications", "2026-10-16T08:00:00Z"),
+        ]
+
+        assert MarketStats.intake_window(record) == {
+            "openedAt": "2026-10-16T08:00:00Z", "closedAt": None,
+        }
+
+    def test_an_entry_still_naming_a_folded_phase_reads_as_applications(self):
+        record = [
+            _entry("draft", "2026-08-01T10:00:00Z"),
+            _entry("applications_open", "2026-09-01T09:00:00Z"),
+            _entry("review", "2026-09-20T09:00:00Z"),
+            _entry("assignment", "2026-10-15T18:00:00Z"),
+        ]
+
+        assert MarketStats.intake_window(record) == {
+            "openedAt": "2026-09-01T09:00:00Z", "closedAt": "2026-10-15T18:00:00Z",
+        }
+
+    def test_an_undated_opening_is_not_known(self):
+        record = [_entry("applications", None), _entry("assignment", "2026-10-15T18:00:00Z")]
+
+        assert MarketStats.intake_window(record) == {
+            "openedAt": None, "closedAt": "2026-10-15T18:00:00Z",
         }
 
 
@@ -275,6 +364,8 @@ class TestTheRoute:
         body = response.get_json()
         assert body["applicants"]["total"] == 5
         assert body["applicants"]["statuses"]["reviewer_approved"] == 3
+        assert body["applicants"]["openedAt"] == "2026-09-01T09:00:00Z"
+        assert body["applicants"]["closedAt"] == "2026-10-15T18:00:00Z"
         assert body["answers"]["groups"] == {"all": 5, "approved": 3, "assigned": 2}
         assert _rows(body["answers"]["questions"][0], "assigned") == [
             ("option", "Prints", 0), ("option", "Stickers", 0), ("option", "Jewelry", 1),

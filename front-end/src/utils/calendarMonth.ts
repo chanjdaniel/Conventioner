@@ -91,7 +91,7 @@ export const MONTH_NAMES = [
   'November',
   'December',
 ];
-const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export interface DatesMonth {
   year: number;

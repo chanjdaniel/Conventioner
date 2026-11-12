@@ -9,13 +9,21 @@ copying a real export would publish applicants, so every value here comes from t
 exports in ``tests/test_data/google_forms/``, which ``synthetic_form_exports.py`` made, read with
 the product's own readers:
 
-- the files are read with ``csv_import.parse_csv``, as an import reads them;
+- the files are read with ``csv_import.parse_csv``, as an import reads them, and each application's
+  time from the column the proposal reads as when it arrived, by ``normalized_submitted_at``, as
+  the import stores it;
 - a choice column's answers are split and counted by ``csv_proposal.proposal``, as starting a
   market from the file splits them;
 - the export's columns and filters are ``api.vendor_export``'s ``offered_columns`` and
   ``offered_questions`` for a market started from the four-day grid by ``csv_start``, built in
   memory, so every column label and group is the one the product offers, and each vendor's answers
-  to them are read from the file's cells as ``csv_import`` reads them for that market.
+  to them are read from the file's cells as ``csv_import`` reads them for that market;
+- the room, the tables asked against the plan's on each date and in each tier, is
+  ``market_stats.count_room`` of that market, its plan given the fixture's two sections, over the
+  applications as ``csv_import`` reads each row through the mapping the start saved, each with the
+  status dealt it;
+- How full, each section's tables used on each date, is ``market_stats.fill_of`` over the rows
+  ``api.markets.derive_market_table_rows`` draws for that plan with the fixture's seats stored.
 
 What no file holds (each application's status and reviewer, each person's role, who reviews, who
 sits where, each vendor's Discord state and what they have paid) is dealt here from a seeded
@@ -38,13 +46,16 @@ if BACK_END not in sys.path:
     sys.path.insert(0, BACK_END)
 
 import api.discord_connection as DiscordApi  # noqa: E402
+import api.markets as MarketsApi  # noqa: E402
 import api.vendor_export as VendorExport  # noqa: E402
 import csv_import as CsvImport  # noqa: E402
 import csv_proposal as CsvProposal  # noqa: E402
 import csv_start as CsvStart  # noqa: E402
+import market_stats as MarketStats  # noqa: E402
 import essential_fields as EssentialFields  # noqa: E402
 import payments as Payments  # noqa: E402
 import pricing as Pricing  # noqa: E402
+from datatypes import table_code_for  # noqa: E402
 from market_documents import market_from_document  # noqa: E402
 
 CORPUS = os.path.join(BACK_END, "tests", "test_data", "google_forms")
@@ -157,6 +168,8 @@ def _named(proposal: Dict[str, Any], rows) -> List[List[str]]:
 def _applications(rng: random.Random, proposal: Dict[str, Any], named,
                   reviewers: List[str]) -> List[Dict[str, Any]]:
     name, email = _who(proposal)
+    arrived = next(c["index"] for c in proposal["columns"]
+                   if c["fate"] == CsvProposal.FATE_SUBMITTED_AT)
     business = _proposed(proposal, "Business Name")["index"]
     sells = _proposed(proposal, QUESTION)["index"]
     ids = [f"a{index:03d}" for index in range(1, len(named) + 1)]
@@ -167,6 +180,7 @@ def _applications(rng: random.Random, proposal: Dict[str, Any], named,
     return [
         {"id": app_id, "name": row[name].strip(), "email": row[email].strip(),
          "business": row[business].strip(), "sells": row[sells].strip(),
+         "submittedAt": CsvImport.normalized_submitted_at(row[arrived]),
          "status": status[app_id], "reviewer": reviewer[app_id]}
         for app_id, row in zip(ids, named)
     ]
@@ -243,6 +257,47 @@ def _export(market_doc: Dict[str, Any]) -> Dict[str, Any]:
                           for state, label in Payments.BALANCE_STATES.items()],
         "discordInvite": DISCORD_INVITE,
     }
+
+
+def _planned(market_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """The market, its plan given the fixture's sections."""
+    planned = copy.deepcopy(market_doc)
+    planned["setupObject"]["sections"] = [
+        {"name": section, "count": tables, "location": None,
+         "tier": next(t for t in planned["setupObject"]["tiers"] if t["name"] == tier)}
+        for section, tables, tier in SECTIONS
+    ]
+    return planned
+
+
+def _room(market_doc: Dict[str, Any], headers, rows, applications) -> Dict[str, Any]:
+    """The Stats tab's room for this market, its plan given the fixture's sections, counted by the
+    product's own ``count_room`` over each application's answers as the import reads its row."""
+    planned = _planned(market_doc)
+    mapping, _unresolved, _new = CsvImport.restore_mapping(
+        headers, CsvImport.stored_mapping(planned), CsvImport.import_targets(planned))
+    answered = {row.email: row.form_data
+                for row in CsvImport._assembled_rows(planned, headers, rows, mapping, {})}
+    documents = [{"id": a["id"], "market_id": planned["id"], "applicant_email": a["email"],
+                  "form_data": answered[a["email"]], "status": a["status"],
+                  "application_type": "main"} for a in applications]
+    return MarketStats.count_room(market_from_document(planned), documents)
+
+
+def _fill(market_doc: Dict[str, Any], applications, seats) -> Dict[str, Any]:
+    """The Stats tab's How full for this market with the fixture's seats stored: the product's own
+    ``fill_of`` over the rows the tables grid draws for them."""
+    planned = _planned(market_doc)
+    email = {a["id"]: a["email"] for a in applications}
+    planned["assignmentObject"] = {"vendorAssignments": [
+        {"email": email[seat["application"]], "date": seat["date"],
+         "tableCode": table_code_for(seat["section"], seat["table"]),
+         "tableChoice": "Full Table", "section": seat["section"], "tier": seat["tier"],
+         "location": ""}
+        for seat in seats
+    ]}
+    market = market_from_document(planned)
+    return MarketStats.fill_of(market.setup_object, MarketsApi.derive_market_table_rows(market))
 
 
 def _answer_readers(proposal: Dict[str, Any], market_doc: Dict[str, Any]):
@@ -344,6 +399,8 @@ def fixture() -> Dict[str, Any]:
     market_doc = _market_document(text, question_column)
     export = _export(market_doc)
     seats = _seats(rng, applications, export["dates"])
+    room = _room(market_doc, headers, rows, applications)
+    fill = _fill(market_doc, applications, seats)
     _with_export(rng, applications, named, proposal, market_doc, seats)
     return {
         "applications": applications,
@@ -353,6 +410,8 @@ def fixture() -> Dict[str, Any]:
                      "options": [{"label": o["value"], "count": o["count"]} for o in options]},
         "valuesToFix": [o["value"] for o in their_answers if o["value"] not in offered],
         "seats": seats,
+        "room": room,
+        "fill": fill,
         "export": export,
     }
 
