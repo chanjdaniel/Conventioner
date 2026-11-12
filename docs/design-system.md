@@ -792,6 +792,7 @@ The list holds these states, one a line, each beside the state it is most like, 
 - an Editor's Update info with its essential questions locked
 - settled rules
 - a location's layout past draft, at its upload step and calibrating
+- a location's layout past Draft in its editor, a table selected, what would change a seat disabled
 - a location's layout drawn as its map, with 20 tables
 - the signed-out pages
 

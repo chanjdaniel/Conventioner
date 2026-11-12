@@ -28,7 +28,9 @@ describes:
   - front-end/e2e/helpers/seedPeopleAtScale.ts
   - front-end/e2e/helpers/seedMarketAtScale.ts
   - front-end/e2e/helpers/seeds.ts#seedLayout
-verified: 2026-11-11
+  - front-end/e2e/helpers/seeds.ts#startLayout
+  - front-end/e2e/helpers/seeds.ts#seedSettledLayout
+verified: 2026-11-12
 sources:
   - E02
   - E11/F01/S01
@@ -168,6 +170,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - `tables` sizes the room
   - `dates` gives it more than one date, a table on each
   - `intakeMode: 'form'` makes its vendors apply on its page, so it has results to publish
+  - `laidOut` lays Main Hall out in Draft (`startLayout()`), Hall A's tables in a row across a hall 30 m wide, so the run places vendors at a layout's tables (T257)
 
 **`seedPublishedMarketWithAssignments()`**
 
@@ -226,6 +229,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - the review market's cards lead with two answers and fold the rest behind "N more answers"
   - a `seedLayout()` draft whose Upper Hall layout has its floorplan and no scale, which the sweeps walk calibrating (T257)
   - a `seedLayout()` draft whose Upper Hall is laid out (`UPPER_HALL_TABLES`, `UPPER_HALL_ZONES`), which the sweeps walk as its map (T257)
+  - a `seedSettledLayout()` market taking applications, its Upper Hall laid out in Draft, which the sweeps walk past Draft (T257)
 - Notes:
   - for the [sweeps](../../design-system.md#what-keeps-this-true)
   - its applications go in with one `insertApplications()` per market
@@ -233,9 +237,18 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
 **`seedLayout()`** ([file](../../../front-end/e2e/helpers/seeds.ts))
 
 - Leaves: a draft with two locations to lay out (T257): Upper Hall with Gold row (13) and Silver aisle (6), Lower Hall with Bronze corner (4), their ids fixed (`UPPER_HALL`, `LOWER_HALL`), and a third location with no name, which offers no layout
-- With `layout`, Upper Hall's layout started: `fixtures/test-floorplan.png` uploaded and saved through `POST /floorplans/save-to-market`, as the page saves it; with `metresAcross`, calibrated to that width
+- With `layout`, Upper Hall's layout started by `startLayout()`: `fixtures/test-floorplan.png` uploaded and saved through `POST /floorplans/save-to-market`, as the page saves it; with `metresAcross`, calibrated to that width
+- With `intakeMode: 'form'`, a market taking applications on its own page, which may leave Draft without an import
 - With `tables` and `zones`, on a calibrated layout only: a second save places them, each table a six-foot one of the market's first table type, its centre and turn as given and its number the next in its section, in the order given; `seedRow()` makes a row, and `UPPER_HALL_TABLES` with `UPPER_HALL_ZONES` is Upper Hall laid out in its 30 m by 22.5 m: Gold row's 13 (9 down the west wall, 4 along the top), Silver aisle's 6, one table in no section turned 30°, a stage and a pillar
 - Notes: it returns the layout's id and stored revision, for a spec that saves over it; `storedLayoutTables()` reads that layout's tables back from the server, for a spec that asserts what a gesture stored
+
+**`seedSettledLayout()`** ([file](../../../front-end/e2e/helpers/seeds.ts))
+
+- Leaves: `seedLayout()`'s market taking applications on its page, Upper Hall laid out in Draft with every table in a section (`UPPER_HALL_SECTIONED_TABLES`, since a table in no section keeps a market in Draft) and `UPPER_HALL_ZONES`, its form saved and its review setup decided, moved on to `applications`, or on to `archived` when asked (T257)
+
+**`startLayout()`** ([file](../../../front-end/e2e/helpers/seeds.ts))
+
+- Leaves: a location's layout started on a market in Draft as the page starts it, calibrated to `metresAcross` when given, with `tables` (each naming its section by id) and `zones` on it; `seedLayout()` and `seedAssignedMarket({ laidOut })` call it
 
 **A vendor is seeded as an approved application**, which is what the solver reads ([ADR 0003](../../adr/0003-applications-are-the-solvers-only-input.md)).
 `seedApprovedVendor()` writes the essential answers in the shapes `essential_fields.py` validates into (dates and tiers as the plan's own names, the count an integer, the table choice lower-cased).

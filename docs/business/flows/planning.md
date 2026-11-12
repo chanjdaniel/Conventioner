@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
   - front-end/src/components/elements/ElementPricing.vue
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -126,7 +126,7 @@ Covered by:
 
 ## E6. A location's layout
 
-**Status:** Begun (T257): a location's floorplan, its scale, its table types and no-table zones, and tables placed one at a time, as rows along a drawn line, or filling an area, then moved, turned, duplicated, lined up, renumbered and removed, one or several at a time, by pointer or by keyboard; the layout after Draft, on a phone and as a PNG come with T257's later tickets.
+**Status:** Begun (T257): a location's floorplan, its scale, its table types and no-table zones, and tables placed one at a time, as rows along a drawn line, or filling an area, then moved, turned, duplicated, lined up, renumbered and removed, one or several at a time, by pointer or by keyboard, and moved and turned after Draft; the layout on a phone and as a PNG come with T257's later tickets.
 Under Section Setup's rows, each named location offers "Lay out Upper Hall", or "Open Upper Hall's layout · 49 tables" once it has one; a location with no name offers nothing until it has one, and a plan that cannot change offers only the layouts it has, to read.
 Opening one saves the plan's pending edits first, then goes to `/markets/<id>/layout/<location>`, under the Market Setup tab; `/markets/<id>/layout` opens the first location's, and the floorplan beta's old address, `/markets/<id>/floorplan`, lands there too.
 
@@ -164,9 +164,12 @@ It saves itself a moment after each change, the head row saying "Saving…" then
 The head row's switch moves between the market's locations, each its own layout, and when another tab or person saved the layout first it says "This layout changed elsewhere. Reload to see the latest." with Reload, the tab keeping what it shows until then.
 The layout makes no AI calls ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)).
-Past Draft the layout says the setup is settled and offers nothing to upload (`what-to-show-and-when.spec.ts`).
+Past Draft, until the market is archived, the editor stays under the setup-settled sentence: tables are still moved and turned, and the zones, the image, the scale and the sections' colours and labels still change, while Add table, Row of tables, Fill an area, Duplicate, "Row of N…", Remove, the Section and Table type fields, Renumber and the table types' changes are disabled, and a location with no layout offers nothing to upload ([E7](#e7-edit-the-plan-after-draft)).
+No vendor's table changes: a table keeps its section and number wherever it stands.
+An archived market's layout, and a Viewer's in any phase, is read: the map and the sections with no toolbar, and the frame saying why.
 Covered by:
 
+- `a-layout-after-draft.spec.ts`
 - `a-layout-saves-once.spec.ts`
 - `a-table-moves-by-keyboard.spec.ts`
 - `a-table-moves-by-pointer.spec.ts`
@@ -174,6 +177,7 @@ Covered by:
 - `rows-and-areas-fill-a-hall.spec.ts`
 - `the-layout-draws-as-a-map.spec.ts`
 - `the-layout-takes-the-same-zone.spec.ts`
+- `what-to-show-and-when.spec.ts`
 
 ## E7. Edit the plan after Draft
 
@@ -188,7 +192,8 @@ What still changes after Draft, and where:
 
 - the assignment rules (priority and options), on the Assignment tab, until the market can no longer return to Assignment or its results are published ([J14](assignment-and-result.md#j14-the-rules-close-with-the-assignment));
 - what a reviewer reads first, on the form tab's Review setup, in every phase but Archived, and the automatic rejections there until the market reaches Assignment ([F3](form-tab.md#f3-what-a-reviewer-reads-first));
-- the Discord card, in every phase until the market is archived, since it is a manual tool rather than part of the plan ([the Discord connection](../../implementation/modules/discord.md)).
+- the Discord card, in every phase until the market is archived, since it is a manual tool rather than part of the plan ([the Discord connection](../../implementation/modules/discord.md));
+- where a layout's tables stand, on the layout page, until the market is archived: its tables moved and turned, its no-table zones, its image, its scale and its sections' colours and labels, never a table added, removed, renumbered or given another section or type ([E6](#e6-a-locations-layout)).
 
 What else freezes, and when:
 
