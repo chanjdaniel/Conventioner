@@ -40,6 +40,17 @@ export class ManageMarketPage {
   readonly renameInput: Locator;
   readonly renameSaveButton: Locator;
   readonly deleteButton: Locator;
+  /** "Hand this market on" (T283): the section, its line or the line saying nobody else has access,
+   *  its button, and the dialog it opens with its picker. */
+  readonly handOnSection: Locator;
+  readonly handOnLine: Locator;
+  readonly handOnNobody: Locator;
+  readonly handOnButton: Locator;
+  readonly handOn: Locator;
+  readonly handOnPicker: PersonChooser;
+  readonly handOnConsequence: Locator;
+  readonly handOnConfirmButton: Locator;
+  readonly handOnCancelButton: Locator;
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
   readonly permissionsOpen: Locator;
@@ -113,6 +124,16 @@ export class ManageMarketPage {
     this.renameInput = page.getByTestId('manage-market-rename-input');
     this.renameSaveButton = page.getByTestId('manage-market-rename-save-button');
     this.deleteButton = page.getByTestId('manage-market-delete-button');
+    this.handOnSection = page.getByTestId('manage-market-hand-on');
+    this.handOnLine = page.getByTestId('manage-market-hand-on-line');
+    this.handOnNobody = page.getByTestId('manage-market-hand-on-nobody');
+    this.handOnButton = page.getByTestId('manage-market-hand-on-button');
+    // Its own destructive dialog, a sibling of Manage market.
+    this.handOn = page.getByTestId('hand-on-market-window');
+    this.handOnPicker = new PersonChooser(page, 'hand-on-market-picker');
+    this.handOnConsequence = page.getByTestId('hand-on-market-consequence');
+    this.handOnConfirmButton = page.getByTestId('hand-on-market-submit-button');
+    this.handOnCancelButton = page.getByTestId('hand-on-market-cancel-button');
     // Its own destructive dialog (bug 43), so its buttons are that dialog's.
     this.deleteConfirmButton = page.getByTestId('manage-market-delete-submit-button');
     this.deleteCancelButton = page.getByTestId('manage-market-delete-cancel-button');

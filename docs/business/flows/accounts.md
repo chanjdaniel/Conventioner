@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -21,6 +21,7 @@ sources:
   - T251
   - E47/F02/S01
   - T263
+  - T283
 ---
 
 # Accounts
@@ -187,5 +188,10 @@ Covered by:
 ## A5. Delete my account
 
 **Status:** No screen (`POST /delete-user` exists; nothing in the front end calls it).
+
+A person deletes only their own account.
+While they own an organization or a market, it is refused and the refusal names each, so every organization and every market keeps an owner whose account exists: they transfer the organization, and hand the market on or delete it, first ([handing a market on](ending-and-managing-a-market.md#l4a-hand-the-market-on)).
+A deleted account leaves every organization it was an admin or a member of; a role it held below Owner on a market stays in that market's roles.
+How the request reads and answers is in [deleting an account](../../implementation/data/users-and-email.md#deleting-an-account).
 
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

@@ -154,6 +154,7 @@ ROW_WRITES = {
                                    {"user_email": "editor@example.com", "role": "editor"}),
     "manage-admins": ("post", "/markets/market-123/roles",
                       {"user_email": "admin@example.com", "role": "admin"}),
+    "hand-on-market": ("post", "/markets/market-123/hand-on", {"userId": "user-admin"}),
     "delete-market": ("delete", "/markets/market-123", None),
     "change-the-table": ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}),
     "connect-discord": ("put", "/markets/market-123/discord", {"inviteLink": ""}),

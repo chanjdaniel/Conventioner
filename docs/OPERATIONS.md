@@ -10,10 +10,10 @@ describes:
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_placement_history.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
+  - back-end/migrations/migrate_organization_people.py
   - back-end/api/attendance.py#ensure_attendance_indexes
   - back-end/payments.py#ensure_payment_indexes
   - back-end/migrations/check_vendor_day_duplicates.py
-  - back-end/migrations/migrate_organization_people.py
 verified: 2026-11-11
 sources:
   - E32/F03/S03
@@ -103,7 +103,7 @@ What a person may do is decided per organization and per market:
 | ------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
 | Organization owner, admin | Manage organization (Organizations page)                     | **Admin** on every market the organization holds - never the market's owner                            |
 | Organization member       | Manage organization (Organizations page)                     | **Viewer** on every market the organization holds                                                      |
-| Market owner              | creating the market                                          | everything, including roles and deletion                                                               |
+| Market owner              | creating the market, or being handed it by the owner         | everything, including roles, handing the market on and deletion                                        |
 | Market admin              | Manage market, or being the organization's owner or an admin | phase moves, importing, publishing results, adding editors and viewers, plus everything an editor does |
 | Market editor             | Manage market                                                | the plan, the form, verdicts on applications, placements, and checking vendors in at the door          |
 | Market viewer             | Manage market, or organization membership                    | reading                                                                                                |

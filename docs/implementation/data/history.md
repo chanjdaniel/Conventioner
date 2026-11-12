@@ -40,6 +40,7 @@ sources:
   - T224
   - T217
   - T263
+  - T283
 ---
 
 # The market's history
@@ -275,6 +276,12 @@ One block per action, in the order of [the actions table](../modules/market-acti
 - `role_given`, `role_changed`, `role_taken`: Manage market's people
   - Subject: `user_id`, `email`
   - Detail: `role`
+
+**`hand-on-market`**
+
+- `handed_on`: the market's owner handing it on to someone with access, who becomes its Owner while the old owner stays on it as an Admin ([handing a market on](../../business/flows/ending-and-managing-a-market.md#l4a-hand-the-market-on))
+  - Subject: `user_id`, `email`: the new Owner
+  - Detail: `owner`, the old owner's address before and the new Owner's after; read "<actor> handed the market on to <email>, and stays on it as an Admin"
 
 **`change-the-table`**
 

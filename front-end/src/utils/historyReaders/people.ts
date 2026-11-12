@@ -8,6 +8,7 @@
  * - `manage-admins/role_given`
  * - `manage-admins/role_changed`
  * - `manage-admins/role_taken`
+ * - `hand-on-market/handed_on`
  * - `change-the-table/permission_set`
  * - `change-the-table/permission_reset`
  * - `change-the-table/permission_table_reset`, its sentence and its rows
@@ -44,6 +45,15 @@ export const readers: HistoryReaders = {
   'manage-admins/role_given': { parts: roleGiven },
   'manage-admins/role_changed': { parts: roleChanged },
   'manage-admins/role_taken': { parts: roleTaken },
+  'hand-on-market/handed_on': {
+    parts(entry, context) {
+      const { actor, text } = sentence(entry, context);
+      return [
+        actor,
+        text(`handed the market on to ${str(entry.subject.email)}, and stays on it as an Admin`),
+      ];
+    },
+  },
   'change-the-table/permission_set': {
     parts(entry, context) {
       const { labels } = context;

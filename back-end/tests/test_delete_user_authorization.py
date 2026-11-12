@@ -19,6 +19,7 @@ import pytest
 
 from conftest import (
     FakeOrganizations,
+    FakeSlugMarketsCollection,
     install_organizations,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
@@ -30,6 +31,7 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.users as UsersApi
+import api.markets as MarketsApi
 import api.organizations as OrgsApi
 
 
@@ -81,7 +83,17 @@ def organizations(monkeypatch):
 
 
 @pytest.fixture
-def client(monkeypatch, organizations):
+def markets(monkeypatch):
+    """The markets collection, filtered and projected as the server would."""
+    def _install(*docs):
+        collection = FakeSlugMarketsCollection(list(docs))
+        monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+        return collection
+    return _install
+
+
+@pytest.fixture
+def client(monkeypatch, organizations, markets):
     """A real client with login ENABLED - the point of these tests.
 
     Session protection is relaxed because these assert authorization, not session hardening;
@@ -89,6 +101,7 @@ def client(monkeypatch, organizations):
     reason to care about.
     """
     organizations()
+    markets()
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)
     sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(
@@ -238,6 +251,106 @@ class TestOwningAnOrganization:
 
         assert response.status_code == 200
         assert ATTACKER not in collection.docs
+
+
+def _market(market_id, name, roles):
+    return {"id": market_id, "name": name, "phase": "draft", "roles": roles}
+
+
+class TestOwningAMarket:
+    """A market's Owner is the only person who may delete it, manage its admins and change who may
+    do what on it, so an account that is the Owner of a market stays until it hands the market on
+    or deletes it (T283), and every market keeps an Owner."""
+
+    def test_a_markets_owner_cannot_delete_their_account(self, client, users, markets):
+        collection = users(_user(ATTACKER, user_id="id-owner"))
+        markets(_market("m-1", "Spring Market", {"id-owner": "owner", "id-admin": "admin"}))
+        _signed_in_as(client, ATTACKER)
+
+        response = _delete(client, ATTACKER)
+
+        assert response.status_code == 409
+        assert ATTACKER in collection.docs, "the account must survive a refused deletion"
+        assert response.get_json() == {
+            "msg": "Hand on or delete Spring Market before deleting this account.",
+            "ownedMarkets": ["Spring Market"],
+        }
+
+    def test_the_refusal_names_every_market_they_own_and_no_other(
+        self, client, users, markets
+    ):
+        users(_user(ATTACKER, user_id="id-owner"))
+        stored = markets(
+            _market("m-1", "Spring Market", {"id-owner": "owner"}),
+            _market("m-2", "Someone else's", {"id-other": "owner", "id-owner": "admin"}),
+            _market("m-3", "Winter Market", {"id-owner": "owner", "id-other": "editor"}),
+        )
+        _signed_in_as(client, ATTACKER)
+
+        response = _delete(client, ATTACKER)
+
+        assert response.status_code == 409
+        assert response.get_json() == {
+            "msg": "Hand on or delete Spring Market, Winter Market before deleting this account.",
+            "ownedMarkets": ["Spring Market", "Winter Market"],
+        }
+        assert stored.last_projection == {"_id": 0, "id": 1, "name": 1}
+
+    def test_an_organizations_owner_who_owns_a_market_is_told_both(
+        self, client, users, organizations, markets
+    ):
+        users(_user(ATTACKER, user_id="id-owner"))
+        organizations({"id": "org-1", "name": "Seed Test Org", "owner": "id-owner"})
+        markets(_market("m-1", "Spring Market", {"id-owner": "owner"}))
+        _signed_in_as(client, ATTACKER)
+
+        response = _delete(client, ATTACKER)
+
+        assert response.status_code == 409
+        assert response.get_json() == {
+            "msg": (
+                "Transfer ownership of Seed Test Org before deleting this account. "
+                "Hand on or delete Spring Market before deleting this account."
+            ),
+            "ownedOrganizations": ["Seed Test Org"],
+            "ownedMarkets": ["Spring Market"],
+        }
+
+    def test_an_organizations_owner_who_owns_no_market_is_told_of_the_organization_alone(
+        self, client, users, organizations
+    ):
+        users(_user(ATTACKER, user_id="id-owner"))
+        organizations({"id": "org-1", "name": "Seed Test Org", "owner": "id-owner"})
+        _signed_in_as(client, ATTACKER)
+
+        response = _delete(client, ATTACKER)
+
+        assert response.get_json() == {
+            "msg": "Transfer ownership of Seed Test Org before deleting this account.",
+            "ownedOrganizations": ["Seed Test Org"],
+        }
+
+    @pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
+    def test_an_account_below_owner_on_a_market_is_deleted(
+        self, client, users, organizations, markets, role
+    ):
+        collection = users(_user(ATTACKER, user_id="id-attacker"))
+        organization = {
+            "id": "org-1", "name": "Seed Test Org", "owner": "id-owner",
+            "admins": ["id-attacker"], "members": [],
+            "people": {"id-owner": "owner", "id-attacker": "admin"},
+        }
+        stored = organizations(organization)
+        markets(_market("m-1", "Spring Market", {"id-owner": "owner", "id-attacker": role}))
+        _signed_in_as(client, ATTACKER)
+
+        response = _delete(client, ATTACKER)
+
+        assert response.status_code == 200
+        assert ATTACKER not in collection.docs
+        [after] = stored.docs
+        assert after["people"] == {"id-owner": "owner"}
+        assert after["admins"] == []
 
 
 class TestTheDeletedAccountsPlaces:

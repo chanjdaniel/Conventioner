@@ -117,7 +117,7 @@ class TestAnArchivedMarket:
 
         assert {row.id for row in MarketsApi.ARCHIVED_STILL_TAKES} == {
             "read", "read-history", "export-csv", "manage-editors-and-viewers", "manage-admins",
-            "delete-market"}
+            "hand-on-market", "delete-market"}
         assert all(served[row.id] is None for row in MarketsApi.ARCHIVED_STILL_TAKES)
 
 

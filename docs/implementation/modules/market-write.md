@@ -18,7 +18,6 @@ describes:
   - back-end/api/markets.py#write_application_form
   - back-end/api/markets.py#save_plan
   - back-end/api/floorplans_save.py#save_floorplan_to_market
-  - back-end/api/layouts.py#save_table_types
   - back-end/api/placements.py#_store_vendor_assignments
   - back-end/api/applicants.py#publish_results
   - back-end/api/applicants.py#set_applications_stopped
@@ -50,6 +49,7 @@ describes:
   - front-end/e2e/helpers/saveApplicationForm.ts
   - front-end/e2e/helpers/savePlan.ts
   - front-end/e2e/a-plan-save-from-an-older-tab.spec.ts
+  - back-end/api/layouts.py#save_table_types
 verified: 2026-11-11
 sources:
   - T244
@@ -122,8 +122,10 @@ In [`back-end/api/markets.py`](../../../back-end/api/markets.py):
 - The four writes to the market's permission table (`set_permission`, `reset_permission`, `reset_permissions`, `copy_organization_default`), each holding every row it changes, `permissions.<row id>`, as read, so a row the owner changed in another tab meanwhile is not overwritten and the history's "before" is the row that stood.
   Where the stored `permissions` is not a map (null, a string), a set or a copy replaces it whole, so it is held whole; the market as read answers which, with no read of its own.
 - The three role writes (`add_market_role`, `update_market_role`, `remove_market_role`), each setting or unsetting one person's key, `roles.<user id>`, never the whole map, and holding, beside the phase, that person's role and the requester's as read (absent when the requester's right comes through the organization), so an admin taking someone's access while another gives a third person access both land, and a role taken never comes back ([what each role may do](../../business/rules/what-each-role-may-do.md)).
-  A decision that counted the owners (giving or changing to Owner, taking an Owner) holds `roles` whole; no route reaches such a write today, since the market model refuses a market with no owner or two, and the Admin row and "Market already has an owner" refuse every give of Owner.
+  A decision that counted the owners (giving or changing to Owner, taking an Owner) holds `roles` whole; no role write reaches such a decision, since the market model refuses a market with no owner or two, and the Admin row and "Market already has an owner" refuse every give of Owner.
+  The one route that moves the Owner is the hand-on below, which holds the two keys it changes instead.
   A take refused because the person's role is already gone answers the 404 "They no longer have a role on this market.", which Manage market reads as done.
+- The hand-on (`hand_on_market`, the fixed row "Hand the market on"), setting the Owner's key to `admin` and the new Owner's to `owner` in one write, holding both keys as read, so a second hand-on from another tab meets the Owner's role changed and the market keeps exactly one Owner ([the market actions](market-actions.md#hand-the-market-on-hand-on-market)).
 - The form write (`write_application_form`), holding the form's revision, see [the form's revision](#the-forms-revision) below.
 - The plan write (`save_plan`), holding the plan's revision and `resultsPublished`, see [the plan's revision](#the-plans-revision) below.
 - The phase move (`apply_phase_transition`), holding the facts its guards passed on that another write changes without moving the phase (`_what_the_move_stood_on`: `resultsPublished` for Back to review, `formRevision` and `planRevision` for Open applications).

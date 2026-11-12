@@ -18,7 +18,7 @@ import pytest
 
 from conftest import (
     COMPLETE_PLAN, FakeApplicationsCollection, a_solver_vendor, mongo_matches, mongo_project, reject_malformed_update,
-    sessions_load_through_get_user, skip_without_real_dependencies, stored_market,
+    accounts_by_id, sessions_load_through_get_user, skip_without_real_dependencies, stored_market,
 )
 
 skip_without_real_dependencies()
@@ -196,8 +196,7 @@ def world(monkeypatch, applications, market_records):
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_k: {"markets": markets})
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     monkeypatch.setattr(UsersApi, "get_user", _account)
-    monkeypatch.setattr(
-        UsersApi, "get_user_by_id", lambda user_id: _account(f"{user_id[len('user-'):]}@example.com"))
+    accounts_by_id(monkeypatch, lambda user_id: _account(f"{user_id[len('user-'):]}@example.com"))
 
     def market(phase: MarketPhase, **overrides) -> Dict[str, Any]:
         # A copy, as a write reaches into the document it holds, and a plan here is a shared one.
@@ -682,6 +681,13 @@ def _take_role(client, world):
     return client.delete(f"/markets/{MARKET}/roles/user-sam")
 
 
+def _hand_on(client, world):
+    # An ``_id``, as a stored market has: the route answers the market as its read serves it.
+    world.market(MarketPhase.APPLICATIONS, roles={"user-owner": "owner", "user-sam": "editor"},
+                 _id="mongo-market")
+    return client.post(f"/markets/{MARKET}/hand-on", json={"userId": "user-sam"})
+
+
 def _set_permission(client, world):
     world.market(MarketPhase.APPLICATIONS)
     return client.put(f"/markets/{MARKET}/permissions/check-in", json={"role": "admin"})
@@ -844,6 +850,8 @@ WRITES = [
           History.ROLE_CHANGED, _change_role, subject=SAM_BY_ID),
     Write("a role taken", "DELETE", f"{M}/roles/<user_id>", Actions.MANAGE_EDITORS_AND_VIEWERS,
           History.ROLE_TAKEN, _take_role, subject=SAM_BY_ID),
+    Write("the market handed on", "POST", f"{M}/hand-on", Actions.HAND_ON_MARKET,
+          History.HANDED_ON, _hand_on, subject=SAM_BY_ID),
     Write("a row of the table set", "PUT", f"{M}/permissions/<action_id>",
           Actions.CHANGE_THE_TABLE, History.PERMISSION_SET, _set_permission,
           subject={"action": "check-in"}),

@@ -159,9 +159,10 @@ Those changes alone are also read in the default table's dialog, through `get_de
 A map, not one list per role, so nobody can hold two roles on one market.
 Whoever creates a market owns it, and only they do (`create_owned_market`): the create body's roles were once taken on trust, so a client could make a market owned by someone else or by nobody (bug 46).
 Anyone else is added afterwards by email, through `add_market_role`, which stores their user id; they must already have an account.
-The owner's entry cannot be changed, removed or added beside, so a market's ownership cannot be handed on.
+The owner's entry cannot be changed, removed or added beside through a role write; the owner hands the market on instead (`hand_on_market`, the fixed row `hand-on-market`, T283), to anyone the market read finds with access, in one write that sets `roles.<owner>` to `admin` and `roles.<new>` to `owner`, holding both keys as read, so the market has exactly one owner before it and after it, and a second hand-on on the same read answers the market write's 409 ([the market's actions](../modules/market-actions.md#hand-the-market-on-hand-on-market)).
+An account that owns a market is not deleted: `delete_user` reads `{"roles.<user id>": "owner"}` and refuses while it finds one, until the owner hands the market on or deletes it ([deleting an account](users-and-email.md#deleting-an-account)).
 An owner manages every other role; an admin manages editors and viewers: the table's two rows for roles, Give and take Admin roles (Owner, fixed) and Give and take Editor and Viewer roles (Admin), which `roles_row` picks by the role given or taken ([the market's actions](../modules/market-actions.md)).
-Roles change on an archived market too: they are not a change to its record.
+Roles change, and a market is handed on, on an archived market too: neither is a change to its record.
 Taking a role nobody holds, another organizer having taken it first, answers 404 "They no longer have a role on this market.", as does a removal whose write finds it gone under it, and records nothing; `remove_market_role` asks both roles rows before it looks at the person, so someone who may take no role there is refused in one sentence whoever the person is, the only owner, an Admin, anyone else or nobody, and Manage market reads the 404 as done ([`test_removing_someone_already_gone.py`](../../../back-end/tests/test_removing_someone_already_gone.py), with its organization twin [above](#the-organization)).
 
 **Each role write sets or takes one person's key, never the whole map** (T274): giving and changing `$set` `roles.<user id>`, taking `$unset`s it, through [the market write](../modules/market-write.md), holding the phase, as every market write does, and that person's role and the requester's as read, so two admins changing roles at the same moment never undo each other, and a role taken never comes back.
@@ -169,7 +170,7 @@ A write that met roles changed since its read stores nothing and answers the mar
 
 **"Markets this person has a role on" is a query on the map's key**, `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
 
-**Giving, changing and taking a market role records into [the market's history](history.md)** (`role_given`, `role_changed`, `role_taken`), under the Admin row when an Admin or Owner role is either side of it, else the Editor and Viewer row.
+**Giving, changing and taking a market role records into [the market's history](history.md)** (`role_given`, `role_changed`, `role_taken`), under the Admin row when an Admin or Owner role is either side of it, else the Editor and Viewer row; handing the market on records `handed_on` under its own row.
 
 ## What a person may do on a market
 

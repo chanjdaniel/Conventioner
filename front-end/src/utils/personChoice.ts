@@ -11,9 +11,13 @@ import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 /** How many matching people a chooser draws before "N more, type to narrow". */
 export const PEOPLE_CAP = 50;
 
+/** Whether this address is the reader's own, whatever its capitals. */
+export const isTheReader = (address: string): boolean =>
+  address.toLowerCase() === (signedInEmail() ?? '').toLowerCase();
+
 /** One address as a choice, marked when it is the reader's own, whatever its capitals. */
 export function personOption(address: string): PickerOption {
-  const isMe = address.toLowerCase() === (signedInEmail() ?? '').toLowerCase();
+  const isMe = isTheReader(address);
   return {
     value: address,
     label: address,
