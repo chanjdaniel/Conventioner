@@ -9,7 +9,7 @@
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import { getApiErrorMessage } from '@/utils/api';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 import { sizeInWords, type SavedTypes } from './layoutTypes';
 
 const props = defineProps<{

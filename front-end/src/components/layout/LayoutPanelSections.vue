@@ -13,7 +13,7 @@
 import { computed, nextTick, ref, useId } from 'vue';
 import type { StartingCount } from '@/assets/types/datatypes';
 import RowMenu from '@/components/RowMenu.vue';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 import { sectionPaint, type LayoutSection } from './layoutDrawing';
 import { PALETTE_SIZE } from './layoutGeometry';
 

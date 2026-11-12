@@ -91,7 +91,7 @@ import {
   saidTurned,
   saidZoneAdded,
 } from './layoutAnnouncements';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 import { NO_SECTION_PAINT, layoutSections } from './layoutDrawing';
 import {
   STANDARD_TABLE,

@@ -9,7 +9,7 @@
 import { computed, nextTick, ref, toRef, watch } from 'vue';
 import { type SetupObject } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { type LocationObject } from '@/assets/types/datatypes';

@@ -13,7 +13,7 @@ import { computed, ref, useId, watch } from 'vue';
 import type { FloorplanTable, TableTypeObject } from '@/assets/types/datatypes';
 import RowMenu from '@/components/RowMenu.vue';
 import IconExpandDown from '@/components/icons/IconExpandDown.vue';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 import { placeInMetres, tableCode, type LayoutSection } from './layoutDrawing';
 import type { Alignment } from './layoutGeometry';
 import { MAX_LENGTH_CM, rowFieldErrors } from './layoutRow';

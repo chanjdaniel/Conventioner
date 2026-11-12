@@ -5,7 +5,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 
 const props = defineProps<{
   open: boolean;

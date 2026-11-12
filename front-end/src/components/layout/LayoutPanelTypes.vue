@@ -13,7 +13,7 @@ import { computed, nextTick, ref, useId } from 'vue';
 import type { TableTypeObject } from '@/assets/types/datatypes';
 import RowMenu from '@/components/RowMenu.vue';
 import { getApiErrorMessage } from '@/utils/api';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 import LayoutSavedTypesDialog from './LayoutSavedTypesDialog.vue';
 import LayoutSaveTypesDialog from './LayoutSaveTypesDialog.vue';
 import LayoutTypeDialog from './LayoutTypeDialog.vue';

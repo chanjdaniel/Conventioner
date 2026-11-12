@@ -18,12 +18,12 @@
 import type { IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
 import type { ChangedField } from '@/utils/marketHistory';
 import { formatPrice } from '@/utils/pricing';
+import { plural } from '@/utils/utils';
 import {
   asDetail,
   changedFields,
   fieldName,
   listed,
-  plural,
   sentence,
   str,
   valueText,

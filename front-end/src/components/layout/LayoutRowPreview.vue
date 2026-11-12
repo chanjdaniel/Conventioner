@@ -11,7 +11,7 @@
  * under the pointer by where it is.
  */
 import { computed } from 'vue';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 import LayoutCrosshair from './LayoutCrosshair.vue';
 import { textWidthPx, type Paint } from './layoutDrawing';
 import type { PathPose, PointMm, Run, SizeMm } from './layoutGeometry';

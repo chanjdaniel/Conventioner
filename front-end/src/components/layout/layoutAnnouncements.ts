@@ -6,7 +6,7 @@
  */
 import { ref, type Ref } from 'vue';
 import type { FloorplanTable } from '@/assets/types/datatypes';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 import { metres, placeInMetres, tableCode, type LayoutSection } from './layoutDrawing';
 import type { Alignment, Bounds, PointMm } from './layoutGeometry';
 

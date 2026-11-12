@@ -9,7 +9,7 @@ import type {
   SectionObject,
   TableTypeObject,
 } from '@/assets/types/datatypes';
-import { plural } from '@/utils/historyReaders/shared';
+import { plural } from '@/utils/utils';
 import { sectionColors } from './layoutGeometry';
 
 /** A fill and the edge round it, as the names of two tokens of `base.css`. */
