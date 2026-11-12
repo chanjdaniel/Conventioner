@@ -11,6 +11,9 @@
   ],
   "compilerOptions": {
     "noEmit": true,
+    // Node runs scripts/ as TypeScript by stripping its types, which resolves only an import
+    // that names its file whole, `.ts` included.
+    "allowImportingTsExtensions": true,
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "module": "ESNext",

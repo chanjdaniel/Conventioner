@@ -259,4 +259,84 @@ def test_an_unknown_argument_fails_the_run_before_anything_runs(stubbed):
     assert result.returncode != 0
     assert "--skip-playwright" in result.stderr
     assert "--skip-e2e" in result.stderr
+    assert "--real-data-only" in result.stderr
     assert calls == []
+
+
+# An invented applicant, in a fake export the test writes into its repository's .scratch/examples/,
+# as the organizers' real exports sit in the checkout's.
+LISTED_NAME = "Wren Okafor"
+FAKE_EXPORT = f"""\
+Timestamp,Email Address,Full name,Business name
+9/27/2025 9:04:01,wren.okafor@example.com,{LISTED_NAME},Ember Kiln Pottery
+"""
+
+
+def commit_file(root, name, text, *, on_dev=False):
+    (root / name).write_text(text)
+    steps = [
+        ["add", name],
+        ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "--no-verify", "-m", "test: a file"],
+    ]
+    if on_dev:
+        steps.append(["update-ref", "refs/remotes/origin/dev", "HEAD"])
+    for args in steps:
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+
+
+def with_fake_export(root):
+    examples = root / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    (examples / "responses.csv").write_text(FAKE_EXPORT)
+
+
+def real_data_only(root, tmp_path):
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("COMPOSE_", "TH_", "TEAM_"))}
+    env.update(PYTHON_CMD=sys.executable, TMPDIR=str(tmp_path))
+    return subprocess.run(
+        [BASH, str(root / "scripts" / "nm-test.sh"), "--real-data-only"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+def test_real_data_only_runs_both_checks_and_no_suite(stubbed):
+    run, lock = stubbed
+
+    result, calls = run("--real-data-only")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "checking the branch's commits since origin/dev for real data" in result.stdout
+    assert "checking the whole tree for real data" in result.stdout
+    assert "Real data: OK" in result.stdout
+    assert calls == []
+    assert not lock.exists()
+    assert result.stdout.splitlines()[-1] == "nm-test: --real-data-only: no suite run; CI runs them."
+
+
+def test_real_data_only_fails_on_a_listed_name_the_branch_adds(tmp_path):
+    root = repo_with_scripts(tmp_path)
+    with_fake_export(root)
+    commit_file(root, "notes.md", f"Thanks to {LISTED_NAME} for the stall.\n")
+
+    result = real_data_only(root, tmp_path)
+
+    assert result.returncode != 0
+    assert "notes.md:1:" in result.stdout
+    assert "checking the whole tree" not in result.stdout
+    assert "venv" not in result.stdout + result.stderr
+
+
+def test_real_data_only_fails_on_a_name_listed_since_dev_took_its_file(tmp_path):
+    root = repo_with_scripts(tmp_path)
+    commit_file(root, "notes.md", f"Thanks to {LISTED_NAME} for the stall.\n", on_dev=True)
+    with_fake_export(root)
+
+    result = real_data_only(root, tmp_path)
+
+    assert result.returncode != 0
+    assert "checking the whole tree for real data" in result.stdout
+    assert "notes.md:1:" in result.stdout
+    assert "venv" not in result.stdout + result.stderr

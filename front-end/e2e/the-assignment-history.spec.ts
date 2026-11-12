@@ -83,6 +83,10 @@ test('a hand placement is there as it opens, and Escape, close and the backdrop 
   await tables.vacantSeat('Hall A 1').click();
   await tables.placeVendor('alice@example.com');
   await expect(tables.dialog).toBeHidden();
+  // The placement's re-read makes the market assigned, which swaps the History button for the one
+  // in the result strip. Open History once the strip is there: a dialog opened on the old button
+  // would find it gone when it closes, and focus has nowhere to return to.
+  await expect(page.getByTestId('result-approved-assigned')).toBeVisible();
 
   const dialog = tables.historyDialog;
   const open = () => tables.openHistory();

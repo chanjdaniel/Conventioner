@@ -23,8 +23,8 @@ sources:
 How to run each suite, and what each covers.
 The testing nodes of the [knowledge graph](implementation/testing/README.md) hold the sharp edges of each; the [Google Form corpus](../back-end/tests/test_data/README.md) is the suite's realistic data.
 The sharp edges are in the testing nodes: [E2E patterns](implementation/testing/e2e-patterns.md), [E2E seeds](implementation/testing/e2e-seeds.md), [the market journey spec](implementation/testing/the-market-journey-spec.md), [floorplan E2E](implementation/testing/floorplan-e2e.md), [CI and the gate](implementation/testing/ci-and-the-gate.md), [the assignment behaviour suite](implementation/testing/assignment-behaviour-suite.md) and [the real-MongoDB suite](implementation/testing/real-mongo-suite.md).
-The stack is seeded by [`scripts/seed_fixture.sh`](../scripts/seed_fixture.sh), Playwright is configured in [`front-end/playwright.config.ts`](../front-end/playwright.config.ts), and the no-mistakes gate runs every suite but Playwright through [`scripts/nm-test.sh --skip-e2e`](../scripts/nm-test.sh).
-Before a merge, Playwright runs only in CI's required `e2e` shards: on the laptop it was most of every gate run and the heaviest load the machine saw, and CI ran it again anyway ([CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)).
+The stack is seeded by [`scripts/seed_fixture.sh`](../scripts/seed_fixture.sh), Playwright is configured in [`front-end/playwright.config.ts`](../front-end/playwright.config.ts), and [`scripts/nm-test.sh`](../scripts/nm-test.sh) runs every suite on a stack of its own; the no-mistakes gate runs only its real-data checks (`--real-data-only`).
+Before a merge, the suites run only in CI's required jobs: Playwright on the laptop was most of every gate run and the heaviest load the machine saw, and CI ran every suite again anyway ([CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)).
 
 ## Quick Start: Seed Fixture
 
@@ -66,7 +66,7 @@ python -m pytest tests/ -v
 
 Install **both** files. `requirements-dev.txt` is only `pytest`, uv (for the lock check) and what they need; it does not pull in the runtime
 dependencies, and the suite imports the application. `scripts/nm-test.sh` installs both, which is
-why the gate passes where a hand-run `pip install -r requirements-dev.txt` does not.
+why it passes where a hand-run `pip install -r requirements-dev.txt` does not.
 The suite also uploads a real PDF floorplan, with an empty `PATH`, so it proves the Python requirements alone draw a PDF, as they must on production's Vercel function, which installs no system package.
 
 The suite covers the assignment algorithm, statistics, attendance,
@@ -155,7 +155,7 @@ The suite reads no `.env`, so a stale one on your machine cannot change its resu
 ### The real-MongoDB suite
 
 `back-end/tests/real_mongo/` runs against a real MongoDB server, named by `REAL_MONGODB_URI`, each test on a database of its own that it drops.
-Unset, every test there skips, so the gate's run stays hermetic; CI's `backend` job runs it on a `mongo:7` service, the local stack's version ([why not production's 8.0](implementation/testing/real-mongo-suite.md#the-mongodb-version)), and sets `REAL_MONGODB_REQUIRED=true` so it can never skip.
+Unset, every test there skips, so an `nm-test.sh` run stays hermetic; CI's `backend` job runs it on a `mongo:7` service, the local stack's version ([why not production's 8.0](implementation/testing/real-mongo-suite.md#the-mongodb-version)), and sets `REAL_MONGODB_REQUIRED=true` so it can never skip.
 It refuses a `mongodb+srv://` URI, a host that is not loopback and the primary checkout's port 27017.
 Run it against a worktree stack's MongoDB, its port from `scripts/th-compose.sh ports`:
 
@@ -395,7 +395,7 @@ Connecting through the card skips Discord's approval screen under it, and connec
 Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`.
 [CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which checks
 branch protection requires (ten on `dev`, `CodeQL` among them, and six on `main`), why a flaky test fails the build, and what the no-mistakes gate
-runs through `scripts/nm-test.sh` (every suite but Playwright, which only CI runs before a merge).
+runs through `scripts/nm-test.sh` (the real-data checks alone, since CI runs every suite before a merge).
 
 ## Stack limits
 
@@ -451,8 +451,8 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `npx playwright install chromium`, never `--with-deps` or `install-deps` - those run
   `sudo` with no terminal, and each failed attempt counts toward the account's
   `pam_faillock` lockout. The machine's own package manager provides the system libraries;
-  CI's workflow keeps `--with-deps`, which is right on GitHub's Ubuntu runners.
-- **`nm-test.sh` runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs (without `--skip-e2e`) on one machine
+  CI's e2e action keeps `--with-deps`, and `install-deps` when the browser comes from its cache, which is right on GitHub's Ubuntu runners.
+- **`nm-test.sh` runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs (with neither switch) on one machine
   run their unit suites side by side, but the second waits, saying
   `nm-test: waiting for the end-to-end lock since ...` and naming the run it waits for, until the first's stack is down,
   because a stack starting or stopping breaks another run's browser with
