@@ -235,7 +235,8 @@ class TestTransitionSuccess:
         assert response.status_code == 200
         assert response.get_json() == {"phase": "applications"}
         assert collection.doc["phase"] == "applications"
-        assert collection.updates[0][0] == {"id": "market-1", "phase": {"$exists": False},
+        assert collection.updates[0][0] == {"id": "market-1", "deleting": {"$exists": False},
+                                            "phase": {"$exists": False},
                                             "formRevision": {"$exists": False},
                                             "planRevision": {"$exists": False}}
 

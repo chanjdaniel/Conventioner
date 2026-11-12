@@ -19,6 +19,7 @@ import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import history as History
+import market_deletion as MarketDeletion
 import essential_fields as EssentialFields
 import pricing as Pricing
 from application_write import validated_answer
@@ -74,6 +75,9 @@ def add_vendor(
         detail=lambda: History.changes(
             {}, {"name": name, "status": application.status.value, "answers": answers}),
     )
+    # After the last write: a deletion that began after the market was read has swept, or will
+    # sweep, the application, or this takes it back as a 404.
+    MarketDeletion.kept_only_while_live(MarketsApi.markets_collection, market_id)
     return {"application": convert_keys_to_camel_case(application.model_dump())}, 201
 
 

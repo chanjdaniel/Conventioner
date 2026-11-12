@@ -26,6 +26,7 @@ from datatypes import Market, PaymentEntry
 import history as History
 import payments as Payments
 import pricing as Pricing
+from tombstone import live
 from utils.email_address import normalized_email
 from utils.request_body import string_field
 
@@ -414,13 +415,13 @@ def seated_again(
 
         def detail(address=address, date=date, cents=cents):
             market = MarketsApi.market_from_document(
-                MarketsApi.markets_collection.find_one({"id": market_id}))
+                MarketsApi.markets_collection.find_one(live({"id": market_id})))
             line = _line(market, address, date) or {}
             return History.changes({"owed_cents": cents}, {"owed_cents": line.get("owedCents")})
 
         def subject(date=date):
             market = MarketsApi.market_from_document(
-                MarketsApi.markets_collection.find_one({"id": market_id}))
+                MarketsApi.markets_collection.find_one(live({"id": market_id})))
             return {"date": date, **_currency(market)}
 
         History.record(market_id, by, Actions.ASSIGN, kind=History.OWED_TAKEN_BACK,

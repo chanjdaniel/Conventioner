@@ -14,7 +14,7 @@ import time
 from types import SimpleNamespace
 
 import sign_in_limits
-from conftest import mongo_matches, reject_malformed_update
+from conftest import mongo_matches, mongo_project, reject_malformed_update
 from datatypes import Application, ApplicationStatus, ApplicationType, MarketPhase
 from market_documents import market_name_slug
 
@@ -33,27 +33,8 @@ class FakeMarketsCollection:
         self.docs = list(docs) if docs else []
 
     def find(self, query=None, projection=None):
-        results = []
-        for doc in self.docs:
-            match = True
-            for key, value in (query or {}).items():
-                if key == "$nor":
-                    for clause in value:
-                        if all(doc.get(k) == v for k, v in clause.items()):
-                            match = False
-                            break
-                    if not match:
-                        break
-                elif key not in doc or doc[key] != value:
-                    match = False
-                    break
-            if match:
-                if projection:
-                    projected = {k: doc[k] for k in projection if k in doc}
-                else:
-                    projected = dict(doc)
-                results.append(projected)
-        return iter(results)
+        return iter([mongo_project(dict(doc), projection)
+                     for doc in self.docs if mongo_matches(doc, query or {})])
 
 
 class FakeApplicationsCollection:

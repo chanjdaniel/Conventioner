@@ -4,8 +4,8 @@ A request reads a market, judges a rule on it (the phase allows this, the review
 person's role is what it was), and then writes. A write by id alone stores whatever it carries over
 whatever changed in between, so a rule judged on a draft could land on a market that had opened
 applications a moment before. ``write_market`` holds the facts the judgment read, in the same
-update that writes: always the market's ``id`` and its stored ``phase``, and the keys the caller
-names. When any of them moved, the write stores nothing and raises ``MarketChanged``, one 409 every
+update that writes: always the market's ``id``, its stored ``phase`` and that it is not being
+deleted, and the keys the caller names. When any of them moved, the write stores nothing and raises ``MarketChanged``, one 409 every
 screen reads in the same words.
 
 What a write holds, the writes that may not come through here, and the test that finds every write
@@ -19,6 +19,7 @@ from client_errors import ConflictError, NotFoundError
 from datatypes import Market
 from db_config import get_database
 from market_documents import MARKETS_COLLECTION, market_doc_key
+from tombstone import live, tombstone_of
 
 markets_collection = get_database()[MARKETS_COLLECTION]
 
@@ -73,6 +74,7 @@ def write_market(
 
     - the market's ``id`` and its stored ``phase`` as read, absent when the read had none, so a
       write a phase rule judged never lands after a move, an archive or a return to draft;
+    - the market live (``tombstone.live``), so no write lands on a market being deleted;
     - each key in ``holds``, a stored key in its canonical spelling (``market_doc_key``), dotted for
       a nested one, at its value as read: equal to it, absent when the read had no such key, and a
       null matching null or missing. A sub-document is held by equality, which the server reads in
@@ -87,14 +89,14 @@ def write_market(
 
     Raises:
         MarketChanged: the market changed since it was read; nothing was stored.
-        MarketNotFoundError: the market is gone.
+        MarketNotFoundError: the market is gone, or being deleted.
         RuntimeError: ``as_read`` is a ``Market`` built in code, with no stored document to hold.
     """
     document = document_as_read(as_read)
     revisions = dict(revisions or {})
     market_id = document["id"]
 
-    condition: Dict[str, Any] = {"id": market_id}
+    condition: Dict[str, Any] = live({"id": market_id})
     for key in (market_doc_key("phase"), *holds):
         condition[key] = _held_at(document, key)
     for key, revision in revisions.items():
@@ -116,7 +118,7 @@ def write_market(
     )
     if after is None:
         latest = markets_collection.find_one({"id": market_id})
-        if latest is None:
+        if latest is None or tombstone_of(latest) is not None:
             raise MarketNotFoundError("Market not found")
         raise MarketChanged(latest)
     return Written({key: _value_at(after, key) for key in counted})

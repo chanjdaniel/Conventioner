@@ -18,6 +18,7 @@ from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_c
 from datatypes import MarketPhase, phase_from_market_document, table_code_sort_key
 from db_config import get_database
 from market_documents import market_dates_of
+from tombstone import live
 from unique_indexes import ensure_vendor_day_index
 from utils.email_address import normalized_email
 
@@ -148,7 +149,7 @@ def record_attendance(
     if not isinstance(date, str) or not date.strip():
         return {"error": "date is required"}, 400
 
-    market_doc = markets_collection.find_one({"id": market_id})
+    market_doc = markets_collection.find_one(live({"id": market_id}))
     if not market_doc:
         return {"error": "Market not found"}, 404
 

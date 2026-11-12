@@ -200,15 +200,16 @@ def _built(part: Part) -> Optional[Dict[str, Any]]:
 
 def _write(
     owner: Dict[str, str], actor: Optional[str], action_id: str, kind: Optional[str],
-    vendors: Iterable[str], subject: Part, detail: Part,
+    vendors: Iterable[str], subject: Part, detail: Part, entry_id: Optional[str] = None,
 ) -> None:
-    """Write one entry of the market or the organization ``owner`` names, by its key."""
+    """Write one entry of the market or the organization ``owner`` names, by its key. Given an
+    ``entry_id``, the entry is written once: a second write under that id finds it and adds none."""
     try:
         built = _built(detail)
         if built is None:
             return
-        history_collection.insert_one({
-            "id": str(uuid.uuid4()),
+        entry = {
+            "id": entry_id or str(uuid.uuid4()),
             **owner,
             "actor": actor,
             "at": _now(),
@@ -219,7 +220,11 @@ def _write(
             "vendors": [normalized_email(email) for email in vendors if email],
             "subject": _built(subject) or {},
             "detail": built,
-        })
+        }
+        if entry_id is None:
+            history_collection.insert_one(entry)
+        else:
+            history_collection.update_one({"id": entry_id}, {"$setOnInsert": entry}, upsert=True)
     except Exception as e:
         # The error's type and the entry's ids, never its text: a driver's message can quote the
         # document it refused, and an entry holds answers and addresses.
@@ -532,11 +537,13 @@ CHANGE_THE_DEFAULT = "change-the-default"
 
 def record_for_organization(
     organization_id: str, actor: Optional[str], action_id: str, *, kind: Optional[str] = None,
-    subject: Part = None, detail: Part,
+    subject: Part = None, detail: Part, entry_id: Optional[str] = None,
 ) -> None:
     """Write one entry of an organization's own history. Never raises, as ``record`` never does:
-    the change it records has already landed."""
-    _write({ORGANIZATION_ID_FIELD: organization_id}, actor, action_id, kind, (), subject, detail)
+    the change it records has already landed. ``entry_id`` writes it once however often it is
+    recorded: a market's deletion records under its trail id, so a retry adds no second entry."""
+    _write({ORGANIZATION_ID_FIELD: organization_id}, actor, action_id, kind, (), subject, detail,
+           entry_id)
 
 
 def default_permission_entries(organization_id: str) -> List[Dict[str, Any]]:

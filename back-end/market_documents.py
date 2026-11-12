@@ -59,6 +59,7 @@ from datatypes import (
     market_name_slug,
     phase_from_market_document,
 )
+from tombstone import live
 
 MONGO_ID_KEY = "_id"
 
@@ -376,7 +377,7 @@ def market_by_slug(
     if not market_slug:
         return None
     target = market_slug.strip().lower()
-    query = {**non_draft_market_prefilter(), **market_doc_filter("slug", target)}
+    query = live({**non_draft_market_prefilter(), **market_doc_filter("slug", target)})
     projection = (
         None if fields is None else market_doc_projection((*_SLUG_LOOKUP_FIELDS, *fields))
     )

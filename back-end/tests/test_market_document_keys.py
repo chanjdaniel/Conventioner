@@ -16,6 +16,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from conftest import FakeOrganizations, mongo_matches
+
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
@@ -83,18 +85,9 @@ class FakeMarketsCollection:
         return {}
 
     def _matches(self, doc, query):
-        for key, condition in query.items():
-            if isinstance(condition, dict) and "$in" in condition:
-                if doc.get(key) not in condition["$in"]:
-                    return False
-            elif isinstance(condition, dict) and "$ne" in condition:
-                if doc.get(key) == condition["$ne"]:
-                    return False
-            elif doc.get(key) != condition:
-                return False
-        return True
+        return mongo_matches(doc, query)
 
-    def find(self, query):
+    def find(self, query, _projection=None):
         return iter([dict(doc) for doc in self.docs if self._matches(doc, query)])
 
     def find_one(self, query, _projection=None):
@@ -227,13 +220,7 @@ def org_delete(monkeypatch):
     fake = FakeMarketsCollection([_market("camel-market")])
     monkeypatch.setattr(OrgsApi, "markets_collection", fake)
     monkeypatch.setattr(
-        OrgsApi.organizations_collection, "find_one", lambda _q: {"id": ORG_ID, "owner": USER_ID},
-        raising=False,
-    )
-    monkeypatch.setattr(
-        OrgsApi.organizations_collection, "delete_one", lambda _q: SimpleNamespace(deleted_count=1),
-        raising=False,
-    )
+        OrgsApi, "organizations_collection", FakeOrganizations({"id": ORG_ID, "owner": USER_ID}))
     monkeypatch.setattr(
         OrgsApi.users_collection, "update_many", lambda *_a, **_k: None, raising=False
     )
@@ -243,6 +230,7 @@ def org_delete(monkeypatch):
     monkeypatch.setattr(
         OrgsApi.DeletionTrail, "record_organization_deletion", lambda *_a, **_k: "trail-1"
     )
+    monkeypatch.setattr(OrgsApi.DeletionTrail, "is_recorded", lambda _trail_id: False)
     return fake
 
 

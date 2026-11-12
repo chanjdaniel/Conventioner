@@ -6,6 +6,7 @@ from datatypes import Market, MarketRole, Organization
 from db_config import get_database
 import api.users as UsersApi
 import organization_people as OrganizationPeople
+from tombstone import live
 
 db = get_database()
 organizations_collection = db["organizations"]
@@ -63,7 +64,7 @@ def get_user_market_role(
 
     if market.organization_id:
         if organization is None:
-            org_dict = organizations_collection.find_one({"id": market.organization_id})
+            org_dict = organizations_collection.find_one(live({"id": market.organization_id}))
             if org_dict:
                 org_dict.pop('_id', None)
                 try:
@@ -219,7 +220,7 @@ def get_user_organizations(user_email: str) -> List[Organization]:
     if not user:
         return []
     user_id = user.id
-    org_dicts = organizations_collection.find(OrganizationPeople.of_person(user_id))
+    org_dicts = organizations_collection.find(live(OrganizationPeople.of_person(user_id)))
     
     organizations = []
     for org_dict in org_dicts:

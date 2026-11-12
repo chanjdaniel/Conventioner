@@ -9,6 +9,7 @@ from flask_login import UserMixin
 from flask_login.config import COOKIE_NAME
 from datatypes import MarketRole, OrganizationRole, User, organization_people_of
 from db_config import get_database
+from tombstone import live
 from utils.tokens import (
     generate_verification_token, generate_reset_token, generate_otp,
     get_token_expiry, get_otp_expiry, verify_token_expiry
@@ -964,12 +965,13 @@ def delete_user(authenticated_email: str):
 
     # Read by the person's one place in each organization they are in (T283).
     owned_orgs = [
-        org for org in organizations_collection.find(OrganizationPeople.of_person(user_id_to_delete))
+        org for org in organizations_collection.find(
+            live(OrganizationPeople.of_person(user_id_to_delete)))
         if organization_people_of(org).get(user_id_to_delete) == OrganizationRole.OWNER
     ] if user_id_to_delete else []
     # The markets they are the Owner of, served by the `roles.$**` index (T283).
     owned_markets = list(MarketsApi.markets_collection.find(
-        {f"{market_doc_key('roles')}.{user_id_to_delete}": MarketRole.OWNER.value},
+        live({f"{market_doc_key('roles')}.{user_id_to_delete}": MarketRole.OWNER.value}),
         {"_id": 0, **market_doc_projection(["id", "name"])},
     )) if user_id_to_delete else []
     if owned_orgs or owned_markets:

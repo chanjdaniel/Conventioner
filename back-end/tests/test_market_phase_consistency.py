@@ -8,6 +8,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from conftest import mongo_matches, mongo_project
+
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
@@ -37,20 +39,14 @@ class FakeMarketsCollection:
     def __init__(self, docs):
         self.docs = docs
 
-    def find_one(self, query):
-        for doc in self.docs:
-            if doc["id"] == query.get("id"):
-                return dict(doc)
-        return None
+    def find_one(self, query, projection=None):
+        return next(self.find(query, projection), None)
 
-    def find(self, query):
-        """The markets a person holds a role on - a key of the roles map that exists - and nothing
-        for any other query, so these markets are listed by their role alone."""
-        ((key, condition),) = query.items()
-        if key.startswith("roles.") and condition == {"$exists": True}:
-            user_id = key.split(".", 1)[1]
-            return iter([dict(doc) for doc in self.docs if user_id in (doc.get("roles") or {})])
-        return iter([])
+    def find(self, query, projection=None):
+        """The markets the filter matches, as MongoDB reads it: those a person holds a role on - a
+        key of the roles map that exists - are listed by their role alone."""
+        return iter([mongo_project(dict(doc), projection)
+                     for doc in self.docs if mongo_matches(doc, query)])
 
 
 @pytest.fixture
