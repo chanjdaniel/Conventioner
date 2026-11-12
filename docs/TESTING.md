@@ -22,7 +22,7 @@ sources:
 
 How to run each suite, and what each covers.
 The testing nodes of the [knowledge graph](implementation/testing/README.md) hold the sharp edges of each; the [Google Form corpus](../back-end/tests/test_data/README.md) is the suite's realistic data.
-The sharp edges are in the testing nodes: [E2E patterns](implementation/testing/e2e-patterns.md), [E2E seeds](implementation/testing/e2e-seeds.md), [the market journey spec](implementation/testing/the-market-journey-spec.md), [floorplan E2E](implementation/testing/floorplan-e2e.md), [CI and the gate](implementation/testing/ci-and-the-gate.md), [the assignment behaviour suite](implementation/testing/assignment-behaviour-suite.md) and [the real-MongoDB suite](implementation/testing/real-mongo-suite.md).
+The sharp edges are in the testing nodes: [E2E patterns](implementation/testing/e2e-patterns.md), [E2E seeds](implementation/testing/e2e-seeds.md), [the market journey spec](implementation/testing/the-market-journey-spec.md), [the layout's E2E](implementation/testing/floorplan-e2e.md), [CI and the gate](implementation/testing/ci-and-the-gate.md), [the assignment behaviour suite](implementation/testing/assignment-behaviour-suite.md) and [the real-MongoDB suite](implementation/testing/real-mongo-suite.md).
 The stack is seeded by [`scripts/seed_fixture.sh`](../scripts/seed_fixture.sh), Playwright is configured in [`front-end/playwright.config.ts`](../front-end/playwright.config.ts), and [`scripts/nm-test.sh`](../scripts/nm-test.sh) runs every suite on a stack of its own; the no-mistakes gate runs only its real-data checks (`--real-data-only`).
 Before a merge, the suites run only in CI's required jobs: Playwright on the laptop was most of every gate run and the heaviest load the machine saw, and CI ran every suite again anyway ([CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)).
 
@@ -280,7 +280,7 @@ reloads to confirm it persisted; a second test seeds an application straight int
 and asserts the D9 lock then renders the builder read-only with its lock banner, that
 `PUT /markets/{id}/application-form` refuses with 409, and that no whole-market PUT exists to
 smuggle one past it (405). A location's layout's specs, which replaced the floorplan beta's, are
-[floorplan E2E](implementation/testing/floorplan-e2e.md)'s.
+[the layout's E2E](implementation/testing/floorplan-e2e.md)'s.
 The access-control suite (`access-control.spec.ts`) covers who can see a market: an org
 member with no explicit market role, a user granted an explicit role but no org membership,
 membership changes taking effect (adding a user grants visibility, removing revokes it), and
@@ -498,6 +498,6 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `scripts/th-compose.sh rm -s -f -v frontend` then `up -d` refills it from the new image (`up --renew-anon-volumes` would too, but
   leaves the old volume behind). The primary stack and CI build their own images from
   `docker-compose.yml`, as before.
-- **Driving the Konva floorplan canvas**: calibration is a real mouse drag, but section grouping
-  sets the store directly and the editor canvas is not exercised at all; see [floorplan
-  E2E](implementation/testing/floorplan-e2e.md) for the coverage gap.
+- **Driving a layout**: every gesture is a person's own, a drag with `page.mouse`, a key on the
+  focused map, and what it did is read from the tables' names on the map and the layout the server
+  stored, never from the page's state; see [the layout's E2E](implementation/testing/floorplan-e2e.md).

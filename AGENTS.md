@@ -114,7 +114,7 @@ The assignment:
 - Before changing a placement, a pin or a swap, read [placements](docs/implementation/modules/placements.md) and [ADR 0002](docs/adr/0002-a-pin-is-a-placement-row.md).
 - Before changing what an assignment remembers of its inputs, read [what an assignment was made from](docs/implementation/modules/made-from.md).
 - Before changing check-in or the attendance page, read [attendance and the door](docs/implementation/modules/attendance-and-door.md).
-- Before changing a location's layout page, its editor, Fill an area or the floorplan beta's Auto-Place, read [floorplan placement](docs/implementation/modules/floorplan-placement.md).
+- Before changing a layout, its editor or Fill an area, read [the layout](docs/implementation/modules/floorplan-placement.md).
 - Before changing the Discord card, the bot or what it asks of Discord, read [the Discord connection](docs/implementation/modules/discord.md).
 - Before changing the Pricing card or what an assignment costs, read [a price follows the table](docs/business/rules/a-price-follows-the-table.md).
 - Before changing how an amount reads, on screen or in a file, or an amount field, read [an amount reads to the cent](docs/business/rules/an-amount-reads-to-the-cent.md).
@@ -141,7 +141,7 @@ Tests and CI:
 
 - Before writing or changing an E2E spec, read [E2E patterns](docs/implementation/testing/e2e-patterns.md) and [E2E seeds](docs/implementation/testing/e2e-seeds.md).
 - Before adding a test that spans the organizer's journey, read [the market journey spec](docs/implementation/testing/the-market-journey-spec.md).
-- Before extending floorplan coverage, read [floorplan E2E](docs/implementation/testing/floorplan-e2e.md).
+- Before extending a layout's coverage, read [the layout's E2E](docs/implementation/testing/floorplan-e2e.md).
 - Before changing CI, `.no-mistakes.yaml` or `nm-test.sh`, read [CI and the gate](docs/implementation/testing/ci-and-the-gate.md).
 - Before adding or changing test data, read [test data](docs/implementation/testing/test-data.md).
 

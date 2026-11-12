@@ -98,12 +98,12 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **python-dotenv 1.2** - Reads `back-end/.env` on the first line `app.py` runs
   - The real environment wins over the file, so nothing exported by hand is shadowed by it
 
-### Floorplan (beta)
+### A location's layout
 
-- **Shapely 2** and **NumPy** - The geometry of table auto-placement
-- **pyckingsolver** - The packing solver, in `back-end/requirements-floorplan-solver.txt` (Docker, CI and local development) because it has no wheel for production's glibc; production places tables on a grid instead
-- **Pillow** - PDF uploads and image sizes; the floorplan beta calls no model
-- **pypdfium2** - Draws a PDF floorplan's pages; its `manylinux_2_17` wheel carries PDFium, so it needs no system package, as production's Vercel function requires ([floorplan placement](implementation/modules/floorplan-placement.md))
+- **Shapely 2** and **NumPy** - The geometry of Fill an area's placement
+- **pyckingsolver** - The packing solver of a whole room's placement, in `back-end/requirements-floorplan-solver.txt` (Docker, CI and local development) because it has no wheel for production's glibc; production places on a grid instead, and an area is never handed to it
+- **Pillow** - An uploaded image's size, and a PDF page drawn as a PNG; a layout calls no model
+- **pypdfium2** - Draws a PDF floorplan's pages; its `manylinux_2_17` wheel carries PDFium, so it needs no system package, as production's Vercel function requires ([a location's layout](implementation/modules/floorplan-placement.md))
 
 ### Session Management
 
@@ -168,14 +168,14 @@ How each part of the code works is in the implementation layer of the [knowledge
   - A widget that is hard to get right, a date picker or a menu, would start from a headless library such as Reka UI; the first combobox, the placement dialog's searchable vendor pickers, is the app's own ([`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue), [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps PrimeTek's packages out
 - **QR codes are encoded by `qrcode`** and drawn by the app as one SVG path ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)): a library, not a component, so [ADR 0015](adr/0015-the-app-owns-its-components.md) is not touched; `jsqr`, a dev dependency, decodes the drawing in a unit test
 - **Icons are local SVG components** in [`src/components/icons/`](../front-end/src/components/icons/), no icon library or font
-  - Each draws in `currentColor`; the five Lucide icons (`IconCheck`, `IconPencil`, `IconTrash`, `IconList`, `IconImage`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt` and in a `/*! @license` banner in each, which reaches the bundle (`theLucideNoticeReachesTheBundle.test.ts`)
+  - Each draws in `currentColor`; the one Lucide icon, `IconCheck`, is copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around it sizes it, with Lucide's ISC notice beside it in `LICENSE-lucide.txt` and in a `/*! @license` banner, which reaches the bundle (`theLucideNoticeReachesTheBundle.test.ts`); the four floorplan icons copied with it went with the floorplan beta (T257)
   - They replaced an icon font whose next major is proprietary (T45, [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps the font out
 - **The logo and the mark are brand files** in [`src/assets/brand/`](../front-end/src/assets/brand/), not icons ([brand files and icons](design-system.md#brand-files-and-icons))
 
 ### State Management
 
 - **Pinia 4.1.0** - Vue state management
-  - Stores in `src/stores/`: the open market (`market.ts`), the applicant's application and the floorplan beta's wizard (`floorplan.ts`, unreachable)
+  - Stores in `src/stores/`: the open market (`market.ts`) and the applicant's application (`application.ts`)
   - The signed-in user is held by `App.vue` and handed down with provide/inject
 
 ### Routing
@@ -197,8 +197,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Reusable composition functions
 - **VueDraggable 4.1.0** - Drag and drop component, resolved to the ES source it publishes (`vite.config.ts`), since its UMD builds evaluate a string and carry a second Vue
   - Drag-and-drop functionality for UI elements
-- **Konva 10** and **vue-konva 4** - The floorplan beta's canvas, still in the tree and reached by no page
-  - Each floorplan component imports the vue-konva components it draws with; none is installed app-wide, so no page downloads Konva
+- **A layout is drawn in SVG by the app's own component** ([`LayoutMap.vue`](../front-end/src/components/layout/LayoutMap.vue)), with no canvas library: Konva and vue-konva went with the floorplan beta (T257)
 
 ### Development Tools
 

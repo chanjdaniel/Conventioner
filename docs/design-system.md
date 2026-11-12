@@ -206,7 +206,7 @@ A raw pixel that is not spacing, such as a tab's `-1px` margin over a border, ca
 - A CSS-wide keyword (`inherit`, `initial`, `unset`, `revert`, `revert-layer`) as the whole value.
 
 A legitimate value it refuses widens the patterns in `stylelint.config.js`, with an example in `spacingScale.test.ts`, rather than a disable comment.
-The floorplan GUI, a beta, is the exception: each value of its own off the scale carries a disable comment with its reason (T221), and bringing one onto the scale is a change to what it draws.
+The floorplan beta was the one exception, its values off the scale each carrying a disable comment, until it went (T257); a layout's drawing measures in millimetres inside its SVG, which is not CSS, and its page keeps to the scale.
 
 ## Layout
 
@@ -257,10 +257,10 @@ Its cards stand two to a row while the page's content is 48rem wide or more and 
 A location's layout on a phone narrows its gutter to 16px too and only reads: the map fills the column at the floorplan's shape, pinched and dragged inside its own box while the page keeps its zoom, the card of the table tapped under it, then the sections and the hint, and its location switch's links are 44px targets (T257).
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
-| Token             | Value  | Screens                                                                   |
-| ----------------- | ------ | ------------------------------------------------------------------------- |
-| `--workspace-max` | 1440px | Every market page and flow: Market Setup to Attendance, Import, Floorplan |
-| `--list-max`      | 1100px | Markets, Organizations                                                    |
+| Token             | Value  | Screens                                                                             |
+| ----------------- | ------ | ----------------------------------------------------------------------------------- |
+| `--workspace-max` | 1440px | Every market page and flow: Market Setup to Attendance, Import, a location's layout |
+| `--list-max`      | 1100px | Markets, Organizations                                                              |
 
 The applicant's own pages are a reading column, not a screen of cards: `--applicant-max` (640px), the vendor page, its application form included.
 The form tab's preview is drawn at the same width, so it is the form as an applicant sees it (E33/F01/S01).
@@ -378,8 +378,8 @@ That check is what made the brand green darker rather than leaving each button t
 The pairs are `--mm-green-hover` and `--mm-green-pressed` (white on them 5.23 and 5.91:1), `--mm-red-hover` and `--mm-red-pressed` (6.19 and 6.98), `--mm-white-hover` and `--mm-white-pressed` for the secondary button (`--mm-black` 14.38 and 13.30, the row's destructive red 5.03 and 4.65), and `--mm-chip-positive-hover` and `--mm-chip-positive-pressed` for a toggle that is on (`--mm-text-green` 5.06 and 4.79).
 They were `opacity` 0.9 and 0.8, which faded the words with the fill: white on green read 3.81 and 3.21:1, white on red pressed 3.86, and the on toggle's green 3.53 pressed.
 `contrast.test.ts` holds each to every ink its button sets on it, opaque, and each a step further from rest than the one before, at least 1.04:1 from it, so a hover never matches rest and a press never matches the hover; [`the-component-library-primitives.spec.ts`](../front-end/e2e/the-component-library-primitives.spec.ts) hovers and holds down every live button of the primitives entry and runs the contrast sweep in each state.
-A button drawn by a component of its own takes the same fills where it shares the colour, the floorplan beta's green buttons and the Markets and Organizations pages' New buttons among them, and none of them dims.
-The other fills such a button is drawn in step once, on hover: `--mm-yellow-hover` for the floorplan's yellow toolbar and the assignment counts' partial pill (`--mm-black` 6.16), `--mm-beige-hover` for the floorplan's beige Cancel buttons and the empty pill (10.49), and `--mm-black-hover`, a step lighter, for the floorplan's black Load (white 12.15).
+A button drawn by a component of its own takes the same fills where it shares the colour, the Markets and Organizations pages' New buttons among them, and none of them dims.
+The other fills such a control is drawn in step once, on hover: `--mm-yellow-hover` for the assignment counts' partial pill (`--mm-black` 6.16), and `--mm-beige-hover` for the empty pill and a layout's location links (10.49); `--mm-black-hover` went with the floorplan beta's black Load (T257).
 The deep focus border reads less on a darker fill: 3.17:1 on `--mm-green-hover`, 2.80 on `--mm-green-pressed`, 2.68 on `--mm-red-hover` and 2.37 on `--mm-red-pressed`, against 3.26, 2.74, 2.68 and 2.28 under the opacity it replaced.
 
 **A mark that carries no text is held to the non-text bar, 3:1**: the bar's current-tab dot, `--mm-green` on `--mm-black`, measures 3.39:1, and the test pins it, so a bar retinted darker or a green lightened for a light ground cannot take it under unnoticed.
@@ -642,7 +642,7 @@ The import and the start from a Google Form take their CSV on it, and a location
 
 **A button or a menu item names its action in sentence case**, as a chip names its status (T181): the phase rail's moves ("Open applications", "Begin assignment", "Publish market"), its More… menu ("Reopen for editing", "Archive market"), "Publish results", and the titles and buttons of the confirmations they open.
 A proper name keeps its capitals: "Connect Discord", "Back to Market Setup", where Market Setup is the tab's name.
-A few older buttons still read in Title Case, to be changed rather than copied: the Form tab's "Save Form" and the floorplan beta's buttons.
+A few older buttons still read in Title Case, to be changed rather than copied: the Form tab's "Save Form".
 
 **A row's destructive action is quiet; the confirmation's is filled** (E38/F15/S01).
 `.btn--secondary.btn--destructive` is the destructive intent at the secondary weight: red ink (`--mm-red`, 5.44:1 on white) on the secondary button's white and border, at 400, not a fourth intent.
@@ -730,7 +730,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
 1. **Stylelint** bans raw hex, a raw `font-size` in `px`, `rem` or `em` (the door code's print rule sets its sizes in `pt`), raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
    It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`, by the values the [Spacing](#spacing) section lists, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
    `npm run lint:css` is the design-language gate, and **every rule is an error in every file**, with `--max-warnings 0` on the script as well: a warning CI let pass reached `dev`, and then landed on whichever later change touched the file (T221).
-   Only the floorplan GUI's own values, it being a beta whose nearest token would change what it draws, and a value that is not spacing carry a `stylelint-disable`, with its reason on that declaration ([Spacing](#spacing)).
+   Only a value that is not spacing carries a `stylelint-disable`, with its reason on that declaration ([Spacing](#spacing)); the floorplan beta's own values did too, until it went (T257).
    The script refuses a disable with no reason, and one left with nothing to disable, as `reportDescriptionlessDisables` and `reportNeedlessDisables` in the config say.
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.

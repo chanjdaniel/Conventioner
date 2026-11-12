@@ -153,9 +153,9 @@ Asked by:
 
 - `PUT /markets/:id/name`
 - `PUT /markets/:id/plan`
+- `PUT /markets/:id/table-types`
 - `POST /floorplans/upload`
 - `DELETE /floorplans/<id>`
-- `POST /floorplans/calibrate`
 - `POST /floorplans/save-to-market`
 - `POST /floorplans/place-tables`
 

@@ -8,8 +8,8 @@ describes:
   - front-end/e2e/unsaved-questions-ask-first.spec.ts
   - front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts
   - front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts
-  - front-end/src/__tests__/theFloorplanAsksBeforeItDropsADrawing.test.ts
-verified: 2026-11-11
+  - front-end/e2e/a-layout-saves-once.spec.ts
+verified: 2026-11-12
 sources:
   - T271
   - T244
@@ -42,13 +42,12 @@ Focus, the page held inert and focus given back to the control that started the 
 
 ## Each screen using it
 
-| Screen                                                                                                            | `unsaved`                                                                          | `inApp` | Sentence                                                                                                           |
-| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| The form builder ([`MarketFormTab.vue`](../../../front-end/src/components/market/MarketFormTab.vue))              | the working copy's fields differ from the fields as last taken from the server     | true    | "Your changes to the form's questions are not saved. Leaving drops them."                                          |
-| Market Setup's plan ([`MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue))                   | the plan's autosave holds an edit the server does not, or a save is out            | false   | none: the browser asks in its own words                                                                            |
-| A location's layout ([`LayoutView.vue`](../../../front-end/src/components/layout/LayoutView.vue))                 | the layout's working copy holds a change no save has stored                        | true    | "This layout's last changes are not saved. Leaving drops them."                                                    |
-| The CSV import ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue))                            | the step is Map columns, or Preview with no import running                         | true    | "Nothing from this file is imported yet. Leaving drops the column mapping and every value you settled."            |
-| The floorplan beta ([`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue)) | a floorplan uploaded in this visit of the wizard and not saved to the market since | true    | "This floorplan is not saved to the market yet. Leaving drops the upload, the scale, the tables and the sections." |
+| Screen                                                                                               | `unsaved`                                                                      | `inApp` | Sentence                                                                                                |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------- |
+| The form builder ([`MarketFormTab.vue`](../../../front-end/src/components/market/MarketFormTab.vue)) | the working copy's fields differ from the fields as last taken from the server | true    | "Your changes to the form's questions are not saved. Leaving drops them."                               |
+| Market Setup's plan ([`MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue))      | the plan's autosave holds an edit the server does not, or a save is out        | false   | none: the browser asks in its own words                                                                 |
+| A location's layout ([`LayoutView.vue`](../../../front-end/src/components/layout/LayoutView.vue))    | the layout's working copy holds a change no save has stored                    | true    | "This layout's last changes are not saved. Leaving drops them."                                         |
+| The CSV import ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue))               | the step is Map columns, or Preview with no import running                     | true    | "Nothing from this file is imported yet. Leaving drops the column mapping and every value you settled." |
 
 The form builder's rule is its own ([building the application form](../../business/flows/form-tab.md#leaving-with-questions-not-yet-saved)): only the fields count, since "Ask this" saves itself as it is ticked and the key flags are intent, never sent; opening a step without an edit, or a form just saved, is not unsaved.
 It also reports the flag to Market Setup, whose phase move refuses while it holds.
@@ -56,12 +55,8 @@ It also reports the flag to Market Setup, whose phase move refuses while it hold
 The CSV import's rule is its own ([importing a Google Form's responses](../../business/flows/import.md#h2a-first-import-everything-maps)): a file read and nothing of it written; Upload holds no file, the done step has written it, and an import running is not stopped by leaving, so none of those asks.
 "Cancel import" leaves by the router, so it asks through the same guard.
 
-The floorplan beta's rule is its own, though nothing reaches its wizard since T257 ([floorplan placement](../modules/floorplan-placement.md#sharp-edges)): the upload, the scale, the tables and the sections live in the page until the save, so before an upload nothing asks, and from it on every step does.
-The wizard marks the floorplan saved before it hands the save on, so the save's own move back to Market Setup never asks.
-The wizard's own Back and Next stay on the route, so they never ask either.
-
 Market Setup's plan asks on unload alone ([the plan's autosave](../modules/plan-autosave.md#the-queue)): an in-app move unmounts the view, whose flush sends the edit, and nothing cancels it.
-A location's layout saves before an in-app move too, in its own route guards, registered before the question's ([floorplan placement](../modules/floorplan-placement.md#the-editor)): so the question ("This layout's last changes are not saved. Leaving drops them.") is asked in the app only when that save failed or was refused, and on unload whenever a change is unsaved.
+A location's layout saves before an in-app move too, in its own route guards, registered before the question's ([its editor](../modules/floorplan-placement.md#the-editor)): so the question ("This layout's last changes are not saved. Leaving drops them.") is asked in the app only when that save failed or was refused, and on unload whenever a change is unsaved.
 
 ## How it is enforced
 
@@ -69,8 +64,7 @@ A location's layout saves before an in-app move too, in its own route guards, re
 - [`planAutosave.test.ts`](../../../front-end/src/__tests__/planAutosave.test.ts) holds Market Setup's `beforeunload` prevented only while an edit is unsaved, a failed save included, and [`the-plan-saves-one-at-a-time.spec.ts`](../../../front-end/e2e/the-plan-saves-one-at-a-time.spec.ts) the browser's question on a reload inside the pause.
 - [`theImportAsksBeforeItDropsAMapping.test.ts`](../../../front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts) reads the import's guards and `beforeunload` at each step: none on Upload, on the done step, while an import runs or after the import's own Back; the question on Map columns, on Preview, after a failed import and on a jump to another market's import; none on a move to `login`.
   [`the-import-asks-before-it-drops-a-mapping.spec.ts`](../../../front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts) walks it in a browser: a tab, "Cancel import", Back and the app bar asking, Stay keeping the mapping and the values settled, Leave going and writing nothing, the browser's question on a reload, and Upload, an import running and the done step leaving without a question.
-- [`theFloorplanAsksBeforeItDropsADrawing.test.ts`](../../../front-end/src/__tests__/theFloorplanAsksBeforeItDropsADrawing.test.ts) reads the wizard's guards and `beforeunload`: none before an upload, the question in the floorplan's words from the upload to the save step, none once saved or once the wizard is gone.
-  No spec walks it in a browser any more: the wizard's address lands on a location's layout page (T257), so nothing reaches the wizard until it is removed.
+- [`a-layout-saves-once.spec.ts`](../../../front-end/e2e/a-layout-saves-once.spec.ts) walks a location's layout in a browser: a table whose save failed, a move to another location asking "Leave without saving?" and Stay keeping it, nothing asked once Retry stored it, and a reload inside the save's wait asked by the browser and the change sent as the page goes.
 - [`unsaved-questions-ask-first.spec.ts`](../../../front-end/e2e/unsaved-questions-ask-first.spec.ts) walks the form builder in a browser: the question on a tab with focus on Stay and `expectAccessible`, each way of staying and Leave, the steps and a saved form asking nothing, Back asking, the browser's own question on a reload, Sign out never stopping on it, the move refused, and "Ask this" saving only its choice.
 
 ## What breaks it

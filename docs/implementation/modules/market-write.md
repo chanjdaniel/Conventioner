@@ -50,7 +50,7 @@ describes:
   - front-end/e2e/helpers/savePlan.ts
   - front-end/e2e/a-plan-save-from-an-older-tab.spec.ts
   - back-end/api/layouts.py#save_table_types
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - T244
   - T274
@@ -140,8 +140,8 @@ Elsewhere:
   The run gives its roles in Discord before it writes, so its refusal, `RolesGivenOnAChangedMarket`, is a `MarketChanged` in its own words: "The Discord card changed while roles were being given. The roles given are in the market's history; check Discord again."
 - The import's saved mapping (`save_mapping` in [`back-end/csv_import.py`](../../../back-end/csv_import.py)), holding `importMapping`, written before any row, so an import meeting a market that moved, or another import's mapping saved since, writes no application ([the CSV import](csv-import.md)).
 - The start from a CSV (`confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py)), holding `applicationForm` as read, which the start judged had no questions of its own, and counting `formRevision`, since it writes the questions; it writes the plan too, built on the plan as read, so it holds `planRevision` at its value as read and counts it ([the CSV proposal and start](csv-proposal-and-start.md)).
-- The floorplan save (`save_floorplan_to_market` in [`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)), a location's layout, which writes the plan through the plan's own judge, holding the phase and `planRevision` as read and counting it; it answers its refusal as its own 409 `STALE_LAYOUT`, which the layout editor offers Reload for ([floorplan placement](floorplan-placement.md)).
-- The table types write (`save_table_types` in [`back-end/api/layouts.py`](../../../back-end/api/layouts.py)), holding the phase and `planRevision` as read and counting it, since it writes part of the plan ([floorplan placement](floorplan-placement.md)).
+- The floorplan save (`save_floorplan_to_market` in [`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)), a location's layout, which writes the plan through the plan's own judge, holding the phase and `planRevision` as read and counting it; it answers its refusal as its own 409 `STALE_LAYOUT`, which the layout editor offers Reload for ([a location's layout](floorplan-placement.md)).
+- The table types write (`save_table_types` in [`back-end/api/layouts.py`](../../../back-end/api/layouts.py)), holding the phase and `planRevision` as read and counting it, since it writes part of the plan ([a location's layout](floorplan-placement.md)).
 - Every write of the assignment, a run, a placement, a free and a swap (`_store_vendor_assignments` in [`back-end/api/placements.py`](../../../back-end/api/placements.py)), counting `assignmentObject.revision` from the one read; a run also holds `resultsPublished`, so an allocation never lands after Publish results, and no placement lands on a market archived a moment before ([placements](placements.md#the-four-doors)).
   The Tables page reads its grid again on the refusal and says the sentence in the seat's dialog ([placing by hand](../../business/flows/placing-by-hand.md)).
 

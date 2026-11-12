@@ -103,6 +103,7 @@ A section of a location that has a layout ([E6](#e6-a-locations-layout)) has no 
 A section may have no tier; a plan without tiers assigns, and its form asks no tier preference (bug 23; re-walked live as P1).
 Covered by:
 
+- `a-layout-is-the-plans-tables.spec.ts`
 - `alignment.spec.ts`
 - `market-pipeline.spec.ts`
 - `plan-cards-share-a-row.spec.ts`
@@ -126,7 +127,8 @@ Covered by:
 
 ## E6. A location's layout
 
-**Status:** Begun (T257): a location's floorplan, its scale, its table types and no-table zones, and tables placed one at a time, as rows along a drawn line, or filling an area, then moved, turned, duplicated, lined up, renumbered and removed, one or several at a time, by pointer or by keyboard, and moved and turned after Draft; the layout on a phone and as a PNG come with T257's later tickets.
+**Status:** Works (T257): a location's floorplan, its scale, its table types and no-table zones, and tables placed one at a time, as rows along a drawn line, or filling an area, then moved, turned, duplicated, lined up, renumbered and removed, one or several at a time, by pointer or by keyboard, moved and turned after Draft, read on a phone and exported as a PNG; walked whole, from a new market's two halls to the Assignments page naming a moved table's vendor, by `a-layout-is-the-plans-tables.spec.ts`.
+It replaced the floorplan beta, a wizard whose save nothing read again.
 Under Section Setup's rows, each named location offers "Lay out Upper Hall", or "Open Upper Hall's layout · 49 tables" once it has one; a location with no name offers nothing until it has one, and a plan that cannot change offers only the layouts it has, to read.
 Opening one saves the plan's pending edits first, then goes to `/markets/<id>/layout/<location>`, under the Market Setup tab; `/markets/<id>/layout` opens the first location's, and the floorplan beta's old address, `/markets/<id>/floorplan`, lands there too.
 
@@ -162,7 +164,7 @@ Opening one saves the plan's pending edits first, then goes to `/markets/<id>/la
 The layout is edited at a desk: at a phone's width it is read.
 It saves itself a moment after each change, the head row saying "Saving…" then "Saved"; a save that did not land says why with Retry and keeps what is on screen, a move to another page then asks "Leave without saving?" first, and a reload or a closed tab with a change still waiting is asked by the browser first.
 The head row's switch moves between the market's locations, each its own layout, and when another tab or person saved the layout first it says "This layout changed elsewhere. Reload to see the latest." with Reload, the tab keeping what it shows until then.
-The layout makes no AI calls ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
+The layout makes no AI calls ([a location's layout](../../implementation/modules/floorplan-placement.md)).
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)).
 Past Draft, until the market is archived, the editor stays under the setup-settled sentence: tables are still moved and turned, and the zones, the image, the scale and the sections' colours and labels still change, while Add table, Row of tables, Fill an area, Duplicate, "Row of N…", Remove, the Section and Table type fields, Renumber and the table types' changes are disabled, and a location with no layout offers nothing to upload ([E7](#e7-edit-the-plan-after-draft)).
 No vendor's table changes: a table keeps its section and number wherever it stands.
@@ -171,6 +173,8 @@ Anyone on the market exports a location's layout as a PNG to print or send, in a
 Covered by:
 
 - `a-layout-after-draft.spec.ts`
+- `a-layout-is-the-plans-tables.spec.ts`
+- `a-layout-on-a-phone.spec.ts`
 - `a-layout-saves-once.spec.ts`
 - `a-table-moves-by-keyboard.spec.ts`
 - `a-table-moves-by-pointer.spec.ts`
