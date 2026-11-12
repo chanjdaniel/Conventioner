@@ -104,12 +104,10 @@
   /* A toggle that is on, tinted further with --mm-green. Its --mm-text-green on it: 5.06, 4.79. */
   --mm-chip-positive-hover: #d7e6e2; /* --mm-chip-positive and 5% --mm-green */
   --mm-chip-positive-pressed: #cee1dc; /* 10% */
-  /* The other fills a button is drawn in, under the pointer: the floorplan's yellow toolbar and the
-     assignment counts' partial pill, the cancel and empty-pill beige, and the floorplan's black
-     Load, which lightens, since black can go no darker. */
+  /* The other fills a control is drawn in, under the pointer: the assignment counts' partial pill's
+     yellow, and the beige of the empty pill and of a layout's location links. */
   --mm-yellow-hover: #d29926; /* --mm-yellow and 8% black; --mm-black on it: 6.16 */
   --mm-beige-hover: #d6d4cf; /* --mm-beige and 8% black; --mm-black on it: 10.49 */
-  --mm-black-hover: #383535; /* --mm-black and 8% white; white text on it: 12.15 */
 
   /* ---- A chip's ground: its tone at a light tint, already laid over white, so it is the same
      ground wherever the chip sits (bug 43). The tints were translucent, so a chip measured on

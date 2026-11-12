@@ -5,7 +5,6 @@ import { mount } from '@vue/test-utils';
 
 import { useInertBehind } from '@/utils/useInertBehind';
 import { useModalRoot } from '@/utils/useModalRoot';
-import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 
 /**
  * The page shape this exists for: the app's own header sits in a different branch from the view's
@@ -139,9 +138,9 @@ describe('useInertBehind', () => {
 
   /**
    * The shape every real modal has: its root is a template ref, which binds only once the
-   * component has mounted. A `v-if` dialog with `:open="true"` (the change-placement dialog, the
-   * floorplan's choose-a-path overlay) is open from setup, so the first walk ran before the ref
-   * existed, found no parts, and nothing came to run it again (T181).
+   * component has mounted. A `v-if` dialog with `:open="true"` (the change-placement dialog) is
+   * open from setup, so the first walk ran before the ref existed, found no parts, and nothing came
+   * to run it again (T181).
    */
   describe('a modal mounted already open, its root bound by template ref', () => {
     function mountOpenModal(isOpen: Ref<boolean>) {
@@ -211,28 +210,6 @@ describe('useInertBehind', () => {
       expect(page.main.hasAttribute('inert')).toBe(true);
       page.wrapper.unmount();
       expect(page.main.hasAttribute('inert')).toBe(false);
-    });
-
-    /** The floorplan beta's choose-a-path overlay mounts with `v-if` and `:open="true"` too. */
-    it("holds the page behind the floorplan's choose-a-path overlay", async () => {
-      document.body.innerHTML = `
-        <header><button id="nav">Menu</button></header>
-        <main><button id="rail">Open applications</button></main>
-        <div id="host"></div>
-      `;
-      const wrapper = mount(ChoosePathOverlay, { attachTo: '#host' });
-      await nextTick();
-
-      const header = document.querySelector('header') as HTMLElement;
-      const main = document.querySelector('main') as HTMLElement;
-      expect(main.hasAttribute('inert')).toBe(true);
-      expect(header.hasAttribute('inert')).toBe(true);
-      expect(wrapper.find('[data-testid="choose-path-window"]').exists()).toBe(true);
-      expect(wrapper.element.closest('[inert]')).toBeNull();
-
-      wrapper.unmount();
-      expect(main.hasAttribute('inert')).toBe(false);
-      expect(header.hasAttribute('inert')).toBe(false);
     });
   });
 

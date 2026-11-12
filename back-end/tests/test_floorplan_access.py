@@ -48,7 +48,7 @@ PNG = b"\x89PNG\r\n\x1a\n"
 
 
 def _hall_png():
-    """A small real image, so calibrate can read its size."""
+    """A small real image, read back as the PNG it is."""
     out = io.BytesIO()
     Image.new("RGB", (400, 300), "white").save(out, format="PNG")
     return out.getvalue()
@@ -418,20 +418,12 @@ def _delete(client, gridfs_id):
     return client.delete(f"/floorplans/{gridfs_id}")
 
 
-def _calibrate(client, gridfs_id):
-    return client.post("/floorplans/calibrate", json={
-        "gridfs_id": gridfs_id,
-        "reference_line": {"start_x": 100, "start_y": 150, "end_x": 300, "end_y": 150},
-        "length_mm": 4000,
-    })
-
-
-EDITING_ROUTES = {"delete": _delete, "calibrate": _calibrate}
+EDITING_ROUTES = {"delete": _delete}
 
 
 class TestTheRoutesThatTakeAnImage:
-    """Delete and calibrate are an editor's work. The layout's PNG is drawn by the browser (T257), so
-    the server's export is gone."""
+    """Deleting the image is an editor's work. The layout's PNG is drawn by the browser and its scale
+    is the editor's arithmetic (T257), so the server's export and calibration are gone."""
 
     def test_the_organizer_deletes_the_image(self, sign_in, market, hall, images):
         response = _delete(sign_in("owner@example.com"), hall)
@@ -439,19 +431,14 @@ class TestTheRoutesThatTakeAnImage:
         assert response.status_code == 200
         assert images.files == {}
 
-    def test_the_organizer_calibrates_the_image(self, sign_in, market, hall):
-        response = _calibrate(sign_in("owner@example.com"), hall)
-
-        assert response.status_code == 200
-        assert response.get_json()["scale_px_per_mm"] == pytest.approx(200 / 4000)
-
-    def test_the_export_is_gone(self, sign_in, market, hall):
-        """No route draws the image: its address is now an image id's, which is read and deleted."""
-        response = sign_in("owner@example.com").post("/floorplans/export", json={"gridfs_id": hall})
+    @pytest.mark.parametrize("gone", ["export", "calibrate"])
+    def test_no_route_draws_or_measures_the_image(self, sign_in, market, hall, gone):
+        """Their address is now an image id's, which is read and deleted, so a POST is not allowed."""
+        response = sign_in("owner@example.com").post(f"/floorplans/{gone}", json={"gridfs_id": hall})
 
         served = {(method, rule.rule) for method, rule in _floorplan_routes()}
         assert response.status_code == 405
-        assert ("POST", "/floorplans/export") not in served
+        assert ("POST", f"/floorplans/{gone}") not in served
         assert ("POST", "/floorplans/upload") in served
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
@@ -513,20 +500,6 @@ class TestTheRoutesThatTakeAnImage:
 
         assert response.status_code == 404
         assert response.get_json() == {"error": "Image not found"}
-
-    def test_an_image_id_that_is_not_a_string_is_refused(self, sign_in, market, hall):
-        response = _calibrate(sign_in("owner@example.com"), {"$ne": None})
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "gridfs_id (string) is required"}
-
-    def test_the_image_is_checked_before_the_rest_of_the_body(self, sign_in, market, hall):
-        """A caller with no role on the market learns nothing about what calibrate accepts."""
-        response = sign_in("outsider@example.com").post(
-            "/floorplans/calibrate", json={"gridfs_id": hall},
-        )
-
-        assert response.status_code == 403
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_a_route_without_a_session_is_asked_to_sign_in(
@@ -1189,8 +1162,7 @@ class TestFillingAnArea:
 # ── Every floorplan route needs a sign-in ────────────────────────────────────
 
 FLOORPLAN_BLUEPRINTS = {
-    "floorplans", "floorplans_placement", "floorplans_templates", "floorplans_calibrate",
-    "floorplans_save",
+    "floorplans", "floorplans_placement", "floorplans_templates", "floorplans_save",
 }
 
 

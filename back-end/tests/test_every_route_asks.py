@@ -7,8 +7,7 @@ method a rule serves, but ``HEAD`` and ``OPTIONS``) falls in exactly one class:
 - ``PUBLIC``: it needs no organizer session, for the reason beside it;
 - ``CALLERS_OWN``: it is about the signed-in caller alone, or lists what is filtered to them;
 - scoped: its rule names a market, an organization, an image or a template (``SCOPING_ARGUMENTS``),
-  or it names its market or image in the body (``BODY_NAMES_THE_MARKET``,
-  ``BODY_NAMES_THE_IMAGE``).
+  or it names its market in the body (``BODY_NAMES_THE_MARKET``).
 
 Without a session, every route-method but the public ones answers 401. A signed-in stranger, an
 account with no role on the market and no place in the organization, gets 403 or 404 on every
@@ -95,15 +94,10 @@ BODY_NAMES_THE_MARKET = {
     ("POST", "/floorplans/save-to-market"): "saves a layout to the market its body names",
 }
 
-BODY_NAMES_THE_IMAGE = {
-    ("POST", "/floorplans/calibrate"): "measures the image its body names",
-}
-
 LISTS = {
     "PUBLIC": PUBLIC,
     "CALLERS_OWN": CALLERS_OWN,
     "BODY_NAMES_THE_MARKET": BODY_NAMES_THE_MARKET,
-    "BODY_NAMES_THE_IMAGE": BODY_NAMES_THE_IMAGE,
 }
 
 # The image every ``gridfs_id`` names, in the rule and in the body.
@@ -125,10 +119,9 @@ PATH_VALUES = {
 }
 
 # What every request but a GET sends, unless ``BODIES`` gives the route-method its own: one value
-# for each name a route reads its market, image, organization or person by.
+# for each name a route reads its market, organization or person by.
 DEFAULT_BODY = {
     "market_id": MARKET_ID,
-    "gridfs_id": str(IMAGE_ID),
     "floorplan": {"sections": []},
     "revision": 0,
     "name": "n",
@@ -230,9 +223,9 @@ class TestEveryRouteIsClassified:
 
         assert unclassified == [], (
             f"These routes are in no class: {_names(unclassified)}. Put each on PUBLIC (no session "
-            "needed), CALLERS_OWN (about the caller alone), BODY_NAMES_THE_MARKET or "
-            "BODY_NAMES_THE_IMAGE (its body names what it acts on), with its reason, or name the "
-            "market, organization, image or template in its rule "
+            "needed), CALLERS_OWN (about the caller alone), BODY_NAMES_THE_MARKET (its body names "
+            "its market), with its reason, or name the market, organization, image or template in "
+            "its rule "
             f"({', '.join(sorted(SCOPING_ARGUMENTS))})."
         )
 

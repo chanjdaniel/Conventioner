@@ -437,7 +437,7 @@ def vendor_door(world):
 
 
 class TestTheFloorplanTools:
-    """Two floorplan tools name what they act on by an id in the body."""
+    """A layout's save names its market by an id in the body."""
 
     @pytest.fixture(autouse=True)
     def a_market(self, monkeypatch):
@@ -452,13 +452,5 @@ class TestTheFloorplanTools:
         response = signed_in.post(
             "/floorplans/save-to-market", json={"market_id": market_id, "floorplan": {"a": 1}},
         )
-
-        assert response.status_code == 400
-
-    @pytest.mark.parametrize("gridfs_id", NOT_STRINGS)
-    def test_calibrating_an_image_named_by_anything_but_a_string_is_refused(
-        self, signed_in, gridfs_id,
-    ):
-        response = signed_in.post("/floorplans/calibrate", json={"gridfs_id": gridfs_id})
 
         assert response.status_code == 400

@@ -99,11 +99,6 @@ const TONES: readonly { tone: string; label: string; oneOffs: readonly OneOff[] 
         file: 'components/PhaseBadge.vue',
         today: `${ALREADY}; only its weight is its own`,
       },
-      {
-        badge: 'path-badge, "Recommended"',
-        file: 'components/floorplan/ChoosePathOverlay.vue',
-        today: `${ALREADY}; only its place on the card is its own`,
-      },
     ],
   },
   {
@@ -134,11 +129,6 @@ const TONES: readonly { tone: string; label: string; oneOffs: readonly OneOff[] 
         badge: 'phase-badge, the working phases',
         file: 'components/PhaseBadge.vue',
         today: `${ALREADY}; only its weight is its own`,
-      },
-      {
-        badge: 'path-badge, "Beta"',
-        file: 'components/floorplan/ChoosePathOverlay.vue',
-        today: `${ALREADY}; only its place on the card is its own`,
       },
     ],
   },

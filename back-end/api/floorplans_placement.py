@@ -52,9 +52,10 @@ class RoomSize(BaseModel):
 
 
 class PlaceTablesRequest(BaseModel):
-    """Auto-Place's body, in the wire shape ``AutoPlaceButton.vue`` and the layout's Fill an area
-    (``layoutFill.ts``) send: snake case, but for ``aisle_config``'s camel-cased keys.
-    ``market_id`` is read before it, for the access check.
+    """The placement's body, in the wire shape the layout's Fill an area (``layoutFill.ts``) sends:
+    snake case, but for ``aisle_config``'s camel-cased keys. ``market_id`` is read before it, for
+    the access check. A body with no area places across the whole room, as the floorplan beta's
+    Auto-Place asked; no screen has sent one since the beta went (T257).
 
     Its own numbers must be finite; the nested geometry's are judged by ``placement_refusal``,
     since its models are the stored ones, which stay as loose as they were.

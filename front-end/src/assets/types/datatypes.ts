@@ -749,77 +749,6 @@ export interface TableTypeObject {
   depthMm: number;
 }
 
-/** The floorplan beta's table type, which its wizard, Auto-Place's request and a floorplan
- *  template still carry; it goes with the beta. */
-export interface BetaTableType {
-  id: string;
-  name: string;
-  widthMm: number;
-  heightMm: number;
-  maxCapacity: number;
-  color?: string;
-}
-
-export interface WallSegment {
-  id: string;
-  start: [number, number];
-  end: [number, number];
-  thicknessMm: number;
-  isExterior: boolean;
-}
-
-export interface ObstacleZone {
-  id: string;
-  polygon: Array<[number, number]>;
-  type: 'pillar' | 'stage' | 'no_table_zone' | 'custom';
-}
-
-/** A table of the floorplan beta's wizard; it goes with the beta. */
-export interface BetaPlacedTable {
-  id: string;
-  tableTypeId: string;
-  x: number;
-  y: number;
-  rotation: number;
-  widthMm: number;
-  heightMm: number;
-  tableCode?: string;
-}
-
-/** A section the floorplan beta's wizard grouped; it goes with the beta. */
-export interface BetaFloorplanSection {
-  id: string;
-  name: string;
-  locationName: string;
-  tableIds: string[];
-  tierId?: string;
-}
-
-export interface AisleConfigObject {
-  wallBufferMm: number;
-  tableSpacingMm: number;
-  walkwayWidthMm: number;
-}
-
-/** The floor plan the beta's wizard edits and sends; the server keeps none of its own fields,
- *  and it goes with the beta. */
-export interface BetaFloorplan {
-  id: string;
-  imageGridfsId?: string;
-  scalePxPerUnit?: number;
-  scaleUnit: string;
-  referenceLineStart?: [number, number];
-  referenceLineEnd?: [number, number];
-  referenceLineLengthMm?: number;
-  tableTypes: BetaTableType[];
-  walls: WallSegment[];
-  obstacles: ObstacleZone[];
-  placedTables: BetaPlacedTable[];
-  sections: BetaFloorplanSection[];
-  imageWidth?: number;
-  imageHeight?: number;
-}
-
 /** One table of a layout: a real table of the plan, of a section and a type, with its number
  *  (the server's `table_code_for(section.name, number)` names it). `xMm` and `yMm` are its centre from the
  *  floorplan image's top-left corner; `rotation` is degrees clockwise. `sectionId` and `number`
@@ -878,17 +807,6 @@ export interface FloorplanObject {
   zones: FloorplanZone[];
   sectionStyles: SectionStyle[];
   startingCounts: StartingCount[];
-}
-
-export interface FloorplanTemplate {
-  id: string;
-  name: string;
-  ownerUserId?: string;
-  organizationId?: string;
-  tableTypes: BetaTableType[];
-  aisles: AisleConfigObject;
-  createdAt: string;
-  updatedAt: string;
 }
 
 /**

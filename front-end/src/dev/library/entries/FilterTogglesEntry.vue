@@ -132,12 +132,6 @@ const PLACES = [
     file: 'components/elements/ElementMarketDates.vue',
     today: 'Several at once, but a month grid of its own calendar-day buttons, not a wrapping row.',
   },
-  {
-    place: 'Floorplan: Group Sections',
-    file: 'components/floorplan/SectionGrouping.vue',
-    today:
-      'One button of its own look, on or off, whose words change with it: not a row of choices.',
-  },
 ];
 </script>
 
