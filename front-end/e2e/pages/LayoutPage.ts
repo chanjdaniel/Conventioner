@@ -32,6 +32,13 @@ export class LayoutPage {
   readonly sectionLabels: Locator;
   readonly zones: Locator;
   readonly sections: Locator;
+  /** The read layout's card of the table last tapped, pressed or focused, and what it says. */
+  readonly tableRead: Locator;
+  readonly tableReadTitle: Locator;
+  readonly tableReadFacts: Locator;
+  readonly tableReadEmpty: Locator;
+  /** How a phone reads the layout, under the sections. */
+  readonly phoneHint: Locator;
   readonly editor: Locator;
   readonly stage: Locator;
   readonly toolbar: Locator;
@@ -169,6 +176,11 @@ export class LayoutPage {
     this.sectionLabels = this.map.getByTestId('layout-map-label');
     this.zones = this.map.getByTestId('layout-map-zone');
     this.sections = page.getByTestId('layout-panel-sections');
+    this.tableRead = page.getByTestId('layout-panel-table');
+    this.tableReadTitle = page.getByTestId('layout-table-read-title');
+    this.tableReadFacts = page.getByTestId('layout-table-read-facts');
+    this.tableReadEmpty = page.getByTestId('layout-table-read-empty');
+    this.phoneHint = page.getByTestId('layout-phone-hint');
     this.editor = page.getByTestId('layout-editor');
     this.stage = page.getByTestId('layout-stage');
     this.toolbar = page.getByRole('toolbar', { name: 'Layout tools' });
@@ -474,6 +486,14 @@ export class LayoutPage {
       y: box.y + (box.height - view.height * scale) / 2 + (mm[1] - view.y) * scale,
       scale,
     };
+  }
+
+  /** The part of the hall the map shows, in millimetres, as its `viewBox` says. */
+  async view(): Promise<{ x: number; y: number; width: number; height: number }> {
+    return this.map.evaluate((svg) => {
+      const { x, y, width, height } = (svg as SVGSVGElement).viewBox.baseVal;
+      return { x, y, width, height };
+    });
   }
 
   /** Click the floor at a point of the hall, in millimetres. */

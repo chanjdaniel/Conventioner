@@ -350,6 +350,26 @@ export function tableHit(point: PointMm, table: PointMm & { rotation: number }, 
   return Math.abs(along) <= size.widthMm / 2 && Math.abs(across) <= size.depthMm / 2;
 }
 
+/** A trestle table's corner, 40 mm. */
+export const TABLE_CORNER_MM = 40;
+
+/** A table's rectangle about its centre, in its own turn, grown by `byMm` on every side: its top
+ *  at 0, an outline round it further out. Shrunk by more than its corner (a border drawn inside
+ *  the edge at a zoom where a pixel is wider than the corner) it has none. */
+export function grownTable(size: SizeMm, byMm: number) {
+  return {
+    x: -size.widthMm / 2 - byMm,
+    y: -size.depthMm / 2 - byMm,
+    width: size.widthMm + byMm * 2,
+    height: size.depthMm + byMm * 2,
+    rx: Math.max(TABLE_CORNER_MM + byMm, 0),
+  };
+}
+
+/** How far outside a table's edge, in screen pixels, its selection's outline is drawn: 2.5 px of
+ *  --mm-black, 3 px outside the 1.5 px edge, its middle so far out. */
+export const OUTLINE_OUT_PX = 0.75 + 3 + 1.25;
+
 // ── Snapping ─────────────────────────────────────────────────────────────────
 
 /** A guide the map draws while a snap holds: a line in millimetres. */
@@ -625,6 +645,132 @@ export function steppedZoom(pxPerMm: number, direction: 1 | -1): number {
       ? ZOOM_STEPS.find((step) => step > percent + 0.5)
       : [...ZOOM_STEPS].reverse().find((step) => step < percent - 0.5);
   return next === undefined ? clampZoom(pxPerMm) : (next / 100) * PX_PER_MM_AT_100;
+}
+
+// ── Reading by hand ──────────────────────────────────────────────────────────
+//
+// A read map (a phone's above all) is looked round by hand: one finger drags the view, two pinch
+// it, and a tap reads a table. Its view is a part of the hall in millimetres, of its box's shape.
+
+/** How far a pointer may move, in screen pixels, and still be a tap rather than a drag. */
+export const TAP_SLOP_PX = 6;
+
+/** How near a tap may fall to a table, in screen pixels, and still read it: a table drawn whole on
+ *  a phone is a few pixels deep. */
+export const TAP_REACH_PX = 12;
+
+/** A part of the hall, in millimetres. */
+export interface ViewMm {
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  heightMm: number;
+}
+
+/** A point on a map's box, in screen pixels from its top-left corner. */
+export interface PointPx {
+  x: number;
+  y: number;
+}
+
+/**
+ * What a box of `width` by `height` pixels shows of a view drawn whole and centred in it (SVG's
+ * `xMidYMid meet`): the view, widened or deepened about its middle to the box's shape. A box not
+ * measured shows the view as given.
+ */
+export function seenView(view: ViewMm, width: number, height: number): ViewMm {
+  if (width <= 0 || height <= 0) return view;
+  // The side that fills the box is the view's own; the other is grown to the box's shape.
+  const wider = width / view.widthMm > height / view.heightMm;
+  const widthMm = wider ? (view.heightMm * width) / height : view.widthMm;
+  const heightMm = wider ? view.heightMm : (view.widthMm * height) / width;
+  return {
+    xMm: view.xMm - (widthMm - view.widthMm) / 2,
+    yMm: view.yMm - (heightMm - view.heightMm) / 2,
+    widthMm,
+    heightMm,
+  };
+}
+
+/** A view of a box `width` pixels across, dragged by a finger moved `dx`, `dy` pixels. */
+export function pannedView(start: ViewMm, dx: number, dy: number, width: number): ViewMm {
+  const mmPerPx = start.widthMm / width;
+  return { ...start, xMm: start.xMm - dx * mmPerPx, yMm: start.yMm - dy * mmPerPx };
+}
+
+/**
+ * A view of a box `width` pixels across, pinched by two fingers gone from `from` to `to`: zoomed by
+ * how far they spread, the point of the hall that was between them staying between them.
+ */
+export function pinchedView(
+  start: ViewMm,
+  from: readonly [PointPx, PointPx],
+  to: readonly [PointPx, PointPx],
+  width: number,
+): ViewMm {
+  const apart = (points: readonly [PointPx, PointPx]) =>
+    Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y);
+  const middle = (points: readonly [PointPx, PointPx]) => ({
+    x: (points[0].x + points[1].x) / 2,
+    y: (points[0].y + points[1].y) / 2,
+  });
+  const before = apart(from);
+  if (before === 0) return start;
+  const spread = apart(to) / before;
+  const startMmPerPx = start.widthMm / width;
+  const was = middle(from);
+  const now = middle(to);
+  const under = { xMm: start.xMm + was.x * startMmPerPx, yMm: start.yMm + was.y * startMmPerPx };
+  const mmPerPx = startMmPerPx / spread;
+  return {
+    xMm: under.xMm - now.x * mmPerPx,
+    yMm: under.yMm - now.y * mmPerPx,
+    widthMm: start.widthMm / spread,
+    heightMm: start.heightMm / spread,
+  };
+}
+
+/**
+ * A view of a box `width` pixels across kept to `whole` (what the box shows of the whole hall,
+ * `seenView`): zoomed in no further than the editor's most, about its middle; out no further than
+ * the whole, which it then is; and moved back inside the whole where it went past an edge.
+ */
+export function keptView(view: ViewMm, whole: ViewMm, width: number): ViewMm {
+  if (view.widthMm >= whole.widthMm) return whole;
+  const least = Math.min(width / MAX_ZOOM_PX_PER_MM, whole.widthMm);
+  let next = view;
+  if (view.widthMm < least) {
+    const shrink = least / view.widthMm;
+    const widthMm = least;
+    const heightMm = view.heightMm * shrink;
+    next = {
+      xMm: view.xMm + (view.widthMm - widthMm) / 2,
+      yMm: view.yMm + (view.heightMm - heightMm) / 2,
+      widthMm,
+      heightMm,
+    };
+  }
+  const within = (at: number, side: number, from: number, wholeSide: number) =>
+    Math.min(Math.max(at, from), from + wholeSide - side);
+  return {
+    ...next,
+    xMm: within(next.xMm, next.widthMm, whole.xMm, whole.widthMm),
+    yMm: within(next.yMm, next.heightMm, whole.yMm, whole.heightMm),
+  };
+}
+
+/** How far a point is from a table's top, along the table's own sides; 0 on it. */
+export function distanceToTable(
+  point: PointMm,
+  table: PointMm & { rotation: number },
+  size: SizeMm,
+): number {
+  const turn = (-table.rotation * Math.PI) / 180;
+  const dx = point.xMm - table.xMm;
+  const dy = point.yMm - table.yMm;
+  const along = Math.abs(dx * Math.cos(turn) - dy * Math.sin(turn)) - size.widthMm / 2;
+  const across = Math.abs(dx * Math.sin(turn) + dy * Math.cos(turn)) - size.depthMm / 2;
+  return Math.hypot(Math.max(along, 0), Math.max(across, 0));
 }
 
 // ── Many tables at once ──────────────────────────────────────────────────────

@@ -14,7 +14,10 @@
  * (`LayoutCalibration.vue`), and Recalibrate draws the line again; with a scale it is the layout's
  * drawing (`LayoutMap.vue`): the editor (`LayoutEditor.vue`) for someone who may change the
  * layout, at a desk, with the selection's card heading the panel, and the whole hall, read, for
- * anyone else (a Viewer, anyone on an archived market) and at a phone's width. Past Draft the
+ * anyone else (a Viewer, anyone on an archived market) and at a phone's width, with the card of the
+ * table last tapped, pressed or focused (`LayoutPanelTable.vue`) heading the panel. A phone, 640px
+ * and below, only reads: no upload, no scale, no edit, the map pinched and dragged by hand, the
+ * Floorplan card left out and a hint saying how to read it, under the sections. Past Draft the
  * editor stays under the setup-settled sentence, its seats settled: tables still move and turn,
  * and the zones, the image, the scale and the colours still change, while what would add, remove,
  * renumber, re-section or re-type a table is disabled, and a location with no layout starts none.
@@ -52,6 +55,7 @@ import LayoutMap from './LayoutMap.vue';
 import LayoutPanelKeyboard from './LayoutPanelKeyboard.vue';
 import LayoutPanelSections from './LayoutPanelSections.vue';
 import LayoutPanelSelection, { type Arrangement } from './LayoutPanelSelection.vue';
+import LayoutPanelTable from './LayoutPanelTable.vue';
 import LayoutPanelTypes from './LayoutPanelTypes.vue';
 import LayoutPanelZones from './LayoutPanelZones.vue';
 import { metresAcross, pxPerMm, type Point } from './calibration';
@@ -173,6 +177,7 @@ watch(settled, (now) => {
   else editor.forgetUndo();
 });
 watch(locationId, () => {
+  readId.value = null;
   editor.reload(stored.value);
   recalibrating.value = false;
   calibrationRefusal.value = '';
@@ -516,9 +521,10 @@ async function onCalibrated(line: { start: Point; end: Point; lengthMm: number }
   if (saved) recalibrating.value = false;
 }
 
-/** The save state is the writer's: someone who only reads the layout is told nothing of saves. */
+/** The save state is the writer's: someone who only reads the layout, or reads it on a phone, is
+ *  told nothing of saves. */
 const showSaveState = computed(
-  () => editable.value && (saveState.value !== 'idle' || Boolean(stored.value)),
+  () => editsHere.value && (saveState.value !== 'idle' || Boolean(stored.value)),
 );
 
 /** A layout is edited at a desk: at a phone's width, 640px and below, its map is read. */
@@ -534,10 +540,28 @@ onMounted(() => {
 });
 onUnmounted(() => phoneWindow?.removeEventListener('change', readTheWindow));
 
+/** Whether this page changes the layout: for someone who may, at a desk. On a phone a layout is
+ *  read only: nothing is uploaded, calibrated or edited there. */
+const editsHere = computed(() => editable.value && atADesk.value);
+
 /** Whether the map is the editor: a calibrated layout, for someone who may change it, at a desk. */
 const editing = computed(
+  () => calibrated.value && editsHere.value && !recalibrating.value && !replacing.value,
+);
+
+/** Whether the map is read: a calibrated layout, not edited, and not being recalibrated or given
+ *  a new image here. */
+const reading = computed(
   () =>
-    calibrated.value && editable.value && !recalibrating.value && !replacing.value && atADesk.value,
+    calibrated.value &&
+    !editing.value &&
+    !(editsHere.value && (recalibrating.value || replacing.value)),
+);
+
+/** The table the read map last had tapped, pressed or focused, which the panel's first card reads. */
+const readId = ref<string | null>(null);
+const readTable = computed(
+  () => (floorplan.value?.tables ?? []).find((table) => table.id === readId.value) ?? null,
 );
 
 const selectedTables = computed(() => {
@@ -654,7 +678,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
         <section class="layout-map-column" :aria-label="`${location.name}'s floorplan`">
           <template v-if="!floorplan?.imageGridfsId">
             <FloorplanUploader
-              v-if="editable && !settled"
+              v-if="editsHere && !settled"
               :marketId="market.id"
               :busy="saveState === 'saving'"
               @uploaded="onUploaded"
@@ -663,7 +687,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               No floorplan has been uploaded for {{ location.name }} yet.
             </p>
           </template>
-          <template v-else-if="editable && replacing">
+          <template v-else-if="editsHere && replacing">
             <p
               v-if="replaceError"
               class="layout-replace-error"
@@ -726,7 +750,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               @cancel="stopReplacing"
             />
           </template>
-          <template v-else-if="calibrated && !(editable && recalibrating)">
+          <template v-else-if="calibrated && !(editsHere && recalibrating)">
             <p v-if="imageFailed" class="layout-empty" data-testid="layout-image-failed">
               The floorplan's image could not be shown. Reload the page to try again.
             </p>
@@ -759,6 +783,9 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
                 :imageUrl="imageUrl"
                 :showImage="showImage"
                 mode="read"
+                :selection="readTable ? [readTable.id] : []"
+                @activate="readId = $event"
+                @focused="readId = $event"
               />
             </div>
           </template>
@@ -766,7 +793,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
             The floorplan's image could not be shown. Reload the page to try again.
           </p>
           <LayoutCalibration
-            v-else-if="imageUrl && editable"
+            v-else-if="imageUrl && editsHere"
             :key="`${floorplan.id}-${floorplan.imageGridfsId}`"
             :imageUrl="imageUrl"
             :imageWidth="floorplan.imageWidth ?? 1"
@@ -796,13 +823,13 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
         <aside class="layout-panel" aria-label="Layout details">
           <section v-if="!floorplan?.imageGridfsId" class="layout-card">
             <p class="layout-card-text" data-testid="layout-panel-start">
-              <template v-if="editable && !settled">
+              <template v-if="editsHere && !settled">
                 Upload the venue's floorplan for {{ location.name }} to start.
               </template>
               <template v-else>{{ location.name }} has no layout yet.</template>
             </p>
           </section>
-          <section v-else-if="!calibrated && editable" class="layout-card">
+          <section v-else-if="!calibrated && editsHere" class="layout-card">
             <h2 class="layout-card-title">Set the scale</h2>
             <p class="layout-card-text">
               Draw a line over something of known length, then type its length, so every table is
@@ -817,6 +844,14 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
             >
               {{ status }}
             </p>
+            <LayoutPanelTable
+              v-if="reading"
+              class="layout-card"
+              :table="readTable"
+              :sections="sections"
+              :tableTypes="tableTypes"
+              :phone="!atADesk"
+            />
             <LayoutPanelSelection
               v-if="editing"
               class="layout-card"
@@ -862,14 +897,14 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               @label="editor.setZoneLabel"
               @remove="removeZone"
             />
-            <section class="layout-card" data-testid="layout-panel-floorplan">
+            <section v-if="atADesk" class="layout-card" data-testid="layout-panel-floorplan">
               <h2 class="layout-card-title">Floorplan</h2>
               <p class="layout-card-text">{{ location.name }}'s floorplan reads {{ scaleText }}.</p>
               <label class="layout-tick">
                 <input v-model="showImage" type="checkbox" data-testid="layout-show-image" />
                 <span>Show the floorplan</span>
               </label>
-              <div v-if="editable && !recalibrating && !replacing" class="layout-card-actions">
+              <div v-if="editsHere && !recalibrating && !replacing" class="layout-card-actions">
                 <button
                   type="button"
                   class="btn btn--secondary"
@@ -889,6 +924,10 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               </div>
             </section>
             <LayoutPanelKeyboard v-if="editing" class="layout-card" :settled="settled" />
+            <p v-if="reading && !atADesk" class="layout-phone-hint" data-testid="layout-phone-hint">
+              Pinch to zoom, drag to look around, tap a table to read it. The layout is edited at a
+              desk.
+            </p>
           </template>
         </aside>
       </div>
@@ -1089,6 +1128,14 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
   color: var(--mm-black);
 }
 
+/* How a phone reads the map, under the sections, as the editor's hint stands under its map. */
+.layout-phone-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
+/* A phone's 16px gutter, as on every page that fits one. */
 @media (width <= 640px) {
   .layout-page {
     padding: var(--space-4);

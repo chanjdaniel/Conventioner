@@ -15,28 +15,43 @@
  * table a button named "Gold row 5, Standard 6 ft", one Tab stop among them (the table focused
  * last, else the first selected, else the first), the arrow keys moving the focus to the nearest
  * table that way. In `read` a table pressed, by pointer, Enter or Space, emits `activate` with
- * its id. `edit` draws the selection's outline and the guides it is given, says each table pressed
+ * its id, and the table the page reads (its `selection`) is outlined over the map. `edit` draws the selection's outline and the guides it is given, says each table pressed
  * or not as it is selected or not, draws the tables picked up by keyboard lifted, and leaves what
  * a press does to the editor round it, which may draw over the map in its slot, and move a
  * section's name, which carries its section's id for it. In `edit` a map with no table is itself
  * the Tab stop, so the keys have somewhere to place the first table from.
- * `print` is a picture: no button, no stop. The map owns no editing
- * state: its only state is which table has the focus.
+ * `print` is a picture: no button, no stop. In `read` the map is looked round by hand unless it is
+ * given its `view`: two fingers pinch it, from the whole hall in to the editor's most, one drags it
+ * once zoomed, and a tap (a press that moved no more than a few pixels) on a table, or within a
+ * few pixels of one, activates it, as a click with no press before it (a screen reader's) does;
+ * at the whole hall one finger scrolls the page as it would anywhere. Each table given the focus is told as `focused`. The map owns no editing state: its
+ * only state is which table has the focus and, in `read`, the part of the hall it shows.
  */
 import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import type { FloorplanObject, SectionObject, TableTypeObject } from '@/assets/types/datatypes';
 import LayoutMapTable from './LayoutMapTable.vue';
 import { NO_SECTION_PAINT, layoutSections, mapName, tableName, textWidthPx } from './layoutDrawing';
 import {
+  OUTLINE_OUT_PX,
   STANDARD_TABLE,
+  TAP_REACH_PX,
+  TAP_SLOP_PX,
+  distanceToTable,
+  grownTable,
   hallOf,
+  keptView,
   nearestInDirection,
   numberSizePx,
+  pannedView,
+  pinchedView,
   sectionLabelAt,
+  seenView,
   tableBounds,
   unionOf,
   type Bounds,
   type Direction,
+  type PointPx,
+  type ViewMm,
 } from './layoutGeometry';
 
 /** The part of the hall a map shows, in millimetres. */
@@ -72,7 +87,8 @@ const props = withDefaults(
     showImage?: boolean;
     /** The part of the hall shown; the whole hall when not given. */
     view?: MapView | null;
-    /** The ids of the selected tables, outlined in `edit`. */
+    /** The ids of the selected tables, outlined in `edit`; in `read`, the table the page reads,
+     *  outlined over the map. */
     selection?: readonly string[];
     /** Alignment guides, drawn in `edit`. */
     guides?: readonly MapGuide[];
@@ -92,6 +108,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   /** A table pressed in `read` mode. */
   activate: [tableId: string];
+  /** A table given the focus, in `read` or `edit`. */
+  focused: [tableId: string];
 }>();
 
 const interactive = computed(() => props.mode !== 'print');
@@ -102,9 +120,9 @@ const drawnSections = computed(() => layoutSections(props.layout, props.sections
 
 // ── The view and its scale ───────────────────────────────────────────────────
 
-/** A layout with no hall yet (no scale) shows its tables' box with a metre round it. */
-const shown = computed<MapView>(() => {
-  if (props.view) return props.view;
+/** The whole of the layout: its hall, or, with no hall yet (no scale), its tables' box with a
+ *  metre round it. */
+const whole = computed<MapView>(() => {
   if (hall.value) return { xMm: 0, yMm: 0, ...hall.value };
   const box = unionOf(
     props.layout.tables.map((table) =>
@@ -119,6 +137,12 @@ const shown = computed<MapView>(() => {
     heightMm: box.bottom - box.top + 2000,
   };
 });
+
+/** The part of the hall a read map was pinched or dragged to, of its box's shape; null shows the
+ *  whole. */
+const looked = ref<ViewMm | null>(null);
+
+const shown = computed<MapView>(() => props.view ?? looked.value ?? whole.value);
 
 const svg = ref<SVGSVGElement | null>(null);
 /** The map's own box on the screen, once it has been measured. */
@@ -155,6 +179,153 @@ const scale = computed(() => {
   return 1000 / view.widthMm;
 });
 const mmPerPx = computed(() => 1 / scale.value);
+
+// ── Looking round by hand (read) ─────────────────────────────────────────────
+
+/** Whether this map is looked round by hand: a read map whose view is its own. */
+const byHand = computed(() => props.mode === 'read' && !props.view);
+
+/** What the box shows of the whole layout, the bounds a view looked round to is kept in. */
+const wholeSeen = computed(() =>
+  seenView(whole.value, box.value?.width ?? 0, box.value?.height ?? 0),
+);
+
+/** Whether the map is zoomed in past the whole, so one finger drags it rather than the page. */
+const zoomedIn = computed(
+  () => looked.value !== null && looked.value.widthMm < wholeSeen.value.widthMm * 0.999,
+);
+
+/** A view kept to the whole; the whole itself is no view of its own. */
+function look(view: ViewMm) {
+  const width = box.value?.width ?? 0;
+  if (width <= 0) return;
+  const kept = keptView(view, wholeSeen.value, width);
+  looked.value = kept.widthMm >= wholeSeen.value.widthMm * 0.999 ? null : kept;
+}
+
+// A box of another size (a phone turned) keeps the view's middle and its zoom.
+watch(box, (now, before) => {
+  const view = looked.value;
+  if (!view || !now || !before) return;
+  const widthMm = view.widthMm * (now.width / before.width);
+  const heightMm = (widthMm * now.height) / now.width;
+  look({
+    xMm: view.xMm + (view.widthMm - widthMm) / 2,
+    yMm: view.yMm + (view.heightMm - heightMm) / 2,
+    widthMm,
+    heightMm,
+  });
+});
+
+/** The pointers down on a read map, where each is on its box. */
+const pointers = new Map<number, PointPx>();
+/** The hand at work: the view as it began, where its pointers began, and whether it has moved
+ *  (pinched, or dragged past a tap's slop). */
+let hand: { start: ViewMm; from: Map<number, PointPx>; moved: boolean } | null = null;
+/** Whether this press is no tap: the hand moved, or held two fingers. */
+let notATap = false;
+/** When the last press by hand ended, by `performance.now()`. The click a browser sends after it
+ *  is that press's, already read (or no tap at all), so it reads nothing; a click with no press
+ *  before it, a screen reader's, reads the table. */
+let pressEnded = -Infinity;
+/** How long after a press its click may come. */
+const CLICK_AFTER_PRESS_MS = 1000;
+
+function onBox(event: PointerEvent): PointPx {
+  const rect = svg.value!.getBoundingClientRect();
+  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+}
+
+/** Begin the hand again from the pointers down now and the view as it stands, so a finger lifted
+ *  or added takes up from there. */
+function rehand() {
+  const view = looked.value ?? wholeSeen.value;
+  hand = pointers.size
+    ? { start: view, from: new Map(pointers), moved: hand?.moved ?? false }
+    : null;
+}
+
+function onPointerDown(event: PointerEvent) {
+  if (!byHand.value || (event.pointerType === 'mouse' && event.button !== 0)) return;
+  if (!pointers.size) notATap = false;
+  pointers.set(event.pointerId, onBox(event));
+  if (pointers.size > 1) notATap = true;
+  rehand();
+}
+
+function onPointerMove(event: PointerEvent) {
+  if (!hand || !pointers.has(event.pointerId)) return;
+  pointers.set(event.pointerId, onBox(event));
+  const width = box.value?.width ?? 0;
+  const [first, second] = [...pointers.keys()];
+  if (!hand.moved) {
+    const from = hand.from.get(first)!;
+    const now = pointers.get(first)!;
+    if (pointers.size === 1 && Math.hypot(now.x - from.x, now.y - from.y) <= TAP_SLOP_PX) return;
+    hand.moved = true;
+    notATap = true;
+    // The hand keeps its pointers when they leave the map.
+    for (const id of pointers.keys()) {
+      try {
+        svg.value?.setPointerCapture(id);
+      } catch {
+        // A pointer already gone has nothing to keep.
+      }
+    }
+  }
+  if (width <= 0) return;
+  if (second !== undefined && hand.from.has(second)) {
+    look(
+      pinchedView(
+        hand.start,
+        [hand.from.get(first)!, hand.from.get(second)!],
+        [pointers.get(first)!, pointers.get(second)!],
+        width,
+      ),
+    );
+    return;
+  }
+  const from = hand.from.get(first)!;
+  const now = pointers.get(first)!;
+  look(pannedView(hand.start, now.x - from.x, now.y - from.y, width));
+}
+
+/**
+ * A finger or button lifted. The last one up ends the press, and a press that neither moved past a
+ * tap's slop nor held two fingers is a tap, read here rather than by its click: a browser sends no
+ * click for a tap that comes as a drag's fling would be running, and this map has none.
+ */
+function onPointerUp(event: PointerEvent) {
+  if (!pointers.delete(event.pointerId)) return;
+  rehand();
+  if (pointers.size) return;
+  pressEnded = performance.now();
+  if (event.type !== 'pointerup' || notATap) return;
+  const id = tableOf(event) ?? tableNear(event);
+  if (id) emit('activate', id);
+}
+
+/** The table drawn nearest a point of the box within a tap's reach, for a tap on the floor. */
+function tableNear(event: MouseEvent): string | null {
+  const rect = svg.value?.getBoundingClientRect();
+  if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+  const seen = seenView(shown.value, rect.width, rect.height);
+  const mmPerPx = seen.widthMm / rect.width;
+  const point = {
+    xMm: seen.xMm + (event.clientX - rect.left) * mmPerPx,
+    yMm: seen.yMm + (event.clientY - rect.top) * mmPerPx,
+  };
+  let nearest: string | null = null;
+  let least = TAP_REACH_PX * mmPerPx;
+  for (const table of tables.value) {
+    const away = distanceToTable(point, table, table);
+    if (away <= least) {
+      nearest = table.id;
+      least = away;
+    }
+  }
+  return nearest;
+}
 
 // ── The tables ───────────────────────────────────────────────────────────────
 
@@ -209,6 +380,21 @@ const tables = computed<DrawnTable[]>(() => {
 });
 
 const selected = computed(() => new Set(props.mode === 'edit' ? props.selection : []));
+
+/** In `read`, the tables of the selection (the table the page reads), each marked by an outline
+ *  drawn over the map, outside the table's own button, so the mark coming and going as the focus
+ *  moves never changes a table's box. */
+const readMarks = computed(() => {
+  if (props.mode !== 'read' || !props.selection.length) return [];
+  const marked = new Set(props.selection);
+  return tables.value
+    .filter((table) => marked.has(table.id))
+    .map((table) => ({
+      id: table.id,
+      transform: `translate(${table.xMm} ${table.yMm}) rotate(${table.rotation})`,
+      rect: grownTable(table, OUTLINE_OUT_PX * mmPerPx.value),
+    }));
+});
 const carriedIds = computed(() => new Set(props.mode === 'edit' ? props.carried : []));
 
 // ── The sections' names ──────────────────────────────────────────────────────
@@ -331,8 +517,14 @@ watch(
   () => props.layout.id,
   () => {
     focusedId.value = null;
+    looked.value = null;
   },
 );
+
+function onFocused(id: string) {
+  focusedId.value = id;
+  emit('focused', id);
+}
 
 function tableOf(event: Event): string | null {
   const target = event.target instanceof Element ? event.target : null;
@@ -340,8 +532,11 @@ function tableOf(event: Event): string | null {
 }
 
 function onClick(event: MouseEvent) {
-  const id = tableOf(event);
-  if (id && props.mode === 'read') emit('activate', id);
+  if (props.mode !== 'read') return;
+  // The click of a press by hand: read as it ended, if it was a tap.
+  if (performance.now() - pressEnded < CLICK_AFTER_PRESS_MS) return;
+  const id = tableOf(event) ?? (byHand.value ? tableNear(event) : null);
+  if (id) emit('activate', id);
 }
 
 const ARROWS: Record<string, Direction> = {
@@ -393,9 +588,15 @@ function onKeydown(event: KeyboardEvent) {
     :role="interactive ? 'group' : 'img'"
     :aria-label="mapName(locationName, tables.length)"
     :tabindex="mode === 'edit' && !tables.length ? 0 : undefined"
+    :style="byHand ? { touchAction: zoomedIn ? 'none' : 'pan-y' } : undefined"
+    :data-zoomed="byHand && zoomedIn ? '' : undefined"
     data-testid="layout-map"
     @click="onClick"
     @keydown="onKeydown"
+    @pointerdown="onPointerDown"
+    @pointermove="onPointerMove"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerUp"
   >
     <defs>
       <!-- The hatch of a no-table zone: 45°, 10 px apart on the screen at any zoom. -->
@@ -517,8 +718,25 @@ function onKeydown(event: KeyboardEvent) {
       :interactive="interactive"
       :tabStop="table.id === tabStopId"
       :mmPerPx="mmPerPx"
-      @focused="focusedId = $event"
+      @focused="onFocused"
     />
+
+    <g
+      v-for="mark in readMarks"
+      :key="mark.id"
+      class="layout-map__read"
+      :transform="mark.transform"
+      aria-hidden="true"
+      data-testid="layout-map-read"
+    >
+      <rect
+        v-bind="mark.rect"
+        fill="none"
+        stroke="var(--mm-black)"
+        stroke-width="2.5"
+        vector-effect="non-scaling-stroke"
+      />
+    </g>
 
     <g
       v-for="label in labels"
@@ -579,6 +797,7 @@ function onKeydown(event: KeyboardEvent) {
 /* A name, a zone and the image are read, never pressed: a press on them is a press on the floor. */
 .layout-map__image,
 .layout-map__label,
+.layout-map__read,
 .layout-map__zone text {
   pointer-events: none;
   user-select: none;

@@ -233,7 +233,7 @@ Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each wit
 - the Tools tab, where an organizer may connect Discord from a phone (Daniel, T113);
 - Stats, where how the day stands is read at the market ([the market's statistics](business/flows/stats.md)) (T180);
 - the page Discord sends them back to, an `AuthCard` measured with the account pages;
-- a location's layout, read at the venue and edited at a desk ([the layout page](implementation/modules/floorplan-placement.md#the-layout-page)) (T257).
+- a location's layout, read only there, at the venue, and edited at a desk ([the layout page](implementation/modules/floorplan-placement.md#the-layout-page)) (T257).
 
 The setup screens keep the floor, since they are built at a desk before the market and the form builder is drawn for a pointer; one a line:
 
@@ -254,6 +254,7 @@ One by one's card is the page's width, its verdict buttons wrapping inside it; "
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
 Stats on a phone narrows its gutter to 16px too: its strip's tiles stand two to a row, a tile that is a link a target a thumb can hit, an amount and a tile it would leave alone taking a row of their own, since "$3,565.00" broke over two lines in half a 320px window (T201); the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
 Its cards stand two to a row while the page's content is 48rem wide or more and one below it, by a container query on the content, so a lone card stays half the page at a desk and no bar runs the frame's width; a phone, 320px included, has one column (T201).
+A location's layout on a phone narrows its gutter to 16px too and only reads: the map fills the column at the floorplan's shape, pinched and dragged inside its own box while the page keeps its zoom, the card of the table tapped under it, then the sections and the hint, and its location switch's links are 44px targets (T257).
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
 | Token             | Value  | Screens                                                                   |

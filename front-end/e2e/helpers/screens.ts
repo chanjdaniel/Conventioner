@@ -66,7 +66,8 @@ const PUBLIC = [DESKTOP, PHONE];
  * - the Applications page (T180), the one page of Market Setup's view that fits, both its views,
  *   its drawer and dialogs, so a late application is decided, the review dealt and a vendor's
  *   answer corrected from a phone;
- * - Stats (T180), so how the day stands is read at the market.
+ * - Stats (T180), so how the day stands is read at the market;
+ * - a location's layout (T257), read at the venue, pinched and tapped, and edited at a desk.
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -237,7 +238,8 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * begun, on its upload's drop zone; and the layout seed's Upper Hall, its floorplan uploaded and its
  * scale not yet set, calibrating; and the laid-out seed's Upper Hall, drawn as its map, 20 tables
  * over the faded floorplan with the panel's list of sections: the editor at a desk and the map read
- * on a phone, then, at a desk, with a table selected, with every table selected, with a section's
+ * on a phone, and on a phone with Silver aisle 1 tapped and read under the map; then, at a desk,
+ * with a table selected, with every table selected, with a section's
  * colours open, with Add table's options open, with a table picked up by keyboard, with the
  * panel's list of keys open, with a row being drawn by the crosshair, with a curve drawn by hand
  * waiting with its points, with an L-shaped area's
@@ -251,6 +253,7 @@ function layoutAt(
     | 'upload'
     | 'calibrating'
     | 'map'
+    | 'read'
     | 'selected'
     | 'several'
     | 'colours'
@@ -288,6 +291,11 @@ function layoutAt(
       await layout.goto(seed.laidOut.marketId, seed.laidOut.upper.id);
       await expect(layout.mapImage).toHaveAttribute('href', /^blob:/);
       await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+      if (stage === 'read') {
+        // Silver aisle's first table, tapped: its code, tier and type in the card under the map.
+        await layout.clickAt([10_000, 11_000]);
+        await expect(layout.tableReadTitle).toHaveText('Silver aisle 1');
+      }
       if (stage === 'selected') {
         // Silver aisle's first table, pressed: outlined, the turn handle over it, its card filled.
         await layout.clickAt([10_000, 11_000]);
@@ -1349,17 +1357,20 @@ export const SCREENS: Screen[] = [
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'layout'), 'layout-no-floorplan'),
   },
-  // Its upload step is the app's one drop zone (T205), and the page fits a phone (T257).
+  // Its upload step is the app's one drop zone (T205). The page fits a phone (T257), where it only
+  // reads: a layout is started and its scale set at a desk.
   {
     name: 'the layout, its upload step',
     who: 'organizer',
-    sizes: FITS_A_PHONE,
+    sizes: ORGANIZER,
+    deskOnly: true,
     open: layoutAt('upload'),
   },
   {
     name: 'the layout, calibrating',
     who: 'organizer',
-    sizes: FITS_A_PHONE,
+    sizes: ORGANIZER,
+    deskOnly: true,
     open: layoutAt('calibrating'),
   },
   // The layout drawn (T257): the map's tables, names and zones, and the panel's sections.
@@ -1368,6 +1379,13 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: layoutAt('map'),
+  },
+  // Read on a phone (T257): a table tapped and read under the map, over the sections and the hint.
+  {
+    name: 'the layout on a phone, a table read',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: layoutAt('read'),
   },
   // The editor (T257), at a desk alone: a table selected, and Add table's options strip.
   {
