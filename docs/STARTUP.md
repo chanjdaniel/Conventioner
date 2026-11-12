@@ -309,7 +309,7 @@ The frontend will start on: **[http://127.0.0.1:5173](http://127.0.0.1:5173)** (
 ## Step 6: Testing the Application
 
 > **Automated test suites and a one-command seed fixture are documented in [TESTING.md](./TESTING.md).**
-> For a ready-to-use test environment (Docker stack + test users + test organization + seeded market), run `./scripts/seed_fixture.sh --primary` from the repository root (in a treehouse worktree, without `--primary`; the script refuses to guess which stack, see [TESTING.md](./TESTING.md#quick-start-seed-fixture)).
+> For a ready-to-use test environment (test users + test organization + seeded market on the running Docker stack, which it never starts), run `./scripts/seed_fixture.sh --primary` from the repository root (in a treehouse worktree, without `--primary`; the script refuses to guess which stack, see [TESTING.md](./TESTING.md#quick-start-seed-fixture)).
 
 ### Create a Test User
 

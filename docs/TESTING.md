@@ -5,7 +5,7 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - E34/F03/S02
   - E35/F02/S01
@@ -40,7 +40,11 @@ It takes, in order, `COMPOSE_PROJECT_NAME` with `TH_MONGO_PORT`, `TH_BACKEND_POR
 It refuses when only some of those variables are set, and `--primary` with any of them set or from a treehouse slot, where plain `docker compose` names the project after the directory, the primary checkout's.
 It used to fall back to the primary stack's defaults, so a run outside a slot that had not yet exported its own stack wiped the primary checkout's local database.
 
-This brings up the Docker stack, creates the test users, creates an organization
+It seeds a stack that already runs and never starts one: start the stack first (`scripts/th-compose.sh up -d` in a treehouse worktree, `docker compose up -d` in the primary checkout).
+With the stack's back end not running, or not answering within 60 seconds, it exits non-zero before it resets anything.
+It used to bring a stopped stack up itself, so a seed after a refused or forgotten start left a stack outside whatever owned the slot's stacks.
+
+On a running stack it empties the database, creates the test users, creates an organization
 (`Seed Test Org`, reused if the user already has one), and creates a market in it.
 The output prints the credentials and market ID.
 
@@ -216,8 +220,10 @@ The build itself fails if any module of the development-only [component library]
 ## End-to-End (E2E) Tests
 
 ```bash
-# Start the Docker stack and seed test data
-cd .. && ./scripts/seed_fixture.sh --primary  # omit --primary in a treehouse worktree
+# Start the Docker stack, then seed test data: the seed never starts a stack
+cd ..
+DISABLE_EMAIL=true DISCORD_FAKE=true docker compose up -d  # scripts/th-compose.sh up -d in a treehouse worktree
+./scripts/seed_fixture.sh --primary  # omit --primary in a treehouse worktree
 
 # Run E2E tests
 cd front-end

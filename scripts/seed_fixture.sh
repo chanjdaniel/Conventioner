@@ -54,11 +54,13 @@ if [ "$PRIMARY" = true ]; then
     refuse "--primary, but $PROJECT_DIR is in treehouse slot $SLOT, which names another stack"
   fi
   DOCKER_CMD=(docker compose)
+  SHOWN_CMD="docker compose"
   BACKEND_PORT=5001
   FRONTEND_PORT=5173
   echo "Default stack, as --primary asks (ports: backend=$BACKEND_PORT, frontend=$FRONTEND_PORT)"
 elif [ "${#SET_VARS[@]}" -eq "${#STACK_VARS[@]}" ]; then
   DOCKER_CMD=("$PROJECT_DIR/scripts/th-compose.sh")
+  SHOWN_CMD="scripts/th-compose.sh"
   BACKEND_PORT="$TH_BACKEND_PORT"
   FRONTEND_PORT="$TH_FRONTEND_PORT"
   echo "Explicit stack identity: project=$COMPOSE_PROJECT_NAME (ports: backend=$BACKEND_PORT, frontend=$FRONTEND_PORT)"
@@ -66,6 +68,7 @@ elif [ "${#SET_VARS[@]}" -gt 0 ]; then
   refuse "the environment names only part of a stack (${SET_VARS[*]} set, not all of ${STACK_VARS[*]})"
 elif [[ "$SLOT" =~ ^[0-9]+$ ]] && [ -x "$PROJECT_DIR/scripts/th-compose.sh" ]; then
   DOCKER_CMD=("$PROJECT_DIR/scripts/th-compose.sh")
+  SHOWN_CMD="scripts/th-compose.sh"
   BACKEND_PORT=$((5001 + SLOT * 10))
   FRONTEND_PORT=$((5173 + SLOT * 10))
   echo "Worktree slot: $SLOT (ports: backend=$BACKEND_PORT, frontend=$FRONTEND_PORT)"
@@ -86,25 +89,32 @@ trap cleanup EXIT
 echo "=== Conventioner Seed Fixture ==="
 echo ""
 
-# ── 1. Ensure Docker stack is running ──
-echo "[1/4] Ensuring Docker stack is up..."
+# ── 1. The stack must already run ──
+# This seeds a stack and never starts one: whatever started the stack owns it, and a stack this
+# script brought up would belong to nobody (it used to, so a seed after a refused or forgotten start
+# left a stack its owner's tools could neither use nor remove).
+echo "[1/4] Checking the stack runs..."
 cd "$PROJECT_DIR"
-if ! "${DOCKER_CMD[@]}" ps --format '{{.Service}}' 2>/dev/null | grep -q 'backend'; then
-  echo "  Bringing up Docker stack..."
-  "${DOCKER_CMD[@]}" up -d --wait 2>&1 | sed 's/^/  /'
-else
-  echo "  Docker stack already running."
+if ! "${DOCKER_CMD[@]}" ps --format '{{.Service}}' 2>/dev/null | grep -qx 'backend'; then
+  echo "seed_fixture: the stack's back end is not running - start the stack first ($SHOWN_CMD up -d), then seed; this script never starts one." >&2
+  exit 3
 fi
+echo "  Stack running."
 
-# Wait for backend to accept connections
 echo "  Waiting for backend..."
-for _ in $(seq 1 30); do
+READY=false
+for _ in $(seq 1 60); do
   if curl -k -s -o /dev/null -w '%{http_code}' "$BACKEND_URL/" 2>/dev/null | grep -qE '^(200|404|401)'; then
+    READY=true
     echo "  Backend ready."
     break
   fi
   sleep 1
 done
+if [ "$READY" != true ]; then
+  echo "seed_fixture: the back end at $BACKEND_URL/ did not answer within 60 seconds; nothing was reset. Read its logs ($SHOWN_CMD logs backend)." >&2
+  exit 3
+fi
 
 # ── 2. Create test users ──
 echo "[2/4] Creating test users ($TEST_EMAIL, $NO_ORG_EMAIL)..."
