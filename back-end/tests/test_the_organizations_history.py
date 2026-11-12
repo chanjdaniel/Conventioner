@@ -212,8 +212,7 @@ class TestWhatIsRecorded:
 
         market_id = MarketsApi.create_owned_market(MEMBER, {
             "name": "Winter Fair", "organization_id": ORG,
-            "creation_date": "2026-10-30T00:00:00Z", "modification_list": [],
-            "assignment_object": {},
+            "creation_date": "2026-10-30T00:00:00Z",
         })
 
         entry = only(history)

@@ -141,9 +141,6 @@ test.describe('The create-market dialog is the dialog idiom', () => {
         name: taken,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [TEST_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
 
@@ -385,9 +382,6 @@ test.describe('Enter means the same thing in every dialog', () => {
         name: mine,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [TEST_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(created.ok(), await created.text()).toBeTruthy();

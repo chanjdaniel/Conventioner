@@ -99,8 +99,6 @@ test.describe('Tier 2 - Market role management', () => {
     if (!loginRes.ok()) {
       throw new Error(`Login failed: ${loginRes.status()} ${await loginRes.text()}`);
     }
-    const loginBody = (await loginRes.json()) as { user_data: { id: string } };
-    const userId = loginBody.user_data.id;
 
     const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL);
 
@@ -111,9 +109,6 @@ test.describe('Tier 2 - Market role management', () => {
         name: marketName,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [userId]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     if (!marketRes.ok()) {

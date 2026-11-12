@@ -308,9 +308,6 @@ export async function seedMarketWithVendors(
       name: marketName,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [email]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       // Complete, so the market may leave draft (E31/F01/S01).
       setupObject: completePlan(firstDate, moreDates),
       ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
@@ -383,9 +380,6 @@ export async function seedPublishedMarketWithAssignments(
       name: marketName,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [email]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
     },
   });

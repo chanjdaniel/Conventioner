@@ -57,7 +57,7 @@ def test_the_body_cannot_say_who_owns_the_market(created, roles):
 
     response = client.post("/markets", json={
         "name": "Spring Market", "creationDate": "2026-01-01", "organizationId": "org-1",
-        "roles": roles, "modificationList": [], "assignmentObject": {},
+        "roles": roles,
     })
 
     assert response.status_code == 201, response.get_json()

@@ -73,9 +73,6 @@ test('the floorplan shades what scrolls, and its steps leave scrolling to the pa
       name: `Floorplan Scrollers ${Date.now()}`,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [TEST_USER.email]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();

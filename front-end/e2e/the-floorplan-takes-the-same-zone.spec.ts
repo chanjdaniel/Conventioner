@@ -25,9 +25,6 @@ test.describe('The floorplan upload step', () => {
         name: `Floorplan Drop Zone ${Date.now()}`,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [TEST_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(created.ok(), await created.text()).toBeTruthy();

@@ -4,14 +4,14 @@ kind: testing
 describes:
   - front-end/e2e/floorplan.spec.ts
   - front-end/e2e/the-floorplan-beta-places-tables.spec.ts
+  - front-end/e2e/a-floorplan-save-keeps-the-market-readable.spec.ts
   - front-end/e2e/the-floorplan-takes-the-same-zone.spec.ts
   - front-end/e2e/pages/FloorplanWorkflowPage.ts
   - front-end/e2e/fixtures/test-floorplan.png
   - front-end/e2e/the-floorplan-shades-its-scrollers.spec.ts
   - front-end/e2e/the-floorplan-draws-as-its-tokens-say.spec.ts
   - front-end/e2e/the-floorplan-asks-before-it-drops-a-drawing.spec.ts
-  - front-end/e2e/a-floorplan-save-keeps-the-market-readable.spec.ts
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - bug/38
   - E26/F09/S01
@@ -22,8 +22,8 @@ sources:
   - T217
   - T221
   - T263
-  - T271
   - T272
+  - T271
 ---
 
 # Floorplan E2E

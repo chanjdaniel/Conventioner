@@ -38,7 +38,7 @@ test.beforeAll(() => {
  * first market; that market also has an outsider as Viewer and the admin as Editor.
  */
 async function seed(request: APIRequestContext) {
-  const ownerId = await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   const orgName = uniqueMarketName('Remove Org');
   const org = await request.post(`${BACKEND_URL}/organizations`, { data: { name: orgName } });
   expect(org.ok(), await org.text()).toBeTruthy();
@@ -62,9 +62,6 @@ async function seed(request: APIRequestContext) {
         name,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [ownerId]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(market.ok(), await market.text()).toBeTruthy();

@@ -34,6 +34,7 @@ sources:
   - T263
   - T271
   - T272
+  - T282
   - T274
 ---
 
@@ -152,7 +153,7 @@ It used to write the three fields by hand, which on a market whose plan was neve
 The route has no blanket `except`, so a refusal `prepared_plan` raises answers its own status and sentence.
 **A later visit's wizard saves over the market's floorplan too**: when the wizard opens, [`FloorplanEditorView.vue`](../../../front-end/src/views/FloorplanEditorView.vue) hands [`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue) the id of the floorplan the market stores, the last saved when it holds several, and `openOnMarket()` in the wizard's store, [`front-end/src/stores/floorplan.ts`](../../../front-end/src/stores/floorplan.ts), gives the wizard's floorplan that id, so a run after a reload or on another day replaces it; it used to start each page session's floorplan under a new id, so every visit added one, until the 21st save was refused for good with nothing on screen to free a place.
 **A floorplan is held to its bounds wherever it is written.**
-[`back-end/floorplan_limits.py`](../../../back-end/floorplan_limits.py) is the one statement of them, and `prepared_plan` asks it, so the wizard's save and a plan write (`PUT /markets/:id/plan`, which carries the stored floorplans back as Market Setup read them) are refused alike, with 400 and one sentence: more than 20 floorplans on a market, more than 100 walls, 100 obstacle zones, 100 points in an obstacle zone, 50 table types, 1,000 tables, 200 sections or 1,000 tables in a section, a string over 200 characters, or a number that is not finite or past 10,000,000 by absolute value ("A floorplan's measurements must be finite numbers no larger than 10,000,000.").
+[`back-end/floorplan_limits.py`](../../../back-end/floorplan_limits.py) is the one statement of them, and `_plan_refusal` asks it for `prepared_plan` and for a new market's create body (`create_market`, every floorplan judged as new), so the wizard's save, a plan write (`PUT /markets/:id/plan`, which carries the stored floorplans back as Market Setup read them) and a create are refused alike, with 400 and one sentence: more than 20 floorplans on a market, more than 100 walls, 100 obstacle zones, 100 points in an obstacle zone, 50 table types, 1,000 tables, 200 sections or 1,000 tables in a section, a string over 200 characters, or a number that is not finite or past 10,000,000 by absolute value ("A floorplan's measurements must be finite numbers no larger than 10,000,000.").
 `floorplan_refusal()` finds the strings and numbers by walking the floorplan's model dump, so a field added to `FloorplanObject` later is bounded with no new line; the list bounds are named one by one.
 `NaN` and `Infinity` pass Flask's JSON reader and a float field alike, and a market holding one is echoed back by the market read as bare tokens that are not JSON, so the browser could not read the market at all (Market Setup said "This market could not be loaded.").
 **The bounds are the request's, never the stored model's**: `datatypes.py` gains no constraint, since one there would make a market already holding a larger floorplan fail to read.

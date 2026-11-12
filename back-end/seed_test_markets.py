@@ -117,8 +117,6 @@ def _seeded_market(
             "name": test_market.name,
             "creation_date": datetime.now(timezone.utc).isoformat(),
             "organization_id": organization_id,
-            "modification_list": [],
-            "assignment_object": {},
         })
     else:
         market_id = found["id"]
