@@ -889,7 +889,6 @@ NOT_A_CHANGE = {
         "stores an image the market uses only once a floorplan is saved, which records",
     ("POST", "/floorplans/calibrate"): "measures an image and keeps nothing",
     ("POST", "/floorplans/place-tables"): "proposes table positions and keeps nothing",
-    ("POST", "/floorplans/export"): "a read",
     ("POST", f"{M}/discord/authorization"):
         "keeps a one-time state in the person's session; connecting, which records, spends it",
 }

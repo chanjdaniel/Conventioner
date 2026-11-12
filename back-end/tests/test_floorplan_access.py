@@ -48,7 +48,7 @@ PNG = b"\x89PNG\r\n\x1a\n"
 
 
 def _hall_png():
-    """A small real image, so calibrate and export can read its size and draw on it."""
+    """A small real image, so calibrate can read its size."""
     out = io.BytesIO()
     Image.new("RGB", (400, 300), "white").save(out, format="PNG")
     return out.getvalue()
@@ -426,23 +426,12 @@ def _calibrate(client, gridfs_id):
     })
 
 
-def _export(client, gridfs_id):
-    return client.post("/floorplans/export", json={
-        "gridfs_id": gridfs_id,
-        "placed_tables": [{
-            "x_mm": 2000, "y_mm": 1500, "rotation": 0, "width_mm": 1800, "height_mm": 800,
-            "table_code": "A1", "section_name": "A",
-        }],
-        "scale_px_per_mm": 0.05,
-    })
-
-
 EDITING_ROUTES = {"delete": _delete, "calibrate": _calibrate}
-EVERY_ROUTE = {**EDITING_ROUTES, "export": _export}
 
 
 class TestTheRoutesThatTakeAnImage:
-    """Delete and calibrate are an editor's work; export is open to anyone on the market."""
+    """Delete and calibrate are an editor's work. The layout's PNG is drawn by the browser (T257), so
+    the server's export is gone."""
 
     def test_the_organizer_deletes_the_image(self, sign_in, market, hall, images):
         response = _delete(sign_in("owner@example.com"), hall)
@@ -456,14 +445,14 @@ class TestTheRoutesThatTakeAnImage:
         assert response.status_code == 200
         assert response.get_json()["scale_px_per_mm"] == pytest.approx(200 / 4000)
 
-    @pytest.mark.parametrize("email", [
-        "owner@example.com", "editor@example.com", "viewer@example.com",
-    ])
-    def test_anyone_on_the_market_exports_the_image(self, sign_in, market, hall, email):
-        response = _export(sign_in(email), hall)
+    def test_the_export_is_gone(self, sign_in, market, hall):
+        """No route draws the image: its address is now an image id's, which is read and deleted."""
+        response = sign_in("owner@example.com").post("/floorplans/export", json={"gridfs_id": hall})
 
-        assert response.status_code == 200
-        assert response.mimetype == "image/png"
+        served = {(method, rule.rule) for method, rule in _floorplan_routes()}
+        assert response.status_code == 405
+        assert ("POST", "/floorplans/export") not in served
+        assert ("POST", "/floorplans/upload") in served
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_an_editor_may_use_the_editing_routes(
@@ -471,7 +460,7 @@ class TestTheRoutesThatTakeAnImage:
     ):
         assert route(sign_in("editor@example.com"), hall).status_code == 200
 
-    @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
+    @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_an_account_with_no_role_on_the_market_is_refused(
         self, sign_in, market, hall, images, route,
     ):
@@ -505,16 +494,8 @@ class TestTheRoutesThatTakeAnImage:
         assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
         assert list(images.files) == [ObjectId(hall)]
 
-    def test_an_archived_market_still_exports(self, sign_in, market, hall):
-        market.doc = stored_market(MarketPhase.ARCHIVED, roles=dict(ROLES))
-
-        response = _export(sign_in("viewer@example.com"), hall)
-
-        assert response.status_code == 200
-        assert response.mimetype == "image/png"
-
     @pytest.mark.parametrize("metadata", [None, {}])
-    @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
+    @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_an_image_that_names_no_market_is_not_found(
         self, sign_in, market, images, route, metadata,
     ):
@@ -526,16 +507,15 @@ class TestTheRoutesThatTakeAnImage:
         assert response.get_json() == {"error": "Image not found"}
         assert list(images.files) == [unowned]
 
-    @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
+    @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_an_unknown_image_is_not_found(self, sign_in, market, images, route):
         response = route(sign_in("owner@example.com"), str(ObjectId()))
 
         assert response.status_code == 404
         assert response.get_json() == {"error": "Image not found"}
 
-    @pytest.mark.parametrize("route", [_calibrate, _export], ids=["calibrate", "export"])
-    def test_an_image_id_that_is_not_a_string_is_refused(self, sign_in, market, hall, route):
-        response = route(sign_in("owner@example.com"), {"$ne": None})
+    def test_an_image_id_that_is_not_a_string_is_refused(self, sign_in, market, hall):
+        response = _calibrate(sign_in("owner@example.com"), {"$ne": None})
 
         assert response.status_code == 400
         assert response.get_json() == {"error": "gridfs_id (string) is required"}
@@ -548,7 +528,7 @@ class TestTheRoutesThatTakeAnImage:
 
         assert response.status_code == 403
 
-    @pytest.mark.parametrize("route", EVERY_ROUTE.values(), ids=EVERY_ROUTE.keys())
+    @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_a_route_without_a_session_is_asked_to_sign_in(
         self, market, hall, images, route,
     ):
@@ -1210,7 +1190,7 @@ class TestFillingAnArea:
 
 FLOORPLAN_BLUEPRINTS = {
     "floorplans", "floorplans_placement", "floorplans_templates", "floorplans_calibrate",
-    "floorplans_export", "floorplans_save",
+    "floorplans_save",
 }
 
 

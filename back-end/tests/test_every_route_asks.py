@@ -97,7 +97,6 @@ BODY_NAMES_THE_MARKET = {
 
 BODY_NAMES_THE_IMAGE = {
     ("POST", "/floorplans/calibrate"): "measures the image its body names",
-    ("POST", "/floorplans/export"): "draws on the image its body names",
 }
 
 LISTS = {

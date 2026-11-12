@@ -84,7 +84,7 @@ Read the market:
 - its applications
 - its result and tables
 - the statistics
-- the floorplan export
+- a location's layout, and its PNG
 - attendance
 - what each vendor owes and paid
 - the market's history, in Manage market, the assignment history and a vendor's drawer

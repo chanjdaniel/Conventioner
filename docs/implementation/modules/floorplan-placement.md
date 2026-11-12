@@ -8,7 +8,6 @@ describes:
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
   - back-end/api/floorplans_calibrate.py
-  - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
   - back-end/api/floorplans_access.py
   - back-end/api/floorplans_templates.py
@@ -59,6 +58,8 @@ describes:
   - front-end/src/components/layout/LayoutSavedTypesDialog.vue
   - front-end/src/components/layout/LayoutSaveTypesDialog.vue
   - front-end/src/components/layout/LayoutPanelZones.vue
+  - front-end/src/components/layout/exportLayoutPng.ts
+  - front-end/src/components/layout/LayoutExportDialog.vue
 verified: 2026-11-12
 sources:
   - bug/38
@@ -92,7 +93,7 @@ So the flow can be exercised end to end in CI with no API keys and no stubbing (
 ## The layout page
 
 [`LayoutView.vue`](../../../front-end/src/components/layout/LayoutView.vue) is `/markets/:marketId/layout/:locationId`, under the Market Setup tab, in the market's frame ([every market page has an address](../conventions/every-market-page-has-an-address.md)); with no location it opens the market's first named one.
-Its head row holds "Layout", the switch between the market's named locations (each a link to its own address, the one open marked `aria-current`), the save state ("Saved", "Saving…", or the failure with Retry, or the revision's refusal with Reload), the scale ("36.0 m across", or "Not calibrated") and "Back to Market Setup"; below it the map column and a 320px side panel, which goes under the map with less than 1100px of room (a container query on the page).
+Its head row holds "Layout", the switch between the market's named locations (each a link to its own address, the one open marked `aria-current`), the save state ("Saved", "Saving…", or the failure with Retry, or the revision's refusal with Reload), the scale ("36.0 m across", or "Not calibrated"), ["Export PNG"](#export-png) once the layout has a scale, and "Back to Market Setup"; below it the map column and a 320px side panel, which goes under the map with less than 1100px of room (a container query on the page).
 Before an image the map column is the upload's drop zone and the panel says "Upload the venue's floorplan for Upper Hall to start."; the first save, made as the image is chosen, starts the layout.
 Before a scale it is [`LayoutCalibration.vue`](../../../front-end/src/components/layout/LayoutCalibration.vue): the image in an SVG whose units are its pixels, a line drawn by drag (its ends draggable after) or by keyboard (a crosshair from the centre, the arrows, Enter for each end, a polite live region saying each step), a length in m, cm, mm, ft or in, and "Set the scale", whose arithmetic is [`calibration.ts`](../../../front-end/src/components/layout/calibration.ts): `scalePxPerUnit` is the line's pixels over its millimetres, from a line of at least 10 px.
 Recalibrate draws the line again from the stored one; a table keeps its millimetres, so the image is what moves under it.
@@ -114,8 +115,8 @@ The image is fetched with the session as a blob ([`useFloorplanImage.ts`](../../
 
 ## The drawing
 
-[`LayoutMap.vue`](../../../front-end/src/components/layout/LayoutMap.vue) is the one drawing of a layout, in SVG, for the page, and for the editor, the PNG export and any later map as T257's later tickets build them.
-Its props are the layout, its location's name, the plan's sections, the market's table types, the image as the page fetched it, `mode` (`read`, `edit` or `print`), `showImage` (unless told, the image is drawn in `read` and `edit` and left out of `print`), `view`, `selection`, `guides` and `carried`; it emits `activate` with a table's id and `focused` with the id of a table given the focus, and draws its default slot last, over the tables, in its millimetres, handing it the millimetres to a pixel.
+[`LayoutMap.vue`](../../../front-end/src/components/layout/LayoutMap.vue) is the one drawing of a layout, in SVG, for the page, the editor and [the PNG export](#export-png), and for any later map.
+Its props are the layout, its location's name, the plan's sections, the market's table types, the image as the page fetched it, `mode` (`read`, `edit` or `print`), `showImage` (unless told, the image is drawn in `read` and `edit` and left out of `print`), `view`, `selection`, `guides`, `carried` and `numbers` (unless told, each table carries its number); it emits `activate` with a table's id and `focused` with the id of a table given the focus, and draws its default slot last, over the tables, in its millimetres, handing it the millimetres to a pixel.
 It holds no editing state: its only state is which table has the focus and, in `read`, the part of the hall it was looked round to.
 
 - **Its units are millimetres** from the floorplan's top-left corner, so a table is its true size at any zoom: `view` is the part of the hall shown (the whole hall when not given, drawn whole inside the map's box), the image is drawn the hall wide, and a table is a rectangle about its centre, moved and turned by its group's `transform`.
@@ -140,6 +141,14 @@ It holds no editing state: its only state is which table has the focus and, in `
 - Each table is a component of its own ([`LayoutMapTable.vue`](../../../front-end/src/components/layout/LayoutMapTable.vue)) whose props are plain values, so a table whose values did not change is not drawn again when another does, and a pan, a change of `view` at the same zoom, changes the `viewBox` and no table.
 
 The geometry is pure, in [`layoutGeometry.ts`](../../../front-end/src/components/layout/layoutGeometry.ts) (a turned table's corners and box, the palette's order, a name's place, the arrow keys' focus, a number's size, and [the editor's](#the-editor)), and what the drawing says, in [`layoutDrawing.ts`](../../../front-end/src/components/layout/layoutDrawing.ts) (`layoutSections`, a location's sections with their colours and tables, which the map and the panel's list both read; a table's code and name; a place in metres to one decimal; a width of words in the app's type).
+
+## Export PNG
+
+"Export PNG", in the layout page's head once the layout has a scale, is for anyone who reads the market, in any phase, archived included, at a desk or on a phone.
+It opens [`LayoutExportDialog.vue`](../../../front-end/src/components/layout/LayoutExportDialog.vue) (on [`AppDialog`](../conventions/dialogs.md)): "Include the venue's floorplan" (unticked), "Show table numbers" (ticked), "Export" ("Exporting…" while it works) and "Cancel"; a failure says "The PNG could not be made. Try again." in the dialog's error line.
+[`exportLayoutPng.ts`](../../../front-end/src/components/layout/exportLayoutPng.ts) draws the layout as the page holds it, a change not saved yet included, into one standalone SVG 1600 px wide: the market's name in Merge One at 44 px (smaller, then cut with an ellipsis, when it would meet the right of the line), the location and the market's dates on the right ("Saturday 7 March", "7 to 8 March", "7 March to 4 April", "7, 14 and 21 March", by `getDatesInWords` in [`utils.ts`](../../../front-end/src/utils/utils.ts), calendar days in every time zone), the map, and a legend under it: each section with tables on the map (its swatch, name and tier), "In no section" when a table is in none, and "No tables" when the layout has zones.
+The map is `LayoutMap` in `print`, mounted off the screen at its size on the page (the page's width inside its 56 px margins, at the hall's shape, no taller than 8,000 px) and copied out standalone: each `var(--token)` resolved by `canvasColor()`, and each stroke the map holds at its screen size (`vector-effect: non-scaling-stroke`) written at that size in the map's millimetres, so the picture does not change with the size it is rendered at.
+The SVG embeds Outfit and Merge One as data URLs fetched from `/fonts/` (a font the server does not answer fails the export rather than drawing a fallback) and, when asked, the floorplan image as a data URL read with the session, so the canvas is never tainted; it is rendered on a canvas at twice its size, 3200 px wide, and saved through `saveFile` in [`download.ts`](../../../front-end/src/utils/download.ts) as `<market-slug>-<location-slug>-layout.png`, the market's slug or, with none, one made from its name.
 
 ## The editor
 
@@ -325,13 +334,12 @@ A route checks access right after it has read the id it is checked by, before th
 | `POST /floorplans/place-tables`                                                                           | Change Market Setup (EDITOR) on the `market_id` sent            | refused         |
 | `DELETE /floorplans/<id>`                                                                                 | Change Market Setup (EDITOR) on the image's market              | refused         |
 | `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | Change Market Setup (EDITOR) on the image's market              | refused         |
-| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py))          | the Read row (any role) on the image's market, signed in        | allowed         |
 | `GET /floorplans/<id>`                                                                                    | the Read row (any role) on the image's market, signed in        | allowed         |
 | `POST /floorplans/save-to-market`                                                                         | Change Market Setup (EDITOR); past draft, no seat changed (409) | refused         |
 
 The wizard's steps are an editor's work on a market that can still change, which is when the front end offers the wizard at all.
-**The export's audience is the people on the market**: it is a read of the plan, a rendering of the hall with its table codes, so it needs a sign-in and any role, and an archived market still exports.
-**The image read's audience is the people on the market too**: `GET /floorplans/<id>` asks the Read row on the image's market, as the export does, and an archived market's image still reads.
+**No route draws a layout**: the beta's `POST /floorplans/export`, which drew the tables on the image with PIL, is gone (T257), since [the PNG](#export-png) is drawn by the browser from the same drawing; its address is now an image id's, so a POST there answers 405.
+**The image read's audience is the people on the market**: `GET /floorplans/<id>` asks the Read row on the image's market, so anyone who reads the market reads its image, as the layout page and its PNG need, and an archived market's image still reads.
 It answers every refusal 404 "Image not found", a signed-in account with no role on the market included, so the answer never tells a stranger that an id names an image.
 Its readers, the layout page's [`useFloorplanImage.ts`](../../../front-end/src/components/layout/useFloorplanImage.ts) and [`FloorplanUploader.vue`](../../../front-end/src/components/layout/FloorplanUploader.vue), and the beta's [`FloorplanEditor.vue`](../../../front-end/src/components/floorplan/FloorplanEditor.vue) and [`ScaleCalibration.vue`](../../../front-end/src/components/floorplan/ScaleCalibration.vue), fetch it through the API client with the session's cookie, as a blob.
 The settled-setup refusal stays on save alone, and past draft only for a save that changes a seat, since only save writes a layout, whose tables are its sections' counts.
@@ -395,6 +403,7 @@ An area's cases run with the solver installed and with its import blocked, and a
 **Konva cannot read a CSS variable.**
 Handed `var(--mm-red)`, a canvas keeps painting with whatever colour it last had, silently.
 Pass a canvas colour through `canvasColor()` ([`front-end/src/utils/canvasColor.ts`](../../../front-end/src/utils/canvasColor.ts)), which resolves a `var(--name)` to the stylesheet's value at the moment of drawing and passes anything else, or a token the stylesheet lacks, through unchanged.
+An SVG drawn as an image reads no stylesheet either, so [the PNG export](#export-png) resolves the map's tokens through it too.
 
 **Nothing of the wizard reaches the market until the save, so leaving before it asks** (T271).
 The upload, the scale, the table types, the tables and the sections live in the page and the floorplan store until "Save & Continue", so a link, a market tab, Back or a reload dropped all of it with no word.

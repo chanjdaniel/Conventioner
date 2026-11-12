@@ -1,5 +1,6 @@
 /**
- * A file the server builds, saved by the browser: the assignment's CSV and the vendors' export.
+ * A file saved by the browser: one the server builds (the assignment's CSV and the vendors'
+ * export), or one the browser made (a layout's PNG).
  *
  * The request asks for a blob, so an error comes back as one too, and is read out of it here.
  */
@@ -40,7 +41,12 @@ export function saveCsv(
     (response.headers as Record<string, string | undefined>)['content-disposition'],
     fallbackName,
   );
-  const url = URL.createObjectURL(new Blob([response.data], { type: 'text/csv;charset=utf-8' }));
+  saveFile(new Blob([response.data], { type: 'text/csv;charset=utf-8' }), filename);
+}
+
+/** Save a file the browser made, such as a layout's PNG, under a name. */
+export function saveFile(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;

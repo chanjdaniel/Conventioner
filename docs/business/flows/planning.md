@@ -167,6 +167,7 @@ Only one table type is used by assignment in this release ([F6](form-tab.md#f6-t
 Past Draft, until the market is archived, the editor stays under the setup-settled sentence: tables are still moved and turned, and the zones, the image, the scale and the sections' colours and labels still change, while Add table, Row of tables, Fill an area, Duplicate, "Row of N…", Remove, the Section and Table type fields, Renumber and the table types' changes are disabled, and a location with no layout offers nothing to upload ([E7](#e7-edit-the-plan-after-draft)).
 No vendor's table changes: a table keeps its section and number wherever it stands.
 An archived market's layout, and a Viewer's in any phase, is read: the map and the sections with no toolbar, and the frame saying why.
+Anyone on the market exports a location's layout as a PNG to print or send, in any phase: "Export PNG" in the head row, with or without the venue's floorplan under the tables and with or without the tables' numbers, saves the market's name, the location and the market's dates over the map and a legend of its sections under it, 3200 px wide, named for the market and the location.
 Covered by:
 
 - `a-layout-after-draft.spec.ts`
@@ -176,6 +177,7 @@ Covered by:
 - `numbers-follow-the-rules.spec.ts`
 - `rows-and-areas-fill-a-hall.spec.ts`
 - `the-layout-draws-as-a-map.spec.ts`
+- `the-layout-exports-a-png.spec.ts`
 - `the-layout-takes-the-same-zone.spec.ts`
 - `what-to-show-and-when.spec.ts`
 

@@ -84,6 +84,53 @@ export function getDateRange(dates: readonly string[] | undefined | null): strin
   return pair(first, last, '-', ' - ') + extra;
 }
 
+/**
+ * When a market runs, in words for a printed page, the layout's PNG (T257): "Saturday 7 March" for
+ * one day, "7 to 8 March" or "7 March to 4 April" for days that follow each other, "7, 14 and 21
+ * March" or "28 March and 4 April" for days with gaps between them. A month is said once for its
+ * days; a year is said only of days across one ("31 December 2026 to 1 January 2027"), since a
+ * printed map is for the market at hand. Calendar days, by UTC arithmetic like every market date;
+ * nothing for a market with no date.
+ */
+export function getDatesInWords(dates: readonly string[] | undefined | null): string {
+  const days = [
+    ...new Set((dates ?? []).map((date) => calendarDay(date)?.getTime()).filter(isDefined)),
+  ]
+    .sort((a, b) => a - b)
+    .map((time) => new Date(time));
+  if (days.length === 0) return '';
+  const first = days[0];
+  const last = days[days.length - 1];
+  if (days.length === 1) return `${DAYS[first.getUTCDay()]} ${dayAndMonth(first)}`;
+  const years = first.getUTCFullYear() !== last.getUTCFullYear();
+  const said = (day: Date) =>
+    years ? `${dayAndMonth(day)} ${day.getUTCFullYear()}` : dayAndMonth(day);
+  const runs = days.every((day, i) => i === 0 || consecutive(days[i - 1], day));
+  if (runs) {
+    if (!years && first.getUTCMonth() === last.getUTCMonth())
+      return `${first.getUTCDate()} to ${dayAndMonth(last)}`;
+    return `${said(first)} to ${said(last)}`;
+  }
+  // Each day named, a month (and a year) said after its last day.
+  const named = days.map((day, i) => {
+    const next = days[i + 1];
+    const sameMonth =
+      next &&
+      next.getUTCMonth() === day.getUTCMonth() &&
+      next.getUTCFullYear() === day.getUTCFullYear();
+    return sameMonth ? String(day.getUTCDate()) : said(day);
+  });
+  return `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`;
+}
+
+function dayAndMonth(day: Date): string {
+  return `${day.getUTCDate()} ${MONTHS[day.getUTCMonth()]}`;
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
 /** A count and its noun, singular for one: "1 row", "3 table-days". */
 export function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;

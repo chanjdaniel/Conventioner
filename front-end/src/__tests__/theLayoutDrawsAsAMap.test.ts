@@ -549,4 +549,10 @@ describe('a press, by mode', () => {
     expect(map.emitted('activate')).toBeUndefined();
     expect(tableById(map, 'g1').get('[data-testid="layout-table-number"]').text()).toBe('1');
   });
+
+  it('leaves the numbers out when asked, every table still drawn', () => {
+    const map = draw({ mode: 'print', numbers: false });
+    expect(map.findAll('[data-testid="layout-table-number"]')).toHaveLength(0);
+    expect(tables(map)).toHaveLength(6);
+  });
 });

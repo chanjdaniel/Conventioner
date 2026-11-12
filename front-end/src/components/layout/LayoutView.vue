@@ -5,7 +5,8 @@
  *
  * The head row says where it is and how it stands: "Layout", the switch between the market's
  * named locations (each a link to its own address), the save state and the scale ("36.0 m
- * across", or "Not calibrated"), and the way back to Market Setup. Below it the map column and the
+ * across", or "Not calibrated"), "Export PNG" once the layout has a scale, for anyone who reads it
+ * (`LayoutExportDialog.vue`, `exportLayoutPng.ts`), and the way back to Market Setup. Below it the map column and the
  * side panel, the panel going under the map with less than 1100px of room.
  *
  * A location's layout begins with its floorplan: before an image the map column is the upload's
@@ -51,6 +52,7 @@ import { layoutPath, marketPath } from '@/utils/market';
 import FloorplanUploader from './FloorplanUploader.vue';
 import LayoutCalibration from './LayoutCalibration.vue';
 import LayoutEditor from './LayoutEditor.vue';
+import LayoutExportDialog from './LayoutExportDialog.vue';
 import LayoutMap from './LayoutMap.vue';
 import LayoutPanelKeyboard from './LayoutPanelKeyboard.vue';
 import LayoutPanelSections from './LayoutPanelSections.vue';
@@ -72,6 +74,7 @@ import {
   useAnnouncements,
 } from './layoutAnnouncements';
 import { layoutSections } from './layoutDrawing';
+import { exportLayoutPng } from './exportLayoutPng';
 import { LAYOUT_IS_FULL, placeTables } from './layoutFill';
 import { STANDARD_TABLE, hallOf } from './layoutGeometry';
 import {
@@ -593,6 +596,45 @@ const typesOrganization = () =>
   market.value?.inOrganization ? (market.value.organizationId ?? null) : null;
 const listSaved = () => listSavedTypes(typesOrganization());
 const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, typesOrganization());
+
+// ── Export PNG ───────────────────────────────────────────────────────────────
+
+const exportOpen = ref(false);
+const exporting = ref(false);
+const exportError = ref('');
+
+function openExport() {
+  exportError.value = '';
+  exportOpen.value = true;
+}
+
+/** The layout as the page shows it, its last change saved or not, made into a PNG and saved. */
+async function exportPng(choice: { withImage: boolean; withNumbers: boolean }) {
+  const layout = floorplan.value;
+  const place = location.value;
+  if (!market.value || !layout || !place || exporting.value) return;
+  exporting.value = true;
+  exportError.value = '';
+  try {
+    await exportLayoutPng({
+      market: {
+        name: market.value.name,
+        slug: market.value.slug,
+        dates: (market.value.setupObject?.marketDates ?? []).map((day) => day.date),
+      },
+      location: place,
+      layout,
+      sections: market.value.setupObject?.sections ?? [],
+      tableTypes: tableTypes.value,
+      ...choice,
+    });
+    exportOpen.value = false;
+  } catch {
+    exportError.value = 'The PNG could not be made. Try again.';
+  } finally {
+    exporting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -653,6 +695,15 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
           <p v-if="location && floorplan" class="layout-scale" data-testid="layout-scale">
             {{ scaleText }}
           </p>
+          <button
+            v-if="location && calibrated"
+            type="button"
+            class="btn btn--secondary"
+            data-testid="layout-export-open"
+            @click="openExport"
+          >
+            Export PNG
+          </button>
           <RouterLink
             :to="marketPath(market.id, 'setup')"
             class="btn btn--secondary"
@@ -931,6 +982,15 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
           </template>
         </aside>
       </div>
+      <LayoutExportDialog
+        v-if="location"
+        :open="exportOpen"
+        :locationName="location.name"
+        :busy="exporting"
+        :error="exportError"
+        @close="exportOpen = false"
+        @export="exportPng"
+      />
       <p
         v-if="editing"
         class="visually-hidden"

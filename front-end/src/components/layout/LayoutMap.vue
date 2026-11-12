@@ -94,6 +94,8 @@ const props = withDefaults(
     guides?: readonly MapGuide[];
     /** The ids of the tables picked up by keyboard, drawn lifted in `edit`. */
     carried?: readonly string[];
+    /** Whether each table carries its number; a printed map may leave them out. */
+    numbers?: boolean;
   }>(),
   {
     imageUrl: '',
@@ -102,6 +104,7 @@ const props = withDefaults(
     selection: () => [],
     guides: () => [],
     carried: () => [],
+    numbers: true,
   },
 );
 
@@ -354,7 +357,7 @@ const tables = computed<DrawnTable[]>(() => {
   ): DrawnTable => {
     const type = typeById.value.get(table.tableTypeId);
     const size = type ?? STANDARD_TABLE;
-    const number = section && table.number !== null ? String(table.number) : '';
+    const number = props.numbers && section && table.number !== null ? String(table.number) : '';
     return {
       id: table.id,
       name: tableName(table, section, type),

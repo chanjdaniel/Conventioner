@@ -244,7 +244,8 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * panel's list of keys open, with a row being drawn by the crosshair, with a curve drawn by hand
  * waiting with its points, with an L-shaped area's
  * corners clicked for Fill an area, with that area closed and its dialog open, with a table type's
- * dialog open, and with the image being replaced; and the settled seed's Upper Hall past Draft,
+ * dialog open, and with the image being replaced; with Export PNG's dialog open, at a desk and
+ * on a phone; and the settled seed's Upper Hall past Draft,
  * a table selected under the setup-settled sentence, with what would change a seat disabled.
  * Nothing is saved, so each walk finds them as seeded.
  */
@@ -265,6 +266,7 @@ function layoutAt(
     | 'fillShape'
     | 'fillDialog'
     | 'typeDialog'
+    | 'exportDialog'
     | 'replacing'
     | 'settled',
 ) {
@@ -381,6 +383,12 @@ function layoutAt(
         await layout.chooseForType('Standard 6 ft', 'Edit');
         await expect(layout.typeDialog).toBeVisible();
         await expect(layout.typeName).toBeFocused();
+      }
+      if (stage === 'exportDialog') {
+        // Export PNG's dialog, its two ticks as it opens.
+        await layout.exportOpen.click();
+        await expect(layout.exportDialog).toBeVisible();
+        await expect(layout.exportNumbers).toBeChecked();
       }
       if (stage === 'replacing') {
         // "Replace the image": the upload's drop zone in the map's place, and the way back.
@@ -1470,6 +1478,13 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     deskOnly: true,
     open: layoutAt('typeDialog'),
+  },
+  // Export PNG (T257), for anyone who reads the layout, on a phone too.
+  {
+    name: "the layout, Export PNG's dialog",
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: layoutAt('exportDialog'),
   },
   {
     name: 'the layout, its image being replaced',
