@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * The filter toggles (T200): `FilterToggles`, the one row eight of the ten toggle places each draw
+ * The filter toggles (T200): `FilterToggles`, the one row eight of the nine toggle places each draw
  * their own way, on the fixture's counts. It opens on Applications All's status filter, today's row
  * beside the proposed one with what each status holds, then a view switch and several phases at
- * once, the states a row meets, and all ten places, of which it would replace the first eight.
+ * once, the states a row meets, and all nine places, of which it would replace the first eight.
  * Pressing the chosen toggle again lets it go, in every row. Every row here is the real component;
  * the line under each reads out what it holds, so a press is seen to land.
  */
@@ -250,7 +250,7 @@ const PLACES = [
 
   <LibrarySection
     :title="`The ${PLACES.length} places today`"
-    about="How each draws it today. It would replace the first eight, rows of pressed buttons; the last two are no row, and stay the controls they are. No screen changes here."
+    about="How each draws it today. It would replace the first eight, rows of pressed buttons; the last is no row, and stays the control it is. No screen changes here."
   >
     <ol class="library-places">
       <li
