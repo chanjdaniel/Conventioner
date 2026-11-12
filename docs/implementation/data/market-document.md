@@ -31,7 +31,7 @@ describes:
   - back-end/datatypes.py#TableTypeObject
   - back-end/api/markets.py#new_market
   - back-end/tests/test_the_market_create_body_is_an_allow_list.py
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - E02
   - E03/F03
@@ -203,7 +203,7 @@ Ownership of a market cannot be handed on: no write changes the `owner` entry of
 **A new market takes from its create body only the fields a person chooses at creation**, `MARKET_CREATE_FIELDS` in [`back-end/api/markets.py`](../../../back-end/api/markets.py): `name`, `creationDate`, `organizationId`, `intakeMode`, `setupObject` and `applicationForm`.
 `new_market` builds the market from those alone, and every other field starts at its default, so a field added to `Market` is the server's until someone lists it, as the plan write reads only the plan (`PLAN_WRITE_FIELDS`).
 A key outside the list is dropped, not refused, since a tab still open on an earlier build sends the whole new-market object.
-A plan in the body is refused as the plan write refuses one (`_plan_refusal`: the half-table share's bounds, the prices, the floorplans), judged against a market holding no plan yet, so every floorplan is held to the bounds and one naming an image is refused, since no image was uploaded for a market that does not yet exist.
+A plan in the body is made as the plan write makes one, against a market holding no plan yet: its floorplans and table types are dropped, since only a layout's own write passes them ([floorplan placement](../modules/floorplan-placement.md)), and the rest is refused as the plan write refuses it (`_plan_refusal`: the half-table share's bounds and the prices).
 The server writes the rest itself: a new `id`, `roles` holding the creator alone as owner ([the organization document](organization-document.md#roles-on-a-market)), the dated `draft` entry of `phaseHistory` ([the phase record](../modules/phase-record.md)), and `permissions` copied from the organization's default.
 [`back-end/tests/test_the_market_create_body_is_an_allow_list.py`](../../../back-end/tests/test_the_market_create_body_is_an_allow_list.py) posts a value for every field of `Market` and fails on a field it has no value for.
 

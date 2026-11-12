@@ -1314,14 +1314,16 @@ def create_market(market: Market, owner_email: str) -> tuple:
     normalization as ``save_application_form``: one contract for every writer of the form.
     """
     market = new_market(market.model_dump(), market.roles)
-    # Its plan is held to what the plan write holds every plan to, judged against the market as it
-    # stands before it holds one: every floorplan is new, and none names an image uploaded for it.
-    refusal = (
-        _plan_refusal(market.model_copy(update={"setup_object": None}), market.setup_object)
-        if market.setup_object else None
-    )
-    if refusal:
-        raise BadRequestError(refusal)
+    # Its plan is held to what the plan write holds every plan to, and made as the plan write makes
+    # it, against the market as it stands before it holds one: the body's floorplans and table types
+    # are dropped, since only a layout's own write passes them, and its counts are derived (T257).
+    if market.setup_object:
+        plan, _removed = _with_the_layouts(
+            market.model_copy(update={"setup_object": None}), market.setup_object, None, None)
+        refusal = _plan_refusal(plan)
+        if refusal:
+            raise BadRequestError(refusal)
+        market = market.model_copy(update={"setup_object": plan})
     market_dict = market.model_dump()
     # Server-owned: the one entry every market starts with (E26/F06/S03).
     market_dict["phase_history"] = [

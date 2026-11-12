@@ -58,7 +58,7 @@ describes:
   - front-end/src/components/layout/LayoutSavedTypesDialog.vue
   - front-end/src/components/layout/LayoutSaveTypesDialog.vue
   - front-end/src/components/layout/LayoutPanelZones.vue
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - bug/38
   - E26/F09/S01
@@ -422,6 +422,7 @@ Every writer of the plan, the plan write, a layout's save, the table types write
 **A floorplan is held to its bounds wherever it is written.**
 [`back-end/floorplan_limits.py`](../../../back-end/floorplan_limits.py) is the one statement of them, and `prepared_plan` asks it of the floorplans a layout's write passes, before a floorplan of a location gone is dropped, so the bounds answer first: with 400 and one sentence for more than 20 floorplans on a market, more than 1,000 tables, 100 no-table zones, 200 section styles or 200 starting counts, a string over 200 characters, or a number that is not finite or past 10,000,000 by absolute value ("A floorplan's measurements must be finite numbers no larger than 10,000,000.").
 `table_types_refusal()` holds the market's table types the same way when a write passes them: at most 50, each side 100 mm to 20,000 mm, and the same walk; `MAX_UPLOAD_BYTES` (4,000,000), `MAX_PDF_PAGES` (20) and `MAX_PDF_PAGE_SIDE_PX` (8,000) are stated there, the first two with their sentences, for the upload.
+A new market's create body (`create_market`) is made as the plan write makes a plan, against a market holding none: its floorplans and table types are dropped, since only a layout's own write passes them, and `_plan_refusal` judges the rest as it does for `prepared_plan`.
 `floorplan_refusal()` finds the strings and numbers by walking the floorplan's model dump, so a field added to `FloorplanObject` later is bounded with no new line; the list bounds are named one by one.
 `NaN` and `Infinity` pass Flask's JSON reader and a float field alike, and a market holding one is echoed back by the market read as bare tokens that are not JSON, so the browser could not read the market at all (Market Setup said "This market could not be loaded.").
 **The bounds are the request's, never the stored model's**: `datatypes.py` gains no constraint, since one there would make a market already holding a larger floorplan fail to read.
