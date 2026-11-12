@@ -18,7 +18,7 @@ import stylelint from 'stylelint';
 
 const RULE = 'declaration-property-value-allowed-list';
 const VIEW = 'src/views/LoginView.vue';
-const BETA = 'src/components/floorplan/SaveFlow.vue';
+const COMPONENT = 'src/components/layout/LayoutEditor.vue';
 
 async function findings(file: string, declaration: string) {
   const { results } = await stylelint.lint({
@@ -101,7 +101,7 @@ describe('margins, paddings and gaps keep to the spacing scale', () => {
     expect(await spacingFindings(VIEW, declaration)).toHaveLength(1);
   });
 
-  it.each([VIEW, BETA])('names the tokens when it refuses a value in %s', async (file) => {
+  it.each([VIEW, COMPONENT])('names the tokens when it refuses a value in %s', async (file) => {
     const [finding] = await spacingFindings(file, 'padding: 10px');
 
     expect(finding.text).toContain('--space-*');
@@ -114,8 +114,8 @@ describe('margins, paddings and gaps keep to the spacing scale', () => {
     'font-size: 13px',
     'border-radius: 8px',
     'box-shadow: 0 1px 2px black',
-  ])('refuses %s as an error in every file, the floorplan beta too', async (declaration) => {
-    for (const file of [VIEW, BETA]) {
+  ])('refuses %s as an error in every file', async (declaration) => {
+    for (const file of [VIEW, COMPONENT]) {
       const severities = (await findings(file, declaration)).map((w) => w.severity);
 
       expect(severities).toEqual(['error']);
@@ -135,7 +135,7 @@ describe('margins, paddings and gaps keep to the spacing scale', () => {
       '--report-needless-disables',
     ],
   ])('refuses a disable %s', async (_case, declaration, report) => {
-    const reported = (await findings(BETA, declaration)).map((w) => [w.rule, w.severity]);
+    const reported = (await findings(COMPONENT, declaration)).map((w) => [w.rule, w.severity]);
 
     expect(reported).toEqual([[report, 'error']]);
   });
@@ -143,6 +143,6 @@ describe('margins, paddings and gaps keep to the spacing scale', () => {
   it('lets a disable with its reason and a value to disable go by', async () => {
     const declaration = `/* stylelint-disable-next-line ${RULE} -- a reason */\n  padding: 10px`;
 
-    expect(await findings(BETA, declaration)).toEqual([]);
+    expect(await findings(COMPONENT, declaration)).toEqual([]);
   });
 });

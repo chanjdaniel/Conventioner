@@ -11,6 +11,10 @@
  * The `trigger` slot puts words on the button in place of the dots (the app bar's account menu,
  * T209), with the same keys, presses and focus: the words then name the button, as a control's
  * words do, and `label` names the open menu alone.
+ *
+ * `disabled` makes the dots the one disabled state (`.btn:disabled`'s beige inside a
+ * `--mm-border` line), for a row whose actions may not be taken now; the line is carried at rest,
+ * transparent, so nothing moves when it appears.
  */
 import { nextTick, onUnmounted, ref, useId, watch } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
@@ -23,6 +27,7 @@ const props = defineProps<{
   label: string;
   items: readonly { id: string; label: string; destructive?: boolean }[];
   testid: string;
+  disabled?: boolean;
 }>();
 const emit = defineEmits<{ select: [id: string] }>();
 
@@ -113,6 +118,7 @@ const menuId = `${props.testid}-${useId()}-menu`;
       aria-haspopup="menu"
       :aria-controls="menuId"
       :aria-expanded="open"
+      :disabled="disabled"
       :data-testid="`${testid}-button`"
       @click="open = !open"
     >
@@ -164,7 +170,7 @@ const menuId = `${props.testid}-${useId()}-menu`;
   min-width: var(--target-min);
   min-height: var(--target-min);
   padding: 0;
-  border: none;
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: none;
   color: var(--mm-text-muted);
@@ -182,14 +188,24 @@ const menuId = `${props.testid}-${useId()}-menu`;
   max-width: 100%;
   height: 32px;
   padding: 0 var(--space-2);
+  /* No line at rest, so the words' box keeps its size: only the dots are ever disabled, and the
+     contrast sweep fails a disabled box that draws no line. */
+  border: none;
   color: var(--mm-black);
   font-size: var(--text-sm);
 }
 
-.row-menu-button:hover,
+.row-menu-button:hover:not(:disabled),
 .row-menu-button[aria-expanded='true'] {
   background: var(--mm-beige);
   color: var(--mm-black);
+}
+
+.row-menu-button:disabled {
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
+  cursor: not-allowed;
 }
 
 .row-menu-list {

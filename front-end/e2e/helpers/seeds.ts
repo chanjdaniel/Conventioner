@@ -526,6 +526,8 @@ export const UPPER_HALL_ZONES: SeedZone[] = [
   { label: 'Stage', box: [12_000, 600, 8000, 3000] },
   { label: '', box: [9000, 15_000, 600, 600] },
 ];
+/** Upper Hall's tables but the one in no section, which a market leaving Draft may not have. */
+export const UPPER_HALL_SECTIONED_TABLES = UPPER_HALL_TABLES.filter((table) => table.section);
 
 /** A table of a layout, as the server stores it. */
 export interface StoredLayoutTable {
@@ -555,10 +557,9 @@ export async function storedLayoutTables(
 /**
  * A draft market with two locations laid out for (T257): Upper Hall with Gold row (13 tables) and
  * Silver aisle (6), Lower Hall with Bronze corner (4), and a third location with no name, which
- * offers no layout. Upper Hall's layout is started when asked: its floorplan
- * `fixtures/test-floorplan.png` uploaded and saved, and calibrated to `metresAcross` when given.
- * On a calibrated layout `tables` and `zones` are placed by a second save, each table of the
- * market's first table type, the "Standard 6 ft" the layout's start gave it.
+ * offers no layout. Upper Hall's layout is started when asked (`startLayout`), calibrated to
+ * `metresAcross` when given, with `tables` and `zones` on it. `intakeMode` is how vendors reach it;
+ * absent, a CSV market, as the server reads it.
  */
 export async function seedLayout(
   request: APIRequestContext,
@@ -571,10 +572,11 @@ export async function seedLayout(
     metresAcross?: number;
     tables?: SeedTable[];
     zones?: SeedZone[];
+    intakeMode?: 'csv' | 'form';
+    /** The market's one date, `SEED_MARKET_DATE` unless given. */
+    marketDate?: string;
   } = {},
 ): Promise<SeededLayout> {
-  if ((options.tables?.length || options.zones?.length) && !options.metresAcross)
-    throw new Error('seedLayout places tables and zones only on a calibrated layout');
   await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL);
   const marketName = options.name ?? uniqueMarketName('Layout Market');
@@ -589,8 +591,9 @@ export async function seedLayout(
       roles: { [email]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
       setupObject: {
-        ...completePlan(),
+        ...completePlan(options.marketDate),
         tiers: [gold, silver],
         locations: [UPPER_HALL, LOWER_HALL, { id: 'loc-unnamed', name: '' }],
         sections: [
@@ -605,89 +608,151 @@ export async function seedLayout(
     throw new Error(`Market creation failed: ${created.status()} ${await created.text()}`);
   const { market_id: marketId } = (await created.json()) as { market_id: string };
 
-  let layout: SeededLayout['layout'] = null;
-  if (options.layout || options.metresAcross) {
-    const uploaded = await request.post(`${baseURL}/floorplans/upload`, {
-      multipart: {
+  const layout =
+    options.layout || options.metresAcross
+      ? await startLayout(request, baseURL, marketId, {
+          id: `fp-${marketId}`,
+          locationId: UPPER_HALL.id,
+          metresAcross: options.metresAcross,
+          tables: options.tables,
+          zones: options.zones,
+        })
+      : null;
+  return { marketId, marketName, upper: UPPER_HALL, lower: LOWER_HALL, layout };
+}
+
+/**
+ * A layout past Draft (T257): `seedLayout`'s market, taking applications on its own page, Upper
+ * Hall laid out in Draft with every table in a section (`UPPER_HALL_SECTIONED_TABLES`) and its
+ * zones, then moved on by its owner to Applications, and to Archived when asked.
+ */
+export async function seedSettledLayout(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  password: string,
+  phase: 'applications' | 'archived' = 'applications',
+): Promise<SeededLayout> {
+  const seeded = await seedLayout(request, baseURL, email, password, {
+    metresAcross: 30,
+    tables: UPPER_HALL_SECTIONED_TABLES,
+    zones: UPPER_HALL_ZONES,
+    intakeMode: 'form',
+  });
+  await saveApplicationForm(request, baseURL, seeded.marketId, MINIMAL_APPLICATION_FORM);
+  await decideReviewSetup(request, baseURL, seeded.marketId);
+  for (const toPhase of phase === 'archived' ? ['applications', 'archived'] : ['applications']) {
+    const moved = await request.post(`${baseURL}/markets/${seeded.marketId}/transition`, {
+      headers: { 'Content-Type': 'application/json' },
+      data: { toPhase },
+    });
+    if (!moved.ok())
+      throw new Error(`Transition to ${toPhase} failed: ${moved.status()} ${await moved.text()}`);
+  }
+  return seeded;
+}
+
+/**
+ * Start a location's layout on a market in Draft, as the layout page does (T257): its floorplan
+ * `fixtures/test-floorplan.png` uploaded and saved, and calibrated to `metresAcross` when given. On
+ * a calibrated layout `tables` and `zones` are placed by a second save, each table of the market's
+ * first table type, the "Standard 6 ft" the layout's start gave a market with none, its section
+ * named by id and numbered 1 to N in each section in the order given. The layout as stored: its id
+ * and its revision.
+ */
+export async function startLayout(
+  request: APIRequestContext,
+  baseURL: string,
+  marketId: string,
+  options: {
+    locationId: string;
+    id?: string;
+    metresAcross?: number;
+    tables?: { section: string | null; at: [number, number]; rotation?: number }[];
+    zones?: SeedZone[];
+  },
+): Promise<{ id: string; revision: number }> {
+  if ((options.tables?.length || options.zones?.length) && !options.metresAcross)
+    throw new Error('startLayout places tables and zones only on a calibrated layout');
+  const uploaded = await request.post(`${baseURL}/floorplans/upload`, {
+    multipart: {
+      market_id: marketId,
+      file: {
+        name: 'hall.png',
+        mimeType: 'image/png',
+        buffer: readFileSync(LAYOUT_FLOORPLAN_PATH),
+      },
+    },
+  });
+  if (!uploaded.ok())
+    throw new Error(`Upload failed: ${uploaded.status()} ${await uploaded.text()}`);
+  const image = (await uploaded.json()) as { gridfs_id: string; width: number; height: number };
+  const floorplan = {
+    id: options.id ?? `fp-${options.locationId}-${marketId}`,
+    locationId: options.locationId,
+    revision: 0,
+    imageGridfsId: image.gridfs_id,
+    imageWidth: image.width,
+    imageHeight: image.height,
+    tables: [],
+    zones: [],
+    sectionStyles: [],
+    startingCounts: [],
+    ...(options.metresAcross
+      ? {
+          scalePxPerUnit: image.width / (options.metresAcross * 1000),
+          referenceLineStart: [0, image.height / 2],
+          referenceLineEnd: [image.width, image.height / 2],
+          referenceLineLengthMm: options.metresAcross * 1000,
+        }
+      : {}),
+  };
+  const saved = await request.post(`${baseURL}/floorplans/save-to-market`, {
+    data: { market_id: marketId, floorplan, revision: 0 },
+  });
+  if (!saved.ok()) throw new Error(`Layout save failed: ${saved.status()} ${await saved.text()}`);
+  let answer = (await saved.json()) as { floorplan: { id: string; revision: number } };
+
+  if (options.tables?.length || options.zones?.length) {
+    const read = await request.get(`${baseURL}/markets/${marketId}`);
+    if (!read.ok()) throw new Error(`Market read failed: ${read.status()} ${await read.text()}`);
+    const { market } = (await read.json()) as {
+      market: { setupObject: { tableTypes?: { id: string }[] } };
+    };
+    const typeId = market.setupObject.tableTypes?.[0]?.id;
+    if (!typeId) throw new Error("The layout's start gave the market no table type");
+    const numbers = new Map<string, number>();
+    const tables = (options.tables ?? []).map((table, i) => {
+      const number = table.section ? (numbers.get(table.section) ?? 0) + 1 : null;
+      if (table.section && number) numbers.set(table.section, number);
+      return {
+        id: `table-${i + 1}`,
+        sectionId: table.section,
+        number,
+        tableTypeId: typeId,
+        xMm: table.at[0],
+        yMm: table.at[1],
+        rotation: table.rotation ?? 0,
+      };
+    });
+    const zones = (options.zones ?? []).map((zone, i) => ({
+      id: `zone-${i + 1}`,
+      label: zone.label,
+      xMm: zone.box[0],
+      yMm: zone.box[1],
+      widthMm: zone.box[2],
+      depthMm: zone.box[3],
+    }));
+    const placed = await request.post(`${baseURL}/floorplans/save-to-market`, {
+      data: {
         market_id: marketId,
-        file: {
-          name: 'hall.png',
-          mimeType: 'image/png',
-          buffer: readFileSync(LAYOUT_FLOORPLAN_PATH),
-        },
+        floorplan: { ...answer.floorplan, tables, zones },
+        revision: answer.floorplan.revision,
       },
     });
-    if (!uploaded.ok())
-      throw new Error(`Upload failed: ${uploaded.status()} ${await uploaded.text()}`);
-    const image = (await uploaded.json()) as { gridfs_id: string; width: number; height: number };
-    const floorplan = {
-      id: `fp-${marketId}`,
-      locationId: UPPER_HALL.id,
-      revision: 0,
-      imageGridfsId: image.gridfs_id,
-      imageWidth: image.width,
-      imageHeight: image.height,
-      tables: [],
-      zones: [],
-      sectionStyles: [],
-      startingCounts: [],
-      ...(options.metresAcross
-        ? {
-            scalePxPerUnit: image.width / (options.metresAcross * 1000),
-            referenceLineStart: [0, image.height / 2],
-            referenceLineEnd: [image.width, image.height / 2],
-            referenceLineLengthMm: options.metresAcross * 1000,
-          }
-        : {}),
-    };
-    const saved = await request.post(`${baseURL}/floorplans/save-to-market`, {
-      data: { market_id: marketId, floorplan, revision: 0 },
-    });
-    if (!saved.ok()) throw new Error(`Layout save failed: ${saved.status()} ${await saved.text()}`);
-    let answer = (await saved.json()) as { floorplan: { id: string; revision: number } };
-
-    if (options.tables?.length || options.zones?.length) {
-      const read = await request.get(`${baseURL}/markets/${marketId}`);
-      if (!read.ok()) throw new Error(`Market read failed: ${read.status()} ${await read.text()}`);
-      const { market } = (await read.json()) as {
-        market: { setupObject: { tableTypes?: { id: string }[] } };
-      };
-      const typeId = market.setupObject.tableTypes?.[0]?.id;
-      if (!typeId) throw new Error("The layout's start gave the market no table type");
-      const numbers = new Map<string, number>();
-      const tables = (options.tables ?? []).map((table, i) => {
-        const number = table.section ? (numbers.get(table.section) ?? 0) + 1 : null;
-        if (table.section && number) numbers.set(table.section, number);
-        return {
-          id: `table-${i + 1}`,
-          sectionId: table.section,
-          number,
-          tableTypeId: typeId,
-          xMm: table.at[0],
-          yMm: table.at[1],
-          rotation: table.rotation ?? 0,
-        };
-      });
-      const zones = (options.zones ?? []).map((zone, i) => ({
-        id: `zone-${i + 1}`,
-        label: zone.label,
-        xMm: zone.box[0],
-        yMm: zone.box[1],
-        widthMm: zone.box[2],
-        depthMm: zone.box[3],
-      }));
-      const placed = await request.post(`${baseURL}/floorplans/save-to-market`, {
-        data: {
-          market_id: marketId,
-          floorplan: { ...answer.floorplan, tables, zones },
-          revision: answer.floorplan.revision,
-        },
-      });
-      if (!placed.ok())
-        throw new Error(`Layout save failed: ${placed.status()} ${await placed.text()}`);
-      answer = (await placed.json()) as typeof answer;
-    }
-    layout = { id: answer.floorplan.id, revision: answer.floorplan.revision };
+    if (!placed.ok())
+      throw new Error(`Layout save failed: ${placed.status()} ${await placed.text()}`);
+    answer = (await placed.json()) as typeof answer;
   }
-  return { marketId, marketName, upper: UPPER_HALL, lower: LOWER_HALL, layout };
+  return { id: answer.floorplan.id, revision: answer.floorplan.revision };
 }

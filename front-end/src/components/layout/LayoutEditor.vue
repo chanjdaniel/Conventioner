@@ -59,6 +59,10 @@
  * and Enter places the row and Escape drops it. With Fill an area on, the crosshair lays a shape's
  * corners the same way, and Ctrl and Enter closes it. Each move, turn, placement and removal is
  * said (`announce`) for the page's live region.
+ *
+ * Past Draft (`settled`) a table's seat is settled: Add table, Row of tables and Fill an area are
+ * disabled, and Delete and Ctrl+D do nothing; Select, No-table zone, undo and the view stay, so
+ * tables still move and turn.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue';
 import type { FloorplanTable, SectionObject, TableTypeObject } from '@/assets/types/datatypes';
@@ -155,8 +159,10 @@ const props = withDefaults(
     showImage?: boolean;
     /** Ask the placement to fill an area of this market's layout (`layoutFill.ts`). */
     fill?: (request: FillRequest) => Promise<FillAnswer>;
+    /** Whether the market has left Draft, so no table is added or removed here. */
+    settled?: boolean;
   }>(),
-  { imageUrl: '', showImage: true, fill: undefined },
+  { imageUrl: '', showImage: true, fill: undefined, settled: false },
 );
 
 const emit = defineEmits<{
@@ -195,6 +201,15 @@ const tableOf = (id: string | null) =>
 
 type Tool = 'select' | 'add' | 'row' | 'fill' | 'zone';
 const tool = ref<Tool>('select');
+/** The tools that add tables, which past Draft are disabled. */
+const ADDING: readonly string[] = ['add', 'row', 'fill'];
+// The market left Draft with one of them on: its path or area goes, and Select is on.
+watch(
+  () => props.settled,
+  (settled) => {
+    if (settled && ADDING.includes(tool.value)) tool.value = 'select';
+  },
+);
 
 /** The location's sections as the map draws them, by which a table is named when it is said. */
 const drawnSections = computed(() => layoutSections(layout.value, props.sections));
@@ -304,7 +319,10 @@ const hint = computed(() => {
     }
     return tool.value === 'add'
       ? 'Enter places a table at the middle of the view. The arrow keys move between tables.'
-      : 'The arrow keys move between tables. Enter picks a table up to move it, ' +
+      : props.settled
+        ? 'The arrow keys move between tables. Enter picks a table up to move it, and Shift and ' +
+          'Enter selects it.'
+        : 'The arrow keys move between tables. Enter picks a table up to move it, ' +
           'Shift and Enter selects it, and Delete removes the selection.';
   }
   if (tool.value === 'row') {
@@ -1244,6 +1262,7 @@ function targets(): string[] {
 }
 
 function removeByKey() {
+  if (props.settled) return;
   const ids = targets();
   const going = tablesOf(ids);
   if (!going.length) return;
@@ -1253,6 +1272,7 @@ function removeByKey() {
 
 /** Duplicate what the keys act on; the copies are selected, and the focus goes with them. */
 function duplicateByKey() {
+  if (props.settled) return;
   const hadFocus = focusedTable() !== null;
   const originals = targets();
   const copies = props.editor.duplicate(originals);
@@ -1784,7 +1804,8 @@ function toolbarButtons(): HTMLButtonElement[] {
 const effectiveStop = computed(() => {
   const off =
     (toolbarStop.value === 'undo' && !canUndo.value) ||
-    (toolbarStop.value === 'redo' && !canRedo.value);
+    (toolbarStop.value === 'redo' && !canRedo.value) ||
+    (props.settled && ADDING.includes(toolbarStop.value));
   return off ? 'select' : toolbarStop.value;
 });
 
@@ -1958,6 +1979,7 @@ watch(
         data-tool="add"
         data-testid="layout-tool-add"
         :aria-pressed="tool === 'add'"
+        :disabled="settled"
         :tabindex="effectiveStop === 'add' ? 0 : -1"
         @click="tool = 'add'"
       >
@@ -1969,6 +1991,7 @@ watch(
         data-tool="row"
         data-testid="layout-tool-row"
         :aria-pressed="tool === 'row'"
+        :disabled="settled"
         :tabindex="effectiveStop === 'row' ? 0 : -1"
         @click="tool = 'row'"
       >
@@ -1980,6 +2003,7 @@ watch(
         data-tool="fill"
         data-testid="layout-tool-fill"
         :aria-pressed="tool === 'fill'"
+        :disabled="settled"
         :tabindex="effectiveStop === 'fill' ? 0 : -1"
         @click="tool = 'fill'"
       >

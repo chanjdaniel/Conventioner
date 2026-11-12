@@ -9,7 +9,7 @@ describes:
   - front-end/src/__tests__/theAppOwnsItsComponents.test.ts
   - front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts
   - front-end/src/components/SearchPicker.vue
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - T45
   - E38/F08/S03
@@ -41,7 +41,8 @@ The app owns its components and its icons, and depends on no component library o
 
 - A dialog is [`AppDialog`](../../front-end/src/components/AppDialog.vue); a text field is `.field`; a number is a native `<input type="number">`; a choice of a few is native radios in a `<fieldset>` with a `<legend>`.
 - An icon is a local SVG component in [`src/components/icons/`](../../front-end/src/components/icons/), drawing in `currentColor`; one copied from an icon set keeps that set's licence beside it and in the bundle the app ships.
-  The five Lucide icons (ISC; `check` and `trash` also Feather's MIT) keep the full texts in `LICENSE-lucide.txt`, and each carries a `/*! @license` banner, as Lucide's own packages do, which the build keeps because [`vite.config.ts`](../../front-end/vite.config.ts) keeps legal comments when it minifies; [`theLucideNoticeReachesTheBundle.test.ts`](../../front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts) builds them with that configuration and reads the notice in the output.
+  The Lucide icon left, `check` (ISC, and Feather's MIT), keeps the full texts in `LICENSE-lucide.txt`, and carries a `/*! @license` banner, as Lucide's own packages do, which the build keeps because [`vite.config.ts`](../../front-end/vite.config.ts) keeps legal comments when it minifies; [`theLucideNoticeReachesTheBundle.test.ts`](../../front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts) builds it with that configuration and reads the notice in the output.
+  Four more were copied for the floorplan beta and went with it (T257).
 - PrimeVue, PrimeIcons and every `@primevue/*` and `@primeuix/*` package are gone: [`main.ts`](../../front-end/src/main.ts) installs no UI plugin, [`package.json`](../../front-end/package.json) names no UI kit, and [`theAppOwnsItsComponents.test.ts`](../../front-end/src/__tests__/theAppOwnsItsComponents.test.ts) fails if `package.json` or the lockfile brings one back.
 - If a screen ever needs a widget that is hard to get right, a combobox, a date picker or a popover menu, the first stop is a headless library such as Reka UI (MIT), styled with the app's own tokens; a data table would be TanStack Table.
   That is a decision for the day a screen needs one, and a styled kit, which brings its own design language, is not.

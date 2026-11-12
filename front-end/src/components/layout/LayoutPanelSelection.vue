@@ -8,6 +8,9 @@
  * menu) and remove it, with no question asked first, since Undo takes a removal back. For one
  * table, "Row of N…" opens a count to type and "Add row", which asks for that many more tables
  * going on along the table's line: the quick straight row, with no path to draw.
+ *
+ * Past Draft (`settled`) a table's seat is settled: the Section and Table type fields, Duplicate,
+ * "Row of N…" and Remove are disabled, and Turn 90° and Align, which only move tables, stay.
  */
 import { computed, ref, useId, watch } from 'vue';
 import type { FloorplanTable, TableTypeObject } from '@/assets/types/datatypes';
@@ -27,6 +30,9 @@ const props = defineProps<{
   /** The location's sections, as the map draws them. */
   sections: readonly LayoutSection[];
   tableTypes: readonly TableTypeObject[];
+  /** Whether the market has left Draft, so no table is added, removed or re-sectioned or
+   *  re-typed. */
+  settled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -71,11 +77,12 @@ function addRow() {
   if (rowAsked.value !== null && !gapRefusal.value) emit('row', rowAsked.value);
 }
 
-// The count is one table's: it closes when the selection is no longer the one table.
+// The count is one table's: it closes when the selection is no longer the one table, or once no
+// table may be added.
 watch(
-  () => props.tables.length === 1,
-  (one) => {
-    if (!one) rowOpen.value = false;
+  () => props.tables.length === 1 && !props.settled,
+  (open) => {
+    if (!open) rowOpen.value = false;
   },
 );
 
@@ -157,6 +164,7 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
           :id="sectionFieldId"
           class="field field--select"
           :value="sectionValue"
+          :disabled="settled"
           data-testid="layout-selection-section"
           @change="emit('section', chosen($event) || null)"
         >
@@ -171,6 +179,7 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
           :id="typeFieldId"
           class="field field--select"
           :value="typeValue"
+          :disabled="settled"
           data-testid="layout-selection-type"
           @change="emit('type', chosen($event))"
         >
@@ -199,6 +208,7 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
         <button
           type="button"
           class="btn btn--secondary"
+          :disabled="settled"
           data-testid="layout-selection-duplicate"
           @click="emit('duplicate')"
         >
@@ -223,6 +233,7 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
           class="btn btn--secondary"
           :aria-expanded="rowOpen"
           :aria-controls="rowFormId"
+          :disabled="settled"
           data-testid="layout-selection-row"
           @click="rowOpen = !rowOpen"
         >
@@ -231,6 +242,7 @@ const ARRANGEMENTS: readonly { id: Arrangement; label: string }[] = [
         <button
           type="button"
           class="btn btn--secondary btn--destructive"
+          :disabled="settled"
           data-testid="layout-selection-remove"
           @click="emit('remove')"
         >

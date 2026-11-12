@@ -17,7 +17,8 @@ import { join, relative, resolve as resolvePath } from 'node:path';
  *
  * This is the test that found the gap in the first place. A hand survey of the overlays - by the
  * classes they use and by which of them call `useEscapeToClose` - found ten surfaces and missed
- * three: `VendorsModal`, `SaveFlow`, and the app's own navigation drawer.
+ * three: `VendorsModal`, `SaveFlow` (the floorplan beta's, since removed), and the app's own
+ * navigation drawer.
  *
  * What it does NOT see, so that the next reader does not assume otherwise:
  *

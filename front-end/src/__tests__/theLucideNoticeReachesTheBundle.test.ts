@@ -2,11 +2,12 @@
  * Lucide's licence notice reaches the bundle the app ships, not only the source tree (T45).
  *
  * ISC asks for the copyright and permission notice "in all copies", and the copy a visitor
- * downloads is the minified bundle. `LICENSE-lucide.txt` sits beside the five copied icons, but
+ * downloads is the minified bundle. `LICENSE-lucide.txt` sits beside the copied icon, `check`, but
  * the build never emits it, and minifying drops every comment unless told to keep legal ones; so
- * each icon carries a `/*! @license` banner comment, as Lucide's own packages do, and `vite.config.ts`
- * keeps legal comments. This builds the icons with the project's own configuration, minified, and
- * reads what comes out.
+ * the icon carries a `/*! @license` banner comment, as Lucide's own packages do, and
+ * `vite.config.ts` keeps legal comments. This builds the icon with the project's own configuration,
+ * minified, and reads what comes out. The four floorplan icons copied with it went with the
+ * floorplan beta (T257).
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
@@ -15,7 +16,7 @@ import { build, loadConfigFromFile, mergeConfig, type InlineConfig } from 'vite'
 
 const ROOT = process.cwd();
 const ICONS = resolvePath(ROOT, 'src/components/icons');
-const LUCIDE = ['IconCheck', 'IconImage', 'IconList', 'IconPencil', 'IconTrash'];
+const LUCIDE = ['IconCheck'];
 
 /** The minified code the project's build makes of each icon, by name. */
 let bundled: Record<string, string>;
@@ -70,9 +71,8 @@ describe("Lucide's notice", () => {
     expect(code).toContain('licensed under the ISC license');
   });
 
-  it("carries Feather's MIT notice with `trash`, the one copied icon derived from it", () => {
-    expect(bundled.IconTrash).toContain('Copyright (c) 2013-present Cole Bemis');
-    expect(bundled.IconList).not.toContain('Cole Bemis');
+  it("carries Feather's MIT notice with `check`, which is derived from it", () => {
+    expect(bundled.IconCheck).toContain('Copyright (c) 2013-present Cole Bemis');
   });
 
   it('ships the full texts beside the icons in the source', () => {

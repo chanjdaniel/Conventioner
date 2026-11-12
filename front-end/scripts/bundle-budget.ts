@@ -28,8 +28,11 @@ import { gzipSync } from 'node:zlib';
  * Raised from 92000 B at 92032 B by T200 (+449 B over `dev`'s 91583 B): `AppDialog` grew its
  * widths, the body that scrolls under a pinned title and actions, its edge shades and its tray, and
  * the build places the dialog, shared by many lazily loaded screens, in the entry chunk.
+ * Lowered from 95000 B to 94000 B by T257 at 83879 B (-901 B against `dev`'s 84780 B, each built as
+ * CI builds): the floorplan beta's store, which `main.ts` imported for every page, went with the
+ * beta and Konva.
  */
-export const LIMIT_GZIP_BYTES = 95_000;
+export const LIMIT_GZIP_BYTES = 94_000;
 
 export interface ChunkSize {
   file: string;

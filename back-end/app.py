@@ -34,8 +34,6 @@ import review_team as ReviewTeam
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
 from api.floorplans_templates import floorplans_templates_bp
-from api.floorplans_calibrate import floorplans_calibrate_bp
-from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
 from typing import Any, Dict, List, NamedTuple, Optional
@@ -501,8 +499,6 @@ def hold_a_restored_session_to_its_browser(_app: Flask, user: Any) -> None:
 app.register_blueprint(floorplans_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_placement_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_templates_bp, url_prefix="/floorplans")
-app.register_blueprint(floorplans_calibrate_bp, url_prefix="/floorplans")
-app.register_blueprint(floorplans_export_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_save_bp, url_prefix="/floorplans")
 
 

@@ -53,6 +53,7 @@ Each other spec seeds past some part of the journey, and the slices overlap rath
 - `csv-import.spec.ts` covers the import in depth on a market seeded over the API, and ends at "rows are applications awaiting review", asserted over the API.
 - Review behaviour has specs of its own that click Approve on seeded applications (`needs-a-follow-up`, `a-late-export`, `what-to-show-and-when`, `automatic-rejections`), but none of them reaches the run from a verdict it made.
 - Any spec built on [`seedMarketWithVendors()`](e2e-seeds.md#the-seed-helpers) starts from approved vendors, and exercises no review at all.
+- `a-layout-is-the-plans-tables.spec.ts` creates and plans a market through the screens as this spec does, lays out its two halls, and walks it to the run, but seeds its vendors approved and reviews nothing: it is the layout's seam with the plan's readers ([the layout's E2E](floorplan-e2e.md)).
 
 ## Deciding where a test belongs
 

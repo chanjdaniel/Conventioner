@@ -125,7 +125,6 @@ Asked by:
 - the application form and vendor notes reads
 - the Payments page (`GET /markets/:id/payments`, `get_market_payments`)
 - a vendor's payments (`GET /markets/:id/payments/<email>`)
-- `POST /floorplans/export`
 - `GET /floorplans/<id>`
 
 ### Read the market's history (`read-history`)
@@ -154,9 +153,9 @@ Asked by:
 
 - `PUT /markets/:id/name`
 - `PUT /markets/:id/plan`
+- `PUT /markets/:id/table-types`
 - `POST /floorplans/upload`
 - `DELETE /floorplans/<id>`
-- `POST /floorplans/calibrate`
 - `POST /floorplans/save-to-market`
 - `POST /floorplans/place-tables`
 

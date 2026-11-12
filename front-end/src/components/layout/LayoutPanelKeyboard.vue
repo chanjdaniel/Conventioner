@@ -3,8 +3,28 @@
  * The layout page's "Keyboard" card (T257): the editor's keys, folded away until asked for. What
  * each key does is `LayoutEditor.vue`'s to do; this card only lists them, group by group, as the
  * hint under the map says the few that matter where the keys are.
+ *
+ * Past Draft (`settled`) it leaves out the keys that add or remove tables, which do nothing there:
+ * Delete, Ctrl+D, Add table's Enter, and the Row of tables and Fill an area groups.
  */
-const GROUPS: readonly { title: string; keys: readonly (readonly [string[], string])[] }[] = [
+import { computed } from 'vue';
+
+const props = defineProps<{
+  /** Whether the market has left Draft, so no table is added or removed. */
+  settled?: boolean;
+}>();
+
+/** A key, what it does, and whether it adds or removes tables. */
+type Key = readonly [string[], string, 'seats'?];
+
+const GROUPS: readonly {
+  title: string;
+  keys: readonly Key[];
+  /** Every key of it adds tables. */
+  seats?: true;
+  /** Its title once its keys that add tables are left out. */
+  settledTitle?: string;
+}[] = [
   {
     title: 'On the map',
     keys: [
@@ -26,14 +46,15 @@ const GROUPS: readonly { title: string; keys: readonly (readonly [string[], stri
     title: 'The selection',
     keys: [
       [['R'], 'Turn it 90°, or 15° with Shift'],
-      [['Delete', 'Backspace'], 'Remove it'],
-      [['Ctrl+D'], 'Duplicate it'],
+      [['Delete', 'Backspace'], 'Remove it', 'seats'],
+      [['Ctrl+D'], 'Duplicate it', 'seats'],
       [['Ctrl+A'], 'Select every table'],
       [['Escape'], 'Select nothing'],
     ],
   },
   {
     title: 'With Row of tables on',
+    seats: true,
     keys: [
       [['Arrow keys'], 'Move the crosshair 10 cm, or 1 m with Shift'],
       [['Enter'], 'Lay a point of the row at the crosshair'],
@@ -47,6 +68,7 @@ const GROUPS: readonly { title: string; keys: readonly (readonly [string[], stri
   },
   {
     title: 'With Fill an area on',
+    seats: true,
     keys: [
       [['Arrow keys'], 'Move the crosshair 10 cm, or 1 m with Shift'],
       [['Enter'], 'Lay a corner of the area at the crosshair'],
@@ -57,8 +79,9 @@ const GROUPS: readonly { title: string; keys: readonly (readonly [string[], stri
   },
   {
     title: 'Adding, undo and the view',
+    settledTitle: 'Undo and the view',
     keys: [
-      [['Enter'], 'With Add table on, place a table at the middle of the view'],
+      [['Enter'], 'With Add table on, place a table at the middle of the view', 'seats'],
       [['Ctrl+Z'], 'Undo'],
       [['Ctrl+Shift+Z', 'Ctrl+Y'], 'Redo'],
       [['+', '-'], 'Zoom in and out'],
@@ -66,13 +89,24 @@ const GROUPS: readonly { title: string; keys: readonly (readonly [string[], stri
     ],
   },
 ];
+
+/** The groups and keys that do something now. */
+const shown = computed(() =>
+  props.settled
+    ? GROUPS.filter((group) => !group.seats).map((group) => ({
+        ...group,
+        title: group.settledTitle ?? group.title,
+        keys: group.keys.filter((key) => key[2] !== 'seats'),
+      }))
+    : GROUPS,
+);
 </script>
 
 <template>
   <section data-testid="layout-panel-keyboard">
     <details class="keyboard">
       <summary class="keyboard-title" data-testid="layout-keyboard-summary">Keyboard</summary>
-      <template v-for="group in GROUPS" :key="group.title">
+      <template v-for="group in shown" :key="group.title">
         <h3 class="keyboard-group">{{ group.title }}</h3>
         <dl class="keyboard-keys">
           <template v-for="[keys, does] in group.keys" :key="does">

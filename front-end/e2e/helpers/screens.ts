@@ -14,7 +14,7 @@ import { OrganizationsPage } from '../pages/OrganizationsPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { mongoEval } from './mongo';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
-import { loginViaApi, UPPER_HALL_TABLES } from './seeds';
+import { loginViaApi, UPPER_HALL_SECTIONED_TABLES, UPPER_HALL_TABLES } from './seeds';
 import { calendarToday } from './vendorSignIn';
 import {
   FIRST_IMPORT,
@@ -66,7 +66,8 @@ const PUBLIC = [DESKTOP, PHONE];
  * - the Applications page (T180), the one page of Market Setup's view that fits, both its views,
  *   its drawer and dialogs, so a late application is decided, the review dealt and a vendor's
  *   answer corrected from a phone;
- * - Stats (T180), so how the day stands is read at the market.
+ * - Stats (T180), so how the day stands is read at the market;
+ * - a location's layout (T257), read at the venue, pinched and tapped, and edited at a desk.
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -237,19 +238,23 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * begun, on its upload's drop zone; and the layout seed's Upper Hall, its floorplan uploaded and its
  * scale not yet set, calibrating; and the laid-out seed's Upper Hall, drawn as its map, 20 tables
  * over the faded floorplan with the panel's list of sections: the editor at a desk and the map read
- * on a phone, then, at a desk, with a table selected, with every table selected, with a section's
+ * on a phone, and on a phone with Silver aisle 1 tapped and read under the map; then, at a desk,
+ * with a table selected, with every table selected, with a section's
  * colours open, with Add table's options open, with a table picked up by keyboard, with the
  * panel's list of keys open, with a row being drawn by the crosshair, with a curve drawn by hand
  * waiting with its points, with an L-shaped area's
  * corners clicked for Fill an area, with that area closed and its dialog open, with a table type's
- * dialog open, and with the image being replaced. Nothing is
- * saved, so each walk finds them as seeded.
+ * dialog open, and with the image being replaced; with Export PNG's dialog open, at a desk and
+ * on a phone; and the settled seed's Upper Hall past Draft,
+ * a table selected under the setup-settled sentence, with what would change a seat disabled.
+ * Nothing is saved, so each walk finds them as seeded.
  */
 function layoutAt(
   stage:
     | 'upload'
     | 'calibrating'
     | 'map'
+    | 'read'
     | 'selected'
     | 'several'
     | 'colours'
@@ -261,7 +266,9 @@ function layoutAt(
     | 'fillShape'
     | 'fillDialog'
     | 'typeDialog'
-    | 'replacing',
+    | 'exportDialog'
+    | 'replacing'
+    | 'settled',
 ) {
   return async (page: Page, seed: TheScreensSeed) => {
     const layout = new LayoutPage(page);
@@ -270,10 +277,27 @@ function layoutAt(
       await expect(layout.uploadDropzone).toBeVisible();
       return;
     }
+    if (stage === 'settled') {
+      await layout.goto(seed.settled.marketId, seed.settled.upper.id);
+      await expect(layout.mapImage).toHaveAttribute('href', /^blob:/);
+      await expect(layout.tables).toHaveCount(UPPER_HALL_SECTIONED_TABLES.length);
+      // Silver aisle's first table, pressed: its card's fields and buttons that change a seat
+      // disabled, beside Turn 90° and the toolbar's disabled drawing tools.
+      await layout.clickAt([10_000, 11_000]);
+      await expect(layout.selectionTitle).toHaveText('Silver aisle 1');
+      await expect(layout.selectionRemove).toBeDisabled();
+      await expect(page.getByTestId('layout-setup-settled')).toBeVisible();
+      return;
+    }
     if (stage !== 'calibrating') {
       await layout.goto(seed.laidOut.marketId, seed.laidOut.upper.id);
       await expect(layout.mapImage).toHaveAttribute('href', /^blob:/);
       await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+      if (stage === 'read') {
+        // Silver aisle's first table, tapped: its code, tier and type in the card under the map.
+        await layout.clickAt([10_000, 11_000]);
+        await expect(layout.tableReadTitle).toHaveText('Silver aisle 1');
+      }
       if (stage === 'selected') {
         // Silver aisle's first table, pressed: outlined, the turn handle over it, its card filled.
         await layout.clickAt([10_000, 11_000]);
@@ -359,6 +383,12 @@ function layoutAt(
         await layout.chooseForType('Standard 6 ft', 'Edit');
         await expect(layout.typeDialog).toBeVisible();
         await expect(layout.typeName).toBeFocused();
+      }
+      if (stage === 'exportDialog') {
+        // Export PNG's dialog, its two ticks as it opens.
+        await layout.exportOpen.click();
+        await expect(layout.exportDialog).toBeVisible();
+        await expect(layout.exportNumbers).toBeChecked();
       }
       if (stage === 'replacing') {
         // "Replace the image": the upload's drop zone in the map's place, and the way back.
@@ -1335,17 +1365,20 @@ export const SCREENS: Screen[] = [
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'layout'), 'layout-no-floorplan'),
   },
-  // Its upload step is the app's one drop zone (T205), and the page fits a phone (T257).
+  // Its upload step is the app's one drop zone (T205). The page fits a phone (T257), where it only
+  // reads: a layout is started and its scale set at a desk.
   {
     name: 'the layout, its upload step',
     who: 'organizer',
-    sizes: FITS_A_PHONE,
+    sizes: ORGANIZER,
+    deskOnly: true,
     open: layoutAt('upload'),
   },
   {
     name: 'the layout, calibrating',
     who: 'organizer',
-    sizes: FITS_A_PHONE,
+    sizes: ORGANIZER,
+    deskOnly: true,
     open: layoutAt('calibrating'),
   },
   // The layout drawn (T257): the map's tables, names and zones, and the panel's sections.
@@ -1354,6 +1387,13 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: layoutAt('map'),
+  },
+  // Read on a phone (T257): a table tapped and read under the map, over the sections and the hint.
+  {
+    name: 'the layout on a phone, a table read',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: layoutAt('read'),
   },
   // The editor (T257), at a desk alone: a table selected, and Add table's options strip.
   {
@@ -1439,12 +1479,28 @@ export const SCREENS: Screen[] = [
     deskOnly: true,
     open: layoutAt('typeDialog'),
   },
+  // Export PNG (T257), for anyone who reads the layout, on a phone too.
+  {
+    name: "the layout, Export PNG's dialog",
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: layoutAt('exportDialog'),
+  },
   {
     name: 'the layout, its image being replaced',
     who: 'organizer',
     sizes: ORGANIZER,
     deskOnly: true,
     open: layoutAt('replacing'),
+  },
+  // Past Draft (T257): the editor under the setup-settled sentence, what would change a seat
+  // disabled, a table selected.
+  {
+    name: 'the layout past Draft, a table selected',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('settled'),
   },
   {
     name: 'market days, the plan',

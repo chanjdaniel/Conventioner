@@ -20,7 +20,7 @@
  * the screen however the table is turned, and its selection's outline dashed.
  */
 import { computed } from 'vue';
-import { readsUpsideDown } from './layoutGeometry';
+import { OUTLINE_OUT_PX, grownTable, readsUpsideDown } from './layoutGeometry';
 
 const props = defineProps<{
   id: string;
@@ -56,25 +56,12 @@ const emit = defineEmits<{
   focused: [id: string];
 }>();
 
-/** A corner of 40 mm, as a trestle table's. */
-const CORNER_MM = 40;
-
 /** The table's rectangle grown by `px` screen pixels on every side. */
-function grown(px: number) {
-  const by = px * props.mmPerPx;
-  return {
-    x: -props.widthMm / 2 - by,
-    y: -props.depthMm / 2 - by,
-    width: props.widthMm + by * 2,
-    height: props.depthMm + by * 2,
-    // Drawn inside the edge at a zoom where a pixel is wider than the corner, it has none.
-    rx: Math.max(CORNER_MM + by, 0),
-  };
-}
+const grown = (px: number) => grownTable(props, px * props.mmPerPx);
 
 const top = computed(() => grown(0));
 /** The selection's outline: 2.5 px of --mm-black, 3 px outside the table's edge. */
-const outline = computed(() => grown(0.75 + 3 + 1.25));
+const outline = computed(() => grown(OUTLINE_OUT_PX));
 /** The focus border: 2 px over the table's 1.5 px edge, their outer sides together. */
 const focusBorder = computed(() => grown(-0.25));
 

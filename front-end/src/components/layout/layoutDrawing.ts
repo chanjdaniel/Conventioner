@@ -106,10 +106,11 @@ let measurer: CanvasRenderingContext2D | null | undefined;
 
 /**
  * How wide words are drawn in the app's type at a size and weight, in pixels, measured as the
- * browser would draw them. Where nothing can measure (a test's DOM has no canvas), it is reckoned
+ * browser would draw them: in Outfit, or in another of the app's families (the printed layout's
+ * name is in Merge One). Where nothing can measure (a test's DOM has no canvas), it is reckoned
  * from Outfit's average letter, a little over half the size.
  */
-export function textWidthPx(text: string, sizePx: number, weight = 600): number {
+export function textWidthPx(text: string, sizePx: number, weight = 600, family = 'Outfit'): number {
   if (measurer === undefined) {
     try {
       // jsdom says its canvas is not implemented by a console error; a user agent check spares it.
@@ -121,7 +122,7 @@ export function textWidthPx(text: string, sizePx: number, weight = 600): number 
     }
   }
   if (measurer) {
-    measurer.font = `${weight} ${sizePx}px Outfit, sans-serif`;
+    measurer.font = `${weight} ${sizePx}px '${family}', sans-serif`;
     return measurer.measureText(text).width;
   }
   return text.length * sizePx * 0.56;

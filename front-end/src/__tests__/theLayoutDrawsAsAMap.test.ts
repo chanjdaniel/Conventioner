@@ -497,8 +497,25 @@ describe('a press, by mode', () => {
     ).toBeUndefined();
   });
 
-  it('draws no selection and no guide outside edit mode', () => {
+  it('outlines the table read in read mode, unpressed, and draws no guide', () => {
     const map = draw({
+      selection: ['g2'],
+      guides: [{ x1Mm: 5000, y1Mm: 0, x2Mm: 5000, y2Mm: 22_500 }],
+    });
+    // Over the map, at the table's place and turn, not inside its button, so the button's box is
+    // the same marked or not.
+    const marks = map.findAll('[data-testid="layout-map-read"]');
+    expect(marks).toHaveLength(1);
+    expect(marks[0].attributes('transform')).toBe('translate(7000 3000) rotate(0)');
+    expect(marks[0].attributes('aria-hidden')).toBe('true');
+    expect(map.find('[data-testid="layout-table-selected"]').exists()).toBe(false);
+    expect(tableById(map, 'g2').attributes('aria-pressed')).toBeUndefined();
+    expect(map.find('[data-testid="layout-map-guide"]').exists()).toBe(false);
+  });
+
+  it('draws no selection and no guide in print', () => {
+    const map = draw({
+      mode: 'print',
       selection: ['g2'],
       guides: [{ x1Mm: 5000, y1Mm: 0, x2Mm: 5000, y2Mm: 22_500 }],
     });
@@ -531,5 +548,11 @@ describe('a press, by mode', () => {
     await tableById(map, 'g1').trigger('click');
     expect(map.emitted('activate')).toBeUndefined();
     expect(tableById(map, 'g1').get('[data-testid="layout-table-number"]').text()).toBe('1');
+  });
+
+  it('leaves the numbers out when asked, every table still drawn', () => {
+    const map = draw({ mode: 'print', numbers: false });
+    expect(map.findAll('[data-testid="layout-table-number"]')).toHaveLength(0);
+    expect(tables(map)).toHaveLength(6);
   });
 });

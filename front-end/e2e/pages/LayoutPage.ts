@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
@@ -12,6 +13,12 @@ export class LayoutPage {
   readonly saveState: Locator;
   readonly scale: Locator;
   readonly backToSetup: Locator;
+  readonly exportOpen: Locator;
+  readonly exportDialog: Locator;
+  readonly exportImage: Locator;
+  readonly exportNumbers: Locator;
+  readonly exportSubmit: Locator;
+  readonly exportCancel: Locator;
   readonly uploadDropzone: Locator;
   readonly uploadFileInput: Locator;
   readonly uploadProgress: Locator;
@@ -32,6 +39,13 @@ export class LayoutPage {
   readonly sectionLabels: Locator;
   readonly zones: Locator;
   readonly sections: Locator;
+  /** The read layout's card of the table last tapped, pressed or focused, and what it says. */
+  readonly tableRead: Locator;
+  readonly tableReadTitle: Locator;
+  readonly tableReadFacts: Locator;
+  readonly tableReadEmpty: Locator;
+  /** How a phone reads the layout, under the sections. */
+  readonly phoneHint: Locator;
   readonly editor: Locator;
   readonly stage: Locator;
   readonly toolbar: Locator;
@@ -149,6 +163,12 @@ export class LayoutPage {
     this.saveState = page.getByTestId('layout-save-state');
     this.scale = page.getByTestId('layout-scale');
     this.backToSetup = page.getByTestId('layout-back-to-setup');
+    this.exportOpen = page.getByTestId('layout-export-open');
+    this.exportDialog = page.getByTestId('layout-export-window');
+    this.exportImage = page.getByTestId('layout-export-image');
+    this.exportNumbers = page.getByTestId('layout-export-numbers');
+    this.exportSubmit = page.getByTestId('layout-export-submit-button');
+    this.exportCancel = page.getByTestId('layout-export-cancel-button');
     this.uploadDropzone = page.getByTestId('floorplan-upload-dropzone');
     this.uploadFileInput = page.getByTestId('floorplan-upload-file-input');
     this.uploadProgress = page.getByTestId('floorplan-upload-progress');
@@ -169,6 +189,11 @@ export class LayoutPage {
     this.sectionLabels = this.map.getByTestId('layout-map-label');
     this.zones = this.map.getByTestId('layout-map-zone');
     this.sections = page.getByTestId('layout-panel-sections');
+    this.tableRead = page.getByTestId('layout-panel-table');
+    this.tableReadTitle = page.getByTestId('layout-table-read-title');
+    this.tableReadFacts = page.getByTestId('layout-table-read-facts');
+    this.tableReadEmpty = page.getByTestId('layout-table-read-empty');
+    this.phoneHint = page.getByTestId('layout-phone-hint');
     this.editor = page.getByTestId('layout-editor');
     this.stage = page.getByTestId('layout-stage');
     this.toolbar = page.getByRole('toolbar', { name: 'Layout tools' });
@@ -476,6 +501,14 @@ export class LayoutPage {
     };
   }
 
+  /** The part of the hall the map shows, in millimetres, as its `viewBox` says. */
+  async view(): Promise<{ x: number; y: number; width: number; height: number }> {
+    return this.map.evaluate((svg) => {
+      const { x, y, width, height } = (svg as SVGSVGElement).viewBox.baseVal;
+      return { x, y, width, height };
+    });
+  }
+
   /** Click the floor at a point of the hall, in millimetres. */
   async clickAt(mm: [number, number]): Promise<void> {
     const at = await this.onScreen(mm);
@@ -546,6 +579,26 @@ export class LayoutPage {
     for (const corner of corners) await this.clickAt(corner);
     await this.hoverAt(corners[0]);
     await this.clickAt(corners[0]);
+  }
+
+  /**
+   * "Export PNG", the dialog's ticks set as asked, then "Export": the PNG saved, as the download's
+   * suggested name and its bytes.
+   */
+  async exportPng(choice: { image: boolean; numbers: boolean }): Promise<{
+    name: string;
+    png: Buffer;
+  }> {
+    await this.exportOpen.click();
+    await expect(this.exportDialog).toBeVisible();
+    await this.exportImage.setChecked(choice.image);
+    await this.exportNumbers.setChecked(choice.numbers);
+    const download = this.page.waitForEvent('download');
+    await this.exportSubmit.click();
+    const saved = await download;
+    await expect(this.exportDialog).toBeHidden();
+    const path = await saved.path();
+    return { name: saved.suggestedFilename(), png: readFileSync(path) };
   }
 
   /** Set the scale: the line drawn, then its length typed in `unit`. */

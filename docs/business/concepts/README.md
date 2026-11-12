@@ -15,6 +15,7 @@ One line per node, sorted by file name.
 - [Assignment](assignment.md) - the solver's output: the run, its rules, its result, and what changes it afterwards
 - [Essential question](essential-question.md) - the questions every form asks: asked, required, the offering, and the solver reading them
 - [Intake mode](intake-mode.md) - imported or applying online: the two paths, the gated surface, and the fail-closed default
+- [Layout](layout.md) - a location's floorplan and the tables placed over it: the page, the save, what settles, and the plan's counts
 - [Market](market.md) - one event: its plan, its addresses, the one copy a screen holds, its end and its deletion
 - [Organization and roles](organization-and-roles.md) - Organization and Organizer: an organization's people, a market's roles, and who may do what
 - [Phase](phase.md) - a market's lifecycle: the moves, the guards, the rail, and what each phase opens and closes

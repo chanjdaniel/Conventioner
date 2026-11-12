@@ -5,7 +5,7 @@ describes:
   - back-end/utils/request_body.py
   - back-end/tests/test_a_request_value_is_a_string.py
   - back-end/tests/test_a_body_sets_only_its_fields.py
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - T66
   - T74
@@ -31,7 +31,7 @@ It never raises, so each handler keeps its own words and status, and answers Non
 - a vendor's own check-in and its undo (`back-end/api/vendor_check_in.py`) answer a date or a door code that is not a string as a missing one: no table on that date or not this market's door code, and, for the undo, `date is required`, 400;
 - creating and renaming an organization (`back-end/app.py`) answer 400 for a name that is not a string or is blank;
 - adding an organization's admin or member, handing on its ownership, and adding or changing someone's market role (`back-end/app.py`) answer their "required" 400 for an address or a role that is not a string;
-- saving a floorplan to a market, placing its tables, and calibrating and exporting a floorplan image (`back-end/api/floorplans_save.py`, `back-end/api/floorplans_placement.py`, `back-end/api/floorplans_calibrate.py`, `back-end/api/floorplans_export.py`) answer 400 for the id they name;
+- saving a floorplan to a market and placing its tables (`back-end/api/floorplans_save.py`, `back-end/api/floorplans_placement.py`) answer 400 for the market id they name;
 - creating and updating a floorplan template (`back-end/api/floorplans_templates.py`) answer 400 for an `organizationId` that is neither a string nor null.
 
 The body itself is read with `json_object()` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), which every route in `back-end/app.py` that reads its body in the view calls, and the vendor's own check-in too; it refuses one that is not a JSON object before any value is read from it ([an exception never reaches a client](an-exception-never-reaches-a-client.md)).

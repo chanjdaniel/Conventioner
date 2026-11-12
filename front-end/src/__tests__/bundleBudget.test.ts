@@ -67,7 +67,7 @@ describe('measure', () => {
       'assets/index-AAAA.js': entry,
       'assets/vendor-BBBB.js': vendor,
       'assets/index-CCCC.css': 'body{}'.repeat(1000),
-      'assets/FloorplanEditorView-DDDD.js': 'konva'.repeat(5000),
+      'assets/LayoutView-DDDD.js': 'lazy'.repeat(5000),
     });
 
     const sizes = measure(dir);

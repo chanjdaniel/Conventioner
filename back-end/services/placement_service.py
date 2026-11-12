@@ -4,10 +4,11 @@ Placement engine for auto-placing tables within a floorplan.
 No Flask dependency - pure geometry logic using Shapely and pyckingsolver.
 Works entirely in millimetre coordinates.
 
-Two things are placed here. A whole room (the floorplan beta's Auto-Place): the solver where it is
-installed, else the grid. And an area of a layout (T257's Fill an area), a box or a drawn shape:
-rows of tables end to end with an aisle between the rows (``_rows_place``), the same on every
-machine, since rows are what was asked for and the solver packs none.
+Two things are placed here. A whole room, as the floorplan beta's Auto-Place asked, which no screen
+asks since the beta went (T257): the solver where it is installed, else the grid. And an area of a
+layout (T257's Fill an area), a box or a drawn shape: rows of tables end to end with an aisle
+between the rows (``_rows_place``), the same on every machine, since rows are what was asked for
+and the solver packs none.
 """
 
 from __future__ import annotations

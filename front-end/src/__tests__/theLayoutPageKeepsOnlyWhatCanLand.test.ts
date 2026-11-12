@@ -15,7 +15,8 @@ import type { LayoutEditor as Editor } from '@/components/layout/useLayoutEditor
 import { ROW_CHOICES_AT_FIRST, rowChoices } from '@/components/layout/layoutRow';
 import { useMarketStore } from '@/stores/market';
 import { MARKET_ID, marketRouter } from './support/marketScreen';
-import { answersRefusing } from './support/servedAnswers';
+import { MarketAction } from '@/utils/marketActions';
+import { VIEWER_ANSWERS, answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), post: vi.fn() }));
 const routing = vi.hoisted(() => ({ router: null as unknown, route: null as unknown }));
@@ -177,7 +178,7 @@ describe('a phase move from the layout page', () => {
 });
 
 describe('a refused change once the market is settled elsewhere', () => {
-  it("is dropped, and the server's layout drawn", async () => {
+  it("is dropped, and the server's layout drawn, in the editor that stays", async () => {
     api.post.mockRejectedValue(aRefusal(409, SETTLED));
     const wrapper = await mountPage();
     const editor = editorOf(wrapper);
@@ -188,11 +189,136 @@ describe('a refused change once the market is settled elsewhere', () => {
     await useMarketStore().refresh();
     await vi.advanceTimersByTimeAsync(0);
 
+    expect(editorOf(wrapper).layout.value!.tables).toEqual(STORED.tables);
+    expect(editor.pending()).toBe(false);
+    expect(editor.saveState.value).not.toBe('failed');
+  });
+
+  it('and archived, is dropped and the layout read', async () => {
+    api.post.mockRejectedValue(aRefusal(403, 'This market is archived.'));
+    const wrapper = await mountPage();
+    const editor = editorOf(wrapper);
+    await moveATable(wrapper);
+
+    market = served({
+      phase: 'archived',
+      setupLockReason: SETTLED,
+      actionRefusals: answersRefusing(MarketAction.ChangeSetup),
+    });
+    await useMarketStore().refresh();
+    await vi.advanceTimersByTimeAsync(0);
+
     const shown = wrapper.findComponent({ name: 'LayoutMap' });
     expect(shown.exists()).toBe(true);
     expect(shown.props('layout').tables).toEqual(STORED.tables);
     expect(editor.pending()).toBe(false);
-    expect(editor.saveState.value).not.toBe('failed');
+  });
+});
+
+describe('a layout past Draft', () => {
+  const PANELS = [
+    'LayoutEditor',
+    'LayoutPanelSelection',
+    'LayoutPanelSections',
+    'LayoutPanelTypes',
+    'LayoutPanelKeyboard',
+  ];
+
+  it('is edited under the settled sentence, every card told its seats are settled', async () => {
+    market = served({ phase: 'applications', setupLockReason: SETTLED });
+    const wrapper = await mountPage();
+
+    expect(wrapper.get('[data-testid="layout-setup-settled"]').text()).toBe(SETTLED);
+    for (const name of PANELS) {
+      expect(wrapper.findComponent({ name }).props('settled'), name).toBe(true);
+    }
+    expect(wrapper.find('[data-testid="layout-replace-image"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="layout-recalibrate"]').exists()).toBe(true);
+  });
+
+  it('is told so in Draft', async () => {
+    const wrapper = await mountPage();
+
+    expect(wrapper.find('[data-testid="layout-setup-settled"]').exists()).toBe(false);
+    for (const name of PANELS) {
+      expect(wrapper.findComponent({ name }).props('settled'), name).toBe(false);
+    }
+  });
+
+  it('forgets the steps undo held once the market leaves Draft with it open', async () => {
+    api.post.mockImplementation(async (_url: string, body: { floorplan: typeof STORED }) => ({
+      data: { floorplan: { ...body.floorplan, revision: 4 }, sections: [] },
+    }));
+    const wrapper = await mountPage();
+    const editor = editorOf(wrapper);
+    editor.removeTables(['g-2']);
+    await vi.advanceTimersByTimeAsync(700);
+    expect(editor.canUndo.value).toBe(true);
+
+    market = served({
+      phase: 'applications',
+      setupLockReason: SETTLED,
+      setupObject: {
+        ...served().setupObject,
+        floorplans: [{ ...STORED, revision: 4, tables: [STORED.tables[0]] }],
+      },
+    });
+    await useMarketStore().refresh();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(editor.canUndo.value).toBe(false);
+    expect(editor.layout.value!.tables.map((t) => t.id)).toEqual(['g-1']);
+  });
+
+  it('starts no layout where a location has none', async () => {
+    market = served({
+      phase: 'applications',
+      setupLockReason: SETTLED,
+      setupObject: { ...served().setupObject, floorplans: [] },
+    });
+    const wrapper = await mountPage();
+
+    expect(wrapper.findComponent({ name: 'FloorplanUploader' }).exists()).toBe(false);
+    expect(wrapper.get('[data-testid="layout-no-floorplan"]').text()).toBe(
+      'No floorplan has been uploaded for Upper Hall yet.',
+    );
+    expect(wrapper.get('[data-testid="layout-panel-start"]').text()).toBe(
+      'Upper Hall has no layout yet.',
+    );
+  });
+});
+
+describe('a layout read only', () => {
+  it.each([
+    ['an archived market', 'archived', answersRefusing(MarketAction.ChangeSetup)],
+    ['a Viewer in Draft', 'draft', VIEWER_ANSWERS],
+    ['a Viewer past Draft', 'market_days', VIEWER_ANSWERS],
+  ])('for %s, is drawn with no editor and no card that edits', async (_who, phase, answers) => {
+    market = served({
+      phase,
+      actionRefusals: answers,
+      ...(phase === 'draft' ? {} : { setupLockReason: SETTLED }),
+    });
+    const wrapper = await mountPage();
+
+    expect(wrapper.findComponent({ name: 'LayoutMap' }).props('mode')).toBe('read');
+    for (const name of [
+      'LayoutEditor',
+      'LayoutPanelSelection',
+      'LayoutPanelTypes',
+      'LayoutPanelZones',
+      'LayoutPanelKeyboard',
+    ]) {
+      expect(wrapper.findComponent({ name }).exists(), name).toBe(false);
+    }
+    expect(wrapper.findComponent({ name: 'LayoutPanelSections' }).props('editable')).toBe(false);
+    expect(wrapper.find('[data-testid="layout-replace-image"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="layout-recalibrate"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="layout-save-state"]').exists()).toBe(false);
+    // An archived market's rail says so: the page says nothing of a settled setup.
+    expect(wrapper.find('[data-testid="layout-setup-settled"]').exists()).toBe(
+      phase === 'market_days',
+    );
   });
 });
 

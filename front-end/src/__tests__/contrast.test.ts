@@ -131,7 +131,6 @@ const BUTTON_STATES: Array<[string, string[], string[]]> = [
   ],
   ['--mm-yellow', ['--mm-yellow-hover'], ['--mm-black']],
   ['--mm-beige', ['--mm-beige-hover'], ['--mm-black']],
-  ['--mm-black', ['--mm-black-hover'], ['white']],
 ];
 
 /**

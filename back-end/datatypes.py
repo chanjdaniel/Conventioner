@@ -1369,10 +1369,11 @@ class TableTypeObject(BaseModel):
 
 
 class BetaTableType(BaseModel):
-    """The floorplan beta's table type, which an Auto-Place request and a floorplan template still
-    carry, in the shape the beta's wizard sends: a width, a height and a capacity.
+    """The floorplan beta's table type, in the shape its wizard sent: a width, a height and a
+    capacity. A placement request still carries it, as Fill an area sends it, and so does a floorplan
+    template saved by the beta, whose height "Use saved types" reads as the depth.
 
-    Never the market's types (``TableTypeObject``); it goes with the beta.
+    Never the market's types (``TableTypeObject``).
     """
 
     id: str = Field(default_factory=new_id)

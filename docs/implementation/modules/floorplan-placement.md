@@ -7,21 +7,14 @@ describes:
   - back-end/requirements-floorplan-solver.in
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
-  - back-end/api/floorplans_calibrate.py
-  - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
   - back-end/api/floorplans_access.py
   - back-end/api/floorplans_templates.py
   - back-end/services/gridfs_service.py
   - back-end/utils/pdf_converter.py
-  - front-end/src/components/floorplan/FloorplanWorkflow.vue
   - front-end/src/utils/canvasColor.ts
-  - front-end/src/components/floorplan/AutoPlaceButton.vue
-  - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
   - back-end/floorplan_limits.py
   - back-end/api/markets.py#_floorplans_refusal
-  - front-end/src/views/FloorplanEditorView.vue
-  - front-end/src/stores/floorplan.ts
   - back-end/api/markets.py#_with_the_layouts
   - back-end/api/markets.py#release_removed_floorplans
   - back-end/layout.py
@@ -32,6 +25,7 @@ describes:
   - front-end/src/components/layout/LayoutMap.vue
   - front-end/src/components/layout/LayoutMapTable.vue
   - front-end/src/components/layout/LayoutPanelSections.vue
+  - front-end/src/components/layout/LayoutPanelTable.vue
   - front-end/src/components/layout/layoutGeometry.ts
   - front-end/src/components/layout/layoutDrawing.ts
   - front-end/src/components/layout/calibration.ts
@@ -58,6 +52,8 @@ describes:
   - front-end/src/components/layout/LayoutSavedTypesDialog.vue
   - front-end/src/components/layout/LayoutSaveTypesDialog.vue
   - front-end/src/components/layout/LayoutPanelZones.vue
+  - front-end/src/components/layout/exportLayoutPng.ts
+  - front-end/src/components/layout/LayoutExportDialog.vue
 verified: 2026-11-12
 sources:
   - bug/38
@@ -74,24 +70,23 @@ sources:
   - T282
 ---
 
-# Floorplan placement
+# A location's layout
 
-T257 makes a floorplan a location's layout, stored in the plan as [the market document](../data/market-document.md#a-locations-layout) says, and worked on its own page, [the layout page](#the-layout-page), reached from Section Setup.
-The floorplan beta came before it: an organizer uploaded a floor plan, calibrated its scale, defined table types, Auto-Placed them, grouped them into sections, and saved the result into the market's plan.
-Its code stays until T257's last phase removes it, but nothing reaches it: its address, `/markets/:marketId/floorplan`, now lands on the layout page, and Section Setup no longer offers it; its save would be refused (below).
-The wizard is five steps (Upload, Calibrate, Place Tables, Edit Layout, Save) and the Konva canvas draws every one of them.
-Each component that draws imports the vue-konva components it renders (`Stage as VStage`, `Layer as VLayer` and so on) rather than the app installing vue-konva for every page, so Konva rides only in the floorplan route's lazily loaded chunk, and [the bundle budget](../testing/ci-and-the-gate.md#the-bundle-budget) fails a pull request that brings it back to every page.
-No step scrolls by itself: the market's frame gives the wizard no height to outgrow, so a step grows with what it holds and the page scrolls, in any window; what scrolls inside the wizard is the Sections panel, the save dialog's body and the section dialog, each in a [`ScrollBox`](../../design-system.md#the-primitive-layer).
+Each location of a market has a **layout** ([the concept](../../business/concepts/layout.md)): its floorplan image, the image's scale, and the tables placed over it, each a real table of the plan, of a section and a table type, with its number.
+It is stored in the plan as a floorplan, one entry of `setupObject.floorplans` per location ([the market document](../data/market-document.md#a-locations-layout)), "layout" being the word the organizer reads and "floorplan" the one the code and the routes keep, as this node's file name does.
+It is worked on its own page, [the layout page](#the-layout-page), reached from Section Setup, drawn by [one drawing](#the-drawing), edited by [the editor](#the-editor), saved by [its own write](#a-save-writes-only-its-layout), and shared as [a PNG](#export-png); a laid-out location's sections count its tables.
 
-**The floorplan beta makes no LLM or vision call.**
-Auto-Place (`POST /floorplans/place-tables`, [`back-end/api/floorplans_placement.py`](../../../back-end/api/floorplans_placement.py)) is a pure geometry solver in [`back-end/services/placement_service.py`](../../../back-end/services/placement_service.py): Shapely for the room and the zone, `pyckingsolver` for the packing.
-Walls are drawn by hand, and no route sends a floorplan image to a hosted model.
-So the flow can be exercised end to end in CI with no API keys and no stubbing ([floorplan E2E](../testing/floorplan-e2e.md)).
+The floorplan beta came before it, a five-step wizard drawn with Konva whose save was never read again; T257 removed it, its store, Konva and the routes only it called (`POST /floorplans/calibrate` and `POST /floorplans/export`, whose addresses are now an image id's, so a POST there answers 405).
+Its address, `/markets/:marketId/floorplan`, lands on the layout page; a floorplan it saved has no location and is shown nowhere until [`migrations/migrate_layouts.py`](../../../back-end/migrations/migrate_layouts.py) removes it.
+
+**A layout makes no LLM or vision call.**
+Fill an area's placement (`POST /floorplans/place-tables`, [`back-end/api/floorplans_placement.py`](../../../back-end/api/floorplans_placement.py)) is pure geometry in [`back-end/services/placement_service.py`](../../../back-end/services/placement_service.py), Shapely for the zone, and no route sends a floorplan image to a hosted model.
+So every layout spec runs end to end in CI with no API keys and no stubbing ([the layout's E2E](../testing/floorplan-e2e.md)).
 
 ## The layout page
 
 [`LayoutView.vue`](../../../front-end/src/components/layout/LayoutView.vue) is `/markets/:marketId/layout/:locationId`, under the Market Setup tab, in the market's frame ([every market page has an address](../conventions/every-market-page-has-an-address.md)); with no location it opens the market's first named one.
-Its head row holds "Layout", the switch between the market's named locations (each a link to its own address, the one open marked `aria-current`), the save state ("Saved", "Saving…", or the failure with Retry, or the revision's refusal with Reload), the scale ("36.0 m across", or "Not calibrated") and "Back to Market Setup"; below it the map column and a 320px side panel, which goes under the map with less than 1100px of room (a container query on the page).
+Its head row holds "Layout", the switch between the market's named locations (each a link to its own address, the one open marked `aria-current`), the save state ("Saved", "Saving…", or the failure with Retry, or the revision's refusal with Reload), the scale ("36.0 m across", or "Not calibrated"), ["Export PNG"](#export-png) once the layout has a scale, and "Back to Market Setup"; below it the map column and a 320px side panel, which goes under the map with less than 1100px of room (a container query on the page).
 Before an image the map column is the upload's drop zone and the panel says "Upload the venue's floorplan for Upper Hall to start."; the first save, made as the image is chosen, starts the layout.
 Before a scale it is [`LayoutCalibration.vue`](../../../front-end/src/components/layout/LayoutCalibration.vue): the image in an SVG whose units are its pixels, a line drawn by drag (its ends draggable after) or by keyboard (a crosshair from the centre, the arrows, Enter for each end, a polite live region saying each step), a length in m, cm, mm, ft or in, and "Set the scale", whose arithmetic is [`calibration.ts`](../../../front-end/src/components/layout/calibration.ts): `scalePxPerUnit` is the line's pixels over its millimetres, from a line of at least 10 px.
 Recalibrate draws the line again from the stored one; a table keeps its millimetres, so the image is what moves under it.
@@ -101,15 +96,21 @@ Replace the image is the upload again in the map's place, with "Keep the current
 A write of the new image that is refused or fails leaves the layout on its old image with nothing unsaved (`write`'s `rollBack`) and says why above the scale; a new image that cannot be shown offers "Choose another image" and "Keep the current image".
 A replacement given up after its upload, or left with the page, deletes the image it uploaded (`DELETE /floorplans/<id>`, which records `floorplan_image_deleted`).
 With a scale the map column is [the editor](#the-editor) for a person who may change the layout, at a desk, and for anyone else, and at a phone's width (640px and below), [the drawing](#the-drawing) in its read mode; either is drawn over the floor alone while the image is on its way or could not be fetched (which the page says above it), the read map the whole hall in a box of the floorplan's shape, as wide as the column and as tall as that makes it, and the panel gains "Sections in Upper Hall" ([`LayoutPanelSections.vue`](../../../front-end/src/components/layout/LayoutPanelSections.vue)): each of the location's sections with the colour the map draws it in, its tier and its count of tables on the layout.
-A person the Market Setup row refuses, and anyone past draft (the save's blanket 409 until T257's ticket 11 narrows it), reads the page with nothing to upload or calibrate.
+The read map heads the panel with the card of the table read ([`LayoutPanelTable.vue`](../../../front-end/src/components/layout/LayoutPanelTable.vue)): the table last tapped, pressed or focused, which the map marks with the selection's outline, its code over its section's tier and its type with its size ("Silver aisle 5", "Silver tier · Standard 6 ft (183 x 76 cm)"), a table in no section said so, and before one is read how to read one ("Tap a table to read it." on a phone).
+**A phone only reads** (`editsHere`, the Market Setup row's answer at a desk): at 640px and below nothing is uploaded, calibrated, replaced or edited, and there is no save state, whoever reads; the map fills the column at the floorplan's shape in the 16px gutter of a phone's page, the card of the table read under it, then the sections, then the hint "Pinch to zoom, drag to look around, tap a table to read it. The layout is edited at a desk.", and the Floorplan card is left out.
+A location with no layout says it has none, and a layout with no scale shows its image.
+A person the Market Setup row refuses, everyone on an archived market among them, reads the page with nothing to upload or calibrate, no card that edits and no save state, the frame saying why.
+**Past draft the editor stays, its seats settled** (`settled`, from the market's `setupLockReason`): under the setup-settled sentence (left out on an archived market, whose rail says it is archived), tables still move and turn, and the zones, the image, the scale and the sections' colours and labels still change, while the toolbar's Add table, Row of tables and Fill an area, the selection card's Section and Table type fields, Duplicate, "Row of N…" and Remove, each section's menu (Renumber, through [`RowMenu.vue`](../../../front-end/src/components/RowMenu.vue)'s `disabled`), and the Table types card's "Add a type", "Use saved types" and each type's menu are disabled; Delete and Ctrl+D do nothing, the Keyboard card leaves those keys out, and a location with no layout offers nothing to upload.
+`useLayoutEditor`'s seat commands (`addTables`, `duplicate`, `removeTables`, `setSection`, `setType`, `renumber`) do nothing once its `draft` answers false, whatever asks them.
+A market leaving Draft with the page open drops a change no save stored, as an archived one does, and undo forgets its steps (`forgetUndo`), since taking one back could put back a table removed in Draft.
 The page holds the layout's working copy ([`useLayoutEditor.ts`](../../../front-end/src/components/layout/useLayoutEditor.ts), [below](#the-editor)); each save names the revision of the layout it read ([`layoutSave.ts`](../../../front-end/src/components/layout/layoutSave.ts)), and after each answer the page re-reads the market through [the one store](../conventions/one-market-from-the-server.md).
 The image is fetched with the session as a blob ([`useFloorplanImage.ts`](../../../front-end/src/components/layout/useFloorplanImage.ts)), as the image read requires.
 
 ## The drawing
 
-[`LayoutMap.vue`](../../../front-end/src/components/layout/LayoutMap.vue) is the one drawing of a layout, in SVG, for the page, and for the editor, the PNG export and any later map as T257's later tickets build them.
-Its props are the layout, its location's name, the plan's sections, the market's table types, the image as the page fetched it, `mode` (`read`, `edit` or `print`), `showImage` (unless told, the image is drawn in `read` and `edit` and left out of `print`), `view`, `selection`, `guides` and `carried`; it emits `activate` with a table's id, and draws its default slot last, over the tables, in its millimetres, handing it the millimetres to a pixel.
-It holds no editing state: its only state is which table has the focus.
+[`LayoutMap.vue`](../../../front-end/src/components/layout/LayoutMap.vue) is the one drawing of a layout, in SVG, for the page, the editor and [the PNG export](#export-png), and for any later map.
+Its props are the layout, its location's name, the plan's sections, the market's table types, the image as the page fetched it, `mode` (`read`, `edit` or `print`), `showImage` (unless told, the image is drawn in `read` and `edit` and left out of `print`), `view`, `selection`, `guides`, `carried` and `numbers` (unless told, each table carries its number); it emits `activate` with a table's id and `focused` with the id of a table given the focus, and draws its default slot last, over the tables, in its millimetres, handing it the millimetres to a pixel.
+It holds no editing state: its only state is which table has the focus and, in `read`, the part of the hall it was looked round to.
 
 - **Its units are millimetres** from the floorplan's top-left corner, so a table is its true size at any zoom: `view` is the part of the hall shown (the whole hall when not given, drawn whole inside the map's box), the image is drawn the hall wide, and a table is a rectangle about its centre, moved and turned by its group's `transform`.
 - **What is read in pixels holds its size at every zoom**: edges and outlines by `vector-effect: non-scaling-stroke`, and names, numbers, gaps and the zones' hatch by the scale the map measures its own box at (a `ResizeObserver`).
@@ -123,12 +124,24 @@ It holds no editing state: its only state is which table has the focus.
   One table is the map's Tab stop, the one focused last, else the first selected, else the first, and the arrow keys move the focus to the nearest table within 45° of the arrow (`nearestInDirection`), unless the editor round the map took the key first, on the table or in the capture phase.
   A table says when it takes the focus itself: a focus listener on the `<svg>` makes Chromium count the map as a Tab stop of its own.
   In `edit` a map with no table is the Tab stop itself, so the keys have somewhere to place the first table from.
-- **In `read` a table pressed**, by pointer, Enter or Space, emits `activate`; `edit` draws the selection's outline and the guides it is given, says each table pressed or not (`aria-pressed`) as it is selected or not, draws the tables it is told were picked up by keyboard (`carried`) lifted, and leaves a press to the editor; `print` is a picture named as the map is, with no button and no stop.
+- **In `read` a table pressed**, by pointer, Enter or Space, emits `activate`, the tables of its `selection` (the page's table read) are outlined, unpressed, by a mark drawn over the map rather than inside the table's button, so the focus moving the mark never changes a button's box (the focus sweep holds that), and a read map given no `view` is looked round by hand: two fingers pinch it (`pinchedView`), from the whole hall in to the editor's 800%, one finger drags it once zoomed (`pannedView`), each kept inside the whole (`keptView`, `seenView`), and a press that moved no more than 6 px (`TAP_SLOP_PX`) and held one finger is a tap, read as it ends, on the table under it or the nearest within 12 px (`TAP_REACH_PX`, `distanceToTable`), since a table on a phone is a few pixels deep.
+  A tap is read at `pointerup`, not by its click, since Chromium sends no click for a tap that comes as the last drag's fling would be running; the click that follows a press is its own and reads nothing, so a click with no press before it, a screen reader's, is the one that reads.
+  At the whole hall the map's `touch-action` is `pan-y`, so one finger scrolls the page as it would anywhere, and zoomed in it is `none`, so the finger drags the map; a pinch is never the page's, which keeps its zoom.
+  A box of another size (a phone turned) keeps the view's middle and its zoom.
+- **`edit` draws the selection's outline** and the guides it is given, says each table pressed or not (`aria-pressed`) as it is selected or not, draws the tables it is told were picked up by keyboard (`carried`) lifted, and leaves a press to the editor; `print` is a picture named as the map is, with no button and no stop.
 - **A table's paint is written on its shapes** (`fill="var(--layout-section-1-fill)"`), not in a class, and its sizes are attributes, so the markup carries the drawing wherever it goes; the tokens still resolve from the page's stylesheet.
 - **A focused table draws the app's button border itself**, a shape over its own edge ([the design language](../../design-system.md#the-primitive-layer)), since a CSS outline on an SVG shape is measured in the drawing's units.
 - Each table is a component of its own ([`LayoutMapTable.vue`](../../../front-end/src/components/layout/LayoutMapTable.vue)) whose props are plain values, so a table whose values did not change is not drawn again when another does, and a pan, a change of `view` at the same zoom, changes the `viewBox` and no table.
 
 The geometry is pure, in [`layoutGeometry.ts`](../../../front-end/src/components/layout/layoutGeometry.ts) (a turned table's corners and box, the palette's order, a name's place, the arrow keys' focus, a number's size, and [the editor's](#the-editor)), and what the drawing says, in [`layoutDrawing.ts`](../../../front-end/src/components/layout/layoutDrawing.ts) (`layoutSections`, a location's sections with their colours and tables, which the map and the panel's list both read; a table's code and name; a place in metres to one decimal; a width of words in the app's type).
+
+## Export PNG
+
+"Export PNG", in the layout page's head once the layout has a scale, is for anyone who reads the market, in any phase, archived included, at a desk or on a phone.
+It opens [`LayoutExportDialog.vue`](../../../front-end/src/components/layout/LayoutExportDialog.vue) (on [`AppDialog`](../conventions/dialogs.md)): "Include the venue's floorplan" (unticked), "Show table numbers" (ticked), "Export" ("Exporting…" while it works) and "Cancel"; a failure says "The PNG could not be made. Try again." in the dialog's error line.
+[`exportLayoutPng.ts`](../../../front-end/src/components/layout/exportLayoutPng.ts) draws the layout as the page holds it, a change not saved yet included, into one standalone SVG 1600 px wide: the market's name in Merge One at 44 px (smaller, then cut with an ellipsis, when it would meet the right of the line), the location and the market's dates on the right ("Saturday 7 March", "7 to 8 March", "7 March to 4 April", "7, 14 and 21 March", by `getDatesInWords` in [`utils.ts`](../../../front-end/src/utils/utils.ts), calendar days in every time zone), the map, and a legend under it: each section with tables on the map (its swatch, name and tier), "In no section" when a table is in none, and "No tables" when the layout has zones.
+The map is `LayoutMap` in `print`, mounted off the screen at its size on the page (the page's width inside its 56 px margins, at the hall's shape, no taller than 8,000 px) and copied out standalone: each `var(--token)` resolved by `canvasColor()`, and each stroke the map holds at its screen size (`vector-effect: non-scaling-stroke`) written at that size in the map's millimetres, so the picture does not change with the size it is rendered at.
+The SVG embeds Outfit and Merge One as data URLs fetched from `/fonts/` (a font the server does not answer fails the export rather than drawing a fallback) and, when asked, the floorplan image as a data URL read with the session, so the canvas is never tainted; it is rendered on a canvas at twice its size, 3200 px wide, and saved through `saveFile` in [`download.ts`](../../../front-end/src/utils/download.ts) as `<market-slug>-<location-slug>-layout.png`, the market's slug or, with none, one made from its name.
 
 ## The editor
 
@@ -276,12 +289,10 @@ Section Setup reads a laid-out location's counts from its layout: the Count cell
 ## Interface
 
 `auto_place_tables(walls, obstacles, table_types, counts, scale_px_per_mm, aisle_config, room_mm, area_mm, area_polygon_mm, existing_mm, direction)` returns a `PlacementResult`: `placed`, the placed tables in millimetres (`x_mm`, `y_mm`, `rotation`, `width_mm`, `height_mm`, `table_type_id`), and `timed_out`, true only when the grid placement, or an area's rows, stopped at the deadline; the route answers them as `{"placed_tables": [...], "timed_out": ...}`.
-The organizer asks for a count per table type ([`AutoPlaceButton.vue`](../../../front-end/src/components/floorplan/AutoPlaceButton.vue)), and the wizard reports how many it placed, and when it placed fewer than asked, why: "Placed {n} of {asked} tables - there was no room for the rest.", or with `timed_out` "Placed {n} of {asked} tables - Auto-Place ran out of time before the rest.".
-While it cannot place, with no table type, scale, count asked or room yet, or a placement running, the button is disabled, and like the wizard's Next it takes the design language's [one disabled state](../../design-system.md#the-primitive-layer), never opacity.
-`POST /floorplans/place-tables` takes the `market_id` the wizard is open on beside the geometry, read with `string_field()`, and places only for an editor of that market on a market that is not archived; `AutoPlaceButton.vue` sends the `marketId` [`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue) gives it.
-The zone is the room less a wall buffer (1500 mm unless configured) and the obstacles; tables keep a spacing between them (1200 mm unless configured).
+`POST /floorplans/place-tables` takes the `market_id` the layout is open on beside the geometry, read with `string_field()`, and places only for an editor of that market on a market that is not archived.
+A request with no area places across the whole room, as the floorplan beta's Auto-Place asked, which no screen sends since the beta went: the zone is the room less a wall buffer (1500 mm unless configured) and the obstacles, and tables keep a spacing between them (1200 mm unless configured).
 
-**With an area the same route fills a part of a layout** (T257's Fill an area).
+**With an area the route fills a part of a layout**, which is what Fill an area asks.
 The request adds `area_mm` (a box: x, y, width, depth) or `area_polygon_mm` (a drawn shape's corners), one or the other, `existing_mm` (the tables that stand, each its four corners as it is turned) and `direction` (`across`, the default, or `down`).
 The room is then `room_mm`, the floorplan's extent, which the request must carry, whatever walls it sends; the wall buffer is not read; and the zone is the part of the area on the floorplan less the obstacles and less every table of `existing_mm` grown by the table spacing, every piece of it kept; an obstacle of fewer than three points takes no floor, and one whose sides cross is mended (`make_valid`) so the floor it covers stays clear.
 The tables stand in rows (`_rows_place`): a row's tables end to end, touching, from the left of every stretch of the row that is clear for the row's whole depth, and the rows the table spacing apart from the zone's top; `down` is the same seen sideways, the rows running down the page from the zone's left with their tables turned 90°.
@@ -292,13 +303,13 @@ The answer's `x_mm` and `y_mm` are centres, in the order placed, and `timed_out`
 An area with no `room_mm` answers the sentence that asks for a calibration.
 The largest request the bounds let through, 500 tables asked among 1,000 standing, is placed in about 0.1 s.
 
-**Auto-Place's request is parsed and bounded before it places** (T272).
-After the access check the route parses the body as `PlaceTablesRequest`, defined in the route file of `WallSegment`, `ObstacleZone` and `BetaTableType` (the beta's table type, with a height and a capacity, never the market's `TableTypeObject`), `counts` of whole numbers from 0, a finite `scale_px_per_mm`, an optional `room_mm` of positive finite sides and an optional `aisle_config` with the wizard's camel-cased keys; a field that does not parse answers 400 "Invalid placement request: ..." naming it.
+**A placement's request is parsed and bounded before it places** (T272).
+After the access check the route parses the body as `PlaceTablesRequest`, defined in the route file of `WallSegment`, `ObstacleZone` and `BetaTableType` (the beta's table type, with a height and a capacity, never the market's `TableTypeObject`; Fill an area sends its type in that shape, the depth as the height), `counts` of whole numbers from 0, a finite `scale_px_per_mm`, an optional `room_mm` of positive finite sides and an optional `aisle_config` with camel-cased keys; a field that does not parse answers 400 "Invalid placement request: ..." naming it.
 Then `placement_refusal()` in [`back-end/floorplan_limits.py`](../../../back-end/floorplan_limits.py), the one statement of a floorplan's bounds, answers 400 with one sentence for a number in the geometry that is not finite or past 10,000,000, more than 100 walls, 100 obstacle zones or 100 points in a zone, more than 500 tables asked, a table type's side outside 100 mm to 20,000 mm, a `room_mm` side over 500 m, or a wall buffer or table spacing outside 0 to 10,000 mm.
 The tables asked are counted as the service places them, so a type the `counts` do not name counts as one table and a count for a type not listed counts as none.
 The service refuses a room its walls make over 500 m on a side, since it is what builds that room.
 The route has no blanket `except`, so the service's refusals reach the organizer as their sentences, "The walls drawn do not enclose a room." among them, which used to answer 500 "Internal server error", as a wall missing its thickness did.
-The service is handed the parsed models' snake-cased dumps, so the aisle values the wizard sends are the ones it keeps: it used to read their camel-cased keys as unknown and keep its own defaults, the same 1500 mm and 1200 mm the wizard sends.
+The service is handed the parsed models' snake-cased dumps, so the aisle values a request sends are the ones it keeps: it used to read their camel-cased keys as unknown and keep its own defaults.
 
 ## Who may use the floorplan routes
 
@@ -308,29 +319,27 @@ The roles are [what each role may do](../../business/rules/what-each-role-may-do
 They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a person the row refuses 403 with its sentence, and, for a route that changes the floorplan (`edits`), an archived market 403.
 A route checks access right after it has read the id it is checked by, before the rest of its body or its image read.
 
-| Route                                                                                                     | Needs                                                                | Archived market |
-| --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------- |
-| `POST /floorplans/upload`                                                                                 | Change Market Setup (EDITOR) on the `market_id` sent                 | refused         |
-| `POST /floorplans/place-tables`                                                                           | Change Market Setup (EDITOR) on the `market_id` sent                 | refused         |
-| `DELETE /floorplans/<id>`                                                                                 | Change Market Setup (EDITOR) on the image's market                   | refused         |
-| `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | Change Market Setup (EDITOR) on the image's market                   | refused         |
-| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py))          | the Read row (any role) on the image's market, signed in             | allowed         |
-| `GET /floorplans/<id>`                                                                                    | the Read row (any role) on the image's market, signed in             | allowed         |
-| `POST /floorplans/save-to-market`                                                                         | Change Market Setup (EDITOR), and a setup that has not settled (409) | refused         |
+| Route                             | Needs                                                           | Archived market |
+| --------------------------------- | --------------------------------------------------------------- | --------------- |
+| `POST /floorplans/upload`         | Change Market Setup (EDITOR) on the `market_id` sent            | refused         |
+| `POST /floorplans/place-tables`   | Change Market Setup (EDITOR) on the `market_id` sent            | refused         |
+| `DELETE /floorplans/<id>`         | Change Market Setup (EDITOR) on the image's market              | refused         |
+| `GET /floorplans/<id>`            | the Read row (any role) on the image's market, signed in        | allowed         |
+| `POST /floorplans/save-to-market` | Change Market Setup (EDITOR); past draft, no seat changed (409) | refused         |
 
-The wizard's steps are an editor's work on a market that can still change, which is when the front end offers the wizard at all.
-**The export's audience is the people on the market**: it is a read of the plan, a rendering of the hall with its table codes, so it needs a sign-in and any role, and an archived market still exports.
-**The image read's audience is the people on the market too**: `GET /floorplans/<id>` asks the Read row on the image's market, as the export does, and an archived market's image still reads.
+**No route draws or measures a layout**: the beta's `POST /floorplans/export`, which drew the tables on the image with PIL, and `POST /floorplans/calibrate`, which measured a line on it, are gone (T257), since [the PNG](#export-png) is drawn by the browser from the same drawing and a scale is the calibration's own arithmetic; their addresses are now an image id's, so a POST there answers 405.
+**The image read's audience is the people on the market**: `GET /floorplans/<id>` asks the Read row on the image's market, so anyone who reads the market reads its image, as the layout page and its PNG need, and an archived market's image still reads.
 It answers every refusal 404 "Image not found", a signed-in account with no role on the market included, so the answer never tells a stranger that an id names an image.
-Its readers, the layout page's [`useFloorplanImage.ts`](../../../front-end/src/components/layout/useFloorplanImage.ts) and [`FloorplanUploader.vue`](../../../front-end/src/components/layout/FloorplanUploader.vue), and the beta's [`FloorplanEditor.vue`](../../../front-end/src/components/floorplan/FloorplanEditor.vue) and [`ScaleCalibration.vue`](../../../front-end/src/components/floorplan/ScaleCalibration.vue), fetch it through the API client with the session's cookie, as a blob.
-The settled-setup refusal stays on save alone, since only save writes a layout, whose tables are its sections' counts.
+Its readers, the layout page's [`useFloorplanImage.ts`](../../../front-end/src/components/layout/useFloorplanImage.ts), [`FloorplanUploader.vue`](../../../front-end/src/components/layout/FloorplanUploader.vue) and [the PNG export](#export-png), fetch it through the API client with the session's cookie, as a blob.
+The settled-setup refusal stays on save alone, and past draft only for a save that changes a seat, since only save writes a layout, whose tables are its sections' counts.
 **Every floorplan route needs a sign-in**, and `TestEveryFloorplanRouteNeedsASignIn` in [`back-end/tests/test_floorplan_access.py`](../../../back-end/tests/test_floorplan_access.py) keeps it so: it asks each route the floorplan blueprints register without a session and expects a 401, so a new route, or one whose `@login_required` is missing or above its `@route`, fails it.
 
 **An image belongs to the market it was uploaded for.**
 `POST /floorplans/upload` ([`back-end/api/floorplans.py`](../../../back-end/api/floorplans.py)) takes a `market_id` form field beside the file, needs an editor of that market on a market that is not archived, and checks it before it reads the file.
 **An upload is held to production's limits** (T257): Vercel's functions refuse a request body over 4.5 MB, multipart overhead included, before Flask sees it ([Vercel's function limits](https://vercel.com/docs/functions/limitations)), so a request whose `Content-Length` passes `MAX_UPLOAD_BYTES` (4,000,000) and the form's 64,000-byte allowance is refused 413 "This file is larger than 4 MB." before its body is read, ahead of the market check, and a file over `MAX_UPLOAD_BYTES` by its own length once read.
 A PDF of more than `MAX_PDF_PAGES` (20) pages is refused 400 "This PDF has more than 20 pages. Send the page with the plan on it." before any page is drawn, and one PDFium cannot open, or of which no page draws or encodes (a page PDFium fails to draw is skipped, as one that will not encode is), 400 "<file name> could not be read as a PDF.": the converter raises (`UnreadablePdf`, `TooManyPages`) where it used to answer an empty list, which the route read as a 500.
-[`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three "Image not found", and no route treats an unowned image as anyone's.
+[`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three 404 "Image not found", the image's read and its delete alike, and no route treats an unowned image as anyone's.
+Past that the delete answers as its market does (403 with the row's sentence, or the archived refusal), while the read answers every refusal 404, as above.
 [`FloorplanUploader.vue`](../../../front-end/src/components/layout/FloorplanUploader.vue), moved from the beta's folder to the layout's, sends the market it is in.
 It takes the file on the app's one drop zone, [`FileDropZone.vue`](../../../front-end/src/components/FileDropZone.vue) ([the design language](../../design-system.md#the-primitive-layer)), offering PNG, JPG, WebP and PDF, and checks the type itself, refusing any other with "This file is not a PNG, JPG, WebP or PDF." before it sends anything (T205).
 It refuses a PDF over 4 MB with "This PDF is larger than 4 MB. Export the page with the plan on it as a PNG or a smaller PDF.", since the browser draws no PDF, and shrinks a PNG, JPG or WebP over it before sending ([`shrinkImage.ts`](../../../front-end/src/components/layout/shrinkImage.ts)): decoded once, its longest side brought to at most 8,000 px, encoded as WebP at quality 0.9, then 0.8, then at sides 0.8 as long each time, until under 4 MB, and refused with its own sentence below 500 px; a browser that cannot write WebP writes PNG, and the file is named for what was written.
@@ -375,38 +384,35 @@ A position fits when it is more than the spacing from every placed table, measur
 Six-foot tables (1800 by 750 mm) on one machine: 59 in a 40 m by 30 m hall in 0.44 s (3.05 s before), 100 in 55 m by 41 m in 1.39 s (9.62 s), 200 in 55 m by 41 m in 6.06 s (48.76 s), and the review's run took 84.6 s for 200, past the browser's 30.
 
 **Production has no `pyckingsolver`.**
-It ships only `manylinux_2_35` wheels and Vercel builds on Amazon Linux 2023 (glibc 2.34), so it lives in [`back-end/requirements-floorplan-solver.in`](../../../back-end/requirements-floorplan-solver.in) and its lock [`requirements-floorplan-solver.txt`](../../../back-end/requirements-floorplan-solver.txt), which Docker, CI and local development install; the service imports it lazily, and production's Auto-Place runs the grid.
+It ships only `manylinux_2_35` wheels and Vercel builds on Amazon Linux 2023 (glibc 2.34), so it lives in [`back-end/requirements-floorplan-solver.in`](../../../back-end/requirements-floorplan-solver.in) and its lock [`requirements-floorplan-solver.txt`](../../../back-end/requirements-floorplan-solver.txt), which Docker, CI and local development install; the service imports it lazily, and in production a whole room's placement runs the grid (an area's never reaches the solver).
 So [`back-end/tests/test_auto_place_tables.py`](../../../back-end/tests/test_auto_place_tables.py) runs each placement case twice, on the solver and on the grid with `pyckingsolver`'s import blocked, which is production's state, and the solver's case fails rather than falling back to the grid.
 On the grid alone it also places a real hall's 59 tables in time, keeps the spacing between every two tables, and stops at a deadline set to half a second with `timed_out`.
 An area's cases run with the solver installed and with its import blocked, and answer the same: thirty asked of a box as two rows of eleven and one of eight, a box filled, rows down, a no-table zone, one whose sides cross and a standing table turned 30° left clear, a zone of fewer than three points taking no floor, an L and a triangle holding only whole tables inside them, a deadline of nothing answering `timed_out`, and 500 among 1,000 standing inside 5 s.
 **Any dependency added to `requirements.in` must install on glibc 2.34**: this one failed every production build from June to October 2026.
 
-**Konva cannot read a CSS variable.**
-Handed `var(--mm-red)`, a canvas keeps painting with whatever colour it last had, silently.
-Pass a canvas colour through `canvasColor()` ([`front-end/src/utils/canvasColor.ts`](../../../front-end/src/utils/canvasColor.ts)), which resolves a `var(--name)` to the stylesheet's value at the moment of drawing and passes anything else, or a token the stylesheet lacks, through unchanged.
+**An SVG drawn as an image cannot read a CSS variable.**
+It reads no stylesheet, and a canvas handed `var(--mm-red)` keeps painting with whatever colour it last had, silently.
+So [the PNG export](#export-png) passes each of the map's colours through `canvasColor()` ([`front-end/src/utils/canvasColor.ts`](../../../front-end/src/utils/canvasColor.ts)), which resolves a `var(--name)` to the stylesheet's value at the moment of drawing and passes anything else, or a token the stylesheet lacks, through unchanged.
 
-**Nothing of the wizard reaches the market until the save, so leaving before it asks** (T271).
-The upload, the scale, the table types, the tables and the sections live in the page and the floorplan store until "Save & Continue", so a link, a market tab, Back or a reload dropped all of it with no word.
-[`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue)'s `holdsAFloorplan` is true from an upload in this visit of the wizard until the floorplan is saved to the market, and is handed to `useUnsavedWork` ([unsaved work asks before it is dropped](../conventions/unsaved-work-asks-before-it-is-dropped.md)), so a move off the wizard asks "Leave without saving?" and a reload is asked by the browser.
-The wizard sets `savedToMarket` before it emits `saved`, so the move back to Market Setup that follows never asks.
-The rule is the wizard's, not the store's: the store keeps its data across a visit, but a new visit opens on Upload with nothing uploaded, so it asks nothing until a new upload.
+## A save writes only its layout
 
 **A floorplan is a location's layout, and a save writes only it** (T257).
-`POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) takes `{market_id, floorplan, revision}`, refuses a body that is not a JSON object (400), a `floorplan` that is not one ("floorplan is required") and a `revision` that is not a whole number from 0 ("revision is required"), needs EDITOR, refuses an archived market (403) and a setup that has settled (409, [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)), then parses the floorplan as `FloorplanObject`: a field that does not parse answers 400 "Invalid floorplan: ..." naming it, a floorplan with no id of its own answers "A floorplan needs its id.", and an unknown key is dropped, the beta's `walls`, `placedTables` and `sections` among them.
+`POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) takes `{market_id, floorplan, revision}`, refuses a body that is not a JSON object (400), a `floorplan` that is not one ("floorplan is required") and a `revision` that is not a whole number from 0 ("revision is required"), needs EDITOR, refuses an archived market (403), then parses the floorplan as `FloorplanObject`: a field that does not parse answers 400 "Invalid floorplan: ..." naming it, a floorplan with no id of its own answers "A floorplan needs its id.", and an unknown key is dropped, the beta's `walls`, `placedTables` and `sections` among them.
 **It writes through the plan's own writer, so it can never store a market that does not read.**
 It puts the floorplan in the stored plan's `floorplans` in the place of the one of its id, or after them, so saving again replaces it, and hands that list to `prepared_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), which judges it as it judges a plan write and derives the sections' counts from it; sections and locations are Market Setup's, and the save never writes them.
 The route writes the whole `setupObject` that returns through [the market write](market-write.md#the-plans-revision), holding the phase and the plan's revision as read and counting it, as every write of the plan does: a plan, a layout or the table types saved since the save read the market refuse it with the 409 `STALE_LAYOUT`, and a Market Setup page read before it is refused with the 409 "market changed" rather than storing its older plan over the layout.
 Before the plan's writer judges it, a table naming a section that is not one of its location's (removed on Section Setup, or another location's) is stored in no section and of no number (`in_its_sections`), as the editor sends it.
-Then [`layout.py`](../../../back-end/layout.py)'s `layout_refusal` answers 400 with one sentence for a layout whose location is not one of the plan's, two tables of one id ("Every table must have an id of its own."), a section's tables not numbered 1 to N (or a number on a table of no section), a table of a type the market does not have, a table with no scale to stand by, or a table whose centre is outside the floorplan; the beta's wizard sends a floorplan of no location, so its save is refused with "This layout's location is not one of the market's locations.".
+Then [`layout.py`](../../../back-end/layout.py)'s `layout_refusal` answers 400 with one sentence for a layout whose location is not one of the plan's ("This layout's location is not one of the market's locations.", which a floorplan of no location gets too), two tables of one id ("Every table must have an id of its own."), a section's tables not numbered 1 to N (or a number on a table of no section), a table of a type the market does not have, a table with no scale to stand by, or a table whose centre is outside the floorplan.
 The save used to write the plan's sections and locations by hand, which on a market whose plan was never saved left a plan of those alone, and with one wrong field a floorplan that did not parse: either way the market then answered as missing to every reader and refused every write, its Delete included (T272, [`test_a_floorplan_save_keeps_the_market_readable.py`](../../../back-end/tests/test_a_floorplan_save_keeps_the_market_readable.py)).
 The route has no blanket `except`, so a refusal `prepared_plan` raises answers its own status and sentence.
 **A save names the revision it read, so one tab never writes over another's.**
 `revision` is the stored layout's, 0 for a new one; the server moves it by one on every write, ignoring the body's.
 It answers 409 "This layout changed elsewhere. Reload to see the latest." when the layout of that id holds another revision, when a new id names a revision but 0, and when a new layout's location already has one, so two tabs that each start a hall's layout cannot both land; the write itself holds what was read (the layout at its place and revision, or no layout of its id or location), so a save landing between this one's read and its write makes this one 409 too.
+**Past draft a save moves tables, never seats** ([the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)).
+Once the market has left draft (`setup_lock_reason`), after the revision's 409, a new layout is refused 409 with the setup-settled sentence, and so is a save that `layout.settled_layout_refusal` finds changing the stored plan's seats (each table's id, section, number and type), its table types or its set of layouts; a table moved or turned, the zones, the image, the scale and the section styles save.
 A layout keeps its location and its starting counts whatever the body sends; a new one records `startingCounts`, Section Setup's count for each section of its location as the save found them, and gives a market with no table type "Standard 6 ft" (1830 by 760 mm), through `prepared_plan`'s `table_types`.
 An image the layout no longer names is deleted by id once the write has landed.
 The answer is `{floorplan, sections}`, the layout and the plan's sections as stored, so the editor adopts the revision and the derived counts at once.
-**A later visit's wizard saves over the market's floorplan too**: when the wizard opens, [`FloorplanEditorView.vue`](../../../front-end/src/views/FloorplanEditorView.vue) hands [`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue) the id of the floorplan the market stores, the last saved when it holds several, and `openOnMarket()` in the wizard's store, [`front-end/src/stores/floorplan.ts`](../../../front-end/src/stores/floorplan.ts), gives the wizard's floorplan that id, so a run after a reload or on another day replaces it.
 
 **The plan write never writes a layout** (T257).
 `PUT /markets/:id/plan` keeps the stored `floorplans` and `tableTypes` and ignores the body's (`_with_the_layouts`); only the layout's own write passes `prepared_plan` the floorplans it changes.
@@ -414,9 +420,7 @@ It holds the plan's revision its page read, which a layout's save counts, so Mar
 Every write of the plan runs `layout.derive_counts`, so a section of a laid-out location stores the number of its layout's tables whatever count was sent, and a section of a location with no layout keeps its typed count.
 A floorplan whose location is no longer one of the plan's goes with it: the write drops it, and `release_removed_floorplans` deletes its image by id once the write has landed and records `floorplan_removed`; the CSV start does the same after its write.
 A floorplan of no location, which only the beta saved, is kept and ignored by every reader until [`migrations/migrate_layouts.py`](../../../back-end/migrations/migrate_layouts.py) removes it.
-What of a layout settles on leaving draft is its seats and the market's table types (`layout.settled_part`), never where a table stands.
-Today a layout's save is refused once the market has left draft (`save_floorplan_to_market` in [`api/floorplans_save.py`](../../../back-end/api/floorplans_save.py) refuses on `setup_lock_reason`, defined in [`api/markets.py`](../../../back-end/api/markets.py)) and the page reads only.
-`layout.settled_layout_refusal` states what a following change will let through past draft: a table moved or turned, never a seat or a table type.
+What of a layout settles on leaving draft is its seats and the market's table types (`layout.settled_part`), never where a table stands: past draft the plan write refuses a change to them 400 through `setup_part`, and a layout's save 409 through `layout.settled_layout_refusal`, as above.
 Every writer of the plan, the plan write, a layout's save, the table types write and the CSV start, holds the plan's revision as read and counts it ([the plan's revision](market-write.md#the-plans-revision)), so none puts back what another wrote between its read and its write: a layout's save then answers 409 `STALE_LAYOUT`, and the others the one 409 "market changed".
 
 **A floorplan is held to its bounds wherever it is written.**
@@ -429,10 +433,6 @@ A new market's create body (`create_market`) is made as the plan write makes a p
 So a floorplan restated unchanged (equal, as a model, to one the market holds) is not judged again, the same "restating is not a change" rule as [the setup lock](../../business/rules/the-setup-settles-on-leaving-draft.md), and the count refuses only a list longer than both 20 and the stored one, since the save once added a copy on every save; a stored floorplan holding `NaN` never equals itself, so it is always judged.
 **A floorplan names only an image uploaded for its market**: each changed floorplan's `image_gridfs_id` must be one `get_image_market_id()` answers this market for, else 400 "The floorplan's image was not uploaded for this market.", which covers another market's image, an image stored without a market and an id naming no image.
 
-**The editor keeps the tables it is handed.**
-[`FloorplanEditor.vue`](../../../front-end/src/components/floorplan/FloorplanEditor.vue)'s `loadBackgroundImage()` calls `store.initFloorplan()` only when no floorplan exists yet, spreading the store's `placedTables`, `tableTypes`, `sections`, `walls`, `obstacles` and scale into it, so moving forward through the wizard keeps the auto-placed tables; when a floorplan exists it only refreshes the background image's fields.
-This replaced a snapshot-and-restore workaround in the E2E page object.
-
 **Saving a layout, deleting an image and a layout taken with its location record into [the market's history](../data/history.md)** (`floorplan`, `floorplan_image_deleted`, `floorplan_removed`, under `change-setup`), a layout's save as one `floorplan` entry and never also a `plan` one.
 Its subject is the layout's id and its location's name (`floorplan_id`, `location`), and its detail is `layout.describe_change`: what the save changed in the layout's own terms (`started`, tables `added` and `removed` per section, `moved`, `turned`, `renumbered`, `zones`, `image`, `scale` in metres across before and after, `colours`, `labels`), never a table itself; a save that changes nothing records nothing.
 Its zones read "marked 2 no-table zones in Upper Hall", "changed 1 no-table zone in Upper Hall" and "removed 1 no-table zone in Upper Hall".
@@ -441,7 +441,7 @@ An upload stores an image the market uses only once a layout is saved, so it rec
 
 ## Why
 
-Auto-Place exists so an organizer with a hall plan gets section table counts from the room rather than typing them; a layout's tables are its location's sections' counts, which the [assignment solver](assignment-solver.md) seats vendors at, by section name as ever.
+A layout exists so the plan and the hall can never disagree: an organizer places the tables they have where they stand, and a layout's tables are its location's sections' counts, which the [assignment solver](assignment-solver.md) seats vendors at, by section name as ever, so the code a vendor reads ("Gold row 5") is the table on the map.
 The organizer's side of it is [a location's layout](../../business/flows/planning.md#e6-a-locations-layout).
 
 The glossary concept it serves: [Placement and pin](../../business/concepts/placement-and-pin.md).

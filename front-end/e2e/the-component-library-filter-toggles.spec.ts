@@ -28,7 +28,7 @@ eachWindow('the filter toggles entry', (size) => {
     await expect(serves).toContainText('L2, L5, L6, L8, L12');
     await expect(serves).toContainText('Applications, Vendors, Payments, Attendance');
 
-    await expect(page.getByTestId('library-toggles-place')).toHaveCount(10);
+    await expect(page.getByTestId('library-toggles-place')).toHaveCount(9);
 
     await expect(page.getByTestId('choices-for-you')).toHaveCount(0);
 

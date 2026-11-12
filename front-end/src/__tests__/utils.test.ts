@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   getDateRange,
+  getDatesInWords,
   getFormattedDate,
   getFormattedTimestamp,
   getShortDate,
@@ -177,6 +178,54 @@ describe('getDateRange', () => {
   it('is a calendar range, so it does not move with the viewer', () => {
     inEveryTimezone((tz) => {
       expect(getDateRange(['2026-11-21', '2026-11-22']), `in ${tz}`).toBe('Nov 21-22, 2026');
+    });
+  });
+});
+
+/** Every calendar day from one to another, both included. */
+function everyDay(from: string, to: string): string[] {
+  const days: string[] = [];
+  for (let at = Date.parse(`${from}T00:00:00Z`); at <= Date.parse(`${to}T00:00:00Z`); at += 864e5)
+    days.push(new Date(at).toISOString().slice(0, 10));
+  return days;
+}
+
+describe('getDatesInWords', () => {
+  it('names one day with its weekday', () => {
+    expect(getDatesInWords(['2026-03-07'])).toBe('Saturday 7 March');
+  });
+
+  it('says two consecutive days of a month once', () => {
+    expect(getDatesInWords(['2026-03-08', '2026-03-07'])).toBe('7 to 8 March');
+  });
+
+  it('names both months of days across months', () => {
+    expect(getDatesInWords(everyDay('2026-03-07', '2026-04-04'))).toBe('7 March to 4 April');
+  });
+
+  it('names each day of days with gaps between them, a month said once', () => {
+    expect(getDatesInWords(['2026-03-07', '2026-03-14'])).toBe('7 and 14 March');
+    expect(getDatesInWords(['2026-03-07', '2026-03-14', '2026-03-21'])).toBe('7, 14 and 21 March');
+    expect(getDatesInWords(['2026-03-28', '2026-04-04'])).toBe('28 March and 4 April');
+  });
+
+  it('names the years only of days across a year', () => {
+    expect(getDatesInWords(['2026-12-31', '2027-01-01'])).toBe(
+      '31 December 2026 to 1 January 2027',
+    );
+  });
+
+  it('says nothing of a market with no date', () => {
+    expect(getDatesInWords([])).toBe('');
+    expect(getDatesInWords(undefined)).toBe('');
+    expect(getDatesInWords(['next Saturday'])).toBe('');
+  });
+
+  it('is calendar days, the same in every time zone', () => {
+    inEveryTimezone((tz) => {
+      expect(getDatesInWords(['2026-03-07']), `in ${tz}`).toBe('Saturday 7 March');
+      expect(getDatesInWords(['2026-03-07', '2026-03-08']), `in ${tz}`).toBe('7 to 8 March');
+      expect(getDatesInWords(['2026-03-31', '2026-04-01']), `in ${tz}`).toBe('31 March to 1 April');
     });
   });
 });

@@ -64,7 +64,7 @@ One document per market in the `markets` collection, holding the market's plan, 
 [`back-end/market_documents.py`](../../../back-end/market_documents.py) owns its canonical form and every raw read of it; the model is `Market` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), and the writes are in [`back-end/api/markets.py`](../../../back-end/api/markets.py) and the modules it names.
 Applications, check-ins, the market's history and vendor notes are their own collections, keyed by `market_id`; see [the application document](application-document.md) and [the market's history](history.md), and [market deletion](../modules/market-deletion.md) for how they go with the market.
 
-The glossary concepts: [Market](../../business/concepts/market.md), [Phase](../../business/concepts/phase.md), [Intake mode](../../business/concepts/intake-mode.md), [Essential question](../../business/concepts/essential-question.md) and [Review highlight](../../business/concepts/review-highlight.md).
+The glossary concepts: [Market](../../business/concepts/market.md), [Phase](../../business/concepts/phase.md), [Intake mode](../../business/concepts/intake-mode.md), [Essential question](../../business/concepts/essential-question.md), [Review highlight](../../business/concepts/review-highlight.md) and [Layout](../../business/concepts/layout.md).
 
 ## Key spelling
 
@@ -132,7 +132,7 @@ Lengths are millimetres, angles degrees clockwise, positions from the floorplan 
 
 The model reads leniently, as stored models do: every new field has a default, and the floorplan beta's fields (`walls`, `obstacles`, `placedTables`, `sections`, a floorplan's own `tableTypes`, `scaleUnit`) are dropped as a stored one parses, so a floorplan the beta saved reads as one of no location (`locationId` null), shown nowhere and counted by no section.
 The market read serves the stored document, so such a floorplan's stored keys, and a stored row with no id, reach the front end as stored until a write or the migration rewrites them.
-A laid-out location's sections store the count of their layout's tables, derived on every write, and only the layout's own writes change `floorplans` and `tableTypes`; how is [floorplan placement](../modules/floorplan-placement.md#sharp-edges).
+A laid-out location's sections store the count of their layout's tables, derived on every write, and only the layout's own writes change `floorplans` and `tableTypes`; how is [a location's layout](../modules/floorplan-placement.md#sharp-edges).
 
 **A change of reviewers is unfinished while `reviewTeam.unfinishedChoice` stands** (T270): its team write sets it to `{removed: [address]}`, the reviewers the change removed, and its last write, the turn's, unsets it, so the same choice again finishes a change that stopped between them and hands on those reviewers' follow-ups too, and a different choice over it counts them removed beside those it removes itself, unless it chooses them ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
 Like `dealing`, it is beside the team on the document and not on the `ReviewTeam` model, and the read never serves it.
@@ -203,7 +203,7 @@ The `owner` entry of `roles` changes only by handing the market on: `hand_on_mar
 **A new market takes from its create body only the fields a person chooses at creation**, `MARKET_CREATE_FIELDS` in [`back-end/api/markets.py`](../../../back-end/api/markets.py): `name`, `creationDate`, `organizationId`, `intakeMode`, `setupObject` and `applicationForm`.
 `new_market` builds the market from those alone, and every other field starts at its default, so a field added to `Market` is the server's until someone lists it, as the plan write reads only the plan (`PLAN_WRITE_FIELDS`).
 A key outside the list is dropped, not refused, since a tab still open on an earlier build sends the whole new-market object.
-A plan in the body is made as the plan write makes one, against a market holding no plan yet: its floorplans and table types are dropped, since only a layout's own write passes them ([floorplan placement](../modules/floorplan-placement.md)), and the rest is refused as the plan write refuses it (`_plan_refusal`: the half-table share's bounds and the prices).
+A plan in the body is made as the plan write makes one, against a market holding no plan yet: its floorplans and table types are dropped, since only a layout's own write passes them ([a location's layout](../modules/floorplan-placement.md)), and the rest is refused as the plan write refuses it (`_plan_refusal`: the half-table share's bounds and the prices).
 The server writes the rest itself: a new `id`, `roles` holding the creator alone as owner ([the organization document](organization-document.md#roles-on-a-market)), the dated `draft` entry of `phaseHistory` ([the phase record](../modules/phase-record.md)), and `permissions` copied from the organization's default.
 [`back-end/tests/test_the_market_create_body_is_an_allow_list.py`](../../../back-end/tests/test_the_market_create_body_is_an_allow_list.py) posts a value for every field of `Market` and fails on a field it has no value for.
 

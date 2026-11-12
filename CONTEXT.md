@@ -120,6 +120,7 @@ One day the market runs. A **calendar day**, never an instant: a stored `YYYY-MM
 
 **Section**:
 A named block of tables within the venue, carrying a tier, a location, and a count. Tables are generated from sections. A vendor ranks sections as a preference, and may be assigned outside their top choice.
+Where its location has a **layout**, its count is the number of the layout's tables in it, never typed.
 _Avoid_: Area, zone, block
 
 **Tier**:
@@ -128,6 +129,11 @@ _Avoid_: Level, class, grade
 
 **Location**:
 Where a section sits in the venue. Descriptive; the solver does not filter on it.
+
+**Layout**:
+A location's floorplan, its scale, and the tables placed over it, each a real table of the plan: of a section, of a table type, with its number in its section. One per location; the code and the routes call it a floorplan.
+_Avoid_: Floorplan (in anything an organizer reads), map (the drawing of a layout, not the layout)
+See [Layout](docs/business/concepts/layout.md).
 
 **Table**:
 One physical table on one market date. Holds either one full-table vendor or two half-table vendors.
@@ -139,7 +145,7 @@ Built in exactly one place (`table_code_for` in `back-end/datatypes.py`), becaus
 _Avoid_: Table number, table ID, "Front Row1"
 
 **Table type**:
-The physical kind of a table, such as its size. A property of an **individual table, not of its section** - any table in any section may be any type - so only a floorplan can describe it. Stubbed to a single type until the floorplan ships.
+The physical kind of a table, such as its size. A property of an **individual table, not of its section** - any table in any section may be any type - so only a layout can describe it. A market's types are a name, a width and a depth, and a layout gives each of its tables one; the application form and the solver still read one stubbed type until a follow-up makes them read the market's.
 _Avoid_: Table choice (a different concept, below)
 
 **Table choice**:
