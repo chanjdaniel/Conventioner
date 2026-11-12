@@ -12,6 +12,7 @@ import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
+import HandOnMarketDialog from '@/components/HandOnMarketDialog.vue';
 import MarketPermissions from '@/components/MarketPermissions.vue';
 import HistorySection from '@/components/HistorySection.vue';
 import ListFrame, { LIST_FIND_FROM } from '@/components/ListFrame.vue';
@@ -26,6 +27,7 @@ import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { intakeModeOf } from '@/utils/marketGuide';
 import { hasVendorPage } from '@/utils/vendorPage';
 import { openInsteadOfStepping } from '@/utils/openInsteadOfStepping';
+import { isTheReader } from '@/utils/personChoice';
 import {
   alsoWords,
   marketRemoval,
@@ -90,6 +92,10 @@ const roleChange = ref<
   | null
 >(null);
 const roleChangeBusy = ref(false);
+/** Whether "Hand this market on" is asking whom to, until it lands or is cancelled (T283). */
+const handingOn = ref(false);
+const handOnBusy = ref(false);
+const handOnError = ref('');
 
 watch(
   () => [props.manageOpen, props.market] as const,
@@ -103,6 +109,8 @@ watch(
       removeError.value = '';
       peopleWords.value = '';
       roleChange.value = null;
+      handingOn.value = false;
+      handOnError.value = '';
       errorMessage.value = '';
       userError.value = null;
       addUserError.value = '';
@@ -180,6 +188,17 @@ function changeableRoles(role: MarketRole): MarketRole[] {
  */
 const grantableRoles = computed(() =>
   GIVEN_ROLES.filter((role) => canManageRoles(marketData.value, role)),
+);
+
+/** Handing a market on is the table's "Hand the market on" row, its Owner's alone (T283). */
+const canHandOn = computed(() => mayTake(marketData.value, MarketAction.HandOnMarket));
+
+/**
+ * Whether anyone but the person looking has access, so there is someone to hand the market on to:
+ * only the Owner sees the section, so that person is the Owner.
+ */
+const anyoneToHandOnTo = computed(() =>
+  accessList.value.some((person) => !isTheReader(person.email)),
 );
 
 /** Deleting a market is the table's "Delete the market" row, its owner's alone. */
@@ -375,6 +394,50 @@ async function handleRename() {
     // so the field gives way to why the name is fixed, the sentence kept.
     if (isMarketChanged(err)) await fetchMarket(false);
   }
+}
+
+function askToHandOn() {
+  handOnError.value = '';
+  handingOn.value = true;
+}
+
+/** Cancel, Escape and the backdrop change nothing; the shell gives focus back to "Hand on". */
+function cancelHandOn() {
+  if (handOnBusy.value) return;
+  handingOn.value = false;
+  handOnError.value = '';
+}
+
+/**
+ * Confirmed: the person chosen becomes the Owner and this person an Admin, in one write. The market
+ * is re-read, as every write here re-reads it, so "Hand this market on" goes, since this person no
+ * longer owns it, and Users with access shows both new roles; focus goes to that list, as "Hand on"
+ * is gone. A refusal stays in the dialog; one saying the market changed under it re-reads the
+ * market behind it, as a removal's does, and so does one saying the person chosen has no access,
+ * since the read the choice came from is stale: they then drop out of the choices.
+ */
+async function handleHandOn(userId: string) {
+  if (!marketData.value || handOnBusy.value) return;
+  handOnError.value = '';
+  handOnBusy.value = true;
+  try {
+    await api.post(`/markets/${encodeURIComponent(marketData.value.id)}/hand-on`, { userId });
+  } catch (err) {
+    handOnError.value = getApiErrorMessage(err, 'The market was not handed on.');
+    if (isMarketChanged(err) || getApiErrorStatus(err) === 400) await fetchMarket(false);
+    handOnBusy.value = false;
+    return;
+  }
+  changesMade.value++;
+  await fetchMarket(false);
+  // The open market may be this one: what this person may do on it changed with their role.
+  const store = useMarketStore();
+  if (store.marketId === marketData.value?.id) void store.refresh();
+  handingOn.value = false;
+  handOnBusy.value = false;
+  // Once the dialog has closed and the page behind it is no longer inert.
+  await nextTick();
+  peopleList.value?.focus();
 }
 
 /**
@@ -690,6 +753,26 @@ async function closeAddUser() {
         </p>
       </section>
 
+      <section v-if="canHandOn" class="section" data-testid="manage-market-hand-on">
+        <h3>Hand this market on</h3>
+        <template v-if="anyoneToHandOnTo">
+          <p class="section-line" data-testid="manage-market-hand-on-line">
+            Make someone with access its Owner. You stay on it as an Admin.
+          </p>
+          <button
+            type="button"
+            class="btn btn--secondary"
+            data-testid="manage-market-hand-on-button"
+            @click="askToHandOn"
+          >
+            Hand on
+          </button>
+        </template>
+        <p v-else class="section-line" data-testid="manage-market-hand-on-nobody">
+          Nobody else has access to this market yet. Add someone under Users with access first.
+        </p>
+      </section>
+
       <section v-if="canDelete" class="section danger-section">
         <h3>Delete market</h3>
         <button
@@ -748,6 +831,18 @@ async function closeAddUser() {
       </div>
     </template>
   </AppDialog>
+
+  <HandOnMarketDialog
+    :open="manageOpen && handingOn && !!marketData"
+    :market-name="marketData?.name ?? 'this market'"
+    :people="accessList"
+    :organization-name="organizationLabel"
+    :busy="handOnBusy"
+    :error="handOnError"
+    @close="cancelHandOn"
+    @confirm="handleHandOn"
+    @choose="handOnError = ''"
+  />
 
   <!--
     The product's destructive dialog, as archiving and deleting an organization are (bug 43): it
@@ -943,10 +1038,16 @@ async function closeAddUser() {
   }
 }
 
-.org-line {
+.org-line,
+.section-line {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+/* The line keeps its distance from the button it explains. */
+.section-line + .btn {
+  margin-top: var(--space-3);
 }
 
 .add-org-row,

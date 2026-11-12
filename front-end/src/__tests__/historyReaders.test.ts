@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 // `shared.ts` first, so this file loads the areas by the way an area's helper would.
 import { fieldValue } from '@/utils/historyReaders/shared';
+import { entryParts } from '@/utils/marketHistory';
 import {
   HISTORY_READERS,
   NAMED_VALUES,
@@ -98,6 +99,7 @@ const SENTENCES = [
   'give-verdicts/verdict_undone',
   'give-verdicts/verdicts',
   'give-verdicts/verdicts_undone',
+  'hand-on-market/handed_on',
   'import-applications/imported',
   'import-applications/started',
   'manage-admins/role_changed',
@@ -188,6 +190,25 @@ describe('the history readers', () => {
     );
     expect(parts.every((one) => typeof one === 'function')).toBe(true);
     expect(new Set(parts).size).toBe(1);
+  });
+
+  it('words a market handed on: who to, and that its old Owner stays on it as an Admin', () => {
+    const parts = entryParts(
+      {
+        id: 'e1',
+        actor: 'dana@ember.test',
+        at: '2026-11-01T10:00:00+00:00',
+        action: 'hand-on-market',
+        kind: 'handed_on',
+        vendors: [],
+        subject: { user_id: 'user-sam', email: 'sam@ember.test' },
+        detail: { before: { owner: 'dana@ember.test' }, after: { owner: 'sam@ember.test' } },
+      },
+      { names: {}, labels: {} },
+    );
+    expect(parts.map((part) => (part.kind === 'text' ? part.text : '')).join('')).toBe(
+      'dana@ember.test handed the market on to sam@ember.test, and stays on it as an Admin',
+    );
   });
 
   it('names and words the stored values the areas name and word', () => {

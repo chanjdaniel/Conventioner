@@ -36,6 +36,7 @@ sources:
   - T223
   - T224
   - T263
+  - T283
 ---
 
 # Reading the market's history
@@ -102,7 +103,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    A later page that fails ends the list in what failed, "Older changes could not be loaded." unless the failure says more, and "Try again", which brings it and moves focus to the first control of what landed.
    A reader already at the end of the rows is shown that line, which lands below them; a reader still above the end keeps their place, and neither has their focus moved.
    There is no count of the entries, since a server page cannot know one cheaply, and no line for the list's end: the bottom shade going away says it.
-   A change made in the dialog (a person given, changed or taken a role, a rename, a row of the permission table) reads the first page again, under the filters as they are, so it shows without reopening the dialog.
+   A change made in the dialog (a person given, changed or taken a role, the market handed on, a rename, a row of the permission table) reads the first page again, under the filters as they are, so it shows without reopening the dialog.
 6. The filters above the list narrow it, and stay set while the dialog is open: "Who" (a field that finds anyone who changed something as an organizer by typing part of their address, "Anyone" first; its list lies over the filters below it, the arrow keys move, Enter takes, Escape closes the list before the dialog, and the words only search, so the list of changes stays narrowed as it was until another is taken), "Kind of change" (the table's groups: Market Setup, Applications, Lifecycle, Vendors, Assignment, Payments, The door, Discord, People; a seat filled again that takes back the $0 a free set reads under both Assignment and Payments), "Vendor" (a field that finds, by a name or part of an address, the market's vendors who gave a name and every address a loaded change names, each row the name beside the address ([`personChoice.ts`](../../../front-end/src/utils/personChoice.ts)) and at most 50 drawn before "N more, type to narrow"; its list lies over the filters below it and looks the same on every browser, the words narrow as they are typed and stay as typed on leaving unless they are a vendor's whole address or label, when the field names that vendor, one match narrows to that vendor, and choosing a row narrows to them and the field names them; while the words match several it says "2 vendors match. Keep typing, or choose one.", words that match nobody narrow the list to nothing, and an address typed whole that no loaded change names is asked for all the same), and "Changed from" and "Changed to" (when the change was made, calendar days in the reader's timezone, both kept).
    They stay above the box, and in a window about 800px tall or more they stay in sight beside the whole of it; a change of filter starts the list again from its newest entry, at the top of the box.
    "Clear filters" sets them all back; with nothing to show the list says "No change matches these filters.", or "Nothing has changed on this market yet." when unfiltered.

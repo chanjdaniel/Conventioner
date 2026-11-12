@@ -68,6 +68,7 @@ THE_TABLE = [
     ("manage-editors-and-viewers", "People", "Give and take Editor and Viewer roles",
      MarketRole.ADMIN, False),
     ("manage-admins", "People", "Give and take Admin roles", MarketRole.OWNER, True),
+    ("hand-on-market", "People", "Hand the market on", MarketRole.OWNER, True),
     ("delete-market", "People", "Delete the market", MarketRole.OWNER, True),
     ("change-the-table", "People", "Change this table", MarketRole.OWNER, True),
 ]

@@ -216,11 +216,11 @@ VIEWER_REFUSAL = (
 )
 
 #: The rows an archived market still takes: reading it, and the decisions about its record - who
-#: may see it and whether to keep it - which are not changes to it (bug 30). Every other row is
-#: refused on an archived market whoever may, a row added later included.
+#: may see it, who owns it and whether to keep it - which are not changes to it (bug 30). Every
+#: other row is refused on an archived market whoever may, a row added later included.
 ARCHIVED_STILL_TAKES = frozenset({
     Actions.READ, Actions.READ_HISTORY, Actions.EXPORT_CSV, Actions.MANAGE_EDITORS_AND_VIEWERS,
-    Actions.MANAGE_ADMINS, Actions.DELETE_MARKET,
+    Actions.MANAGE_ADMINS, Actions.HAND_ON_MARKET, Actions.DELETE_MARKET,
 })
 
 #: The rows that read the market rather than change it.
@@ -2348,6 +2348,62 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     _record_role(market_id, requesting_user, History.ROLE_CHANGED, user_id,
                  current_role, new_role)
     return True
+
+
+#: Said of a hand-on to anyone the market read does not find with access, the Owner included.
+HAND_ON_ONLY_TO_SOMEONE_WITH_ACCESS = (
+    "You can hand this market only to someone who has access to it.")
+
+
+def hand_on_market(market_id: str, user_id: str, requesting_user: str) -> None:
+    """Make ``user_id`` the market's Owner and its Owner, the requester, an Admin (T283).
+
+    Asks the fixed row ``hand-on-market``, which only the Owner reaches, then refuses anyone but
+    the people the market read finds with access (``people_with_market_role``), the Owner aside,
+    so the id the write names is one the server found. Allowed in every phase, archived included:
+    who owns a record is a decision about it, and an archived market still needs someone who can
+    delete it.
+
+    One write, holding the Owner's role and the new Owner's as read (absent when their access
+    comes through the organization): the Owner was the one Owner as read, so a second hand-on of
+    theirs meets their role changed, and the market never has two Owners or none.
+
+    Raises:
+        MarketChanged: either role changed since the read.
+    """
+    context = load_market_context(market_id)
+    if context is None:
+        raise MarketNotFoundError("Market not found")
+    if context.market is None:
+        raise BadRequestError("Invalid market data")
+
+    market = context.market
+    organization = context.organization
+    refused = Actions.refusal(Actions.HAND_ON_MARKET, requesting_user, market, organization)
+    if refused:
+        raise ForbiddenError(refused)
+
+    owner = UsersApi.get_user(requesting_user)
+    if owner is None or market.roles.get(owner.id) != MarketRole.OWNER:
+        # The row lets in only a market role of Owner, which only ``roles`` holds.
+        raise ForbiddenError(Actions.refusal_sentence(Actions.HAND_ON_MARKET))
+    with_access = PermissionsApi.people_with_market_role(market, organization)
+    if user_id == owner.id or user_id not in with_access:
+        raise BadRequestError(HAND_ON_ONLY_TO_SOMEONE_WITH_ACCESS)
+    # A role a gone account left behind is no one to hand it to, and the read lists no such row:
+    # its accounts are read as the read reads them (``_Accounts``).
+    new_owner = UsersApi.get_users_by_ids([user_id]).get(user_id)
+    if new_owner is None:
+        raise BadRequestError(HAND_ON_ONLY_TO_SOMEONE_WITH_ACCESS)
+
+    write_market(market, {"$set": {
+        _role_key(owner.id): MarketRole.ADMIN.value, _role_key(user_id): MarketRole.OWNER.value,
+    }}, holds=[_role_key(owner.id), _role_key(user_id)])
+    History.record(
+        market_id, requesting_user, Actions.HAND_ON_MARKET, kind=History.HANDED_ON,
+        subject={"user_id": user_id, "email": new_owner.email},
+        detail=lambda: History.changes({"owner": owner.email}, {"owner": new_owner.email}),
+    )
 
 
 def _role_key(user_id: str) -> str:

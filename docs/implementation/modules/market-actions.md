@@ -19,6 +19,9 @@ describes:
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/api/markets.py#read_refused
+  - back-end/api/markets.py#hand_on_market
+  - back-end/tests/test_handing_a_market_on.py
+  - back-end/tests/real_mongo/test_handing_a_market_on_on_the_server.py
 verified: 2026-11-11
 sources:
   - E39
@@ -48,6 +51,7 @@ sources:
   - T217
   - T263
   - T274
+  - T283
 ---
 
 # The market's actions
@@ -365,6 +369,17 @@ Asked by:
 - `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given)
 - taking any role, an Editor's or a Viewer's too, first, beside the Editor-and-Viewer row
 
+### Hand the market on (`hand-on-market`)
+
+Default: Owner, fixed.
+
+Asked by:
+
+- `POST /markets/:id/hand-on` (`hand_on_market`, T283): body `{"userId": "<id>"}`, a string, else "Choose who to hand this market on to."; anyone the market read finds with access (`people_with_market_role`) but the owner, else "You can hand this market only to someone who has access to it."; one [market write](market-write.md) setting `roles.<owner>` to `admin` and `roles.<new>` to `owner`, holding both keys as read, so a second hand-on on the same read answers the one 409; recorded as `handed_on` ([the market's history](../data/history.md)); answers the market as the read serves it to the old owner.
+- whether Manage market shows "Hand this market on" ([handing a market on](../../business/flows/ending-and-managing-a-market.md#l4a-hand-the-market-on))
+
+[`back-end/tests/test_handing_a_market_on.py`](../../../back-end/tests/test_handing_a_market_on.py) pins each refusal, the write, the record and an archived market; [`back-end/tests/real_mongo/test_handing_a_market_on_on_the_server.py`](../../../back-end/tests/real_mongo/test_handing_a_market_on_on_the_server.py) races two hand-ons on a server, one landing.
+
 ### Delete the market (`delete-market`)
 
 Default: Owner, fixed.
@@ -422,7 +437,7 @@ It sets and unsets exactly the rows that change, so a row this build cannot read
 
 **The market read serves every row's answer for the person asking**, `actionRefusals`, by row id (`role_action_refusals` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), E39/F01/S02): null where they may, else why not.
 `get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
-`ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading it and its history and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
+`ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading it and its history and exporting it, giving and taking roles, handing it on, and deleting it; every other row, one added later included, is refused on an archived market.
 `TestEveryRowOfTheTable` in [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) sends one write of every row to an archived market, and fails when a row outside the set is not refused in the archived rule's words or a row inside it is; the phase move is refused there by the transition table, since no move leaves `archived`.
 The markets list serves the same answers, through the same function, for each entry's role and whether the reader is chosen, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04), and answers the giving row as the market's page does.
 

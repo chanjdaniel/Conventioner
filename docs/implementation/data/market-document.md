@@ -170,7 +170,7 @@ Every writer of `applicationForm` passes it through `_normalized_application_for
 - A form with no custom fields is a form: whether it asks enough to open applications is the phase guard's question, counting the essential questions too.
 
 [`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts) (`applicationFormError`) mirrors these rules so the builder refuses a save before sending it; the back end is the authority.
-Ownership of a market cannot be handed on: no write changes the `owner` entry of `roles`.
+The `owner` entry of `roles` changes only by handing the market on: `hand_on_market` sets `roles.<owner>` to `admin` and `roles.<new>` to `owner` in one write holding both keys as read, while a role write refuses to change the owner's role, to take the only owner or to give a second ([the market's actions](../modules/market-actions.md#hand-the-market-on-hand-on-market)).
 
 ## A new market
 

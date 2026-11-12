@@ -173,7 +173,13 @@ test('a fixed row shows its role and Always, with no control', async ({
   authenticatedPage: page,
 }) => {
   const manage = await openPermissions(page);
-  for (const id of ['read', 'manage-admins', 'delete-market', 'change-the-table']) {
+  for (const id of [
+    'read',
+    'manage-admins',
+    'hand-on-market',
+    'delete-market',
+    'change-the-table',
+  ]) {
     await expect(manage.permissionSelect(id)).toHaveCount(0);
     await expect(manage.permissionSource(id)).toHaveText('Always');
   }

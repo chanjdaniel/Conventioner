@@ -39,6 +39,7 @@ export const EDITOR_ANSWERS = answersRefusing(
   MarketAction.ConnectDiscord,
   MarketAction.ManageEditorsAndViewers,
   MarketAction.ManageAdmins,
+  MarketAction.HandOnMarket,
   MarketAction.DeleteMarket,
   MarketAction.ChangeTheTable,
 );
@@ -46,6 +47,7 @@ export const EDITOR_ANSWERS = answersRefusing(
 /** What an Admin is served by the built-in table: only the Owner's rows are refused. */
 export const ADMIN_ANSWERS = answersRefusing(
   MarketAction.ManageAdmins,
+  MarketAction.HandOnMarket,
   MarketAction.DeleteMarket,
   MarketAction.ChangeTheTable,
 );
