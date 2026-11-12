@@ -144,12 +144,15 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
     Algorithm:
       1. Look up the Market document by ``market_id`` (404 if not found, 400 if it does not parse).
       2. Resolve the requesting user from the session and ask the table's Market Setup row
-         (``Actions.CHANGE_SETUP``; 403 if not), then the archived rule (403) and the settled
-         setup (409).
+         (``Actions.CHANGE_SETUP``; 403 if not), then the archived rule (403).
       3. Parse the floorplan (400 naming the field, or when it carries no id of its own).
       4. Find the layout it replaces, by id: 409 ``STALE_LAYOUT`` when the stored one is of another
          revision, or, for a new id, when ``revision`` is not 0 or the location has a layout
-         already. A layout keeps its location, its starting counts and moves its revision by one;
+         already. Past draft (``MarketsApi.setup_lock_reason``) a new layout, or one that changes a
+         seat (a table added, removed, renumbered, of another id, section or type), is refused 409
+         with the setup-settled sentence (``layout.settled_layout_refusal``); where a table stands,
+         the zones, the image, the scale and the sections' colours and labels still change.
+         A layout keeps its location, its starting counts and moves its revision by one;
          a new one records Section Setup's counts for its location's sections, starts at revision
          1, and gives a market with no table type "Standard 6 ft".
       5. Write it through ``MarketsApi.prepared_plan`` with those floorplans, the plan write's own
@@ -202,10 +205,9 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
     refusal = MarketsApi.archived_refusal(market)
     if refusal:
         return jsonify({"error": refusal}), 403
-    # A layout's tables are the sections' counts, which settle on leaving draft (E31/F01/S02).
+    # A layout's seats are the sections' counts, which settle on leaving draft (E31/F01/S02);
+    # where a table stands does not, so a settled market's save is judged once it is read (step 4).
     settled = MarketsApi.setup_lock_reason(market)
-    if settled:
-        return jsonify({"error": settled}), 409
 
     # ── 3. Parse the floorplan ─────────────────────────────────────────
     floorplan = _parsed_floorplan(market_id, data)
@@ -218,6 +220,9 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
         held = _stored_layout(stored, floorplan, revision)
     except StaleLayout:
         return jsonify({"error": STALE_LAYOUT}), 409
+    # Past draft no layout starts: its tables would be seats Section Setup never had.
+    if held is None and settled:
+        return jsonify({"error": settled}), 409
     table_types = None
     if held is None:
         floorplan = _started(proposed, floorplan)
@@ -230,6 +235,14 @@ def save_floorplan_to_market() -> Tuple[Any, int]:
     floorplan = Layout.in_its_sections(
         floorplan.model_copy(update={"revision": revision + 1}), proposed)
     floorplans = _with_floorplan(stored.floorplans if stored else None, floorplan)
+    # Past draft a table may move and turn, and the zones, the image, the scale and the sections'
+    # colours and labels change, but no seat: a table added, removed, renumbered, of another id,
+    # section or type (T257).
+    if settled:
+        refused = Layout.settled_layout_refusal(
+            stored, proposed.model_copy(update={"floorplans": floorplans}), settled)
+        if refused:
+            return jsonify({"error": refused}), 409
 
     # ── 5. Write it through the plan's own writer ──────────────────────
     prepared = MarketsApi.prepared_plan(

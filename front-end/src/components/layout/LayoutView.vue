@@ -14,7 +14,10 @@
  * (`LayoutCalibration.vue`), and Recalibrate draws the line again; with a scale it is the layout's
  * drawing (`LayoutMap.vue`): the editor (`LayoutEditor.vue`) for someone who may change the
  * layout, at a desk, with the selection's card heading the panel, and the whole hall, read, for
- * anyone else and at a phone's width.
+ * anyone else (a Viewer, anyone on an archived market) and at a phone's width. Past Draft the
+ * editor stays under the setup-settled sentence, its seats settled: tables still move and turn,
+ * and the zones, the image, the scale and the colours still change, while what would add, remove,
+ * renumber, re-section or re-type a table is disabled, and a location with no layout starts none.
  * It is drawn over the floor alone while the image is on its way or could not be had, and the
  * panel lists the location's sections in the colours the map draws them in. The page holds the
  * layout's working copy (`useLayoutEditor.ts`): each save names the revision it read, a save over
@@ -40,6 +43,7 @@ import { api } from '@/utils/api';
 import { useOpenMarket } from '@/utils/openMarket';
 import { useUnsavedWork } from '@/utils/useUnsavedWork';
 import { MarketAction, mayTake } from '@/utils/marketActions';
+import { MarketPhase } from '@/assets/types/datatypes';
 import { layoutPath, marketPath } from '@/utils/market';
 import FloorplanUploader from './FloorplanUploader.vue';
 import LayoutCalibration from './LayoutCalibration.vue';
@@ -113,11 +117,15 @@ watch(
   { immediate: true },
 );
 
-/** Whether this person may change the layout here, now. Past Draft the save is refused (until a
- * later ticket narrows it), so the page offers no change there either. */
-const editable = computed(
-  () => mayTake(market.value, MarketAction.ChangeSetup) && !market.value?.setupLockReason,
-);
+/** Whether this person may change the layout here: the Market Setup row's answer, which refuses
+ * everyone on an archived market. */
+const editable = computed(() => mayTake(market.value, MarketAction.ChangeSetup));
+/** Whether the market has left Draft, so the layout's seats are settled: where a table stands
+ * still changes, but no table is added, removed, renumbered or given another section or type, and
+ * no layout starts (`the-setup-settles-on-leaving-draft.md`). */
+const settled = computed(() => Boolean(market.value?.setupLockReason));
+/** Whether the market is archived, which its rail says, so the page does not say it is settled. */
+const archived = computed(() => market.value?.phase === MarketPhase.Archived);
 
 const stored = computed<FloorplanObject | null>(
   () =>
@@ -136,7 +144,7 @@ const editor = useLayoutEditor({
   save: (layout, revision) => saveLayout(marketId.value, layout, revision),
   saveOnUnload: (layout, revision) => saveLayoutOnUnload(marketId.value, layout, revision),
   onSaved: () => void refresh(),
-  draft: () => !market.value?.setupLockReason,
+  draft: () => !settled.value,
   may: () => editable.value,
   tableTypes: () => market.value?.setupObject?.tableTypes ?? [],
   // The location's sections, by which a table whose section is gone is put in no section.
@@ -150,11 +158,19 @@ const saveState = editor.saveState;
 const saveMessage = editor.saveMessage;
 
 watch(stored, (held) => editor.adopt(held), { immediate: true });
-// Once this person may no longer change the layout here (the market left Draft or was archived
-// elsewhere, or their role went), a change no save stored can never land: it is dropped, with
-// its failed line, and the layout shown is the server's, as Market Setup forgets such a plan.
+// Once this person may no longer change the layout here (the market was archived elsewhere, or
+// their role went), a change no save stored can never land: it is dropped, with its failed line,
+// and the layout shown is the server's, as Market Setup forgets such a plan.
 watch(editable, (may) => {
   if (!may && editor.pending()) editor.reload(stored.value);
+});
+// Once the market leaves Draft with the layout open, a change made in Draft and not stored may
+// change a seat, which the server now refuses: it is dropped the same way. And undo forgets its
+// steps, since taking one back could put back a table removed or renumbered in Draft.
+watch(settled, (now) => {
+  if (!now) return;
+  if (editor.pending()) editor.reload(stored.value);
+  else editor.forgetUndo();
 });
 watch(locationId, () => {
   editor.reload(stored.value);
@@ -500,7 +516,10 @@ async function onCalibrated(line: { start: Point; end: Point; lengthMm: number }
   if (saved) recalibrating.value = false;
 }
 
-const showSaveState = computed(() => saveState.value !== 'idle' || Boolean(stored.value));
+/** The save state is the writer's: someone who only reads the layout is told nothing of saves. */
+const showSaveState = computed(
+  () => editable.value && (saveState.value !== 'idle' || Boolean(stored.value)),
+);
 
 /** A layout is edited at a desk: at a phone's width, 640px and below, its map is read. */
 const atADesk = ref(true);
@@ -620,7 +639,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
         </div>
       </header>
 
-      <p v-if="market.setupLockReason" class="note" data-testid="layout-setup-settled">
+      <p v-if="settled && !archived" class="note" data-testid="layout-setup-settled">
         {{ market.setupLockReason }}
       </p>
 
@@ -635,7 +654,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
         <section class="layout-map-column" :aria-label="`${location.name}'s floorplan`">
           <template v-if="!floorplan?.imageGridfsId">
             <FloorplanUploader
-              v-if="editable"
+              v-if="editable && !settled"
               :marketId="market.id"
               :busy="saveState === 'saving'"
               @uploaded="onUploaded"
@@ -719,6 +738,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               :tableTypes="tableTypes"
               :imageUrl="imageUrl"
               :showImage="showImage"
+              :settled="settled"
               :fill="(request) => placeTables(marketId, request)"
               @announce="say"
               @status="showStatus"
@@ -776,7 +796,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
         <aside class="layout-panel" aria-label="Layout details">
           <section v-if="!floorplan?.imageGridfsId" class="layout-card">
             <p class="layout-card-text" data-testid="layout-panel-start">
-              <template v-if="editable">
+              <template v-if="editable && !settled">
                 Upload the venue's floorplan for {{ location.name }} to start.
               </template>
               <template v-else>{{ location.name }} has no layout yet.</template>
@@ -803,6 +823,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               :tables="selectedTables"
               :sections="sections"
               :tableTypes="tableTypes"
+              :settled="settled"
               @turn="turnTheSelection"
               @remove="removeSelection"
               @duplicate="duplicateSelection"
@@ -818,6 +839,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               :unsectioned="unsectioned.length"
               :startingCounts="floorplan?.startingCounts ?? []"
               :editable="editing"
+              :settled="settled"
               @color="(sectionId, color) => editor.setSectionStyle(sectionId, { color })"
               @renumber="editor.renumber($event)"
               @selectUnsectioned="editor.select(unsectioned.map((table) => table.id))"
@@ -827,6 +849,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
               class="layout-card"
               :tableTypes="tableTypes"
               :counts="typeCounts"
+              :settled="settled"
               :save="writeTableTypes"
               :listSaved="listSaved"
               :saveAs="saveTheseTypes"
@@ -865,7 +888,7 @@ const saveTheseTypes = (name: string) => saveTypes(name, tableTypes.value, types
                 </button>
               </div>
             </section>
-            <LayoutPanelKeyboard v-if="editing" class="layout-card" />
+            <LayoutPanelKeyboard v-if="editing" class="layout-card" :settled="settled" />
           </template>
         </aside>
       </div>

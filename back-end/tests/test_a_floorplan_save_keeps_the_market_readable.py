@@ -779,14 +779,16 @@ class TestTheAnswersBeforeTheParseKeepTheirOrder:
         assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
         assert market.last_update is None
 
-    def test_a_settled_setup_is_refused_before_the_floorplan_is_read(self, client, market):
+    def test_a_settled_setup_reads_the_floorplan_before_it_judges_the_seats(self, client, market):
+        """Past draft a table may still move (T257), so the save parses the floorplan to tell a
+        move from a seat changed: one that does not parse is refused as such, not as settled."""
         market.doc = stored_market(MarketPhase.APPLICATIONS, roles=dict(ROLES),
                                    setupObject=copy.deepcopy(FULL_PLAN))
 
         response = _save(client, _floorplan(tables="not a list"))
 
-        assert response.status_code == 409
-        assert "settled" in response.get_json()["error"]
+        assert response.status_code == 400
+        assert "tables" in response.get_json()["error"]
         assert market.last_update is None
 
 
@@ -1074,3 +1076,164 @@ class TestTheBoundsModule:
 
         assert Limits.floorplan_refusal(floorplan) is None
         assert Limits.floorplans_refusal([floorplan], []) is None
+
+
+# ── A layout after draft (T257 ticket 11) ─────────────────────────────────────
+
+#: Every phase a market has left draft for and may still change in.
+AFTER_DRAFT = [p for p in MarketPhase if p not in (MarketPhase.DRAFT, MarketPhase.ARCHIVED)]
+
+SQUARE = {"id": "tt-2", "name": "Square 4 ft", "widthMm": 1220, "depthMm": 1220}
+HALL_B = {"id": "sec-b", "name": "Hall B", "count": 0, "location": dict(MAIN_HALL),
+          "tier": {"id": 1, "name": "Silver"}}
+
+
+def _settled_market(market, phase=MarketPhase.APPLICATIONS, **plan_overrides):
+    """A market past draft whose plan holds Main Hall's layout as a draft left it: ``fp-1`` at
+    revision 1, its two tables of Hall A the section's count, a second section in Main Hall with
+    none, and two table types, with a stored assignment beside it."""
+    plan = copy.deepcopy(FULL_PLAN)
+    plan["sections"][0]["count"] = 2
+    plan["sections"].append(copy.deepcopy(HALL_B))
+    plan["tableTypes"] = [dict(SIX_FOOT), dict(SQUARE)]
+    plan["floorplans"] = [_floorplan("fp-1")]
+    plan.update(plan_overrides)
+    market.doc = stored_market(
+        phase, roles=dict(ROLES), setupObject=plan,
+        assignmentObject={"vendorAssignments": [
+            {"email": "alice@example.com", "date": "2099-08-01", "tableCode": "Hall A 1",
+             "tableChoice": "Full Table", "section": "Hall A", "tier": "Gold",
+             "location": "Main Hall"}],
+            "assignmentStatistics": None})
+    return market
+
+
+def _settled_sentence(market):
+    return MarketsApi.setup_lock_reason(market_from_document(market.doc))
+
+
+def _moved(floorplan):
+    floorplan["tables"][0]["xMm"] = 1500
+    floorplan["tables"][1]["rotation"] = 90
+    return floorplan
+
+
+class TestALayoutAfterDraft:
+    """Past draft, until the market is archived, where a table stands still changes: its place and
+    its turn, the no-table zones, the image, the scale, the sections' colours and labels. What would
+    move a seat does not: a table added, removed or of another id, another number, section or type,
+    or a layout started (``layout.settled_layout_refusal``), refused 409 with the setup-settled
+    sentence and nothing written."""
+
+    @pytest.mark.parametrize("phase", AFTER_DRAFT)
+    def test_a_table_moved_and_turned_saves(self, client, market, market_records, phase):
+        _settled_market(market, phase)
+
+        response = _save(client, _moved(_floorplan("fp-1")))
+
+        assert response.status_code == 200, response.get_json()
+        (floorplan,) = _saved_plan(market).floorplans
+        assert (floorplan.tables[0].x_mm, floorplan.tables[1].rotation) == (1500, 90)
+        assert floorplan.revision == 2
+        assert [(s.id, s.count) for s in _saved_plan(market).sections] == [
+            ("sec-a", 2), ("sec-old", 6), ("sec-b", 0)]
+        (entry,) = _floorplan_entries(market_records)
+        assert entry["detail"] == {"moved": 1, "turned": 1}
+
+    def test_the_write_leaves_the_assignment_alone(self, client, market):
+        _settled_market(market, MarketPhase.MARKET_DAYS)
+        assignment = copy.deepcopy(market.doc["assignmentObject"])
+
+        _save(client, _moved(_floorplan("fp-1")))
+
+        assert set(market.last_update["$set"]) == {"setupObject"}
+        assert market.doc["assignmentObject"] == assignment
+
+    @pytest.mark.parametrize("change", [
+        {"zones": [{"id": "z-1", "label": "Stage", "xMm": 0, "yMm": 0, "widthMm": 2000,
+                    "depthMm": 1000}]},
+        {"sectionStyles": [{"sectionId": "sec-a", "color": 4, "labelAt": {"xMm": 10, "yMm": 20}}]},
+        {"scalePxPerUnit": 0.05, "referenceLineLengthMm": 4000},
+    ], ids=["zones", "colours and labels", "scale"])
+    def test_the_rest_of_where_a_table_stands_saves(self, client, market, change):
+        _settled_market(market)
+
+        response = _save(client, _floorplan("fp-1", **change))
+
+        assert response.status_code == 200, response.get_json()
+
+    def test_the_image_is_replaced(self, client, market, market_records):
+        _settled_market(market)
+        image = str(market_records.images.put(b"png", metadata={"marketId": MARKET_ID}))
+
+        response = _save(client, _floorplan("fp-1", imageGridfsId=image))
+
+        assert response.status_code == 200, response.get_json()
+        assert _saved_plan(market).floorplans[0].image_gridfs_id == image
+
+    @pytest.mark.parametrize("seat", [
+        "added", "removed", "renumbered", "another section", "no section", "another type",
+        "another id",
+    ])
+    def test_a_seat_changed_is_refused_as_settled(self, client, market, market_records, seat):
+        _settled_market(market)
+        floorplan = _floorplan("fp-1")
+        tables = floorplan["tables"]
+        if seat == "added":
+            tables.append(_table("t-3", 3, x=1200))
+        elif seat == "removed":
+            tables.pop()
+        elif seat == "renumbered":
+            tables[0]["number"], tables[1]["number"] = 2, 1
+        elif seat == "another section":
+            tables[1].update(sectionId="sec-b", number=1)
+        elif seat == "no section":
+            tables[1].update(sectionId=None, number=None)
+        elif seat == "another type":
+            tables[1]["tableTypeId"] = "tt-2"
+        else:
+            tables[1]["id"] = "t-9"
+
+        response = _save(client, floorplan)
+
+        assert response.status_code == 409, response.get_json()
+        assert response.get_json() == {"error": _settled_sentence(market)}
+        assert "settled" in response.get_json()["error"]
+        assert market.last_update is None
+        assert _floorplan_entries(market_records) == []
+
+    def test_a_layout_is_not_started(self, client, market, market_records):
+        _settled_market(market)
+
+        response = _save(client, _floorplan("fp-2", location="loc-old", tables=[]), revision=0)
+
+        assert response.status_code == 409, response.get_json()
+        assert response.get_json() == {"error": _settled_sentence(market)}
+        assert market.last_update is None
+
+    def test_a_layout_read_before_another_save_is_stale_before_it_is_judged(self, client, market):
+        _settled_market(market)
+        floorplan = _floorplan("fp-1")
+        floorplan["tables"].pop()
+
+        response = _save(client, floorplan, revision=0)
+
+        assert response.status_code == 409
+        assert response.get_json() == {"error": STALE}
+
+    def test_an_archived_market_is_refused_as_archived(self, client, market):
+        _settled_market(market, MarketPhase.ARCHIVED)
+
+        response = _save(client, _moved(_floorplan("fp-1")))
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
+        assert market.last_update is None
+
+    def test_a_viewer_is_refused(self, client, market):
+        _settled_market(market)
+
+        response = _save(_signed_in("viewer@example.com"), _moved(_floorplan("fp-1")))
+
+        assert response.status_code == 403
+        assert market.last_update is None

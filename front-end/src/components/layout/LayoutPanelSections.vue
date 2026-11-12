@@ -8,7 +8,7 @@
  * colours under its row, and its row's menu renumbers its tables by where they stand. Tables in
  * no section are counted under the list, with "Select them" for the editor, and while a section
  * has fewer tables than Section Setup had typed for it when the layout began, a note says how many
- * are placed.
+ * are placed. Past Draft (`settled`) a section's numbers are settled, so its row's menu is disabled.
  */
 import { computed, nextTick, ref, useId } from 'vue';
 import type { StartingCount } from '@/assets/types/datatypes';
@@ -27,8 +27,10 @@ const props = withDefaults(
     startingCounts?: readonly StartingCount[];
     /** Whether the reader may change the layout here: colours, numbers, the selection. */
     editable?: boolean;
+    /** Whether the market has left Draft, so no section is renumbered. */
+    settled?: boolean;
   }>(),
-  { unsectioned: 0, startingCounts: () => [], editable: false },
+  { unsectioned: 0, startingCounts: () => [], editable: false, settled: false },
 );
 
 const emit = defineEmits<{
@@ -159,6 +161,7 @@ const short = computed(() =>
           v-if="editable"
           :label="`${nameOf(section)}'s tables`"
           :items="MENU"
+          :disabled="settled"
           :testid="`layout-panel-section-menu-${section.id}`"
           @select="emit('renumber', section.id)"
         />

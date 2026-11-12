@@ -14,7 +14,7 @@ import { OrganizationsPage } from '../pages/OrganizationsPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { mongoEval } from './mongo';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
-import { loginViaApi, UPPER_HALL_TABLES } from './seeds';
+import { loginViaApi, UPPER_HALL_SECTIONED_TABLES, UPPER_HALL_TABLES } from './seeds';
 import { calendarToday } from './vendorSignIn';
 import {
   FIRST_IMPORT,
@@ -242,8 +242,9 @@ const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
  * panel's list of keys open, with a row being drawn by the crosshair, with a curve drawn by hand
  * waiting with its points, with an L-shaped area's
  * corners clicked for Fill an area, with that area closed and its dialog open, with a table type's
- * dialog open, and with the image being replaced. Nothing is
- * saved, so each walk finds them as seeded.
+ * dialog open, and with the image being replaced; and the settled seed's Upper Hall past Draft,
+ * a table selected under the setup-settled sentence, with what would change a seat disabled.
+ * Nothing is saved, so each walk finds them as seeded.
  */
 function layoutAt(
   stage:
@@ -261,13 +262,26 @@ function layoutAt(
     | 'fillShape'
     | 'fillDialog'
     | 'typeDialog'
-    | 'replacing',
+    | 'replacing'
+    | 'settled',
 ) {
   return async (page: Page, seed: TheScreensSeed) => {
     const layout = new LayoutPage(page);
     if (stage === 'upload') {
       await layout.goto(seed.draft.marketId);
       await expect(layout.uploadDropzone).toBeVisible();
+      return;
+    }
+    if (stage === 'settled') {
+      await layout.goto(seed.settled.marketId, seed.settled.upper.id);
+      await expect(layout.mapImage).toHaveAttribute('href', /^blob:/);
+      await expect(layout.tables).toHaveCount(UPPER_HALL_SECTIONED_TABLES.length);
+      // Silver aisle's first table, pressed: its card's fields and buttons that change a seat
+      // disabled, beside Turn 90° and the toolbar's disabled drawing tools.
+      await layout.clickAt([10_000, 11_000]);
+      await expect(layout.selectionTitle).toHaveText('Silver aisle 1');
+      await expect(layout.selectionRemove).toBeDisabled();
+      await expect(page.getByTestId('layout-setup-settled')).toBeVisible();
       return;
     }
     if (stage !== 'calibrating') {
@@ -1445,6 +1459,15 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     deskOnly: true,
     open: layoutAt('replacing'),
+  },
+  // Past Draft (T257): the editor under the setup-settled sentence, what would change a seat
+  // disabled, a table selected.
+  {
+    name: 'the layout past Draft, a table selected',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('settled'),
   },
   {
     name: 'market days, the plan',

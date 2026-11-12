@@ -125,7 +125,9 @@ export interface LayoutEditorOptions {
   saveOnUnload?: (layout: FloorplanObject, revision: number) => boolean;
   /** Whether this person may write the layout; unsaid, they may. */
   may?: () => boolean;
-  /** Whether the market is a draft, where a removal's later neighbours close its gap. */
+  /** Whether the market is a draft. Past it a table's seat is settled: no table is added,
+   *  duplicated, removed, renumbered or given another section or type, and only where a table
+   *  stands changes. Unsaid, it is a draft. */
   draft?: () => boolean;
   /** The market's table types, which size the tables that are lined up, spaced and duplicated. */
   tableTypes?: () => readonly TableTypeObject[];
@@ -196,6 +198,9 @@ export interface LayoutEditor {
   cancel(): void;
   undo(): void;
   redo(): void;
+  /** Forget every step of undo and redo, as the market leaves Draft: a step taken back could put
+   *  back a seat that is settled now. */
+  forgetUndo(): void;
   /** Send a failed save again. */
   retry(): void;
   /** Save what is pending now, and wait for it: null once the server holds it, else the sentence
@@ -403,8 +408,12 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     }
   }
 
+  /** Whether a table's seat may change: its being, its number, its section and its type. */
+  const seatsSettled = () => options.draft?.() === false;
+
   function addTables(added: readonly NewTable[]): string[] {
     const ids: string[] = [];
+    if (seatsSettled()) return ids;
     change((tables, whole) => {
       const hall = hallOf(whole);
       const next = [...tables];
@@ -478,11 +487,11 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   }
 
   function removeTables(ids: readonly string[]) {
+    if (seatsSettled()) return;
     const going = new Set(ids);
     change((tables) => {
       const left = tables.filter((table) => !going.has(table.id));
-      if (left.length === tables.length) return tables;
-      return options.draft?.() === false ? left : closeGaps(left);
+      return left.length === tables.length ? tables : closeGaps(left);
     });
     keepSelection();
   }
@@ -520,6 +529,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   const carried = () => Boolean(gesture?.carried);
 
   function setSection(ids: readonly string[], sectionId: string | null) {
+    if (seatsSettled()) return;
     const named = new Set(ids);
     change((tables) => {
       const joining = tables.filter(
@@ -545,6 +555,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   }
 
   function setType(ids: readonly string[], tableTypeId: string) {
+    if (seatsSettled()) return;
     const named = new Set(ids);
     change((tables) => {
       if (!tables.some((table) => named.has(table.id) && table.tableTypeId !== tableTypeId)) {
@@ -561,6 +572,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   function duplicate(ids: readonly string[]): string[] {
     const named = new Set(ids);
     const copies: string[] = [];
+    if (seatsSettled()) return copies;
     change((tables, whole) => {
       // In the order of their sections' numbers, as they are stored among equals.
       const originals = tables.filter((table) => named.has(table.id)).sort(byNumber);
@@ -638,6 +650,7 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
   }
 
   function renumber(sectionId: string) {
+    if (seatsSettled()) return;
     change((tables) => {
       const own = tables.filter((table) => table.sectionId === sectionId);
       const order = readingOrder(own, (table) => sizeOf(table).depthMm);
@@ -878,6 +891,10 @@ export function useLayoutEditor(options: LayoutEditorOptions): LayoutEditor {
     cancel,
     undo,
     redo,
+    forgetUndo: () => {
+      undone.value = [];
+      redone.value = [];
+    },
     retry: autosave.retry,
     flush: autosave.flush,
     pending: () => autosave.unsaved.value,

@@ -8,6 +8,10 @@
  *
  * Every change is a write of the whole list (`save`), which the page sends once the layout's own
  * pending change has landed; the dialogs hold through it and write its refusal into themselves.
+ *
+ * Past Draft (`settled`) the market's types are settled, as its tables' seats are: "Add a type",
+ * "Use saved types" and each type's menu are disabled, and "Save these types", which files a copy
+ * for later markets and changes nothing here, stays.
  */
 import { computed, nextTick, ref, useId } from 'vue';
 import type { TableTypeObject } from '@/assets/types/datatypes';
@@ -37,8 +41,11 @@ const props = withDefaults(
     listSaved?: () => Promise<SavedTypes[]>;
     /** Save the market's types under a name. */
     saveAs?: (name: string) => Promise<void>;
+    /** Whether the market has left Draft, so its types no longer change. */
+    settled?: boolean;
   }>(),
   {
+    settled: false,
     save: async () => {},
     listSaved: async () => [],
     saveAs: async () => {},
@@ -174,6 +181,7 @@ function onMenu(type: TableTypeObject, item: string) {
         <RowMenu
           :label="`Edit or remove ${type.name}`"
           :items="MENU"
+          :disabled="settled"
           :testid="`layout-type-menu-${type.id}`"
           @select="onMenu(type, $event)"
         />
@@ -193,7 +201,7 @@ function onMenu(type: TableTypeObject, item: string) {
       <button
         type="button"
         class="btn btn--secondary btn--compact"
-        :disabled="busy || full"
+        :disabled="busy || full || settled"
         data-testid="layout-types-add"
         @click="open('add')"
       >
@@ -203,7 +211,7 @@ function onMenu(type: TableTypeObject, item: string) {
         <button
           type="button"
           class="btn btn--secondary btn--compact"
-          :disabled="busy || full"
+          :disabled="busy || full || settled"
           data-testid="layout-types-use-saved"
           @click="open('saved')"
         >

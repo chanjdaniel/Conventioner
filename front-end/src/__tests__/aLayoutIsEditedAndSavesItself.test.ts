@@ -75,14 +75,13 @@ function aServer(revision = 3) {
   return server;
 }
 
-function anEditor(tables: FloorplanTable[] = [], draft = true) {
+function anEditor(tables: FloorplanTable[] = []) {
   const server = aServer();
   let n = 0;
   const saved: SavedLayout[] = [];
   const editor = useLayoutEditor({
     save: server.save,
     onSaved: (answer) => saved.push(answer),
-    draft: () => draft,
     newId: () => `new-${(n += 1)}`,
   });
   editor.adopt(aLayout(tables));
@@ -201,12 +200,6 @@ describe('removing tables', () => {
     editor.removeTables(['g2']);
     expect(codes()).toEqual(['g1:gold:1', 'g3:gold:2', 'g4:gold:3']);
     expect(editor.selection.value).toEqual(['g3']);
-  });
-
-  it('leaves the numbers as they are past a draft', () => {
-    const { editor, codes } = anEditor(four(), false);
-    editor.removeTables(['g2']);
-    expect(codes()).toEqual(['g1:gold:1', 'g3:gold:3', 'g4:gold:4']);
   });
 });
 

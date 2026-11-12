@@ -16,6 +16,7 @@ import {
   loginViaApi,
   marketNameToSlug,
   seedLayout,
+  seedSettledLayout,
   UPPER_HALL_TABLES,
   UPPER_HALL_ZONES,
   seedPublishedMarketWithAssignments,
@@ -53,6 +54,9 @@ export interface TheScreensSeed {
   /** A draft whose Upper Hall is laid out: calibrated at 30 m across, with Gold row's 13 tables,
    *  Silver aisle's 6, one in no section, a stage and a pillar (`UPPER_HALL_TABLES`). */
   laidOut: SeededLayout;
+  /** Taking applications on its own page, its Upper Hall laid out in Draft with every table in a
+   *  section: the layout past Draft (T257, `seedSettledLayout`). */
+  settled: SeededLayout;
   /** Taking applications on its own page: 40 applications in every review state. */
   open: SeededMarket;
   /** Its own page no longer taking applications (E38/F04/S02), the same applications. */
@@ -809,11 +813,13 @@ export async function seedTheScreens(
     tables: UPPER_HALL_TABLES,
     zones: UPPER_HALL_ZONES,
   });
+  const settled = await seedSettledLayout(api, backend, email, password);
 
   return {
     draft,
     layout,
     laidOut,
+    settled,
     open,
     closed,
     review,

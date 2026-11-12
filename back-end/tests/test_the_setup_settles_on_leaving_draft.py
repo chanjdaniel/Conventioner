@@ -126,8 +126,10 @@ def test_the_reason_speaks_of_the_markets_own_path(applications, intake_mode, wo
 
 
 @pytest.mark.parametrize("phase", AFTER_DRAFT)
-def test_a_floorplan_cannot_rewrite_the_sections_after_draft(market, monkeypatch, phase):
-    """The floorplan save writes the sections and locations, which are setup."""
+def test_no_layout_starts_after_draft(market, monkeypatch, phase):
+    """A layout's tables are its sections' counts, which are setup: past draft a layout's tables
+    may move but none is added, so no layout starts (T257;
+    ``test_a_floorplan_save_keeps_the_market_readable.py`` has the rest)."""
     from types import SimpleNamespace
 
     import app as app_module
@@ -145,7 +147,8 @@ def test_a_floorplan_cannot_rewrite_the_sections_after_draft(market, monkeypatch
         session["_fresh"] = True
 
     response = client.post("/floorplans/save-to-market",
-                           json={"market_id": "market-123", "floorplan": {"sections": []},
+                           json={"market_id": "market-123",
+                                 "floorplan": {"id": "fp-new", "locationId": "loc-any"},
                                  "revision": 0})
 
     assert response.status_code == 409

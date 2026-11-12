@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { savePlan } from './savePlan';
 import {
   SEED_MARKET_DATE,
+  startLayout,
   type SeedResult,
   seedMarketWithVendors,
   marketNameToSlug,
@@ -36,6 +37,9 @@ export async function seedAssignedMarket(
    * (E31/F01/S01), so a spec wanting a smaller room asks for it here rather than shrinking it later.
    * `dates` are the market's dates, a table on each open to every vendor; one unless named.
    * `intakeMode` is how vendors reach it; absent, a CSV market, as `seedMarketWithVendors` makes it.
+   * `laidOut` lays Main Hall out in Draft (T257, `startLayout`): a hall 30 m across with Hall A's
+   * tables in a row across it, Hall A 1 at 3 m from the left, 2 m apart and 5 m down, so the
+   * section counts them.
    */
   options: {
     name?: string;
@@ -43,6 +47,7 @@ export async function seedAssignedMarket(
     tables?: number;
     dates?: string[];
     intakeMode?: 'csv' | 'form';
+    laidOut?: boolean;
   } = {},
 ): Promise<AssignedSeedResult> {
   const seed = await seedMarketWithVendors(request, baseURL, email, password, options);
@@ -69,6 +74,7 @@ export async function seedAssignedMarket(
   };
 
   await savePlan(request, baseURL, email, seed.marketId, setupObject);
+  if (options.laidOut) await layOutMainHall(request, baseURL, seed.marketId, options.tables ?? 5);
 
   // Walk to `assignment` first. It is where an organizer looking at the results screen actually
   // is - publishing is `assignment -> market_days` (E03/F03) - and it is the one phase the solver
@@ -106,4 +112,29 @@ export async function seedAssignedMarket(
   const slug = marketNameToSlug(seed.marketName);
 
   return { ...seed, slug, assignmentObject: storedAssignment };
+}
+
+/** Main Hall laid out with Hall A's `count` tables in a row across it, by the ids the plan write
+ *  gave the location and the section. */
+async function layOutMainHall(
+  request: APIRequestContext,
+  baseURL: string,
+  marketId: string,
+  count: number,
+): Promise<void> {
+  const read = await request.get(`${baseURL}/markets/${encodeURIComponent(marketId)}`);
+  if (!read.ok()) throw new Error(`Market read failed: ${read.status()} ${await read.text()}`);
+  const { market } = (await read.json()) as {
+    market: { setupObject: { locations: { id: string }[]; sections: { id: string }[] } };
+  };
+  const [hall] = market.setupObject.locations;
+  const [section] = market.setupObject.sections;
+  await startLayout(request, baseURL, marketId, {
+    locationId: hall.id,
+    metresAcross: 30,
+    tables: Array.from({ length: count }, (_, i) => ({
+      section: section.id,
+      at: [3000 + i * 2000, 5000] as [number, number],
+    })),
+  });
 }
