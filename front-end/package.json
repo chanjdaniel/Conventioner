@@ -46,7 +46,7 @@
     "@vue/eslint-config-typescript": "^14.3.0",
     "@vue/test-utils": "^2.5.1",
     "@vue/tsconfig": "^0.9.1",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "eslint-plugin-vue": "^10.12.0",
     "happy-dom": "^21.0.4",
     "jiti": "^2.4.2",
@@ -60,7 +60,7 @@
     "typescript": "~6.0.3",
     "vite": "^8.3.5",
     "vite-plugin-vue-devtools": "^8.2.1",
-    "vitest": "^5.0.5",
+    "vitest": "^5.1.0",
     "vue-tsc": "^3.3.14"
   }
 }
