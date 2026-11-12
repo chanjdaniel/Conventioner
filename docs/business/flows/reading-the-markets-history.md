@@ -15,7 +15,7 @@ describes:
   - front-end/e2e/an-address-breaks-only-before-its-at.spec.ts
   - front-end/src/utils/historyReaders/
   - front-end/src/utils/personChoice.ts
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - E40/F01/S03
   - E40/F01/S04

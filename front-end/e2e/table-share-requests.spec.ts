@@ -67,9 +67,6 @@ async function seedOpenMarketWithAForm(request: APIRequestContext): Promise<stri
       name: `E2E Table Share ${Date.now()}`,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [TEST_USER.email]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       // Complete, so it may open applications: a review card is of a market that has (E31/F01).
       setupObject: completePlan(),
       intakeMode: 'form',

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deterministic full-suite test runner; the no-mistakes gate runs it with --skip-e2e.
+# Deterministic full-suite test runner; the no-mistakes gate runs it with --real-data-only.
 #
 # Runs its E2E stack under a project name of its own, on host ports Docker picks,
 # so it runs safely alongside the primary stack and other runs, and takes turns with other runs for
@@ -10,13 +10,17 @@
 # Usage:
 #     ./scripts/nm-test.sh
 #     ./scripts/nm-test.sh --skip-e2e
+#     ./scripts/nm-test.sh --real-data-only
 #     PYTHON_CMD=/path/to/python3.12 ./scripts/nm-test.sh
 #
-# --skip-e2e runs every suite but Playwright, and so starts no stack and takes no end-to-end lock:
-# the gate passes it, leaving Playwright to CI's required e2e shards
-# (docs/implementation/testing/ci-and-the-gate.md).
+# --skip-e2e runs every suite but Playwright, and so starts no stack and takes no end-to-end lock,
+# leaving Playwright to CI's required e2e shards.
 #
-# Requires: Docker (not with --skip-e2e), Node.js 24.22.1 (.nvmrc), Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
+# --real-data-only runs the real-data checks and stops: the gate passes it, since it pushes the
+# branch to a public repository and CI's own check comes only after that, while CI's required jobs
+# run every suite (docs/implementation/testing/ci-and-the-gate.md).
+#
+# Requires: Docker (not with either switch), Node.js 24.22.1 (.nvmrc; not with --real-data-only), Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
 #
 set -euo pipefail
 
@@ -27,10 +31,12 @@ RUN_ID="nmtest-$$"
 fail() { echo "nm-test: ERROR: $*" >&2; exit 1; }
 
 E2E=run
+SUITES=run
 for arg in "$@"; do
   case "$arg" in
     --skip-e2e) E2E=skip ;;
-    *) fail "unknown argument: $arg (usage: nm-test.sh [--skip-e2e])" ;;
+    --real-data-only) SUITES=skip ;;
+    *) fail "unknown argument: $arg (usage: nm-test.sh [--skip-e2e | --real-data-only])" ;;
   esac
 done
 
@@ -53,6 +59,10 @@ echo "nm-test: checking the branch's commits since origin/dev for real data..."
 echo "nm-test: checking the whole tree for real data..."
 "$PYTHON" "$SCRIPT_DIR/real_data_check.py" tree
 echo "Real data: OK"
+if [[ "$SUITES" == skip ]]; then
+  echo "nm-test: --real-data-only: no suite run; CI runs them."
+  exit 0
+fi
 
 # ── Stack identity ───────────────────────────────────────────────────────────
 
@@ -63,8 +73,8 @@ unset TH_MONGO_PORT TH_BACKEND_PORT TH_FRONTEND_PORT TH_MONGO_EXPRESS_PORT
 
 # The team's labels, which the overlay puts on every container, volume and network of the stack,
 # so whatever is left of it says what it is (docs/implementation/testing/ci-and-the-gate.md).
-# TEAM_KIND=gate is the value the team's reaper knows, kept although the gate passes --skip-e2e
-# and so starts no stack: only a run without it does. A run is the team's only when the team
+# TEAM_KIND=gate is the value the team's reaper knows, kept although the gate passes
+# --real-data-only and so starts no stack: only a run without a switch does. A run is the team's only when the team
 # started it, which it says by setting TEAM_TASK.
 export TEAM_KIND=gate
 export TEAM_WORKTREE="$REPO_ROOT"

@@ -290,19 +290,21 @@ jobs:
           persist-credentials: false
       - run: docker compose build
 
-  # Split by spec file across six runners, each with its own Docker stack, so a PR waits for a
-  # sixth of the suite rather than all of it (83 runner-minutes of tests on 2026-11-08, about
-  # 4.5 more per runner to set up). The tests share one database WITHIN a runner (`workers: 1`),
+  # Split by spec file across ten runners, each with its own Docker stack, so a PR waits for a
+  # tenth of the suite rather than all of it (89 runner-minutes of tests on 2026-11-11, 1 to 3
+  # more per runner to set up, by what the caches hold). The tests share one database WITHIN a runner (`workers: 1`),
   # never across runners. `front-end/scripts/e2e-shards.ts` deals the spec files to the shards by
   # the minutes in `e2e-shard-timings.json`, not Playwright's `--shard`, which cuts the
   # alphabetical list by test count and once left one shard at 24 minutes and another at 6.
+  # `total` is the length of `shard`'s list: the two move together.
   e2e-shard:
-    name: e2e shard ${{ matrix.shard }}/6
+    name: e2e shard ${{ matrix.shard }}/${{ matrix.total }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        total: [10]
     env:
       DISABLE_CAPTCHA: "true"
       DISABLE_EMAIL: "true"
@@ -311,51 +313,32 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      # Shard 1 alone saves what it built, so ten shards never race to write one key.
+      - uses: ./.github/actions/front-end-deps # zizmor: ignore[self-repository] actionlint 1.7.12, the latest, refuses the $/ form
         with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: front-end/package-lock.json
-      # Install front-end deps on the host BEFORE `docker compose up`. Otherwise
-      # Docker (as root) creates the anonymous-volume mountpoint `front-end/node_modules`
-      # on the host bind mount root-owned, and the later `npm ci` fails with EACCES.
-      - name: Install front-end dependencies
-        working-directory: front-end
-        run: npm ci
-      - name: Install Playwright browsers
-        working-directory: front-end
-        run: npx playwright install chromium --with-deps
-      - run: docker compose build
-      # A transient Docker Hub 500 on one of the stack's registry images once failed one shard
-      # outright. Retry only that pull, so a stack that genuinely fails to start fails the shard
-      # at once.
-      - name: Pull the stack's registry images
-        run: |
-          for attempt in 1 2 3 4 5 6; do
-            docker compose pull mongodb mongo-express && exit 0
-            echo "docker compose pull failed (attempt $attempt of 6); retrying" >&2
-            sleep 10
-          done
-          exit 1
-      - run: docker compose up -d
-      - run: ./scripts/seed_fixture.sh --primary
+          save-cache: ${{ matrix.shard == 1 }}
+      - uses: ./.github/actions/e2e-stack # zizmor: ignore[self-repository] actionlint 1.7.12, the latest, refuses the $/ form
+        with:
+          save-caches: ${{ matrix.shard == 1 }}
       - name: Run Playwright tests
         working-directory: front-end
         env:
           SHARD: ${{ matrix.shard }}
-        run: node scripts/e2e-shards.ts "--shard=$SHARD/6"
+          TOTAL: ${{ matrix.total }}
+        run: node scripts/e2e-shards.ts "--shard=$SHARD/$TOTAL"
       - name: Report flaky tests
         if: always()
         working-directory: front-end
         env:
           SHARD: ${{ matrix.shard }}
+          TOTAL: ${{ matrix.total }}
         run: |
           if [ -f test-results/results.json ]; then
             FLAKY=$(jq -r '.stats.flaky // 0' test-results/results.json)
             PASSED=$(jq -r '.stats.expected // 0' test-results/results.json)
             FAILED=$(jq -r '.stats.unexpected // 0' test-results/results.json)
             {
-              echo "### E2E Test Results (shard $SHARD/6)"
+              echo "### E2E Test Results (shard $SHARD/$TOTAL)"
               echo "| Outcome | Count |"
               echo "|---------|-------|"
               echo "| Passed  | $PASSED |"
@@ -387,6 +370,61 @@ jobs:
         if: failure()
         with:
           name: playwright-artifacts-shard-${{ matrix.shard }}
+          path: |
+            front-end/playwright-report/
+            front-end/test-results/
+          retention-days: 7
+
+  # Information, not a required check, until its failures over a week are read: the spec files a
+  # pull request adds or changes, run several times each with no retry on one stack
+  # (`front-end/scripts/e2e-repeat.ts`), so a spec that passes only sometimes is caught before it
+  # merges on one green run of its shard. The diff is from the merge commit's first parent, the
+  # base the PR is tested against, hence two commits of history. With no such file it passes at
+  # once, before any stack starts.
+  e2e-repeat:
+    name: e2e-repeat
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # Two runs of up to 15 minutes each (e2e-repeat.ts) and the setup.
+    timeout-minutes: 40
+    env:
+      DISABLE_CAPTCHA: "true"
+      DISABLE_EMAIL: "true"
+      DISCORD_FAKE: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: ./.github/actions/front-end-deps # zizmor: ignore[self-repository] actionlint 1.7.12, the latest, refuses the $/ form
+      - name: The spec files this pull request changes
+        id: changed
+        working-directory: front-end
+        run: |
+          files="$(node scripts/e2e-repeat.ts changed HEAD^1)"
+          if [ -n "$files" ]; then
+            echo "any=true" >>"$GITHUB_OUTPUT"
+            {
+              echo "### Spec files this pull request changes"
+              while IFS= read -r file; do echo "- $file"; done <<<"$files"
+            } >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo "any=false" >>"$GITHUB_OUTPUT"
+            echo "No spec file changed: nothing to repeat." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: ./.github/actions/e2e-stack # zizmor: ignore[self-repository] actionlint 1.7.12, the latest, refuses the $/ form
+        if: steps.changed.outputs.any == 'true'
+      - name: Run each several times
+        if: steps.changed.outputs.any == 'true'
+        working-directory: front-end
+        run: node scripts/e2e-repeat.ts run HEAD^1
+      - name: Docker compose logs
+        if: always() && steps.changed.outputs.any == 'true'
+        run: docker compose logs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure() && steps.changed.outputs.any == 'true'
+        with:
+          name: playwright-artifacts-repeat
           path: |
             front-end/playwright-report/
             front-end/test-results/

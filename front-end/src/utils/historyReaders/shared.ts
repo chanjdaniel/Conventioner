@@ -112,10 +112,6 @@ export function str(value: unknown): string {
   return value === null || value === undefined ? '' : String(value);
 }
 
-export function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
-}
-
 export function day(value: unknown): string {
   return value ? getShortDate(String(value)) : '';
 }

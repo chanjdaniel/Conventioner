@@ -45,7 +45,8 @@ describes:
   - front-end/src/components/PagedList.vue
   - front-end/src/utils/useGroupFolds.ts
   - front-end/src/components/AuthCard.vue
-verified: 2026-11-11
+  - front-end/src/components/charts/
+verified: 2026-11-12
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -103,6 +104,7 @@ sources:
   - T224
   - T229
   - T263
+  - T201
 ---
 
 # Conventioner's design language
@@ -250,7 +252,8 @@ Its Discord row stacks as [the Vendors flow](business/flows/vendors.md) lays it 
 The Applications page on a phone narrows its gutter to 16px too: the All view's row is one column, read down, the applicant's name and address, the leading answers, then the status chip and its lines, each the row's width; each row's tick stands in a 44px square beside it, and "Mine" is its label's 44px row; the views switch's and the status filters' buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
 One by one's card is the page's width, its verdict buttons wrapping inside it; "Show N reviewed" opens its list in a dialog, which leaves the card where it is; "Include the N follow-ups", "Show N reviewed", "Choose what leads the card" and each tick in the dialog it opens are 44px targets, and a reviewer's label in the reviewers picker is a 44px row.
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
-Stats on a phone narrows its gutter to 16px too: its headlines stand one to a line, each a 44px row and each link a 44px target, the money set apart from the placements by a rule above it rather than beside it; the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone, and the cards stand one to a row, narrower than their 18rem where the window is, as on a 320px phone.
+Stats on a phone narrows its gutter to 16px too: its strip's tiles stand two to a row, a tile that is a link a target a thumb can hit, an amount and a tile it would leave alone taking a row of their own, since "$3,565.00" broke over two lines in half a 320px window (T201); the answer groups' switch's buttons are never narrower than the target's minimum, at every width, so 44px wide at least on a phone.
+Its cards stand two to a row while the page's content is 48rem wide or more and one below it, by a container query on the content, so a lone card stays half the page at a desk and no bar runs the frame's width; a phone, 320px included, has one column (T201).
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
 | Token             | Value  | Screens                                                                   |
@@ -379,6 +382,13 @@ The other fills such a button is drawn in step once, on hover: `--mm-yellow-hove
 The deep focus border reads less on a darker fill: 3.17:1 on `--mm-green-hover`, 2.80 on `--mm-green-pressed`, 2.68 on `--mm-red-hover` and 2.37 on `--mm-red-pressed`, against 3.26, 2.74, 2.68 and 2.28 under the opacity it replaced.
 
 **A mark that carries no text is held to the non-text bar, 3:1**: the bar's current-tab dot, `--mm-green` on `--mm-black`, measures 3.39:1, and the test pins it, so a bar retinted darker or a green lightened for a light ground cannot take it under unnoticed.
+A chart's marks are held to the same 3:1 on the white card they are drawn on (T201): the review's split bar fills Open, Needs follow-up, Approved and Rejected with `--mm-blue`, `--mm-chart-yellow`, `--mm-green` and `--mm-red`, a status no filter lists with `--mm-chart-grey`, a grey of its own, each part set apart by a 2px white gap so neighbouring fills need no contrast with each other.
+`--mm-yellow` is 2.15:1 on white, too faint for a mark, so a chart's yellow is its own token, `--mm-chart-yellow` (`#bd8619`, 3.19:1), darker and never under text; `contrast.test.ts` lists the chart marks and holds each to 3:1 on white.
+A meter bar (`MeterBar`, the Stats tab's room, money and check-in) fills its value in `--mm-green` up to its mark and in `--mm-chart-yellow`, the charts' attention fill, past it, on a `--mm-beige` track; the mark is a 2px `--mm-black` line standing a hairline over and under the track, and a row's bars in one card share one scale, the card's largest value or mark.
+Room marks the tables on every row; Money marks owed only when more was paid, and Check-in a day's expected only when that day is short of the card's largest, since a mark at the track's end says nothing the end does not.
+What its caller puts beside a row's figures, Check-in's "6 not yet" link, stays with them at the row's end, wrapping under them there on a narrow card, and a reader hears it after a comma.
+The How full table (`FillGrid`, the Stats tab's sections against days) shades each cell by how full it is in four fills that carry its figures, `--mm-fill-third`, `--mm-fill-two-thirds`, `--mm-fill-nearly` and `--mm-fill-full`, `--mm-green` laid over white at 14%, 32%, 52% and 75% (`--mm-black` on them 13.10, 10.26, 7.64 and 5.26:1), an empty cell keeping the card's white with its edge drawn; the cells are set apart by 2px white gaps, and each cell's step is also said in words, so a shade carries nothing alone.
+`contrast.test.ts` lists them as fills under `--mm-black` and holds each a step darker than the one before, from white.
 
 [`src/__tests__/contrast.test.ts`](../front-end/src/__tests__/contrast.test.ts) parses the real `base.css`, so the file that ships is the file under test, and lists every colour token as ink, fill, chip ground or line; a colour token in none of those lists fails it, so a new colour must declare itself.
 
@@ -582,8 +592,9 @@ A long list a screen keeps grouped folds by group, in [`RowGroup.vue`](../front-
 Its `heading` slot draws more beside the name, as a section's location and tier, and the `heading` prop still names the group on the button.
 A page that must keep its groups' folds past a re-read, or unfold them together, holds them with [`useGroupFolds`](../front-end/src/utils/useGroupFolds.ts) and each group's `v-model:unfolded` (T223): one "Show all 59 tables" above the groups, drawn only while one on the page passes the fold, which keeps the focus and stays where it stood, says "Show fewer" once all of them are unfolded however they came to be, and leaves a group a filter has hidden as it was.
 [`BarLedger.vue`](../front-end/src/components/BarLedger.vue) folds the same way with `fold`: the rows by count, the first `fold`, then "N more answers"; without it the rows are drawn in the order they came, all of them.
+In a card wider than 32rem, a container query on the card, each `BarLedger` row is one line (T201): the label, the bar, then the count and its share, every row on the list's one grid (a subgrid each), so the label's column is at most 40% of the card, the bars start and end together, and the figures stand as wide as the widest; in a narrower card the count sits beside the label and the bar under both.
 Both take the fold from [`useFold`](../front-end/src/utils/useFold.ts): unfolding by a group's own button hands the focus to the first new row, and folding keeps it on the button and brings the button back into view.
-The Assignments page's sections are `RowGroup`s; `BarLedger`'s fold is on no screen yet, and the library's `folds` entry shows both.
+The Assignments page's sections are `RowGroup`s; the Stats tab folds each question's answers past 8 with `BarLedger` ([the market's statistics](business/flows/stats.md#n7-see-what-they-answered)); the library's `folds` entry shows both, and its `charts` entry the Stats tab's one-line rows.
 A question's options on the form builder take the same fold in [`FormFieldEditor.vue`](../front-end/src/components/application/FormFieldEditor.vue), past 20, and "Add option" unfolds them, so a new row is never behind it.
 
 A list someone puts in order is [`OrderedList.vue`](../front-end/src/components/OrderedList.vue) (T200), generic over the item: each row has the `.drag-handle` and its own move up and move down buttons, named by `itemLabel`, so the keyboard can do what the mouse can, the first's up and the last's down disabled.
@@ -684,6 +695,32 @@ The [Vendors page](business/flows/vendors.md)'s open vendor takes the same pair 
 The tint is a chip's own ground, so inside a selected row a chip keeps its ink on white, and its muted lines, the address under a name and the date count, take `--mm-text-muted-on-beige`, since `--mm-text-muted` is 4.27:1 on the tint; `contrast.test.ts` holds the row's text, its muted lines and its 3.75:1 border to the tint.
 
 They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Setup, so they had a real consumer rather than a layout about to be replaced. **Nothing migrated onto them in that feature**: `E16/F05`-`F08` move one surface at a time.
+
+## Charts
+
+The Stats tab draws its figures as charts of the app's own, in HTML and CSS from these tokens, with no chart library ([ADR 0015](adr/0015-the-app-owns-its-components.md)), each in [`front-end/src/components/charts/`](../front-end/src/components/charts/) and drawn on the [component library](implementation/modules/component-library.md)'s `charts` entry at a desk and on a phone (T201).
+They load with the Stats page's chunk, never the entry's.
+
+| Component     | What it draws                                                                                         | Its text equivalent                                                                                                                                                         |
+| ------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ColumnChart` | a column a bucket, a day or a week, from a baseline, an empty bucket a gap, a top line at the largest | one `role="img"` named by a sentence ("36 applications from Oct 1 to Nov 11, 2026, most on Oct 3: 12"), and a disclosure, "Numbers by day", opening a table of every bucket |
+| `SplitBar`    | one bar of a whole split into parts in a fixed order, each its own fill, set apart by 2px white gaps  | the bar is hidden; its legend is the text, a line a part with its count and share, a link where the part has one and a count                                                |
+| `MeterBar`    | one row, a label, a value against a mark, a bar with a black line at the mark                         | the bar is hidden; the row's words are the text ("42 asking, 30 tables"), and what the caller puts after them is heard after a comma                                        |
+| `FillGrid`    | a `<table>` of sections against days, each cell "28/30" shaded by how full it is                      | a real table with a caption and row and column headers; the figures are hidden and each cell says itself in words ("28 of 30 used, more than two thirds full")              |
+
+The answers' cards are [`BarLedger`](#the-primitive-layer)s, a row an answer with its count, share and bar, folded past 8.
+
+**One scale a card.**
+Every bar in a card is drawn against one figure, the card's largest value or mark, so its rows compare: a `MeterBar` row is given the card's scale, a `BarLedger` draws against its largest answer, and a `ColumnChart` against its largest bucket, which its top line marks.
+Two cards are not on one scale, and nothing on the page compares them by length.
+
+**A mark is 3:1 on white, a fill under figures is legible under them.**
+A mark that carries no text, a column, a part of the split bar, a meter's value, is held to 3:1 on the white card, so the chart's yellow is `--mm-chart-yellow` rather than the button's `--mm-yellow`, and a value past its mark is drawn in it as the charts' attention fill; the How full table's shades carry figures, so each is a fill legible under `--mm-black` ([the contrast contract](#the-contrast-contract) gives every token and its measure).
+Neighbouring fills are set apart by a 2px white gap, so they need no contrast with each other.
+
+**The shade is never the only carrier.**
+Every chart's figures are text a screen reader hears, as the table above says, and a sighted reader can read them too: a meter's words, the legend's counts, the table's cells, and the numbers behind a column chart.
+A figure is in `tabular-nums`, so a column of them lines up.
 
 ## What keeps this true
 

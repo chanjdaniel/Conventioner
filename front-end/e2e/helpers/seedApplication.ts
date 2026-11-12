@@ -26,17 +26,23 @@ export function seedApplication(
   marketId: string,
   applicantEmail = 'applicant@example.com',
   formData: Record<string, unknown> = { business_name: 'Sample Applicant' },
+  /**
+   * Its status, open unless given, and when it arrived, an ISO time, now unless given: the Stats
+   * tab draws applications over the days they arrived on.
+   */
+  options: { status?: string; submittedAt?: string } = {},
 ): string {
   const applicationId = randomUUID();
+  const submittedAt = options.submittedAt ?? new Date().toISOString();
   const application = {
     id: applicationId,
     market_id: marketId,
     applicant_email: applicantEmail,
     form_data: formData,
-    status: 'open',
+    status: options.status ?? 'open',
     application_type: 'main',
-    submitted_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    submitted_at: submittedAt,
+    updated_at: submittedAt,
   };
 
   mongoEval(`db.applications.insertOne(${JSON.stringify(application)})`);
@@ -75,6 +81,8 @@ export interface VendorAnswers {
   shareWith?: string;
   fullName?: string;
   extra?: Record<string, unknown>;
+  /** When they applied, an ISO time; now unless given, as for the Stats tab's chart over time. */
+  submittedAt?: string;
 }
 
 /**
@@ -110,8 +118,8 @@ export function approvedVendorApplication(
     },
     status: 'reviewer_approved',
     application_type: 'main',
-    submitted_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    submitted_at: answers.submittedAt ?? new Date().toISOString(),
+    updated_at: answers.submittedAt ?? new Date().toISOString(),
   };
 }
 

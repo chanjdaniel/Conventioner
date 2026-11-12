@@ -58,8 +58,6 @@ test.beforeAll(async ({ request }) => {
         name: OLDER_MARKET,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        modificationList: [],
-        assignmentObject: {},
       },
     }),
   );

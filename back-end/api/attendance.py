@@ -1,5 +1,5 @@
-"""Who came to a market on each of its days: the check-ins, the roster the organizer works from, and
-whether a market ran.
+"""Who came to a market on each of its days: the check-ins, the roster the organizer works from, the
+Stats tab's count of it, and whether a market ran.
 
 A check-in is made by an organizer at Attendance (``api/door.py``) or by the vendor on their vendor
 page with the door code (``api/vendor_check_in.py``); both write through ``record_attendance``, and
@@ -17,6 +17,7 @@ import phase_record as PhaseRecord
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from datatypes import MarketPhase, phase_from_market_document, table_code_sort_key
 from db_config import get_database
+from market_documents import market_dates_of
 from unique_indexes import ensure_vendor_day_index
 from utils.email_address import normalized_email
 
@@ -235,13 +236,40 @@ def attendance_roster(market_doc: Dict[str, Any]) -> Dict[str, Any]:
         r["date"], table_code_sort_key(r["table_code"] or ""), str(r["table_choice"] or ""),
     ))
 
-    setup = market_doc.get("setupObject") or {}
-    dates = sorted(
-        str(entry.get("date"))
-        for entry in (setup.get("marketDates") or [])
-        if isinstance(entry, dict) and entry.get("date")
-    )
-    return convert_keys_to_camel_case({"dates": dates, "roster": roster})
+    return convert_keys_to_camel_case({"dates": market_dates_of(market_doc), "roster": roster})
+
+
+def check_in_counts(market_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """How the door stands, in figures only, for the Stats tab's Check-in (T201): per market date,
+    the vendors expected and those checked in, and ``came``, the vendors checked in on any date.
+
+    Read as ``attendance_roster`` reads it, off the same stored rows and attendance records, so
+    each date's figures are the door's own count of that day (a row each, here or not); but it
+    reads no names and holds no row, as the page it serves names nobody.
+    """
+    here = {
+        (doc.get("vendor_email"), doc.get("date"))
+        for doc in attendance_collection.find(
+            {"market_id": market_doc.get("id")}, {"vendor_email": 1, "date": 1})
+    }
+    expected: Dict[str, int] = {}
+    checked_in: Dict[str, int] = {}
+    came = set()
+    for row in _stored_assignment_rows(market_doc):
+        email = normalized_email(str(row.get("email", "")))
+        date = str(row.get("date", ""))
+        expected[date] = expected.get(date, 0) + 1
+        if (email, date) in here:
+            checked_in[date] = checked_in.get(date, 0) + 1
+            came.add(email)
+    return {
+        "dates": [
+            {"date": date, "expected": expected.get(date, 0),
+             "checkedIn": checked_in.get(date, 0)}
+            for date in market_dates_of(market_doc)
+        ],
+        "came": len(came),
+    }
 
 
 def get_attendance_for_market(market_id: str) -> Tuple[List[Dict[str, Any]], int]:

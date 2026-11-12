@@ -1177,23 +1177,36 @@ export const SCREENS: Screen[] = [
     open: at(screen('big', 'attendance'), 'attendance-row'),
   },
   {
-    // The headlines, who applied, and a chart per choice question, as ledgers of bars (E45/F01/S01
-    // to S03); it fits a phone (T180). The two load apart, so it waits for both.
+    // The strip, who applied - a column a day over the 19 days its applications span, and
+    // the review's split bar (T201) - the room, how full each section is each day (T201), and a
+    // chart per choice question, as ledgers of bars (E45/F01/S01 to S03); it fits a phone (T180).
+    // The parts load apart, so it waits for each.
     name: 'the stats',
     who: 'organizer',
     sizes: FITS_A_PHONE,
     open: async (page, seed) => {
       await at(screen('big', 'stats'), 'stats-status')(page, seed);
+      await visible(page, 'stats-over-time-column');
+      await visible(page, 'stats-fill-cell');
       await visible(page, 'stats-answer');
     },
   },
   {
-    // A priced market's Stats (T180): the money's headlines too, set apart from the placements by
-    // a rule, beside them at a desk and above them on a phone.
+    // A priced market's Stats in Market Days with check-ins (T180, T201): every section drawn, the
+    // money and the check-in among them, under a strip of the day's check-ins and what is still
+    // owed, one row at a desk and two tiles to a row on a phone.
     name: 'the stats, priced',
     who: 'organizer',
     sizes: FITS_A_PHONE,
-    open: at(screen('rules', 'stats'), 'stats-headline-stillOwed'),
+    open: async (page, seed) => {
+      await at(screen('rules', 'stats'), 'stats-headline-checkedIn')(page, seed);
+      await visible(page, 'stats-over-time-column');
+      await visible(page, 'stats-room-row');
+      await visible(page, 'stats-fill-cell');
+      await visible(page, 'stats-money-card');
+      await visible(page, 'stats-check-in-missing');
+      await visible(page, 'stats-answer');
+    },
   },
   {
     // The manual tools, Discord's card first (E46/F01/S02); it fits a phone, as the door does.

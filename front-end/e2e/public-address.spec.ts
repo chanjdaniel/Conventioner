@@ -28,9 +28,6 @@ test.describe('A public address belongs to one market', () => {
         name: `Café Address ${stamp}`,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [TEST_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(created.ok()).toBe(true);
@@ -59,9 +56,6 @@ test.describe('A public address belongs to one market', () => {
         name,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [TEST_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
         // Complete, so it may leave draft (E31/F01/S01).
         setupObject: completePlan(),
         intakeMode: 'form',

@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 import unicodedata
-import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
@@ -699,13 +698,6 @@ def _application_form_dump(market: Market) -> Optional[Dict[str, Any]]:
     return market.application_form.model_dump() if market.application_form else None
 
 
-def _strip_persisted_assignment_statistics(market_dict: Dict[str, Any]) -> None:
-    """Keep assignment statistics derived at read-time only, never persisted."""
-    assignment_object = market_dict.get("assignment_object")
-    if isinstance(assignment_object, dict):
-        assignment_object.pop("assignment_statistics", None)
-
-
 def assignment_to_show(market: Market, vendors=None) -> Market:
     """The assignment every read-only view should describe: the stored one, and only that.
 
@@ -1295,37 +1287,50 @@ def _convert_roles_keys_to_user_ids(roles: Dict[str, str]) -> Dict[str, str]:
     return result
 
 
+#: What a person chooses when they create a market: every other field of a new market starts at its
+#: default, or is the server's to write (``new_market``). An allow-list, as the plan write's
+#: ``PLAN_WRITE_FIELDS`` is, so a field added to ``Market`` is the server's until it is listed here.
+MARKET_CREATE_FIELDS = (
+    "name", "creation_date", "organization_id", "intake_mode", "setup_object", "application_form",
+)
+
+
+def new_market(body: Dict[str, Any], roles: Dict[str, Any]) -> Market:
+    """A new market of ``body``'s chosen fields and ``roles``, every other field at its default.
+
+    A key outside ``MARKET_CREATE_FIELDS`` is dropped, not refused: a tab still open on the build
+    before sends the whole new-market object, and nothing else in it is the creator's to decide.
+    Raises pydantic's ``ValidationError`` when a chosen field cannot be read.
+    """
+    chosen = {field: body[field] for field in MARKET_CREATE_FIELDS if field in body}
+    return Market.model_validate(
+        {**chosen, "roles": roles, "modification_list": [], "assignment_object": {}})
+
+
 def create_market(market: Market, owner_email: str) -> tuple:
-    """Create a new market.
+    """Create a new market of ``market``'s chosen fields (``new_market``).
 
     A create body may carry an application form, so it passes through the same validation and
     normalization as ``save_application_form``: one contract for every writer of the form.
     """
+    market = new_market(market.model_dump(), market.roles)
+    # Its plan is held to what the plan write holds every plan to, judged against the market as it
+    # stands before it holds one: every floorplan is new, and none names an image uploaded for it.
+    refusal = (
+        _plan_refusal(market.model_copy(update={"setup_object": None}), market.setup_object)
+        if market.setup_object else None
+    )
+    if refusal:
+        raise BadRequestError(refusal)
     market_dict = market.model_dump()
-    _strip_persisted_assignment_statistics(market_dict)
-    market_dict["phase"] = MarketPhase.DRAFT.value
-    market_dict["is_draft"] = True  # phase is always DRAFT at creation; kept in sync as the phase fallback
-    # Server-owned, like the phase: whatever a create body carried is replaced by the one entry
-    # every market starts with (E26/F06/S03).
+    # Server-owned: the one entry every market starts with (E26/F06/S03).
     market_dict["phase_history"] = [
         PhaseRecord.phase_entry(MarketPhase.DRAFT.value, owner_email).model_dump()
     ]
-    # Server-owned too: the import mapping is the import's and the start's to write, and what the
-    # start kept of its file the start's alone (E38/F02), so a new market carries neither.
-    market_dict["import_mapping"] = None
-    market_dict["example_columns"] = None
     # Server-owned too: a new market starts with its organization's default rows, each marked as
-    # copied from it, whatever the body carried; a market of no organization, or of one that sets
-    # none, starts at the built-in table (E39/F02/S01). A copy, not a link.
+    # copied from it; a market of no organization, or of one that sets none, starts at the built-in
+    # table (E39/F02/S01). A copy, not a link.
     market_dict["permissions"] = _organization_default_rows(market.organization_id)
-    # And the reviewers: chosen on the market once it exists, by their own write (E38/F07/S02).
-    market_dict["review_team"] = None
-    # And the review setup's two "none"s, each decided by its list's own write (T206).
-    market_dict["nothing_leads_the_card"] = False
-    market_dict["no_automatic_rejections"] = False
-    # And the form's and the plan's revisions, each counted by its own writes alone.
-    market_dict["form_revision"] = 0
-    market_dict["plan_revision"] = 0
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -1340,8 +1345,7 @@ def create_market(market: Market, owner_email: str) -> tuple:
         # A builtin: ``create_owned_market`` sets the one owner, so this escaping is a bug, a 500.
         raise ValueError("Market must have exactly one owner in roles dict")
     
-    market_id = str(uuid.uuid4())
-    market_dict["id"] = market_id
+    market_id = market.id
     market_dict = convert_keys_to_camel_case(market_dict)
     
     refusal = market_name_refusal(market.name) or public_address_refusal(market.name)
@@ -1443,7 +1447,7 @@ def create_owned_market(owner: User, data: Dict[str, Any]) -> str:
     Raises a ``BadRequestError``, in words for the organizer, when the market may not be made.
     """
     try:
-        market = Market.model_validate({**data, "roles": {owner.id: MarketRole.OWNER.value}})
+        market = new_market(data, {owner.id: MarketRole.OWNER.value})
     except ValidationError as e:
         logger.warning("Refused a new market: %s", parse_failure_detail(e))
         raise BadRequestError(field_named_copy("Invalid market", e)) from e
@@ -2816,6 +2820,23 @@ def _from_a_page_before_ids(body_plan: Any, plan: SetupObject, stored: Optional[
     return False
 
 
+def _plan_refusal(plan: SetupObject) -> Optional[str]:
+    """Why ``plan`` may not be a market's, whatever phase it is in, or None: the bounds of the
+    half-table share and the prices (``Pricing.pricing_refusal``).
+
+    Asked by every writer of a plan, the plan write and the create alike, of the plan holding its
+    layouts and its derived counts (``_with_the_layouts``). A layout's floorplans and table types
+    are judged by the layout's own write, the only one that passes them (``prepared_plan``).
+    """
+    share = plan.assignment_options.max_half_table_proportion_per_section
+    if share is not None and not 0 <= share <= 100:
+        return (
+            "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
+            "default."
+        )
+    return Pricing.pricing_refusal(plan)
+
+
 class PreparedPlan(NamedTuple):
     """A plan write judged and not yet written: the plan as parsed, the ``$set`` that writes it,
     and the layouts it drops because their location is gone, whose images and history entries
@@ -2907,15 +2928,9 @@ def prepared_plan(
     if floorplan_refused:
         raise BadRequestError(floorplan_refused)
     plan, removed_floorplans = _with_the_layouts(market, plan, floorplans, table_types)
-    share = plan.assignment_options.max_half_table_proportion_per_section
-    if share is not None and not 0 <= share <= 100:
-        raise BadRequestError(
-            "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
-            "default."
-        )
-    priced = Pricing.pricing_refusal(plan)
-    if priced:
-        raise BadRequestError(priced)
+    refused = _plan_refusal(plan)
+    if refused:
+        raise BadRequestError(refused)
     update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
 
     if body.get("intakeMode") is not None:

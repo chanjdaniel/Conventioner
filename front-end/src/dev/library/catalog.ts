@@ -96,6 +96,12 @@ export const ENTRIES: readonly LibraryEntry[] = [
     serves:
       "A location's layout page, its editor, the PNG export; later, a public and a market-day map",
   },
+  {
+    id: 'charts',
+    title: 'Charts',
+    summary: "Applications over time, the review's split bar, and the answers' bars folded past 8",
+    serves: 'Stats, L11',
+  },
 ];
 
 /** The files under `entries/`, loaded when opened. */

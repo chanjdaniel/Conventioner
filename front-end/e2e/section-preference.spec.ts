@@ -32,9 +32,6 @@ test.describe('Section preference', () => {
         name: marketName,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [TEST_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(createRes.ok(), await createRes.text()).toBeTruthy();

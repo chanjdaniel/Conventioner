@@ -20,6 +20,7 @@ const ENTRIES = [
   'proposals',
   'export-vendors',
   'layout-map',
+  'charts',
 ];
 
 eachWindow('the component library', (size) => {

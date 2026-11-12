@@ -23,11 +23,11 @@ describes:
   - back-end/create_test_user.py
   - front-end/e2e/helpers/exampleCollegeMarket.ts
   - front-end/e2e/helpers/decideReviewSetup.ts
+  - front-end/e2e/helpers/saveApplicationForm.ts
+  - front-end/e2e/helpers/savePlan.ts
   - front-end/e2e/helpers/seedPeopleAtScale.ts
   - front-end/e2e/helpers/seedMarketAtScale.ts
   - front-end/e2e/helpers/seeds.ts#seedLayout
-  - front-end/e2e/helpers/saveApplicationForm.ts
-  - front-end/e2e/helpers/savePlan.ts
 verified: 2026-11-11
 sources:
   - E02
@@ -51,8 +51,9 @@ sources:
   - T234
   - T251
   - T263
-  - T257
   - T274
+  - T257
+  - T201
 ---
 
 # E2E seeds
@@ -211,7 +212,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - 40 applications in every review state
   - a review divided between the organizer and a Viewer (the organizer's share all decided)
   - every reviewer, verdict giver and follow-up owner it writes on an application carries their user's id, as the server writes them: the organizer's id from `loginViaApi`, the Viewer's read from their stored account
-  - 36 vendors over four dates and three sections
+  - 36 vendors over four dates and three sections, they and the priced market's applications spread over 19 days ending on the seed's day, most in a late rush, so the sweep draws Stats' chart over time at size (T201)
   - `SCREENS_EDITOR` an Editor on that market, so a `SCREENS` state signed in as `'editor'` reads Update info with the answers the assignment reads locked
   - settled rules, on a priced market, so Payments draws the market's money and its tables by tier and by date (T180)
   - a section of 24 tables on a market in Assignment, past the Assignments page's fold of 20, so a sweep walks a section unfolded (T223)
@@ -243,7 +244,7 @@ A spec using `seedMarketWithVendors()` or anything built on it therefore exercis
 
 `approvedVendorApplication()` builds the application `seedApprovedVendor()` writes without writing it, and `insertApplications()` writes many in one `insertMany`: every `mongoEval` is a round trip into the container, so a seed of dozens writes them together.
 
-**`seedApplication()` writes one application straight into Mongo**, snake_case and keyed by `market_id` as [the application document](../data/application-document.md) is, with status `open`.
+**`seedApplication()` writes one application straight into Mongo**, snake_case and keyed by `market_id` as [the application document](../data/application-document.md) is, with status `open` and arriving now, unless its options give a `status` or a `submittedAt`; `approvedVendorApplication()` takes a `submittedAt` among its answers too, so a spec of the Stats tab's chart over time can seed applications on the days it names (T201).
 It is how a spec puts an application on a market without signing in as an applicant, in any phase, and so how it reaches [the form lock](../../business/rules/the-form-locks-at-the-first-application.md).
 
 ## Reaching a stored assignment

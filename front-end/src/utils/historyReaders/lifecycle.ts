@@ -7,7 +7,8 @@
  * - `publish-results/`
  */
 import { pathPhaseLabel } from '@/utils/marketGuide';
-import { plural, sentence, str, type HistoryReaders } from './shared';
+import { plural } from '@/utils/utils';
+import { sentence, str, type HistoryReaders } from './shared';
 
 export const readers: HistoryReaders = {
   'move-phase/': {

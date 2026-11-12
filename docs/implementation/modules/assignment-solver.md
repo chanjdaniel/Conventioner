@@ -6,7 +6,7 @@ describes:
   - back-end/assignment/vendor_input.py
   - back-end/assignment/csv_output.py
   - back-end/assignment/invariants.py
-verified: 2026-11-09
+verified: 2026-11-12
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/02
@@ -22,6 +22,7 @@ sources:
   - T139
   - T253
   - T263
+  - T201
 ---
 
 # The assignment solver
@@ -37,6 +38,7 @@ Storing a run, and every hand edit to one, is [placements](placements.md); what 
   A caller may pass the vendors in (the behavioural suite does, to describe a scenario with no database), but no caller has to fetch anything first.
 - `solver_vendors_for(market)`: the vendors the approved applications describe, or `IncompleteApplicationsError` naming every applicant whose answers are missing ([an incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md)).
 - `vendors_to_show(market)`: the same vendors for a read of the stored assignment, each approved application read as it stands, so a missing answer refuses nothing (`approved_solver_vendors(..., lenient=True)`).
+- `solver_vendors_from_applications(applications, options, lenient)` (`vendor_input.py`): any applications read as the solver reads them; the Stats tab's room reads every application the review has not rejected through it, leniently, so the tables asked count the dates, tiers and table size a run would ([the market's statistics](../../business/flows/stats.md#n3-see-whether-there-is-room-for-those-asking)).
 - `describe_stored_assignment(market, vendors=None)`: seats the stored rows and derives statistics without running `assign()`, over `vendors_to_show` when no vendors are passed; every read-only view goes through it ([placements](placements.md#what-a-read-shows)).
 - `SolverVendor` (`vendor_input.py`): one vendor as the solver sees them, a frozen dataclass of what they asked for; `Vendor` (`assignment.py`) wraps it with one run's working state.
 - `allocation_breaches(setup, vendors, pins, orphaned_pins, assignments)` ([`invariants.py`](../../../back-end/assignment/invariants.py)): every way an allocation breaks one of the solver's rules, as `Breach`es (the rule, the date, the table code and the application ids), ordered by rule, date, table and ids; empty when it is sound.

@@ -85,8 +85,6 @@ test.describe('The test markets', () => {
         name: ONLINE,
         creationDate: new Date().toISOString(),
         organizationId: mongoEval(`db.organizations.findOne({ name: "${ORGANIZATION}" }).id`),
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(created.ok(), await created.text()).toBeTruthy();

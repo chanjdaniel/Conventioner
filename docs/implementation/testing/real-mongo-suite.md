@@ -44,7 +44,7 @@ The server is `REAL_MONGODB_URI`, a full connection string.
 
 - **CI**: the `backend` job runs a `mongo:7` service ([the MongoDB version](#the-mongodb-version)), its port 27017 published on the runner as 27117, with a `mongosh` ping as its health check and no credentials, and sets `REAL_MONGODB_URI=mongodb://127.0.0.1:27117/?serverSelectionTimeoutMS=5000` and `REAL_MONGODB_REQUIRED=true` for the job ([CI and the gate](ci-and-the-gate.md#ci)).
   The job keeps its name, so the required check is unchanged.
-- **The gate**: `scripts/nm-test.sh` runs the ordinary suite with the variable unset, so the package skips there and runs in CI, as Playwright does.
+- **`scripts/nm-test.sh`**: runs the ordinary suite with the variable unset, so the package skips there and runs in CI; the gate runs no suite.
 - **Locally**: run it against a worktree stack's MongoDB, which listens on `127.0.0.1:$TH_MONGO_PORT` with the stack's fixed development credentials.
   Start the stack with `scripts/th-compose.sh up -d` (a team worker's with `team-stack up`), read the port from `scripts/th-compose.sh ports`, then, from `back-end/`:
 

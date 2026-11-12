@@ -18,11 +18,11 @@
  * Names the stored value `status` for `fieldValue`.
  */
 import type { MarketHistoryEntry, MarketHistoryPart } from '@/utils/marketHistory';
+import { plural } from '@/utils/utils';
 import { statusLabel } from '@/utils/verdicts';
 import {
   asDetail,
   listed,
-  plural,
   sentence,
   str,
   valueText,

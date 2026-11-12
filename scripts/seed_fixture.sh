@@ -163,10 +163,7 @@ CREATE_RESPONSE=$(curl -k -s -b "$COOKIE_JAR" \
   -d "{
     \"name\": \"$MARKET_NAME\",
     \"creationDate\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
-    \"organizationId\": \"$ORG_ID\",
-    \"roles\": {\"$USER_ID\": \"owner\"},
-    \"modificationList\": [],
-    \"assignmentObject\": {}
+    \"organizationId\": \"$ORG_ID\"
   }")
 echo "  $CREATE_RESPONSE"
 

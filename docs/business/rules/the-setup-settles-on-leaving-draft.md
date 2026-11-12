@@ -5,12 +5,12 @@ describes:
   - back-end/api/markets.py#setup_lock_reason
   - back-end/api/markets.py#setup_part
   - back-end/api/markets.py#prepared_plan
+  - back-end/api/markets.py#save_plan
   - back-end/guards.py#SetupHasDatesGuard
   - back-end/guards.py#SetupHasALocationGuard
   - back-end/guards.py#EveryTierHasTablesGuard
   - back-end/guards.py#_earliest_calendar_day
   - back-end/guards.py#LayoutTablesHaveSectionsGuard
-  - back-end/api/markets.py#save_plan
 verified: 2026-11-11
 sources:
   - wayfinding/the-order-of-the-work/03
@@ -24,8 +24,8 @@ sources:
   - E18
   - E43/F01/S01
   - T263
-  - T257
   - T274
+  - T257
 ---
 
 # The setup settles on leaving draft
