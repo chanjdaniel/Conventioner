@@ -32,7 +32,7 @@ describes:
   - back-end/api/applicant_auth.py#_send_code_email
   - back-end/tests/test_the_code_mail_carries_only_words.py
   - front-end/vite.config.ts#assertNoLocalHatchOnVercel
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - T74
   - T109
