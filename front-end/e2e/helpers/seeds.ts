@@ -573,6 +573,8 @@ export async function seedLayout(
     tables?: SeedTable[];
     zones?: SeedZone[];
     intakeMode?: 'csv' | 'form';
+    /** The market's one date, `SEED_MARKET_DATE` unless given. */
+    marketDate?: string;
   } = {},
 ): Promise<SeededLayout> {
   await loginViaApi(request, baseURL, email, password);
@@ -591,7 +593,7 @@ export async function seedLayout(
       assignmentObject: {},
       ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
       setupObject: {
-        ...completePlan(),
+        ...completePlan(options.marketDate),
         tiers: [gold, silver],
         locations: [UPPER_HALL, LOWER_HALL, { id: 'loc-unnamed', name: '' }],
         sections: [

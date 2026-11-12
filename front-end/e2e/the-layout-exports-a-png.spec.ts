@@ -129,10 +129,12 @@ test.describe('A layout exports as a PNG', () => {
     authenticatedPage: page,
     request,
   }) => {
+    // A date whose line, "Wednesday 30 December", is wider than the place's, "Upper Hall".
     const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
       metresAcross: 30,
       tables: UPPER_HALL_TABLES,
       zones: UPPER_HALL_ZONES,
+      marketDate: '2099-12-30',
     });
     const layout = await openTheLayout(page, seeded);
 
@@ -154,14 +156,16 @@ test.describe('A layout exports as a PNG', () => {
       right: gold10.x + 40,
       bottom: gold10.y + 20,
     };
-    // The place is right-aligned at the head's right edge, and the market's name ends at least a
-    // legend gap before the place's words start. So the place's box starts a little before its
-    // words, which the name never reaches, whatever the name's random digits make it.
+    // The place and the dates under it are right-aligned at the head's right edge, and the market's
+    // name ends at least the page's gap before the wider of the two starts. So the place's box
+    // starts a little before that, which the name never reaches, whatever the name's random digits
+    // make it, and the name's box, the head's whole height, ends there.
     const headRight = (1600 - 56) * SCALE;
     const outfit = await inkWidth(page, 'Upper Hall', `600 ${22 * SCALE}px Outfit`);
+    const dates = await inkWidth(page, 'Wednesday 30 December', `400 ${18 * SCALE}px Outfit`);
     const head = { top: MARGIN, bottom: MARGIN + 60 * SCALE };
     const placeBox = {
-      left: headRight - outfit - 32,
+      left: headRight - Math.max(outfit, dates) - 32,
       right: 1600 * SCALE,
       top: MARGIN,
       bottom: MARGIN + 30 * SCALE,
