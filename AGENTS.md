@@ -54,6 +54,7 @@ This file holds what nearly every session needs; everything else is in the knowl
   The seed empties the stack's database, so it refuses unless it is told the stack: the slot it sits in, the exported `th-compose.sh ports`, or `--primary` in the primary checkout ([why](docs/TESTING.md#quick-start-seed-fixture)).
   Playwright config auto-detects worktree port via `stack().frontendPort`.
 - Back end: `cd back-end && python -m pytest tests/ -v`, with both `requirements.txt` and `requirements-dev.txt` installed.
+  Its real-MongoDB suite, which skips there: `scripts/real-mongo-test.sh`, which starts a MongoDB of its own and removes it, leaving no volume; never start one for it by hand with `docker run` ([why](docs/TESTING.md#the-real-mongodb-suite)).
   Front-end unit tests: `cd front-end && npm run test:unit`.
 - **Run `npm run format` in `front-end/` before committing**: CI's `format:check` fails unformatted front-end code and `docs/`.
 - `scripts/nm-test.sh --skip-e2e` runs every suite but Playwright; without the flag it adds Playwright, on an isolated stack of its own.

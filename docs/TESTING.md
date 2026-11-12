@@ -161,7 +161,17 @@ The suite reads no `.env`, so a stale one on your machine cannot change its resu
 `back-end/tests/real_mongo/` runs against a real MongoDB server, named by `REAL_MONGODB_URI`, each test on a database of its own that it drops.
 Unset, every test there skips, so an `nm-test.sh` run stays hermetic; CI's `backend` job runs it on a `mongo:7` service, the local stack's version ([why not production's 8.0](implementation/testing/real-mongo-suite.md#the-mongodb-version)), and sets `REAL_MONGODB_REQUIRED=true` so it can never skip.
 It refuses a `mongodb+srv://` URI, a host that is not loopback and the primary checkout's port 27017.
-Run it against a worktree stack's MongoDB, its port from `scripts/th-compose.sh ports`:
+Run it with `scripts/real-mongo-test.sh`, which starts a MongoDB of its own for the run and removes it however the run ends:
+
+```bash
+scripts/real-mongo-test.sh                                                  # the whole package
+scripts/real-mongo-test.sh tests/real_mongo/test_the_applicant_side_races.py -q  # pytest's arguments, from back-end/
+```
+
+Its server is the compose file's `mongodb` image as CI runs it, with no credentials and 64000 open files, on a loopback port Docker picks, with no volume: `/data/db` and `/data/configdb` are tmpfs and the container is started with `--rm`.
+Never start a MongoDB for the suite by hand with `docker run`: without those, removing the container leaves the image's two anonymous volumes, about 0.3 GB a run, with nothing saying whose they are.
+Its Python is `PYTHON_CMD` (default `python3`), with both requirements files installed.
+Against a worktree stack's MongoDB instead, its port from `scripts/th-compose.sh ports`:
 
 ```bash
 cd back-end

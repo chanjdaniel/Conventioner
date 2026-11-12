@@ -133,7 +133,7 @@ Conventioner/
 │   ├── e2e/            # Playwright suite, page objects and seed helpers
 │   └── package.json
 ├── docs/               # This file, TESTING.md, RELEASING.md, ADRs
-├── scripts/            # seed_fixture.sh, th-compose.sh, nm-test.sh
+├── scripts/            # seed_fixture.sh, th-compose.sh, nm-test.sh, real-mongo-test.sh
 ├── .scratch/           # Local, ignored working folder; planning lives outside this repo (docs/agents/issue-tracker.md)
 ├── docker-compose.yml  # Docker Compose configuration
 └── AGENTS.md           # Project-intrinsic notes: sharp edges, conventions, invariants
