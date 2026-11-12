@@ -1,5 +1,6 @@
 import { test, expect, BACKEND_URL, TEST_USER, VendorPage } from './fixtures';
 import { seedApplicantMarket } from './helpers/seedApplicantMarket';
+import { waitForRoomInWindow } from './helpers/signInWindow';
 
 /**
  * Nobody can use the applicant sign-in to flood an address with codes (T12).
@@ -11,20 +12,6 @@ import { seedApplicantMarket } from './helpers/seedApplicantMarket';
  */
 
 const ALLOWED_PER_ADDRESS = 5;
-
-/**
- * The back end counts in fixed quarter-hour windows aligned to the clock (back-end/sign_in_limits.py),
- * so six requests that straddle a window's end are five in one window and one in the next, and the
- * sixth is allowed. Start only when this window has room for the whole test.
- */
-const WINDOW_MS = 15 * 60 * 1000;
-const ROOM_MS = 60 * 1000;
-
-async function waitForRoomInWindow(): Promise<void> {
-  const left = WINDOW_MS - (Date.now() % WINDOW_MS);
-  if (left >= ROOM_MS) return;
-  await new Promise((resolve) => setTimeout(resolve, left + 1000));
-}
 
 test('asking for codes past the limit says to wait, and sends nothing more', async ({
   page,

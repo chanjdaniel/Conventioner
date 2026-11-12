@@ -49,9 +49,6 @@ async function createMarketWithPlan(
       name: marketName,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [TEST_USER.email]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       setupObject,
       // Vendors apply on its page, so its form has a preview (E33/F01/S02).
       intakeMode: 'form',

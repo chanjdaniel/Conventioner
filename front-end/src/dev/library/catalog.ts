@@ -88,6 +88,12 @@ export const ENTRIES: readonly LibraryEntry[] = [
     summary: 'The real dialog on the fixture: broad, short, its chosen columns a cart',
     serves: 'The export dialog, C11, F03',
   },
+  {
+    id: 'charts',
+    title: 'Charts',
+    summary: "Applications over time, the review's split bar, and the answers' bars folded past 8",
+    serves: 'Stats, L11',
+  },
 ];
 
 /** The files under `entries/`, loaded when opened. */

@@ -44,9 +44,6 @@ export async function seedPhaseMarket(
       name: marketName,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [userId]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       setupObject: completePlan(),
       ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
     },
@@ -134,9 +131,6 @@ export async function seedFormlessPhaseMarket(
       name: marketName,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [userId]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
       ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
       // With dates, complete: a market that may leave draft (E31/F01/S01), whose form is the
       // essential questions its plan asks. Without, a plan that offers nothing at all.

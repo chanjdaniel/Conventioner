@@ -103,9 +103,7 @@ def market_table(market_id, who=OWNER):
 
 
 #: What a create body needs besides its name and organization.
-NEW_MARKET = {
-    "creation_date": "2026-11-01T00:00:00Z", "modification_list": [], "assignment_object": {},
-}
+NEW_MARKET = {"creation_date": "2026-11-01T00:00:00Z"}
 
 
 def create_market(name="Spring Fair", organization_id=ORG_ID):
@@ -352,7 +350,8 @@ class TestANewMarketCopiesTheDefault:
         OrgsApi.set_default_permission(ORG_ID, "check-in", "admin", ORG_ADMIN)
 
         MarketsApi.create_market(MarketsApi.Market.model_validate({
-            **NEW_MARKET, "name": "Loose Fair", "roles": {OWNER: "owner"}}), OWNER)
+            **NEW_MARKET, "name": "Loose Fair", "roles": {OWNER: "owner"},
+            "modification_list": [], "assignment_object": {}}), OWNER)
 
         [loose] = [doc for doc in world.markets.docs if doc["name"] == "Loose Fair"]
         assert loose["permissions"] == {}

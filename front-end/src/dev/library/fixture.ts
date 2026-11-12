@@ -1,5 +1,7 @@
 import type { ApplicationStatus, MarketRole } from '@/assets/types/datatypes';
 import type { DiscordShown } from '@/utils/discordCheck';
+import type { FillCounts } from '@/utils/fillGrid';
+import type { RoomCounts } from '@/utils/roomRows';
 import type { ExportOffered, ExportPaymentState } from '@/utils/vendorExport';
 import data from './fixture.json';
 
@@ -20,6 +22,8 @@ export interface LibraryFixture {
     business: string;
     /** Their answer to the question, as the file holds it. */
     sells: string;
+    /** When they applied, from the file's Timestamp column as the import stores it: 17 days. */
+    submittedAt: string;
     status: ApplicationStatus;
     /** The person id of the reviewer it is dealt to. */
     reviewer: string;
@@ -50,6 +54,13 @@ export interface LibraryFixture {
   valuesToFix: string[];
   /** Approved applications seated on each of four dates, 31 tables and 28 in two sections. */
   seats: { date: string; section: string; table: number; tier: string; application: string }[];
+  /** The Stats tab's room for the plan of both sections, as the server counts it: the tables asked
+   * by the 295 applications not rejected, on each of the four dates and in each of three tiers,
+   * Bronze with no table. */
+  room: RoomCounts;
+  /** The Stats tab's How full for that plan with the seats stored, as the server counts it: every
+   * table of both sections held on each of the four dates. */
+  fill: FillCounts;
   /** What the export dialog offers this market, as its preview says it, and the invite every row
    * exports. */
   export: ExportOffered & { discordInvite: string };

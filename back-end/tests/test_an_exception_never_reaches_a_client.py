@@ -563,7 +563,6 @@ class TestTheOrganizationAndRoleRoutes:
 # A new market's body the model takes, in an organization its creator owns.
 NEW_MARKET = {
     "name": "Spring Market", "creationDate": "2026-01-01T00:00:00Z", "organizationId": ORG_ID,
-    "modificationList": [], "assignmentObject": {},
 }
 
 # Each market setup route, with a body it accepts and the markets API function it answers through.
@@ -1962,16 +1961,16 @@ class TestTheCopyIsOurs:
         use_market(monkeypatch, None)
         body = {
             "name": "Spring Market", "creationDate": "2026-01-01T00:00:00Z",
-            "organizationId": "org-1", "modificationList": "none-whatsoever",
+            "organizationId": "org-1", "intakeMode": "none-whatsoever",
         }
 
         with caplog.at_level(logging.WARNING):
             response = client.post("/markets", json=body)
 
         assert response.status_code == 400
-        assert response.get_json()["error"].startswith("Invalid market: modification_list: ")
+        assert response.get_json()["error"].startswith("Invalid market: intake_mode: ")
         assert_no_parser_detail(response, "none-whatsoever")
-        assert "modification_list" in caplog.text
+        assert "intake_mode" in caplog.text
         assert "none-whatsoever" not in caplog.text
 
     def test_a_stored_market_that_cannot_be_read_says_only_that(self, client, monkeypatch, caplog):

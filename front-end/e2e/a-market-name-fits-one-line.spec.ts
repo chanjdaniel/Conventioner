@@ -65,8 +65,6 @@ test.describe("A market's name fits one line", () => {
         name,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     expect(created.ok(), await created.text()).toBe(true);

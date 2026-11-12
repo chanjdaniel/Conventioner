@@ -42,9 +42,6 @@ test.describe('Floorplan workflow E2E', () => {
         name: marketName,
         creationDate: new Date().toISOString(),
         organizationId: orgId,
-        roles: { [TEST_USER.email]: 'owner' },
-        modificationList: [],
-        assignmentObject: {},
       },
     });
     if (!createRes.ok()) {

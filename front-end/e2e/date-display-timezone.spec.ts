@@ -43,9 +43,6 @@ async function seedMarketWithDate(request: APIRequestContext): Promise<Record<st
       name: `Date TZ E2E ${Date.now()}`,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [TEST_USER.email]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
     },
   });
   if (!createRes.ok()) {

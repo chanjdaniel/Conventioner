@@ -3,28 +3,57 @@
  * The Stats tab (E45/F01/S01): the market's figures, from its first application to its archive,
  * open in every phase and to anyone who reads the market.
  *
- * Its top line is the market's state in headlines (E45/F01/S03, `utils/statsHeadlines.ts`): the
- * table-days used and free and the vendors unassigned, once an assignment is stored, and the amounts
- * owed, paid and still owed, where the market sets prices and the Payments page counts someone;
- * each the figure the page it links to shows, and the link opens that page with its filter.
+ * Its top line is a strip of three or four tiles chosen by the market's phase (T201,
+ * `utils/statsHeadlines.ts`), none in draft: each a figure drawn large over its words, the whole
+ * tile a link to where that figure is worked on, with that page's filter, or to the Room section
+ * below; a zero whose link would list nothing is told but not linked. A row at a desk, two to a row
+ * on a phone.
  *
  * Every figure is counted on the server and read in one small answer (`utils/marketStats.ts`),
- * so the page never downloads the applications to count them. It starts with who applied: every
- * application by its status, counted as the Applications tab's All view filters them, and by the
- * day it arrived, as a ledger of bars (`BarLedger`, `utils/applicantStats.ts`). Then what they
- * answered: a card per choice question of the form (`utils/answerCounts.ts`), narrowed by a
- * switch, kept in the address as `among`, to the approved or the assigned (E45/F01/S02). Stats
- * reads; it changes nothing, so a Viewer sees all of it and nothing here is disabled.
+ * so the page never downloads the applications to count them. It starts with who applied: how many,
+ * a column per day (or week) from the day applications opened to today or their close
+ * (`ColumnChart`, `utils/appliedOverTime.ts`), and the review's state as one split bar, each status
+ * counted as the Applications tab's All view filters it and linked to that filter (`SplitBar`,
+ * `utils/applicantStats.ts`). Then the room, in every phase: whether the plan has room for those
+ * asking, each market day's tables asked against its tables and, with two tiers or more, each
+ * tier's table-days the same way (`MeterBar`, `utils/roomRows.ts`); before anyone applies, the
+ * tables alone, so a draft shows its capacity. Then, once an assignment is stored, how full each
+ * section is on each market day, a table of its tables used shaded by how full, with a total row
+ * (`FillGrid`, `utils/fillGrid.ts`). Then the money, where the market sets prices and the Payments
+ * page has someone to count: owed, paid and still owed, that page's figures, and one bar of paid
+ * against owed (`MeterBar`, `utils/moneyCard.ts`). Then, from Market Days on, who has come: a row
+ * per market day of its vendors checked in of those expected, as the door counts its day, and
+ * beside it how many are not yet in, a link to Attendance on that day (`MeterBar`,
+ * `utils/checkInRows.ts`). Then what they answered: a card per choice question of the form
+ * (`utils/answerCounts.ts`), its answers most chosen first and folded past `ANSWERS_SHOWN` (T201),
+ * narrowed by a switch, kept in the address as `among`, to the approved or the assigned
+ * (E45/F01/S02). Stats reads; it changes nothing, so a Viewer sees all of it and nothing here is
+ * disabled.
+ *
+ * Its sections keep one order, the market's life's (T201): who applied, the room, how full, the
+ * money, check-in, then what they answered.
+ * Their cards stand two to a row while the page's content is 48rem wide or more, one below it; a
+ * chart that reads as one line of a whole, over time or across the review, spans the row, and the
+ * How full card spans it up to its table's width, the whole column in one.
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { getApiErrorMessage } from '@/utils/api';
 import { applicantStats } from '@/utils/applicantStats';
+import { appliedOverTime } from '@/utils/appliedOverTime';
 import { ANSWER_GROUPS, answerGroup, questionLedgers } from '@/utils/answerCounts';
 import { fetchMarketStats, type MarketStats } from '@/utils/marketStats';
+import { checkInRows } from '@/utils/checkInRows';
+import { fillGrid } from '@/utils/fillGrid';
+import { moneyCard } from '@/utils/moneyCard';
+import { roomCards } from '@/utils/roomRows';
 import { statsHeadlines } from '@/utils/statsHeadlines';
 import { useOpenMarket } from '@/utils/openMarket';
 import BarLedger from '@/components/BarLedger.vue';
+import ColumnChart from '@/components/charts/ColumnChart.vue';
+import FillGrid from '@/components/charts/FillGrid.vue';
+import MeterBar from '@/components/charts/MeterBar.vue';
+import SplitBar from '@/components/charts/SplitBar.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 
 const route = useRoute();
@@ -35,24 +64,77 @@ const { market } = useOpenMarket(marketId);
 const figures = ref<MarketStats | null>(null);
 const errorMessage = ref('');
 
+/** Reads the figures of the market on screen; an earlier market's answer, landing late, is dropped. */
 async function load(): Promise<void> {
-  if (!marketId.value) return;
+  const id = marketId.value;
+  if (!id) return;
   errorMessage.value = '';
   try {
-    figures.value = await fetchMarketStats(marketId.value);
+    const read = await fetchMarketStats(id);
+    if (marketId.value === id) figures.value = read;
   } catch (err: unknown) {
-    errorMessage.value = getApiErrorMessage(err, 'The figures could not be counted.');
+    if (marketId.value === id) {
+      errorMessage.value = getApiErrorMessage(err, 'The figures could not be counted.');
+    }
   }
 }
-watch(marketId, load, { immediate: true });
+// A jump through history to another market's Stats keeps this page: the last market's figures go
+// at once, so none of them is drawn under the next market's name while it counts, or if it fails.
+watch(
+  marketId,
+  () => {
+    figures.value = null;
+    void load();
+  },
+  { immediate: true },
+);
 
 const stats = computed(() =>
   figures.value ? applicantStats(figures.value.applicants, marketId.value) : null,
 );
-const answers = computed(() => figures.value?.answers ?? null);
-const headlines = computed(() =>
-  figures.value ? statsHeadlines(figures.value.headlines, marketId.value) : [],
+/** Applications over time; none until someone applied with a time, or before the market is read. */
+const overTime = computed(() =>
+  figures.value && market.value
+    ? appliedOverTime(figures.value.applicants, market.value.phase ?? '')
+    : null,
 );
+const overTimeColumns = computed(() =>
+  (overTime.value?.buckets ?? []).map((bucket) => ({ ...bucket, key: bucket.start })),
+);
+/** The room's cards, the tables alone before anyone applies; none where the plan has no dates. */
+const room = computed(() =>
+  figures.value ? roomCards(figures.value.room, figures.value.applicants.total > 0) : [],
+);
+/** How full each section is each day; none until an assignment is stored. */
+const fill = computed(() => (figures.value ? fillGrid(figures.value.fill) : null));
+/** Where the money stands; none where the market sets no prices or nobody is counted. */
+const moneyFigures = computed(() =>
+  figures.value ? moneyCard(figures.value.headlines.money, marketId.value) : null,
+);
+/** Who has come each day; none before Market Days. */
+const checkIn = computed(() =>
+  figures.value && market.value
+    ? checkInRows(figures.value.checkIn, marketId.value, market.value.phase ?? '')
+    : null,
+);
+const answers = computed(() => figures.value?.answers ?? null);
+/** The strip's tiles, chosen by the phase; none in draft or before the market is read. */
+const headlines = computed(() =>
+  figures.value && market.value
+    ? statsHeadlines(market.value.phase ?? '', figures.value, marketId.value)
+    : [],
+);
+
+/** The tiles whose figure is an amount, which a phone gives a row of its own. */
+const AMOUNTS = new Set(['stillOwed', 'paid']);
+
+/** A tile that leads to a section of this page brings it under the pinned bar, and reads from it. */
+function toSection(id: string): void {
+  const section = document.getElementById(id);
+  if (!section) return;
+  section.scrollIntoView({ block: 'start' });
+  section.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
+}
 
 /** Who the charts count, in the address beside the page. */
 const among = computed(() => answerGroup(route.query.among));
@@ -64,6 +146,8 @@ function narrowTo(group: string) {
   void router.replace({ query });
 }
 const ledgers = computed(() => (answers.value ? questionLedgers(answers.value, among.value) : []));
+/** How many of a question's answers show before "N more answers" (Daniel, T201). */
+const ANSWERS_SHOWN = 8;
 /** Nobody in the group yet, said instead of charts of noughts. */
 const NOBODY: Record<string, string> = {
   approved: 'Nobody is approved yet.',
@@ -74,38 +158,54 @@ const NOBODY: Record<string, string> = {
 <template>
   <MarketFrame :market="market" @retry="load">
     <div class="stats">
-      <!-- Nothing stored and no prices: there is no state to headline, and noughts say nothing. -->
+      <!-- A draft, or a phase whose figures are not counted yet: there is nothing to headline. -->
       <ul
         v-if="headlines.length"
-        class="stats-headlines"
+        class="stats-strip"
         aria-label="The market at a glance"
         data-testid="stats-headlines"
       >
         <li
-          v-for="headline in headlines"
-          :key="headline.id"
-          class="stats-headline"
-          :class="{ 'stats-headline--money': headline.id === 'owed' }"
-          :data-testid="`stats-headline-${headline.id}`"
+          v-for="tile in headlines"
+          :key="tile.id"
+          :class="{ 'stats-strip-amount': AMOUNTS.has(tile.id) }"
+          :data-testid="`stats-headline-${tile.id}`"
         >
-          <RouterLink v-if="headline.to" :to="headline.to" class="stats-headline-link">
-            <!-- One run of text, so the target can stand taller than its line without parting the
-                 figure from its words. -->
-            <span>
-              <strong data-testid="stats-headline-figure">{{ headline.figure }}</strong>
-              {{ headline.words }}
-            </span>
+          <RouterLink
+            v-if="tile.link && 'route' in tile.link"
+            :to="tile.link.route"
+            class="stats-tile stats-tile--link"
+          >
+            <strong class="stats-tile-figure" data-testid="stats-headline-figure">{{
+              tile.figure
+            }}</strong>
+            {{ ' ' }}<span class="stats-tile-words">{{ tile.words }}</span>
           </RouterLink>
-          <span v-else>
-            <strong data-testid="stats-headline-figure">{{ headline.figure }}</strong>
-            {{ headline.words }}
-          </span>
+          <a
+            v-else-if="tile.link"
+            :href="`#${tile.link.section}`"
+            class="stats-tile stats-tile--link"
+            @click.prevent="toSection(tile.link.section)"
+          >
+            <strong class="stats-tile-figure" data-testid="stats-headline-figure">{{
+              tile.figure
+            }}</strong>
+            {{ ' ' }}<span class="stats-tile-words">{{ tile.words }}</span>
+          </a>
+          <div v-else class="stats-tile">
+            <strong class="stats-tile-figure" data-testid="stats-headline-figure">{{
+              tile.figure
+            }}</strong>
+            {{ ' ' }}<span class="stats-tile-words">{{ tile.words }}</span>
+          </div>
         </li>
       </ul>
       <section class="stats-section" aria-labelledby="stats-applicants-title">
         <h2 id="stats-applicants-title" class="stats-title">Who applied</h2>
-        <p v-if="errorMessage" class="stats-error" role="alert">{{ errorMessage }}</p>
-        <p v-else-if="!stats" class="stats-note">Counting…</p>
+        <p v-if="errorMessage" class="stats-error" role="alert" data-testid="stats-error">
+          {{ errorMessage }}
+        </p>
+        <p v-else-if="!stats" class="stats-note" data-testid="stats-counting">Counting…</p>
         <p v-else-if="!stats.total" class="stats-note" data-testid="stats-applicants-none">
           Nobody has applied yet.
         </p>
@@ -118,23 +218,153 @@ const NOBODY: Record<string, string> = {
             >
           </p>
           <div class="stats-ledgers">
-            <BarLedger
-              title="By status"
-              :rows="stats.byStatus"
-              testid="stats-status"
-              whole="applications"
-              action="Show these applications"
-              data-testid="stats-by-status"
+            <ColumnChart
+              v-if="overTime"
+              class="stats-wide"
+              title="When they applied"
+              :columns="overTimeColumns"
+              :summary="overTime.summary"
+              :numbers="overTime.unit === 'day' ? 'Numbers by day' : 'Numbers by week'"
+              :key-head="overTime.unit === 'day' ? 'Day' : 'Week'"
+              count-head="Applications"
+              testid="stats-over-time"
+              data-testid="stats-over-time"
             />
-            <BarLedger
-              title="Applied per day"
-              :rows="stats.byDay"
-              testid="stats-day"
-              whole="those who applied"
-              data-testid="stats-by-day"
+            <SplitBar
+              class="stats-wide"
+              title="Where the review stands"
+              :parts="stats.byStatus"
+              whole="applications"
+              testid="stats-status"
+              data-testid="stats-by-status"
             />
           </div>
         </template>
+      </section>
+      <section
+        v-if="room.length"
+        id="stats-room"
+        class="stats-section"
+        aria-labelledby="stats-room-title"
+        data-testid="stats-room"
+      >
+        <h2 id="stats-room-title" class="stats-title" tabindex="-1">Room</h2>
+        <div class="stats-ledgers">
+          <div
+            v-for="card in room"
+            :key="card.id"
+            class="stats-card"
+            :data-testid="`stats-room-${card.id}`"
+          >
+            <h3>{{ card.title }}</h3>
+            <ul class="stats-meters">
+              <li v-for="row in card.rows" :key="row.key">
+                <MeterBar
+                  :label="row.label"
+                  :words="row.words"
+                  :value="row.asked"
+                  :mark="row.tables"
+                  :scale="card.scale"
+                  testid="stats-room-row"
+                  data-testid="stats-room-row"
+                  :data-key="row.key"
+                />
+              </li>
+            </ul>
+            <p v-if="card.note" class="stats-card-note">{{ card.note }}</p>
+          </div>
+        </div>
+      </section>
+      <section
+        v-if="fill"
+        class="stats-section"
+        aria-labelledby="stats-fill-title"
+        data-testid="stats-fill"
+      >
+        <h2 id="stats-fill-title" class="stats-title">How full</h2>
+        <FillGrid
+          class="stats-fill-card"
+          title="Tables used of each section's tables, each day"
+          :grid="fill"
+          testid="stats-fill"
+        />
+      </section>
+      <section
+        v-if="moneyFigures"
+        class="stats-section"
+        aria-labelledby="stats-money-title"
+        data-testid="stats-money"
+      >
+        <h2 id="stats-money-title" class="stats-title">Money</h2>
+        <div class="stats-ledgers">
+          <div class="stats-card stats-money-card" data-testid="stats-money-card">
+            <h3>Owed and paid</h3>
+            <dl class="stats-money">
+              <div
+                v-for="figure in moneyFigures.figures"
+                :key="figure.id"
+                class="stats-money-figure"
+                :data-testid="`stats-money-${figure.id}`"
+              >
+                <dt>{{ figure.label }}</dt>
+                <dd>
+                  <RouterLink v-if="figure.to" :to="figure.to" class="stats-money-link">{{
+                    figure.amount
+                  }}</RouterLink>
+                  <template v-else>{{ figure.amount }}</template>
+                </dd>
+              </div>
+            </dl>
+            <MeterBar
+              label="Collected"
+              :words="moneyFigures.bar.words"
+              :value="moneyFigures.bar.value"
+              :mark="moneyFigures.bar.mark"
+              :scale="moneyFigures.bar.scale"
+              testid="stats-money-bar"
+            />
+          </div>
+        </div>
+      </section>
+      <section
+        v-if="checkIn"
+        class="stats-section"
+        aria-labelledby="stats-check-in-title"
+        data-testid="stats-check-in"
+      >
+        <h2 id="stats-check-in-title" class="stats-title">Check-in</h2>
+        <div class="stats-ledgers">
+          <div class="stats-card" data-testid="stats-check-in-card">
+            <h3>Checked in each day</h3>
+            <ul class="stats-meters">
+              <li v-for="row in checkIn.rows" :key="row.key">
+                <MeterBar
+                  :label="row.label"
+                  :words="row.words"
+                  :value="row.checkedIn"
+                  :mark="row.mark"
+                  :scale="checkIn.scale"
+                  testid="stats-check-in-row"
+                  data-testid="stats-check-in-row"
+                  :data-key="row.key"
+                >
+                  <template v-if="row.missing" #default>
+                    <RouterLink
+                      v-if="row.missing.to"
+                      :to="row.missing.to"
+                      class="link-alone stats-missing"
+                      data-testid="stats-check-in-missing"
+                      >{{ row.missing.words }}</RouterLink
+                    >
+                    <span v-else class="stats-missing" data-testid="stats-check-in-missing">{{
+                      row.missing.words
+                    }}</span>
+                  </template>
+                </MeterBar>
+              </li>
+            </ul>
+          </div>
+        </div>
       </section>
       <!-- Nobody applied: the section above says so, and a chart of noughts says nothing more. -->
       <section
@@ -178,6 +408,7 @@ const NOBODY: Record<string, string> = {
               :rows="ledger.rows"
               testid="stats-answer"
               :whole="amongGroup.whole"
+              :fold="ANSWERS_SHOWN"
               data-testid="stats-question"
               :data-key="ledger.key"
             />
@@ -190,6 +421,7 @@ const NOBODY: Record<string, string> = {
 
 <style scoped>
 .stats {
+  container: stats / inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
@@ -197,45 +429,66 @@ const NOBODY: Record<string, string> = {
   color: var(--mm-black);
 }
 
-/* The Assignments page's strip, in its look: figures on beige, each worked on where it links. */
-.stats-headlines {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-6);
+/* The strip (T201): a row of tiles at a desk, each one equal share of it, and two to a row on a
+   phone, so three or four figures take two rows rather than a line each. */
+.stats-strip {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--space-3);
   margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-card);
-  background: var(--mm-beige);
+  padding: 0;
   list-style: none;
+}
+
+/* A figure drawn large over the words that say what it counts, in the charts' card; the whole tile
+   is the link, so it fills its cell and the row's tiles stand as tall as the tallest. */
+.stats-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  height: 100%;
+  min-height: var(--target-min);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-card);
+  background: white;
+  color: var(--mm-black);
+}
+
+.stats-tile-figure {
+  font-family: 'Merge One', sans-serif;
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.stats-tile-words {
   font-size: var(--text-sm);
 }
 
-.stats-headline strong {
-  font-size: var(--text-lg);
-  font-variant-numeric: tabular-nums;
+/* A tile that leads somewhere: its figure in the link ink, no underline, the tile a step darker
+   under the pointer, as a secondary button is. */
+.stats-tile--link {
+  text-decoration: none;
 }
 
-/* The money starts a group of its own, set apart from the placements by a rule. */
-.stats-headline--money:not(:first-child) {
-  padding-left: var(--space-6);
-  border-left: 1px solid var(--mm-border);
+.stats-tile--link .stats-tile-figure {
+  color: var(--mm-text-link);
 }
 
-/* A link on a line of its own, so a target (the design language): its words stay centred in it. */
-.stats-headline-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--target-min);
-  color: var(--mm-black);
-  text-decoration: underline;
-  text-underline-offset: var(--space-hairline);
+.stats-tile--link:hover {
+  background: var(--mm-white-hover);
 }
 
 .stats-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  /* A tile that leads here brings the section in under the pinned bar, not behind it. */
+  scroll-margin-top: calc(var(--banner-h) + var(--market-frame-h) + var(--space-3));
 }
 
 .stats-title {
@@ -255,14 +508,139 @@ const NOBODY: Record<string, string> = {
   font-variant-numeric: tabular-nums;
 }
 
-/* The cards share the page's whole width rather than leaving its right half empty (Daniel, T104);
-   a card added later may want columns of one width again. A window narrower than one card's 18rem
-   (a 320px phone) narrows the card rather than running it past the frame. */
+/* Two equal columns while the page's content is 48rem wide or more, one below it (T201), so a lone
+   card stays half the page and no bar runs the frame's width, as one did at 1100px. The columns
+   follow the content's width, not the window's, and a 320px phone narrows its one card to fit. */
 .stats-ledgers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: var(--space-4);
+}
+
+@container stats (width >= 48rem) {
+  .stats-ledgers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* A chart of one whole, over time or across the review, spans the row. */
+.stats-wide {
+  grid-column: 1 / -1;
+}
+
+/* How full: in one column it spans the column, as every card does; in two, it ends at its table,
+   so a few days leave no empty band beside them. */
+.stats .stats-fill-card {
+  width: 100%;
+}
+
+@container stats (width >= 48rem) {
+  .stats .stats-fill-card {
+    width: fit-content;
+  }
+}
+
+/* A card of rows, in the charts' look: white, bordered, its title small over them. */
+.stats-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-card);
+  background: white;
+}
+
+.stats-card h3 {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--mm-text-muted);
+}
+
+.stats-meters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The money's three figures, the Payments page's, in its look: each small label over its amount,
+   three side by side on a card wide enough for a large amount in each; on a narrower one, a phone's,
+   one to a line, the label at its start and the amount at its end, rather than two and one. */
+.stats-money-card {
+  container: stats-money / inline-size;
+}
+
+.stats-money {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.stats-money-figure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--space-3);
+}
+
+/* The label beside its amount on a line reads at the row's size; over it, small. */
+.stats-money-figure dt {
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
+}
+
+.stats-money-figure dd {
+  margin: 0;
+  font-family: 'Merge One', sans-serif;
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+@container stats-money (width >= 24rem) {
+  .stats-money {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .stats-money-figure {
+    display: block;
+  }
+
+  .stats-money-figure dt {
+    font-size: var(--text-xs);
+  }
+}
+
+/* A figure on a line of its own is a target, in the link ink, underlined under the pointer. */
+.stats-money-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  color: var(--mm-text-link);
+  text-decoration: none;
+}
+
+.stats-money-link:hover {
+  text-decoration: underline;
+}
+
+/* Who is missing, after the day's figures, in their weight, not the label's. */
+.stats-missing {
+  font-weight: 600;
+}
+
+.stats-card-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 
 .stats-among {
@@ -304,32 +682,33 @@ const NOBODY: Record<string, string> = {
 
 /*
  * A phone (T180): how the day stands is read at the market, so the page fits the phone it is read
- * on (`meta.fitsAPhone`). The gutter is the door's, and the headlines stand one to a line, each a
- * thumb's height, the money set apart by a rule above it rather than beside it.
+ * on (`meta.fitsAPhone`). The gutter is the door's, and the strip's tiles stand two to a row, each
+ * figure a step smaller (T201). An amount takes a row of its own, since "$3,565.00" broke over two
+ * lines in half a 320px window, and so does a tile it would leave alone on its row.
  */
 @media (width <= 640px) {
   .stats {
     padding: var(--space-4);
   }
 
-  .stats-headlines {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
+  .stats-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+    gap: var(--space-2);
   }
 
-  .stats-headline {
-    display: flex;
-    align-items: center;
-    min-height: var(--target-min);
+  .stats-tile {
+    padding: var(--space-2) var(--space-3);
   }
 
-  .stats-headline--money:not(:first-child) {
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
-    padding-left: 0;
-    border-top: 1px solid var(--mm-border);
-    border-left: none;
+  .stats-tile-figure {
+    font-size: var(--text-xl);
+  }
+
+  .stats-strip-amount,
+  .stats-strip > li:last-child:nth-child(odd),
+  .stats-strip > li:nth-child(odd):has(+ .stats-strip-amount) {
+    grid-column: 1 / -1;
   }
 }
 </style>

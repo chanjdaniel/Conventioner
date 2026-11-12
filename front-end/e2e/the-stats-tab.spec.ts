@@ -1,37 +1,53 @@
 import { randomUUID } from 'node:crypto';
+import type { Locator, Route } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
-import { approvedVendorApplication, insertApplications } from './helpers/seedApplication';
+import {
+  approvedVendorApplication,
+  insertApplications,
+  seedApplication,
+  seedApprovedVendor,
+} from './helpers/seedApplication';
+import { savePlan } from './helpers/savePlan';
 import { ensureTestOrg, SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { rowLayout } from './helpers/barLedger';
 import { withUser } from './helpers/withUser';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
+import { MarketsPage } from './pages/MarketsPage';
 import { StatsPage } from './pages/StatsPage';
 import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
  * The Stats tab (E45/F01/S01): the last tab on the market bar, open in every phase and to anyone who
- * reads the market, starting with who applied - by status and by the day each applied - counted as
- * the Applications tab counts them; then a chart per choice question of the form, narrowed to the
- * approved or the assigned (E45/F01/S02).
+ * reads the market, starting with who applied - a column a day from the opening to today (T201), and
+ * the review as one bar split by status, counted as the Applications tab counts them - then the room,
+ * each day's and tier's tables asked against the plan's (T201), then how full each section is each
+ * day once an assignment is stored (T201), then a chart per choice question of the form, narrowed to the approved or the assigned (E45/F01/S02).
  */
 const VIEWER = { email: 'e2e-stats-viewer@example.com', password: 'e2estatsviewer1' };
 
 /** An application as it was stored on the day it arrived, straight into Mongo. */
 function seedApplied(marketId: string, email: string, status: string, submittedAt: string) {
-  mongoEval(
-    `db.applications.insertOne(${JSON.stringify({
-      id: randomUUID(),
-      market_id: marketId,
-      applicant_email: email,
-      form_data: { name: 'Stats Vendor', category: 'Crafts' },
+  seedApplication(
+    marketId,
+    email,
+    { name: 'Stats Vendor', category: 'Crafts' },
+    {
       status,
-      application_type: 'main',
-      submitted_at: submittedAt,
-      updated_at: submittedAt,
-    })})`,
+      submittedAt,
+    },
+  );
+}
+
+/** When the market's record says applications opened, so the chart starts on a known day. */
+function openedOn(marketId: string, enteredAt: string) {
+  mongoEval(
+    `db.markets.updateOne({id: ${JSON.stringify(marketId)}}, ` +
+      `{$set: {"phaseHistory.$[opening].enteredAt": ${JSON.stringify(enteredAt)}}}, ` +
+      `{arrayFilters: [{"opening.phase": "applications"}]})`,
   );
 }
 
@@ -73,6 +89,9 @@ test('the Stats tab counts who applied as the Applications tab does, for anyone 
     { intakeMode: 'form' },
   );
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  // Opened on Monday Aug 31 in Vancouver, and read on Saturday Sep 5 there.
+  openedOn(marketId, '2026-08-31T16:00:00Z');
+  await page.clock.setFixedTime(new Date('2026-09-05T12:00:00-07:00'));
   seedApplied(marketId, 'nadia@ember.test', 'open', '2026-09-01T12:00:00Z');
   seedApplied(marketId, 'theo@thistle.test', 'open', '2026-09-01T19:00:00Z');
   seedApplied(marketId, 'ines@loom.test', 'needs_follow_up', '2026-09-02T12:00:00Z');
@@ -93,26 +112,52 @@ test('the Stats tab counts who applied as the Applications tab does, for anyone 
   await expect(page.getByTestId('market-bar-tab-stats')).toHaveClass(/active/);
   await expect(stats.total).toHaveText('7 applications in all, 1 of them added by hand');
 
+  // A column a day from the opening to today, the quiet days kept, the walk-in on none of them:
+  // one image, named by its sentence.
+  await expect(stats.overTimePlot).toHaveAttribute(
+    'aria-label',
+    '6 applications from Aug 31 to Sep 5, 2026, most on Sep 3: 3',
+  );
+  await expect(stats.overTimePlot).toHaveAttribute('role', 'img');
+  await expect(stats.overTimeColumns).toHaveCount(6);
+  await expect(stats.overTimeAxis).toHaveText(/Aug 31\s*Sep 5/);
+  await expect(stats.overTimeMost).toHaveText('3');
+  // The columns spread across the whole card, none wider than 3rem, so no empty band is left at
+  // its right.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const spread = await plotAndColumns(stats);
+  expect(spread.plot.width).toBeGreaterThan(spread.card.width - 40);
+  expect(spread.columns[0]!.left).toBeCloseTo(spread.plot.left, 0);
+  expect(spread.columns[spread.columns.length - 1]!.right).toBeCloseTo(spread.plot.right, 0);
+  for (const column of spread.columns) expect(column.width).toBeLessThanOrEqual(48);
+
+  // Its numbers, every day, behind the disclosure.
+  await expect(stats.overTimeRows.first()).toBeHidden();
+  await stats.overTimeNumbers.getByText('Numbers by day').click();
+  await expect(stats.overTimeRows).toHaveText([
+    /Mon, Aug 31, 2026\s*0/,
+    /Tue, Sep 1, 2026\s*2/,
+    /Wed, Sep 2, 2026\s*1/,
+    /Thu, Sep 3, 2026\s*3/,
+    /Fri, Sep 4, 2026\s*0/,
+    /Sat, Sep 5, 2026\s*0/,
+  ]);
+
+  // The review as one bar, its legend the text: each status counted as the All view filters it.
   const expected: Record<string, number> = {
     undecided: 2,
     needs_follow_up: 1,
     reviewer_approved: 3,
     reviewer_rejected: 1,
   };
+  await expect(stats.statusBar).toHaveAttribute('aria-hidden', 'true');
+  await expect(stats.statusBarParts).toHaveCount(4);
+  await expect(stats.status('undecided')).toHaveText('Open: 2, 29% of applications');
   for (const [value, count] of Object.entries(expected)) {
     await expect(stats.statusCount(value)).toHaveText(String(count));
   }
 
-  // Each day someone applied, the walk-in on none of them.
-  await expect(stats.days).toHaveCount(3);
-  await expect(stats.days.nth(0)).toContainText('Sep 1, 2026');
-  await expect(stats.dayCount(0)).toHaveText('2');
-  await expect(stats.days.nth(1)).toContainText('Sep 2, 2026');
-  await expect(stats.dayCount(1)).toHaveText('1');
-  await expect(stats.days.nth(2)).toContainText('Sep 3, 2026');
-  await expect(stats.dayCount(2)).toHaveText('3');
-
-  // The Applications tab's All view lists the same count under each status, and a row opens it.
+  // The Applications tab's All view lists the same count under each status, and its line opens it.
   const all = new ApplicationsAllPage(page);
   for (const [value, count] of Object.entries(expected)) {
     await stats.goto(marketId);
@@ -129,9 +174,73 @@ test('the Stats tab counts who applied as the Applications tab does, for anyone 
     await expect(theirs.total).toHaveText('7 applications in all, 1 of them added by hand', {
       timeout: 15000,
     });
-    await expect(theirs.days).toHaveCount(3);
+    await expect(theirs.overTimePlot).toHaveAttribute('aria-label', /^6 applications from Aug 31/);
+    await expect(theirs.statusCount('reviewer_approved')).toHaveText('3');
   });
 });
+
+test('a review status with nobody in it is told, and not linked', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  seedApplied(marketId, 'nadia@ember.test', 'open', new Date().toISOString());
+
+  const stats = new StatsPage(page);
+  await stats.goto(marketId);
+  await expect(stats.statusCount('undecided')).toHaveText('1', { timeout: 15000 });
+  await expect(stats.status('undecided')).toHaveRole('link');
+  await expect(stats.statusBarParts).toHaveCount(1);
+  for (const empty of ['needs_follow_up', 'reviewer_approved', 'reviewer_rejected']) {
+    await expect(stats.statusCount(empty)).toHaveText('0');
+    await expect(stats.status(empty).locator('xpath=self::a')).toHaveCount(0);
+  }
+  await expect(page.getByRole('link', { name: /^Approved/ })).toHaveCount(0);
+  // On a phone, where the lines stand one under another, only the link is a thumb's height; a
+  // zero told is a line of text.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const height = (line: Locator) =>
+    line.evaluate((element) => element.getBoundingClientRect().height);
+  expect(await height(stats.status('undecided'))).toBeGreaterThanOrEqual(44);
+  for (const empty of ['needs_follow_up', 'reviewer_approved', 'reviewer_rejected']) {
+    expect(await height(stats.status(empty))).toBeLessThan(32);
+  }
+  // Applied today, so the chart is that one day: its column, and the day under it, in the middle
+  // of the card.
+  await expect(stats.overTimeColumns).toHaveCount(1);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const lone = await plotAndColumns(stats);
+  const middle = (box: { left: number; right: number }) => (box.left + box.right) / 2;
+  expect(lone.plot.width).toBeGreaterThan(lone.card.width - 40);
+  expect(middle(lone.columns[0]!)).toBeCloseTo(middle(lone.plot), 0);
+  expect(middle(lone.axis)).toBeCloseTo(middle(lone.plot), 0);
+});
+
+/** The over-time card, its plot, each column and the axis's first label, as drawn. */
+async function plotAndColumns(stats: StatsPage) {
+  const rect = (element: Element) => {
+    const { left, right, width } = element.getBoundingClientRect();
+    return { left, right, width };
+  };
+  return {
+    card: await stats.overTime.evaluate(rect),
+    plot: await stats.overTimePlot.evaluate(rect),
+    columns: await stats.overTimeColumns.evaluateAll((all) =>
+      all.map((element) => {
+        const { left, right, width } = element.getBoundingClientRect();
+        return { left, right, width };
+      }),
+    ),
+    axis: await stats.overTimeAxis.locator('span').first().evaluate(rect),
+  };
+}
 
 test('a market nobody has applied to says so, in draft', async ({
   authenticatedPage: page,
@@ -146,6 +255,288 @@ test('a market nobody has applied to says so, in draft', async ({
   const stats = new StatsPage(page);
   await stats.goto(marketId);
   await expect(stats.none).toHaveText('Nobody has applied yet.', { timeout: 15000 });
+
+  // The room alone, so a draft already shows its capacity: the plan's tables, no bar, and no tier
+  // card for a plan of one tier.
+  await expect(stats.roomRows('days')).toHaveText(['Friday, May 1, 2099: 5 tables']);
+  await expect(stats.roomCard('days').getByTestId('stats-room-row-bar')).toHaveCount(0);
+  await expect(stats.roomCard('tiers')).toHaveCount(0);
+});
+
+test("a history jump to another market's Stats draws none of the first market's figures, while it counts or once it fails", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seedOpen = async (applicants: number) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'applications');
+    for (let at = 0; at < applicants; at += 1) {
+      seedApplied(
+        seed.marketId,
+        `jump-${at}-${seed.marketId}@example.com`,
+        'open',
+        new Date().toISOString(),
+      );
+    }
+    return seed;
+  };
+  const jumpedTo = await seedOpen(1);
+  const here = await seedOpen(3);
+  const stats = new StatsPage(page);
+  const position = () => page.evaluate(() => (history.state as { position: number }).position);
+
+  // The market jumped to first, then, in the same page, the market jumped from.
+  await stats.goto(jumpedTo.marketId);
+  await expect(stats.total).toContainText('1 application', { timeout: 15000 });
+  const jumpedToAt = await position();
+  await page.getByTestId('app-bar-logo').click();
+  const markets = new MarketsPage(page);
+  await markets.narrowTo(here.marketName);
+  await markets.card(here.marketName).getByTestId('market-card-name').getByRole('button').click();
+  await expect(page).toHaveURL(new RegExp(`/markets/${here.marketId}/`));
+  await page.getByTestId('market-bar-tab-stats').click();
+  await expect(stats.total).toContainText('3 applications', { timeout: 15000 });
+  await expect(stats.headline('applied')).toHaveText('3 applied');
+  await expect(stats.room).toBeVisible();
+  const hereAt = await position();
+
+  // Back over several entries at once, as a long press on Back offers: the router keeps the page.
+  const held: Route[] = [];
+  await page.route(new RegExp(`/markets/${jumpedTo.marketId}/stats$`), (route) => {
+    held.push(route);
+  });
+  await page.evaluate((delta) => history.go(delta), jumpedToAt - hereAt);
+  await expect(page).toHaveURL(new RegExp(`${marketScreenPath(jumpedTo.marketId, 'stats')}$`));
+  await expect.poll(() => held.length).toBe(1);
+  await expect(page.getByTestId('market-bar-title')).toHaveText(jumpedTo.marketName);
+  // While it counts, nothing of the market left is drawn.
+  await expect(stats.counting).toBeVisible();
+  await expect(stats.strip).toHaveCount(0);
+  await expect(stats.total).toHaveCount(0);
+  await expect(stats.room).toHaveCount(0);
+
+  // And once it fails, the failure alone.
+  await held[0]!.fulfill({ status: 500, json: { error: 'Something went wrong.' } });
+  await expect(stats.error).toBeVisible();
+  await expect(stats.strip).toHaveCount(0);
+  await expect(stats.total).toHaveCount(0);
+  await expect(stats.room).toHaveCount(0);
+  await expect(stats.answers).toHaveCount(0);
+});
+
+/** Two days, and two tiers of sections: 3 Gold tables and 4 Silver ones, every day. */
+const SAT = '2099-08-01';
+const SUN = '2099-08-02';
+const TWO_TIERS = {
+  priority: [],
+  marketDates: [{ date: SAT }, { date: SUN }],
+  tiers: [
+    { id: 1, name: 'Gold' },
+    { id: 2, name: 'Silver' },
+  ],
+  locations: [{ name: 'Main Hall' }],
+  sections: [
+    { name: 'Hall A', location: { name: 'Main Hall' }, tier: { id: 1, name: 'Gold' }, count: 3 },
+    { name: 'Hall B', location: { name: 'Main Hall' }, tier: { id: 2, name: 'Silver' }, count: 4 },
+  ],
+  assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
+};
+
+test('the room reads each day and tier as the tables asked against the plan, past them in the attention fill', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  mongoEval(
+    `db.markets.updateOne({id: ${JSON.stringify(marketId)}}, ` +
+      `{$set: {setupObject: ${JSON.stringify(TWO_TIERS)}}})`,
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  const vendor = (n: number, answers: Parameters<typeof approvedVendorApplication>[2]) =>
+    approvedVendorApplication(marketId, `room-${n}@vendor.test`, answers);
+  insertApplications([
+    // Six whole tables at Gold, both days.
+    ...[1, 2, 3, 4, 5, 6].map((n) => vendor(n, { dates: [SAT, SUN], tiers: ['Gold'] })),
+    // Three halves on Saturday, at either tier: half a table each, in both tiers.
+    ...[7, 8, 9].map((n) =>
+      vendor(n, { dates: [SAT], tiers: ['Gold', 'Silver'], tableChoice: 'half' }),
+    ),
+    // Either size on Sunday, at Silver: a whole table.
+    vendor(10, { dates: [SUN], tiers: ['Silver'], tableChoice: 'either' }),
+    // Rejected: asks for nothing.
+    { ...vendor(11, { dates: [SAT, SUN], tiers: ['Gold'] }), status: 'reviewer_rejected' },
+  ]);
+
+  const stats = new StatsPage(page);
+  await stats.goto(marketId);
+
+  await expect(stats.roomRows('days')).toHaveText(
+    [
+      'Saturday, August 1, 2099: 7.5 asking, 7 tables',
+      'Sunday, August 2, 2099: 7 asking, 7 tables',
+    ],
+    { timeout: 15000 },
+  );
+  await expect(stats.roomCard('days')).toContainText(
+    'A ceiling: someone available three days who wants at most two counts on all three.',
+  );
+  // Each tier's table-days over both dates: a half counted in each tier it accepts.
+  await expect(stats.roomRows('tiers')).toHaveText([
+    'Gold: 13.5 asking, 6 table-days',
+    'Silver: 2.5 asking, 8 table-days',
+  ]);
+  await expect(stats.roomCard('tiers')).toContainText(
+    'A vendor who accepts two tiers on a day counts in both.',
+  );
+
+  // Saturday asks past its tables, Sunday fills them; Gold asks past its, Silver does not.
+  const past = (id: 'days' | 'tiers', n: number) =>
+    stats.roomRows(id).nth(n).getByTestId('stats-room-row-past');
+  await expect(past('days', 0)).toBeVisible();
+  await expect(past('days', 1)).toHaveCount(0);
+  await expect(past('tiers', 0)).toBeVisible();
+  await expect(past('tiers', 1)).toHaveCount(0);
+  // The bar is the words' picture, hidden from a screen reader.
+  await expect(stats.roomRows('days').first().getByTestId('stats-room-row-bar')).toHaveAttribute(
+    'aria-hidden',
+    'true',
+  );
+
+  // At a desk the two cards stand side by side.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const [days, tiers] = await Promise.all([
+    stats.roomCard('days').boundingBox(),
+    stats.roomCard('tiers').boundingBox(),
+  ]);
+  expect(Math.abs(days!.y - tiers!.y)).toBeLessThan(1);
+  expect(tiers!.x).toBeGreaterThan(days!.x + days!.width);
+});
+
+/** Eight market days, more than a phone's width holds, of two sections: five tables a day. */
+const EIGHT_DAYS = Array.from({ length: 8 }, (_, i) => `2099-05-${String(1 + i).padStart(2, '0')}`);
+const FILL_PLAN = {
+  priority: [],
+  marketDates: EIGHT_DAYS.map((date) => ({ date })),
+  tiers: [
+    { id: 1, name: 'Gold' },
+    { id: 2, name: 'Silver' },
+  ],
+  locations: [{ name: 'Main Hall' }],
+  sections: [
+    {
+      name: 'North Wing',
+      location: { name: 'Main Hall' },
+      tier: { id: 1, name: 'Gold' },
+      count: 3,
+    },
+    { name: 'Landing', location: { name: 'Main Hall' }, tier: { id: 2, name: 'Silver' }, count: 2 },
+  ],
+  assignmentOptions: { maxAssignmentsPerVendor: 2, maxHalfTableProportionPerSection: 50 },
+};
+
+test('how full reads each section on each day as its tables used, totalled, and scrolls in its own box on a phone', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const [first, second] = EIGHT_DAYS as [string, string];
+  const { marketId } = await seedMarketWithVendors(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { dates: EIGHT_DAYS },
+  );
+  for (const email of ['carol@example.com', 'dan@example.com']) {
+    seedApprovedVendor(marketId, email, { dates: EIGHT_DAYS, tiers: ['Gold'] });
+  }
+  await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, FILL_PLAN);
+  const stats = new StatsPage(page);
+  // Nothing stored yet: no How full.
+  await stats.goto(marketId);
+  await expect(stats.total).toBeVisible({ timeout: 15000 });
+  await expect(stats.fill).toHaveCount(0);
+
+  for (const toPhase of ['applications', 'assignment']) {
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, toPhase);
+  }
+  // The first day: North Wing full, Carol on half a table; Landing one of two. The second: one of
+  // North Wing's three.
+  for (const [email, date, table, choice] of [
+    ['alice@example.com', first, 'North Wing 1', 'Full Table'],
+    ['carol@example.com', first, 'North Wing 2', 'Half Table (Left)'],
+    ['dan@example.com', first, 'North Wing 3', 'Full Table'],
+    ['bob@example.com', first, 'Landing 1', 'Full Table'],
+    ['alice@example.com', second, 'North Wing 1', 'Full Table'],
+  ]) {
+    const res = await request.put(`${BACKEND_URL}/markets/${marketId}/placements`, {
+      data: { email, date, table_code: table, table_choice: choice },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+  }
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await stats.goto(marketId);
+  await expect(stats.fill).toBeVisible({ timeout: 15000 });
+  const grid = stats.fill.getByRole('table', {
+    name: "Tables used of each section's tables, each day",
+  });
+  await expect(grid.getByRole('columnheader')).toHaveText([
+    'Section',
+    ...EIGHT_DAYS.map((date) => `May ${Number(date.slice(-2))}, 2099`),
+  ]);
+  await expect(grid.getByRole('rowheader')).toHaveText([
+    'North Wing, Gold',
+    'Landing, Silver',
+    'All sections',
+  ]);
+  const idle = Array(6).fill(['0/3', 'none']);
+  expect(await stats.fillCells('North Wing')).toEqual([['3/3', 'full'], ['1/3', 'third'], ...idle]);
+  expect(await stats.fillCells('Landing')).toEqual([
+    ['1/2', 'two-thirds'],
+    ['0/2', 'none'],
+    ...Array(6).fill(['0/2', 'none']),
+  ]);
+  expect(await stats.fillCells('total')).toEqual([
+    ['4/5', 'nearly'],
+    ['1/5', 'third'],
+    ...Array(6).fill(['0/5', 'none']),
+  ]);
+  // Each cell's step is said in words, so the shade carries nothing alone.
+  await expect(grid.getByRole('cell').first()).toHaveAccessibleName(/3 of 3 used, full/);
+  // The cells add up to the headline's table-days used, half a table held counted.
+  await expect(stats.headline('used')).toHaveText('5 of 40 table-days used');
+  // The card ends where its table does, so no empty band stands at its right.
+  const edges = (element: Element) => element.getBoundingClientRect().right;
+  const tableEnd = await grid.evaluate(edges);
+  const cardEnd = await stats.fillCard.evaluate(edges);
+  expect(cardEnd - tableEnd).toBeLessThanOrEqual(20);
+  expect(cardEnd).toBeLessThan(await stats.fill.getByRole('heading', { level: 2 }).evaluate(edges));
+
+  // On a phone the page stays inside the window, and the table scrolls in its box, the section
+  // names held at the left.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const scroller = stats.fillScroller;
+  await expect
+    .poll(() => scroller.evaluate((box) => box.scrollWidth - box.clientWidth))
+    .toBeGreaterThan(0);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
+  ).toBeLessThanOrEqual(0);
+  const name = grid.getByRole('rowheader').first();
+  const before = (await name.boundingBox())!.x;
+  const firstDay = grid.getByRole('columnheader').nth(1);
+  const dayBefore = (await firstDay.boundingBox())!.x;
+  await scroller.evaluate((box) => box.scrollTo({ left: box.scrollWidth }));
+  await expect.poll(async () => (await firstDay.boundingBox())!.x).toBeLessThan(dayBefore);
+  expect(Math.abs((await name.boundingBox())!.x - before)).toBeLessThan(1);
 });
 
 test('the bar holds seven tabs beside a 60-character name at 1280, and scrolls them on a phone', async ({
@@ -320,7 +711,7 @@ test('a chart per choice question counts each option, groups "Other", and narrow
   };
 
   // Every option, even one nobody chose; the three written in are one "Other", counted per
-  // applicant, so Omar's two count once.
+  // applicant, so Omar's two count once. Most chosen first, a tie in the form's order.
   await expectCounts('selling', [
     ['Prints', 3],
     ['Stickers', 2],
@@ -331,9 +722,9 @@ test('a chart per choice question counts each option, groups "Other", and narrow
   await expect(stats.answerRows('selling')).toHaveText([
     /^Prints.*3.*60%/,
     /^Stickers.*2.*40%/,
+    /^Other.*2.*40%/,
     /^Jewelry.*1.*20%/,
     /^Ceramics.*0.*0%/,
-    /^Other.*2.*40%/,
   ]);
   await expectCounts('first_market', [
     ['Yes', 3],
@@ -381,4 +772,81 @@ test('a chart per choice question counts each option, groups "Other", and narrow
   await stats.among('all').click();
   await expect(page).not.toHaveURL(/among=/);
   await expect(stats.answerCount('selling', 'Prints')).toHaveText('3');
+});
+
+/** A question of twelve kinds of goods, in the form's order, the first chosen least. */
+const GOODS = [
+  'Candles',
+  'Soap',
+  'Zines',
+  'Pins',
+  'Patches',
+  'Tote bags',
+  'Mugs',
+  'Planters',
+  'Earrings',
+  'Prints',
+  'Stickers',
+  'Ceramics',
+];
+const GOODS_QUESTION = 'What goods will you bring?';
+
+test('a question of more than eight answers folds past eight, most chosen first, each one line at a desk', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await saveApplicationForm(request, BACKEND_URL, marketId, {
+    fields: [
+      { key: 'goods', label: GOODS_QUESTION, type: 'multi_select', options: GOODS, order: 0 },
+    ],
+  });
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  // The nth applicant ticks the last n goods, so each good is chosen as often as its place.
+  insertApplications(
+    GOODS.map((_, at) =>
+      approvedVendorApplication(marketId, `goods-${at + 1}@example.com`, {
+        dates: [SEED_MARKET_DATE],
+        tiers: ['Gold'],
+        extra: { goods: GOODS.slice(GOODS.length - 1 - at) },
+      }),
+    ),
+  );
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const stats = new StatsPage(page);
+  await stats.goto(marketId);
+  const rows = stats.answerRows('goods');
+  const byCount = [...GOODS].reverse();
+  await expect(rows).toHaveCount(8, { timeout: 15000 });
+  await expect(rows).toHaveText(
+    byCount.slice(0, 8).map((good, at) => new RegExp(`^${good}.*${12 - at}`)),
+  );
+  const fold = stats.question('goods').getByTestId('stats-answer-fold');
+  await expect(fold).toHaveText(`4 more answers to ${GOODS_QUESTION}`);
+
+  // A lone card is half the page, so no bar runs the frame, and each answer is one line.
+  const section = (await stats.answers.boundingBox())!;
+  const card = (await stats.question('goods').boundingBox())!;
+  expect(card.width, 'the lone card is half the page').toBeLessThanOrEqual(section.width / 2);
+  for (const row of await rows.all()) {
+    expect(await rowLayout(row), await row.innerText()).toBe('one line');
+    const bar = (await row.getByTestId('stats-answer-bar').boundingBox())!;
+    expect(bar.width, 'a bar is shorter than half the page').toBeLessThan(section.width / 2);
+  }
+
+  // The rest unfold in place, still most chosen first, and fold away again.
+  await fold.click();
+  await expect(rows).toHaveCount(12);
+  await expect(rows).toHaveText(byCount.map((good, at) => new RegExp(`^${good}.*${12 - at}`)));
+  await expect(fold).toHaveText(`Show fewer answers to ${GOODS_QUESTION}`);
+  await fold.click();
+  await expect(rows).toHaveCount(8);
+  await expect(fold).toBeFocused();
 });

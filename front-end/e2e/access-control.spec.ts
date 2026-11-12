@@ -38,14 +38,14 @@ function marketCard(page: Page, marketName: string) {
 }
 
 /**
- * Create a unique org for a test and return the TEST_USER's user ID.
- * Returns the new org's ID, name, and the owner's user ID.
+ * Create a unique org for a test, signed in as TEST_USER, its owner.
+ * Returns the new org's ID and name.
  */
 async function createTestOrg(
   request: APIRequestContext,
   name: string,
-): Promise<{ orgId: string; orgName: string; ownerUserId: string }> {
-  const ownerUserId = await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+): Promise<{ orgId: string; orgName: string }> {
+  await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
 
   const orgName = `${name} ${Date.now()}`;
   const createRes = await request.post(`${BACKEND_URL}/organizations`, {
@@ -58,7 +58,7 @@ async function createTestOrg(
     throw new Error(`Org creation failed: ${createRes.status()} ${await createRes.text()}`);
   }
   const orgId = (await createRes.json()).organization_id as string;
-  return { orgId, orgName, ownerUserId };
+  return { orgId, orgName };
 }
 
 /** Add a user to an org as TEST_USER (the org owner). Throws on rejection. */
@@ -83,7 +83,6 @@ async function createMarket(
   request: APIRequestContext,
   name: string,
   orgId: string,
-  ownerUserId: string,
 ): Promise<string> {
   const res = await request.post(`${BACKEND_URL}/markets`, {
     headers: {
@@ -93,9 +92,6 @@ async function createMarket(
       name,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
-      roles: { [ownerUserId]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
     },
   });
   if (!res.ok()) {
@@ -142,7 +138,7 @@ test.describe('Market visibility - org membership', () => {
     await addOrgMember(request, org.orgId, ORG_MEMBER.email);
 
     marketName = `E2E Org Access ${Date.now()}`;
-    marketId = await createMarket(request, marketName, org.orgId, org.ownerUserId);
+    marketId = await createMarket(request, marketName, org.orgId);
   });
 
   test('org member sees market; outsider does not (paired)', async ({ browser, request }) => {
@@ -191,7 +187,7 @@ test.describe('Market visibility - explicit role', () => {
     const org = await createTestOrg(request, 'E2E Explicit Org');
 
     marketName = `E2E Explicit Role ${Date.now()}`;
-    marketId = await createMarket(request, marketName, org.orgId, org.ownerUserId);
+    marketId = await createMarket(request, marketName, org.orgId);
 
     // Give EXPLICIT_USER a viewer role on the market (they are NOT in the org)
     const roleRes = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
@@ -250,7 +246,7 @@ test.describe('Market visibility - org membership changes', () => {
     orgId = org.orgId;
 
     marketName = `E2E Membership Chg ${Date.now()}`;
-    marketId = await createMarket(request, marketName, orgId, org.ownerUserId);
+    marketId = await createMarket(request, marketName, orgId);
   });
 
   test('add user to org grants visibility; remove revokes it', async ({ browser, request }) => {
@@ -328,7 +324,7 @@ test.describe('Market visibility - org deletion', () => {
     await addOrgMember(request, orgId, ORG_MEMBER.email);
 
     marketName = `E2E DeleteOrg ${Date.now()}`;
-    marketId = await createMarket(request, marketName, orgId, org.ownerUserId);
+    marketId = await createMarket(request, marketName, orgId);
   });
 
   /**

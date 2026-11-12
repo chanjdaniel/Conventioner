@@ -18,8 +18,9 @@ describes:
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
   - front-end/e2e/helpers/phoneWindow.ts#inTheWindow
+  - front-end/e2e/helpers/signInWindow.ts
   - front-end/e2e/helpers/stackReady.ts
-verified: 2026-11-11
+verified: 2026-11-12
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -124,6 +125,7 @@ That, the self-signed certificate and the other suite-wide traps are TESTING.md'
 **The organizer's password and code sign-ins are rate limited too** ([the sign-in is bounded](../data/users-and-email.md#the-sign-in-is-bounded)): ten tries per address per 15 minutes on each, and fifty per caller on the password, sixty on the code.
 A try that signs in takes its count back, so the suite's hundreds of fixture sign-ins cost nothing; wrong passwords and codes share the caller's fifty and sixty across the serial run, so a spec that goes past a limit, or tries many wrong ones, clears the counters in its `finally` (`db.sign_in_attempts.deleteMany({})`), as `the-sign-in-says-what-to-do-next.spec.ts` does.
 Asking for an organizer's code, a reset link or a verification link, and signing up, take nothing back: five of each per address and thirty per caller per 15 minutes, so a spec that goes past one clears the counters in its `finally` too.
+**The counts are kept in fixed quarter hours on the clock** (`back-end/sign_in_limits.py`), so tries that straddle a quarter hour's end are counted in two windows: a spec that fills a limit and then meets it calls `waitForRoomInWindow` ([`helpers/signInWindow.ts`](../../../front-end/e2e/helpers/signInWindow.ts)) first, which waits out a window with less than a minute left, or the try past the limit can land in a fresh window and be allowed.
 Every signed-out vendor page, and every vendor request that finds its tab's sign-in ended, also asks to resume a remembered sign-in, 300 per caller per 15 minutes; a refused resume draws the sign-in as no cookie does, so only a spec that needs a resume to pass clears the counters first, as `remember-me-on-the-vendor-page.spec.ts` does.
 
 **A run starts once the stack is ready.**

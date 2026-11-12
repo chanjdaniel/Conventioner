@@ -1,0 +1,107 @@
+name: Start the e2e stack
+description: >-
+  Installs Playwright's Chromium, builds or restores the stack's images, starts the stack and seeds
+  it, for a job that runs Playwright on one runner. The job checks the repository out and runs the
+  front-end-deps action first, which says why front-end/node_modules must be there before the stack
+  starts. Browsers and images come from GitHub's cache when an earlier run left them,
+  keyed on what decides them: the Playwright version for the browsers, scripts/image-tags.sh's tags
+  (a hash of the files each image is built from) for the images. The source is not in the key: it
+  reaches the containers through the compose file's bind mounts.
+
+inputs:
+  save-caches:
+    description: >-
+      "true" to save the browsers and the images to the cache when they were not restored. Only one
+      job of a run saves, so the others do not race to write the same key.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Playwright's version
+      id: playwright
+      shell: bash
+      working-directory: front-end
+      run: echo "version=$(npx playwright --version | awk '{ print $2 }')" >>"$GITHUB_OUTPUT"
+    - name: Restore Playwright's browsers
+      id: browsers
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-chromium-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
+    - name: Install Playwright's Chromium
+      if: steps.browsers.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: front-end
+      run: npx playwright install chromium --with-deps
+    # The cache holds the browser only; its system libraries are the runner's packages.
+    - name: Install Chromium's system libraries
+      if: steps.browsers.outputs.cache-hit == 'true'
+      shell: bash
+      working-directory: front-end
+      run: npx playwright install-deps chromium
+    - name: Save Playwright's browsers
+      if: inputs.save-caches == 'true' && steps.browsers.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ steps.browsers.outputs.cache-primary-key }}
+
+    # The images compose builds are named <project>-<service>, for each service with a `build:`.
+    - name: The images and their tags
+      id: images
+      shell: bash
+      run: |
+        scripts/image-tags.sh >>"$GITHUB_OUTPUT"
+        names="$(docker compose config --format json |
+          jq -r '.name as $project | [.services | to_entries[] | select(.value.build) | "\($project)-\(.key)"] | join(" ")')"
+        echo "names=$names" >>"$GITHUB_OUTPUT"
+    - name: Restore the images
+      id: images-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/e2e-images
+        key: e2e-images-${{ runner.os }}-${{ runner.arch }}-${{ steps.images.outputs.TH_BACKEND_TAG }}-${{ steps.images.outputs.TH_FRONTEND_TAG }}
+    - name: Load the images
+      if: steps.images-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: docker load --input "$RUNNER_TEMP/e2e-images/images.tar"
+    - name: Build the images
+      if: steps.images-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: docker compose build
+    - name: Write the images for the cache
+      if: inputs.save-caches == 'true' && steps.images-cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        NAMES: ${{ steps.images.outputs.names }}
+      run: |
+        mkdir -p "$RUNNER_TEMP/e2e-images"
+        # One word an image name, split on purpose.
+        # shellcheck disable=SC2086
+        docker save --output "$RUNNER_TEMP/e2e-images/images.tar" $NAMES
+    - name: Save the images
+      if: inputs.save-caches == 'true' && steps.images-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/e2e-images
+        key: ${{ steps.images-cache.outputs.cache-primary-key }}
+
+    # A transient Docker Hub 500 on one of the stack's registry images once failed one shard
+    # outright. Retry only that pull, so a stack that genuinely fails to start fails the job at once.
+    - name: Pull the stack's registry images
+      shell: bash
+      run: |
+        for attempt in 1 2 3 4 5 6; do
+          docker compose pull mongodb mongo-express && exit 0
+          echo "docker compose pull failed (attempt $attempt of 6); retrying" >&2
+          sleep 10
+        done
+        exit 1
+    - name: Start the stack
+      shell: bash
+      run: docker compose up -d
+    - name: Seed it
+      shell: bash
+      run: ./scripts/seed_fixture.sh --primary

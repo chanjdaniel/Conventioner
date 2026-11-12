@@ -28,7 +28,7 @@ One line per node, sorted by file name.
 - [Reading the market's history](reading-the-markets-history.md) - L6: Manage market's History section, its filters and its pages
 - [Reviewing applications](review.md) - I1 to I6: one by one and All, follow-ups, two reviewers at once, the moves around review
 - [Starting from a Google Form's responses](starting-from-a-google-form.md) - G: the upload, the proposal, confirm and cancel
-- [The market's statistics](stats.md) - N1, N2, N3: the Stats tab's headlines, who applied and what they answered
+- [The market's statistics](stats.md) - N1 to N7: the Stats tab's strip, who applied, the room, how full, the money, check-in and what they answered
 - [Taking applications](taking-applications.md) - H1, H1a, H4, H5: opening applications, and stopping and taking them again on the online path
 - [The Google Form path](the-google-form-path.md) - P1 and P2: a market whose vendors' responses are imported, from creation to the end
 - [The mixed path](the-mixed-path.md) - P4: an online form plus imported stragglers, not offered
