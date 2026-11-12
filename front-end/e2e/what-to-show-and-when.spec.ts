@@ -125,7 +125,7 @@ test.describe('What to show, and when', () => {
     await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
   });
 
-  test('past draft the floorplan flow says the setup is settled, and offers nothing to draw', async ({
+  test('past draft the layout says the setup is settled, and offers nothing to upload', async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -136,11 +136,11 @@ test.describe('What to show, and when', () => {
       TEST_USER.password,
     );
     // Reached by its address, the way a bookmark or the back button would.
-    await page.goto(marketScreenPath(marketId, 'floorplan'));
-    const settled = page.getByTestId('floorplan-settled');
-    await expect(settled).toContainText('The setup is settled');
+    await page.goto(marketScreenPath(marketId, 'layout'));
+    await expect(page.getByTestId('layout-setup-settled')).toContainText('The setup is settled');
+    await expect(page.getByTestId('layout-no-floorplan')).toBeVisible();
     await expect(page.getByTestId('floorplan-upload-dropzone')).toHaveCount(0);
-    await settled.getByRole('button', { name: 'Back to Market Setup' }).click();
+    await page.getByRole('link', { name: 'Back to Market Setup' }).click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'setup'));
   });
 

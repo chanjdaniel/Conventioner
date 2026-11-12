@@ -12,7 +12,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import type { RouteLocationNormalized } from 'vue-router';
 
 import FloorplanWorkflow from '@/components/floorplan/FloorplanWorkflow.vue';
-import FloorplanUploader from '@/components/floorplan/FloorplanUploader.vue';
+import FloorplanUploader from '@/components/layout/FloorplanUploader.vue';
 import ScaleCalibration from '@/components/floorplan/ScaleCalibration.vue';
 import SaveFlow from '@/components/floorplan/SaveFlow.vue';
 import { useFloorplanStore } from '@/stores/floorplan';

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, reactive, nextTick, ref, watch } from 'vue';
-import { marketPath } from '@/utils/market';
+import { layoutPath, marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
-import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 import DraftedFrom from '@/components/market/DraftedFrom.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
 import PlanSaveStatus from '@/components/market/PlanSaveStatus.vue';
@@ -35,7 +34,6 @@ import { useUnsavedWork } from '@/utils/useUnsavedWork';
 
 const router = useRouter();
 
-const showPathChoice = ref(false);
 /**
  * Which of the market's four screens is open.
  *
@@ -470,27 +468,17 @@ const handleAssign = async () => {
   }
 };
 
-function handlePathChoice(path: 'manual' | 'floorplan') {
-  showPathChoice.value = false;
-  if (path === 'floorplan') {
-    if (market.value) router.push(marketPath(market.value.id, 'floorplan'));
-  }
-  // For 'manual': just hide overlay, existing text-based UI is already underneath
+/** A location's layout, opened from Section Setup (T257): the plan's pending edits land first, so a
+ * location just added or renamed is the server's when its layout starts. One that did not land
+ * keeps the organizer here, where the status line says why. */
+async function openLayout(locationId: string): Promise<void> {
+  if ((await flushPlan()) !== null) return;
+  void router.push(layoutPath(marketId.value, locationId));
 }
-
-/**
- * Whether the organizer has yet said how this market's sections are described.
- *
- * The floorplan-or-by-hand choice used to interrupt: it opened by itself on arriving at the
- * wizard's sections page. That page is gone, and on one page an overlay that opens by itself
- * covers the dates the organizer is in the middle of typing. It is offered from the Section Setup
- * card instead - the place it is a question about - and opened when they ask for it.
- */
 </script>
 
 <template>
   <div class="market-setup-view" :class="{ 'market-setup-view--fits-a-phone': onAPhoneLayout }">
-    <ChoosePathOverlay v-if="market && showPathChoice" @select="handlePathChoice" />
     <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
          app bar while the page scrolls. Nothing about a market is kept in the browser, so until the
          server answers the frame paints the state of asking (E21/F02/S02). -->
@@ -523,6 +511,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
             market?.csvStartRefusal ||
             null
           "
+          :marketId="market.id"
           :readOnly="!mayTake(market, MarketAction.ChangeSetup)"
           :setupLockReason="market.setupLockReason ?? null"
           :formQuestions="market.applicationForm?.fields?.length ?? 0"
@@ -531,7 +520,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
           @held="holdPlan"
-          @choosePath="showPathChoice = true"
+          @openLayout="openLayout"
           @startFromCsv="startFromCsv"
           @openForm="showTab('form')"
         />

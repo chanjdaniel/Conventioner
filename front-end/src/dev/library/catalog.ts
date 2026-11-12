@@ -89,6 +89,14 @@ export const ENTRIES: readonly LibraryEntry[] = [
     serves: 'The export dialog, C11, F03',
   },
   {
+    id: 'layout-map',
+    title: 'Layout map',
+    summary:
+      'A layout drawn: tables at their size and turn in their section colours, names, zones, at any zoom',
+    serves:
+      "A location's layout page, its editor, the PNG export; later, a public and a market-day map",
+  },
+  {
     id: 'charts',
     title: 'Charts',
     summary: "Applications over time, the review's split bar, and the answers' bars folded past 8",

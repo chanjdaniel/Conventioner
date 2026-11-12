@@ -26,6 +26,7 @@ unless ``ALLOW_PRIMARY_STACK=true`` (``require_named_database``).
 """
 import argparse
 import sys
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, NamedTuple, Optional
 
@@ -67,31 +68,30 @@ class SeedError(Exception):
 
 def test_plan(today: date) -> Dict[str, Any]:
     """A plan complete enough to leave draft: two Saturdays a year out, one location, tables at
-    both tiers. A year out, so a test market stays open for applications long after it is seeded."""
+    both tiers. A year out, so a test market stays open for applications long after it is seeded.
+
+    Each section and location has its own id, as Market Setup mints one for each row it adds
+    (T257). No layout: the location's sections keep their typed counts."""
     first = today + timedelta(days=365)
     first += timedelta(days=(_SATURDAY - first.weekday()) % 7)
     dates = [first, first + timedelta(days=7)]
     tiers = [{"id": 0, "name": "Gold"}, {"id": 1, "name": "Silver"}]
-    location = {"name": "Test Hall"}
+    location = {"id": str(uuid.uuid4()), "name": "Test Hall"}
     return {
         "priority": [],
         "marketDates": [{"date": day.isoformat()} for day in dates],
         "tiers": tiers,
         "locations": [location],
         "sections": [
-            {"name": "Hall A", "count": 6, "location": location, "tier": tiers[0]},
-            {"name": "Hall B", "count": 6, "location": location, "tier": tiers[1]},
+            {"id": str(uuid.uuid4()), "name": "Hall A", "count": 6, "location": dict(location),
+             "tier": tiers[0]},
+            {"id": str(uuid.uuid4()), "name": "Hall B", "count": 6, "location": dict(location),
+             "tier": tiers[1]},
         ],
         "assignmentOptions": {
             "maxAssignmentsPerVendor": None,
             "maxHalfTableProportionPerSection": None,
         },
-        "floorplans": [{
-            "tableTypes": [
-                {"name": "Full Table", "widthMm": 1800, "heightMm": 800, "maxCapacity": 2},
-                {"name": "Half Table", "widthMm": 900, "heightMm": 800, "maxCapacity": 1},
-            ],
-        }],
     }
 
 

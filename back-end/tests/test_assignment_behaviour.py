@@ -16,9 +16,12 @@ import pytest
 from assignment.assignment import assign_market, describe_stored_assignment
 from assignment.invariants import PIN_NOT_KEPT, BrokenAllocationError
 from assignment.vendor_input import SolverVendor
+import layout as Layout
 from datatypes import (
     AssignmentObject,
     AssignmentOptionObject,
+    FloorplanObject,
+    FloorplanTable,
     LocationObject,
     Market,
     MarketDateObject,
@@ -641,6 +644,45 @@ class TestCapacity:
         for _, _, _, _, section, tier in placed:
             assert section in {f"Section {GOLD}", f"Section {SILVER}"}
             assert tier in {GOLD, SILVER}
+
+
+class TestALaidOutMarket:
+    """A laid-out location's sections count its layout's tables (T257): the plan write stores the
+    counts ``layout.derive_counts`` gives, and the solver seats exactly those, by name, as ever."""
+
+    def _laid_out(self, wants, gold_tables, typed_gold=13):
+        market = market_for(wants, section_counts=((GOLD, typed_gold), (SILVER, 2)))
+        setup = market.setup_object
+        gold = next(section for section in setup.sections if section.tier.name == GOLD)
+        layout = FloorplanObject(
+            location_id=setup.locations[0].id,
+            image_width=800, image_height=600, scale_px_per_unit=800 / 30_000,
+            tables=[
+                FloorplanTable(section_id=gold.id, number=n, table_type_id="tt-six",
+                               x_mm=1000.0 * n, y_mm=1000.0)
+                for n in range(1, gold_tables + 1)
+            ],
+        )
+        market.setup_object = Layout.derive_counts(
+            setup.model_copy(update={"floorplans": [layout]}))
+        market.assignment_object = AssignmentObject()
+        return assign_market(market, [want.as_solver_vendor() for want in wants], held=[])
+
+    def test_the_solver_seats_the_layouts_tables_not_the_typed_count(self):
+        market = self._laid_out(
+            [VendorWant(f"v{i}@example.com", available=[DATES[0]], tiers=[GOLD]) for i in range(5)],
+            gold_tables=3,
+        )
+
+        seated = sorted(p[2] for p in placements(market) if p[1] == DATES[0])
+        assert seated == [f"Section {GOLD} 1", f"Section {GOLD} 2", f"Section {GOLD} 3"]
+
+    def test_the_statistics_count_the_layouts_tables(self):
+        """Silver is in the same hall with no table on its layout, so it counts none."""
+        market = self._laid_out([VendorWant("a@example.com", available=DATES, tiers=[GOLD])],
+                                gold_tables=3)
+
+        assert market.assignment_object.assignment_statistics.total_tables == 3 * len(DATES)
 
 
 class TestTheStatisticsTheOrganizerSees:

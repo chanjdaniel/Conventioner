@@ -12,7 +12,7 @@ import { useFloorplanStore } from '@/stores/floorplan';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { useUndoRedo } from '@/components/floorplan/useUndoRedo';
 import { canvasColor } from '@/utils/canvasColor';
-import type { PlacedTableObject, WallSegment } from '@/assets/types/datatypes';
+import type { BetaPlacedTable, WallSegment } from '@/assets/types/datatypes';
 import type Konva from 'konva';
 
 // ── Props ──────────────────────────────────────────────────────────
@@ -257,12 +257,12 @@ function handleStageMouseUp() {
 }
 
 // ── Table helpers ──────────────────────────────────────────────────
-function getTableColor(table: PlacedTableObject): string {
+function getTableColor(table: BetaPlacedTable): string {
   const tt = store.tableTypes.find((t) => t.id === table.tableTypeId);
   return canvasColor(tt?.color || 'var(--mm-green)');
 }
 
-function tableRectConfig(table: PlacedTableObject) {
+function tableRectConfig(table: BetaPlacedTable) {
   const pxPerMm = store.scalePxPerMm;
   return {
     x: table.x * pxPerMm - (table.widthMm * pxPerMm) / 2,
@@ -280,7 +280,7 @@ function tableRectConfig(table: PlacedTableObject) {
 }
 
 // ── Table drag handlers ────────────────────────────────────────────
-function onTableDragStart(_table: PlacedTableObject) {
+function onTableDragStart(_table: BetaPlacedTable) {
   void _table;
   const stage = stageRef.value?.getNode();
   if (!stage) return;
@@ -288,7 +288,7 @@ function onTableDragStart(_table: PlacedTableObject) {
   snapGuides.value = [];
 }
 
-function onTableDragEnd(table: PlacedTableObject) {
+function onTableDragEnd(table: BetaPlacedTable) {
   const stage = stageRef.value?.getNode();
   if (!stage) return;
   const node = stage.findOne(`#${table.id}`);
@@ -310,7 +310,7 @@ function onTableDragEnd(table: PlacedTableObject) {
 }
 
 // ── Table click (selection) ────────────────────────────────────────
-function onTableClick(table: PlacedTableObject, e: Konva.KonvaEventObject<MouseEvent>) {
+function onTableClick(table: BetaPlacedTable, e: Konva.KonvaEventObject<MouseEvent>) {
   if (!props.editMode) return;
 
   const multi = e.evt?.ctrlKey || e.evt?.metaKey;

@@ -106,6 +106,49 @@ describe('parseMarketFromApi', () => {
     expect(market.setupObject?.marketDates).toEqual([{ date: '2026-08-01' }]);
   });
 
+  it("keeps each row's id, the market's table types and its layouts (T257)", () => {
+    const upper = { id: 'loc-upper', name: 'Upper Hall' };
+    const tableTypes = [{ id: 'tt-six', name: 'Standard 6 ft', widthMm: 1830, depthMm: 760 }];
+    const floorplans = [
+      {
+        id: 'fp-upper',
+        locationId: 'loc-upper',
+        revision: 3,
+        tables: [
+          {
+            id: 't-1',
+            sectionId: 'sec-gold',
+            number: 1,
+            tableTypeId: 'tt-six',
+            xMm: 1000,
+            yMm: 2000,
+            rotation: 90,
+          },
+        ],
+        zones: [],
+        sectionStyles: [{ sectionId: 'sec-gold', color: 2, labelAt: null }],
+        startingCounts: [{ sectionId: 'sec-gold', count: 9 }],
+      },
+    ];
+    const sections = [{ id: 'sec-gold', name: 'Gold row', location: upper, tier: null, count: 1 }];
+
+    const { setupObject } = parseMarketFromApi({
+      ...apiMarket,
+      setupObject: { locations: [upper], sections, tableTypes, floorplans },
+    });
+
+    expect(setupObject?.locations).toEqual([upper]);
+    expect(setupObject?.sections).toEqual(sections);
+    expect(setupObject?.tableTypes).toEqual(tableTypes);
+    expect(setupObject?.floorplans).toEqual(floorplans);
+  });
+
+  it('reads a plan stored before table types as having none', () => {
+    expect(parseMarketFromApi({ ...apiMarket, setupObject: {} }).setupObject?.tableTypes).toEqual(
+      [],
+    );
+  });
+
   it('keeps why the assignment rules are settled, and reads open rules as no lock', () => {
     const settled = 'The table allocation for this market is settled.';
     expect(

@@ -4,7 +4,7 @@ import { Layer as VLayer, Rect as VRect, Stage as VStage } from 'vue-konva';
 import { useModalRoot } from '@/utils/useModalRoot';
 import ScrollBox from '@/components/ScrollBox.vue';
 import { useFloorplanStore } from '@/stores/floorplan';
-import type { PlacedTableObject, FloorplanSectionObject } from '@/assets/types/datatypes';
+import type { BetaPlacedTable, BetaFloorplanSection } from '@/assets/types/datatypes';
 
 // ══════════════════════════════════════════════════════════════════
 //  Store
@@ -85,13 +85,13 @@ const sectionColorMap = computed(() => {
 // ══════════════════════════════════════════════════════════════════
 
 /** Convert a table's mm centre to stage world-px coordinates. */
-function tableWorldCenter(table: PlacedTableObject): { x: number; y: number } {
+function tableWorldCenter(table: BetaPlacedTable): { x: number; y: number } {
   const px = store.scalePxPerMm;
   return { x: table.x * px, y: table.y * px };
 }
 
 /** Convert a table's mm rect to stage world-px rect. */
-function tableWorldRect(table: PlacedTableObject): {
+function tableWorldRect(table: BetaPlacedTable): {
   x: number;
   y: number;
   width: number;
@@ -308,7 +308,7 @@ function confirmSection() {
   const nonEmpty = updatedSections.filter((s) => s.tableIds.length > 0);
 
   // Create new section
-  const newSection: FloorplanSectionObject = {
+  const newSection: BetaFloorplanSection = {
     id: crypto.randomUUID(),
     name,
     locationName: dialogLocationName.value.trim(),

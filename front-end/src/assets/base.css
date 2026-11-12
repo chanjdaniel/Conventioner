@@ -120,6 +120,40 @@
   --mm-chip-informational: #dfebef; /* rgba(26, 111, 139, 0.14) over white */
   --mm-chip-destructive: #f6e3e1; /* rgba(192, 57, 43, 0.14) over white */
 
+  /* The floor a layout's floorplan is drawn on (T257): the hall's ground behind the image and the
+     tables. --mm-black on it: 13.90. */
+  --layout-floor: #f4f2ee;
+
+  /* ---- The section palette (T257): the eight colours a layout's sections are drawn in, a table
+     filled with its section's tint and edged in its hue, the table's number in --mm-black on the
+     tint. Each fill carries --mm-black past 7:1, and each edge stands past 3:1 against the
+     floor and against white, the ground of a section's name pill and of a printed map;
+     `contrast.test.ts` holds every pair to those floors. A section's style names its colour by
+     its number here, so the order is stored data: add a ninth after these, never between. ---- */
+  --layout-section-1-fill: #f8e7c2; /* gold; --mm-black on it: 12.73 */
+  --layout-section-1-edge: #a97a1b; /* on the floor: 3.42; on white: 3.83 */
+  --layout-section-2-fill: #dce9ee; /* blue; --mm-black on it: 12.53 */
+  --layout-section-2-edge: #1a6f8b; /* on the floor: 5.09; on white: 5.69 */
+  --layout-section-3-fill: #f3ddd8; /* terracotta; --mm-black on it: 11.95 */
+  --layout-section-3-edge: #b0503f; /* on the floor: 4.62; on white: 5.17 */
+  --layout-section-4-fill: #dfebe8; /* green; --mm-black on it: 12.72 */
+  --layout-section-4-edge: #36826f; /* on the floor: 4.10; on white: 4.59 */
+  --layout-section-5-fill: #e6e0f3; /* violet; --mm-black on it: 12.08 */
+  --layout-section-5-edge: #6b54a8; /* on the floor: 5.43; on white: 6.07 */
+  --layout-section-6-fill: #cfeeee; /* teal; --mm-black on it: 12.67 */
+  --layout-section-6-edge: #0e8a8f; /* on the floor: 3.72; on white: 4.16 */
+  --layout-section-7-fill: #f5dde8; /* rose; --mm-black on it: 12.13 */
+  --layout-section-7-edge: #b0457a; /* on the floor: 4.72; on white: 5.28 */
+  --layout-section-8-fill: #e8ebd0; /* olive; --mm-black on it: 12.75 */
+  --layout-section-8-edge: #6f7a25; /* on the floor: 4.19; on white: 4.68 */
+  /* A table in no section: grey, and no number. */
+  --layout-no-section-fill: #e7e5e2; /* --mm-black on it: 12.36 */
+  --layout-no-section-edge: #7a7672; /* on the floor: 4.03; on white: 4.50 */
+  /* A no-table zone: hatched in two greys under its label, inside a dashed edge. */
+  --layout-zone-fill: #efedea; /* --mm-black on it: 13.30 */
+  --layout-zone-hatch: #c9c5bf; /* --mm-black on it: 9.05 */
+  --layout-zone-edge: #817d78; /* on the floor: 3.66; on white: 4.09 */
+
   /* ---- Lines and states. Never carry text, so exempt from the contrast rule. ---- */
   --mm-border: rgba(39, 35, 35, 0.25);
   --hover-grey: rgba(192, 192, 192, 0.486);

@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 import type { APIRequestContext } from '@playwright/test';
 import { decideReviewSetup } from './decideReviewSetup';
 import { savePlan } from './savePlan';
@@ -460,4 +462,232 @@ export async function seedPublishedMarketWithAssignments(
   await transitionTo('market_days');
 
   return { marketId, userId, marketName, orgId, marketSlug };
+}
+
+/** The floor plan the layout specs upload: an 800 x 600 px hall, fixture data. */
+export const LAYOUT_FLOORPLAN_PATH = fileURLToPath(
+  new URL('../fixtures/test-floorplan.png', import.meta.url),
+);
+
+/** The two halls `seedLayout` gives its market, and their sections. */
+export const UPPER_HALL = { id: 'loc-upper-hall', name: 'Upper Hall' };
+export const LOWER_HALL = { id: 'loc-lower-hall', name: 'Lower Hall' };
+
+export interface SeededLayout {
+  marketId: string;
+  marketName: string;
+  upper: typeof UPPER_HALL;
+  lower: typeof LOWER_HALL;
+  /** Upper Hall's layout, when it was asked for: its id and the revision stored. */
+  layout: { id: string; revision: number } | null;
+}
+
+/** A table `seedLayout` places: its section (null for none), its centre in millimetres and its
+ *  turn. Numbers run 1 to N in each section, in the order given. */
+export interface SeedTable {
+  section: 'sec-gold' | 'sec-silver' | null;
+  at: [number, number];
+  rotation?: number;
+}
+
+export interface SeedZone {
+  label: string;
+  /** Its top-left corner, its width and its depth, in millimetres. */
+  box: [number, number, number, number];
+}
+
+/** A row of `count` six-foot tables, touching, from its first table's centre: across the hall, or
+ *  down it with each table turned a quarter. */
+export function seedRow(
+  section: SeedTable['section'],
+  from: [number, number],
+  count: number,
+  down = false,
+): SeedTable[] {
+  return Array.from({ length: count }, (_, i) => ({
+    section,
+    at: down ? [from[0], from[1] + i * 1830] : [from[0] + i * 1830, from[1]],
+    rotation: down ? 90 : 0,
+  }));
+}
+
+/**
+ * Upper Hall laid out, in a hall 30 m by 22.5 m: Gold row's 13 tables, 9 down the west wall and 4
+ * along the top; Silver aisle's 6 across the middle; one table in no section, turned 30°; a stage
+ * and a pillar as no-table zones.
+ */
+export const UPPER_HALL_TABLES: SeedTable[] = [
+  ...seedRow('sec-gold', [1200, 4500], 9, true),
+  ...seedRow('sec-gold', [3500, 1200], 4),
+  ...seedRow('sec-silver', [10_000, 11_000], 6),
+  { section: null, at: [24_000, 18_000], rotation: 30 },
+];
+export const UPPER_HALL_ZONES: SeedZone[] = [
+  { label: 'Stage', box: [12_000, 600, 8000, 3000] },
+  { label: '', box: [9000, 15_000, 600, 600] },
+];
+
+/** A table of a layout, as the server stores it. */
+export interface StoredLayoutTable {
+  id: string;
+  sectionId: string | null;
+  number: number | null;
+  tableTypeId: string;
+  xMm: number;
+  yMm: number;
+  rotation: number;
+}
+
+/** The tables of a market's first layout (`seedLayout`'s Upper Hall), as the server holds them. */
+export async function storedLayoutTables(
+  request: APIRequestContext,
+  baseURL: string,
+  marketId: string,
+): Promise<StoredLayoutTable[]> {
+  const read = await request.get(`${baseURL}/markets/${marketId}`);
+  if (!read.ok()) throw new Error(`Market read failed: ${read.status()} ${await read.text()}`);
+  const { market } = (await read.json()) as {
+    market: { setupObject: { floorplans?: { tables: StoredLayoutTable[] }[] } };
+  };
+  return market.setupObject.floorplans?.[0]?.tables ?? [];
+}
+
+/**
+ * A draft market with two locations laid out for (T257): Upper Hall with Gold row (13 tables) and
+ * Silver aisle (6), Lower Hall with Bronze corner (4), and a third location with no name, which
+ * offers no layout. Upper Hall's layout is started when asked: its floorplan
+ * `fixtures/test-floorplan.png` uploaded and saved, and calibrated to `metresAcross` when given.
+ * On a calibrated layout `tables` and `zones` are placed by a second save, each table of the
+ * market's first table type, the "Standard 6 ft" the layout's start gave it.
+ */
+export async function seedLayout(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  password: string,
+  options: {
+    name?: string;
+    layout?: boolean;
+    metresAcross?: number;
+    tables?: SeedTable[];
+    zones?: SeedZone[];
+  } = {},
+): Promise<SeededLayout> {
+  if ((options.tables?.length || options.zones?.length) && !options.metresAcross)
+    throw new Error('seedLayout places tables and zones only on a calibrated layout');
+  await loginViaApi(request, baseURL, email, password);
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL);
+  const marketName = options.name ?? uniqueMarketName('Layout Market');
+  const gold = { id: 1, name: 'Gold' };
+  const silver = { id: 2, name: 'Silver' };
+  const created = await request.post(`${baseURL}/markets`, {
+    headers: { 'Content-Type': 'application/json' },
+    data: {
+      name: marketName,
+      creationDate: new Date().toISOString(),
+      organizationId: orgId,
+      roles: { [email]: 'owner' },
+      modificationList: [],
+      assignmentObject: {},
+      setupObject: {
+        ...completePlan(),
+        tiers: [gold, silver],
+        locations: [UPPER_HALL, LOWER_HALL, { id: 'loc-unnamed', name: '' }],
+        sections: [
+          { id: 'sec-gold', name: 'Gold row', location: UPPER_HALL, tier: gold, count: 13 },
+          { id: 'sec-silver', name: 'Silver aisle', location: UPPER_HALL, tier: silver, count: 6 },
+          { id: 'sec-bronze', name: 'Bronze corner', location: LOWER_HALL, tier: silver, count: 4 },
+        ],
+      },
+    },
+  });
+  if (!created.ok())
+    throw new Error(`Market creation failed: ${created.status()} ${await created.text()}`);
+  const { market_id: marketId } = (await created.json()) as { market_id: string };
+
+  let layout: SeededLayout['layout'] = null;
+  if (options.layout || options.metresAcross) {
+    const uploaded = await request.post(`${baseURL}/floorplans/upload`, {
+      multipart: {
+        market_id: marketId,
+        file: {
+          name: 'hall.png',
+          mimeType: 'image/png',
+          buffer: readFileSync(LAYOUT_FLOORPLAN_PATH),
+        },
+      },
+    });
+    if (!uploaded.ok())
+      throw new Error(`Upload failed: ${uploaded.status()} ${await uploaded.text()}`);
+    const image = (await uploaded.json()) as { gridfs_id: string; width: number; height: number };
+    const floorplan = {
+      id: `fp-${marketId}`,
+      locationId: UPPER_HALL.id,
+      revision: 0,
+      imageGridfsId: image.gridfs_id,
+      imageWidth: image.width,
+      imageHeight: image.height,
+      tables: [],
+      zones: [],
+      sectionStyles: [],
+      startingCounts: [],
+      ...(options.metresAcross
+        ? {
+            scalePxPerUnit: image.width / (options.metresAcross * 1000),
+            referenceLineStart: [0, image.height / 2],
+            referenceLineEnd: [image.width, image.height / 2],
+            referenceLineLengthMm: options.metresAcross * 1000,
+          }
+        : {}),
+    };
+    const saved = await request.post(`${baseURL}/floorplans/save-to-market`, {
+      data: { market_id: marketId, floorplan, revision: 0 },
+    });
+    if (!saved.ok()) throw new Error(`Layout save failed: ${saved.status()} ${await saved.text()}`);
+    let answer = (await saved.json()) as { floorplan: { id: string; revision: number } };
+
+    if (options.tables?.length || options.zones?.length) {
+      const read = await request.get(`${baseURL}/markets/${marketId}`);
+      if (!read.ok()) throw new Error(`Market read failed: ${read.status()} ${await read.text()}`);
+      const { market } = (await read.json()) as {
+        market: { setupObject: { tableTypes?: { id: string }[] } };
+      };
+      const typeId = market.setupObject.tableTypes?.[0]?.id;
+      if (!typeId) throw new Error("The layout's start gave the market no table type");
+      const numbers = new Map<string, number>();
+      const tables = (options.tables ?? []).map((table, i) => {
+        const number = table.section ? (numbers.get(table.section) ?? 0) + 1 : null;
+        if (table.section && number) numbers.set(table.section, number);
+        return {
+          id: `table-${i + 1}`,
+          sectionId: table.section,
+          number,
+          tableTypeId: typeId,
+          xMm: table.at[0],
+          yMm: table.at[1],
+          rotation: table.rotation ?? 0,
+        };
+      });
+      const zones = (options.zones ?? []).map((zone, i) => ({
+        id: `zone-${i + 1}`,
+        label: zone.label,
+        xMm: zone.box[0],
+        yMm: zone.box[1],
+        widthMm: zone.box[2],
+        depthMm: zone.box[3],
+      }));
+      const placed = await request.post(`${baseURL}/floorplans/save-to-market`, {
+        data: {
+          market_id: marketId,
+          floorplan: { ...answer.floorplan, tables, zones },
+          revision: answer.floorplan.revision,
+        },
+      });
+      if (!placed.ok())
+        throw new Error(`Layout save failed: ${placed.status()} ${await placed.text()}`);
+      answer = (await placed.json()) as typeof answer;
+    }
+    layout = { id: answer.floorplan.id, revision: answer.floorplan.revision };
+  }
+  return { marketId, marketName, upper: UPPER_HALL, lower: LOWER_HALL, layout };
 }

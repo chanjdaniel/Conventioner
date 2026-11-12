@@ -20,6 +20,7 @@ from datatypes import (
     ApplicationStatus,
     AssignmentStatistics,
     EssentialFormOptions,
+    FloorplanObject,
     FormField,
     IntakeMode,
     Market,
@@ -31,6 +32,7 @@ from datatypes import (
     Organization,
     RejectionRule,
     SetupObject,
+    TableTypeObject,
     UnassignedTableEntry,
     User,
     VendorAssignmentResult,
@@ -74,6 +76,7 @@ import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
 import history as History
 import floorplan_limits as FloorplanLimits
+import layout as Layout
 import pricing as Pricing
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
@@ -529,14 +532,18 @@ def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
     """The part of a plan that is the setup, in one comparable shape (E31/F01/S02).
 
     Everything on Market Setup: the dates, tiers, locations, sections and their tables, the
-    floorplans and the prices (E43/F01/S01). Not the assignment rules
+    prices (E43/F01/S01), and of the layouts what settles: each floorplan's seats and the
+    market's table types (``layout.settled_part``), never where a table stands. Today a layout's
+    save is refused once the market has left draft (``save_floorplan_to_market`` refuses on
+    ``setup_lock_reason``) and the page reads only; ``layout.settled_layout_refusal`` states what
+    a following change will let through past draft, a table moved or turned, never a seat or a
+    table type. Not the assignment rules
     (``made_from.assignment_rules``), which ride in the same object and keep a lock of their own.
     """
     if plan is None:
         return {}
-    shape = plan.model_dump(
-        include={"market_dates", "tiers", "locations", "sections", "floorplans", "pricing"})
-    shape["floorplans"] = shape.get("floorplans") or []
+    shape = plan.model_dump(include={"market_dates", "tiers", "locations", "sections", "pricing"})
+    shape.update(Layout.settled_part(plan))
     return shape
 
 
@@ -1307,14 +1314,16 @@ def create_market(market: Market, owner_email: str) -> tuple:
     normalization as ``save_application_form``: one contract for every writer of the form.
     """
     market = new_market(market.model_dump(), market.roles)
-    # Its plan is held to what the plan write holds every plan to, judged against the market as it
-    # stands before it holds one: every floorplan is new, and none names an image uploaded for it.
-    refusal = (
-        _plan_refusal(market.model_copy(update={"setup_object": None}), market.setup_object)
-        if market.setup_object else None
-    )
-    if refusal:
-        raise BadRequestError(refusal)
+    # Its plan is held to what the plan write holds every plan to, and made as the plan write makes
+    # it, against the market as it stands before it holds one: the body's floorplans and table types
+    # are dropped, since only a layout's own write passes them, and its counts are derived (T257).
+    if market.setup_object:
+        plan, _removed = _with_the_layouts(
+            market.model_copy(update={"setup_object": None}), market.setup_object, None, None)
+        refusal = _plan_refusal(plan)
+        if refusal:
+            raise BadRequestError(refusal)
+        market = market.model_copy(update={"setup_object": plan})
     market_dict = market.model_dump()
     # Server-owned: the one entry every market starts with (E26/F06/S03).
     market_dict["phase_history"] = [
@@ -2769,7 +2778,8 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> int
     market, organization = _load_market_and_organization_to_change(
         market_id, requesting_user, Actions.CHANGE_SETUP)
     plan_revision = _revision_in(body, PLAN_REVISION_KEY, PLAN_REVISION_NOT_A_COUNT)
-    plan, update = prepared_plan(market, body)
+    prepared = prepared_plan(market, body)
+    plan, update = prepared.plan, prepared.update
     Actions.ask_assign_if_the_rules_change(market, plan, requesting_user, organization)
     if plan_revision is _NO_REVISION:
         raise MarketChanged(dict(document_as_read(market)))
@@ -2777,11 +2787,14 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> int
                            holds=(market_doc_key("results_published"),),
                            revisions={PLAN_REVISION_KEY: plan_revision})
     _record_plan(market, plan, update, requesting_user)
+    release_removed_floorplans(market, prepared.removed_floorplans, requesting_user)
     return written.revisions[PLAN_REVISION_KEY]
 
 
-#: The plan's fields that are Market Setup's; the rest, ``assignment_rules``, are the Assignment row's.
-_SETUP_FIELDS = ("market_dates", "tiers", "locations", "sections", "floorplans")
+#: The plan's fields that are Market Setup's and recorded by its entry; the rest,
+#: ``assignment_rules``, are the Assignment row's, and the layouts and table types, which the plan
+#: write keeps as stored, are recorded by their own writes (T257).
+_SETUP_FIELDS = ("market_dates", "tiers", "locations", "sections")
 
 
 def _record_plan(
@@ -2815,14 +2828,14 @@ def _record_plan(
 UNTIED_FLOORPLAN_IMAGE = "The floorplan's image was not uploaded for this market."
 
 
-def _floorplans_refusal(market: Market, plan: SetupObject) -> Optional[str]:
+def _floorplans_refusal(market: Market, proposed: List[FloorplanObject]) -> Optional[str]:
     """Why a plan's floorplans may not be written, or None: their bounds (``floorplan_limits``),
     and each changed floorplan's image, which must be one uploaded for this market.
 
     A floorplan the market already holds, restated unchanged, is judged by neither: restating is
-    not a change, so a market stored before the bounds keeps saving its plan.
+    not a change, so a market stored before the bounds keeps saving its plan, and a plan write,
+    which keeps the stored floorplans, is never refused for them.
     """
-    proposed = plan.floorplans or []
     stored = (market.setup_object.floorplans if market.setup_object else None) or []
     refused = FloorplanLimits.floorplans_refusal(proposed, stored)
     if refused:
@@ -2834,12 +2847,44 @@ def _floorplans_refusal(market: Market, plan: SetupObject) -> Optional[str]:
     return None
 
 
-def _plan_refusal(market: Market, plan: SetupObject) -> Optional[str]:
-    """Why ``plan`` may not be ``market``'s, whatever phase it is in, or None: the bounds of the
-    half-table share, the prices (``Pricing.pricing_refusal``) and the floorplans
-    (``_floorplans_refusal``).
+#: Why a plan write from a page opened before every location and section had an id is refused
+#: where a row it sends with none would read as another row than the market's, on a market with a
+#: layout (T257): it would drop the layout and delete its image, or take tables out of a section.
+PAGE_FROM_BEFORE_IDS = (
+    "This page was opened before an update, so this change was not saved. "
+    "Reload the page, then make the change again."
+)
 
-    Asked by every writer of a plan, the plan write and the create alike.
+
+def _an_id_missing(row: Any) -> bool:
+    return isinstance(row, dict) and not (isinstance(row.get("id"), str) and row["id"].strip())
+
+
+def _from_a_page_before_ids(body_plan: Any, plan: SetupObject, stored: Optional[SetupObject]) -> bool:
+    """Whether a row ``body_plan`` sends with no id is given one (``plan``, as it parsed) that none
+    of the stored rows of its kind has, while the market holds a layout: a page of the bundle
+    before ids, whose location a later page minted or which it renamed, would write that layout's
+    location or a table's section away. A row the market reads with the id its name gives, as a
+    market stored before ids does, is no such row."""
+    if not isinstance(body_plan, dict) or stored is None or not Layout.laid_out(stored):
+        return False
+    for key, rows, stored_rows in (("locations", plan.locations, stored.locations),
+                                   ("sections", plan.sections, stored.sections)):
+        sent = body_plan.get(key) if isinstance(body_plan.get(key), list) else []
+        known = {row.id for row in stored_rows}
+        if any(_an_id_missing(row) and index < len(rows) and rows[index].id not in known
+               for index, row in enumerate(sent)):
+            return True
+    return False
+
+
+def _plan_refusal(plan: SetupObject) -> Optional[str]:
+    """Why ``plan`` may not be a market's, whatever phase it is in, or None: the bounds of the
+    half-table share and the prices (``Pricing.pricing_refusal``).
+
+    Asked by every writer of a plan, the plan write and the create alike, of the plan holding its
+    layouts and its derived counts (``_with_the_layouts``). A layout's floorplans and table types
+    are judged by the layout's own write, the only one that passes them (``prepared_plan``).
     """
     share = plan.assignment_options.max_half_table_proportion_per_section
     if share is not None and not 0 <= share <= 100:
@@ -2847,28 +2892,101 @@ def _plan_refusal(market: Market, plan: SetupObject) -> Optional[str]:
             "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
             "default."
         )
-    return Pricing.pricing_refusal(plan) or _floorplans_refusal(market, plan)
+    return Pricing.pricing_refusal(plan)
 
 
 class PreparedPlan(NamedTuple):
-    """A plan write judged and not yet written: the plan as parsed, and the ``$set`` that writes it."""
+    """A plan write judged and not yet written: the plan as parsed, the ``$set`` that writes it,
+    and the layouts it drops because their location is gone, whose images and history entries
+    ``release_removed_floorplans`` sees to once the write has landed."""
     plan: SetupObject
     update: Dict[str, Any]
+    removed_floorplans: List[FloorplanObject] = []
 
 
-def prepared_plan(market: Market, body: Dict[str, Any]) -> PreparedPlan:
+def _with_the_layouts(
+    market: Market, plan: SetupObject,
+    floorplans: Optional[List[FloorplanObject]], table_types: Optional[List[TableTypeObject]],
+) -> Tuple[SetupObject, List[FloorplanObject]]:
+    """The plan holding the layouts and table types it is written with, its counts derived, and
+    the layouts it drops (T257).
+
+    Those of the body are never read: the stored ones are kept unless the layout's own write passes
+    its own, so Market Setup's autosave, which carries the whole working copy it read, never
+    overwrites a layout saved in between. A layout whose location is no longer one of the plan's
+    goes with it; a beta floorplan, of no location, is kept and ignored until
+    ``migrations/migrate_layouts.py`` removes it.
+    """
+    stored = market.setup_object
+    if floorplans is None:
+        floorplans = stored.floorplans if stored else None
+    if table_types is None:
+        table_types = stored.table_types if stored else []
+    locations = {location.id for location in plan.locations}
+
+    def stays(floorplan: FloorplanObject) -> bool:
+        return floorplan.location_id is None or floorplan.location_id in locations
+
+    kept = [floorplan for floorplan in floorplans or [] if stays(floorplan)]
+    removed = [floorplan for floorplan in floorplans or [] if not stays(floorplan)]
+    plan = plan.model_copy(update={
+        "floorplans": kept if floorplans is not None else None,
+        "table_types": list(table_types),
+    })
+    return Layout.derive_counts(plan), removed
+
+
+def release_removed_floorplans(
+    market: Market, removed: List[FloorplanObject], requesting_user: str,
+) -> None:
+    """Once a plan write has landed, delete the image of each layout it dropped, by its id, and
+    record ``floorplan_removed`` for it, naming the location as the market last held it."""
+    stored_locations = {
+        location.id: location.name
+        for location in (market.setup_object.locations if market.setup_object else [])
+    }
+    for floorplan in removed:
+        if floorplan.image_gridfs_id:
+            GridfsService.delete_image(floorplan.image_gridfs_id)
+        History.record(
+            market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.FLOORPLAN_REMOVED,
+            subject={"floorplan_id": floorplan.id,
+                     "location": stored_locations.get(floorplan.location_id)},
+            detail=History.changes({"tables": len(floorplan.tables)}, {"tables": None}),
+        )
+
+
+def prepared_plan(
+    market: Market, body: Dict[str, Any], *,
+    floorplans: Optional[List[FloorplanObject]] = None,
+    table_types: Optional[List[TableTypeObject]] = None,
+) -> PreparedPlan:
     """The plan write's ``$set``, judged against ``market`` and not yet written, beside the plan it
     parsed, so a caller reading the plan does not parse it again.
 
-    The one statement of what a plan write may carry and when; ``save_plan`` writes it, and the
-    CSV start writes it in the same update as the form and the mapping it makes.
+    The one statement of what a plan write may carry and when; ``save_plan`` writes it, the CSV
+    start writes it in the same update as the form and the mapping it makes, and a layout's save
+    writes it with the ``floorplans`` (and the ``table_types``) it changes, the only way either is
+    written: the body's own are ignored and the stored ones kept (``_with_the_layouts``). Every
+    write stores counts derived from the layouts (``layout.derive_counts``).
     """
     try:
         plan = SetupObject.model_validate(convert_keys_to_snake_case(body["setupObject"]))
     except ValidationError as e:
         logger.warning("Refused a plan for market %s: %s", market.id, parse_failure_detail(e))
         raise BadRequestError(field_named_copy("Invalid plan", e)) from e
-    refused = _plan_refusal(market, plan)
+    if _from_a_page_before_ids(body["setupObject"], plan, market.setup_object):
+        raise ConflictError(PAGE_FROM_BEFORE_IDS)
+    if table_types is not None:
+        types_refused = FloorplanLimits.table_types_refusal(table_types)
+        if types_refused:
+            raise BadRequestError(types_refused)
+    # Judged before a layout of a location gone is dropped, so the bounds answer first.
+    floorplan_refused = _floorplans_refusal(market, floorplans or [])
+    if floorplan_refused:
+        raise BadRequestError(floorplan_refused)
+    plan, removed_floorplans = _with_the_layouts(market, plan, floorplans, table_types)
+    refused = _plan_refusal(plan)
     if refused:
         raise BadRequestError(refused)
     update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
@@ -2896,7 +3014,7 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> PreparedPlan:
     settled = assignment_rules_lock_reason(market)
     if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
         raise BadRequestError(settled)
-    return PreparedPlan(plan, update)
+    return PreparedPlan(plan, update, removed_floorplans)
 
 
 #: Why "Nothing leads the card" is refused beside a marked answer (T206): it would read as decided

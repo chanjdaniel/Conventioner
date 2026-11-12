@@ -5,8 +5,10 @@
  * - `change-setup/renamed`
  * - `change-setup/plan`
  * - `change-setup/pricing`, its sentence and its rows
- * - `change-setup/floorplan`
+ * - `change-setup/floorplan`, a layout's save (T257) and the beta's (T272)
+ * - `change-setup/floorplan_removed`, a layout taken with its location (T257)
  * - `change-setup/floorplan_image_deleted`
+ * - `change-setup/table_types`, the market's table types replaced (T257)
  * - `change-form/form`
  * - `change-form/review_highlights`
  * - `change-form/rejection_rules`
@@ -16,6 +18,7 @@
 import type { IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
 import type { ChangedField } from '@/utils/marketHistory';
 import { formatPrice } from '@/utils/pricing';
+import { plural } from '@/utils/utils';
 import {
   asDetail,
   changedFields,
@@ -82,6 +85,167 @@ function floorplanChanges(before: Detail, after: Detail, path: IntakeMode): Chan
     });
   }
   return rows;
+}
+
+/** The fewest decimals, from one to three, that every one of `values` reads exactly at: the
+ * server records metres across to the millimetre. */
+function metreDecimals(values: unknown[]): number {
+  const numbers = values.filter((value): value is number => typeof value === 'number');
+  for (const decimals of [1, 2]) {
+    const step = 10 ** decimals;
+    if (numbers.every((value) => Math.abs(Math.round(value * step) - value * step) < 1e-6)) {
+      return decimals;
+    }
+  }
+  return 3;
+}
+
+/** Metres across, as the layout page reads its scale, "36.0 m", or "30.04 m" when a
+ * recalibration by centimetres needs more; `beside` are the values read with it, so a before and
+ * an after read to the same decimals. */
+function metres(value: unknown, beside: unknown[] = []): string {
+  return typeof value === 'number'
+    ? `${value.toFixed(metreDecimals([value, ...beside]))} m`
+    : 'none';
+}
+
+/**
+ * Whether an entry is the beta's (T272): its detail the plan's and the floorplan's two sides. A
+ * layout's save (T257) records what it did instead, `layout.describe_change`'s fields.
+ */
+function isBetaFloorplanEntry(detail: Detail): boolean {
+  return 'before' in detail || 'after' in detail;
+}
+
+/** What a layout's save did, as clauses of one sentence, the location named in each. */
+function layoutClauses(detail: Detail, location: string): string[] {
+  const whose = location ? `${location}'s` : 'a';
+  const clauses: string[] = [];
+  if (detail.started === true) clauses.push(`started ${whose} layout`);
+  if (detail.image === 'replaced') clauses.push(`replaced ${whose} floorplan image`);
+  const scale = asDetail(detail.scale);
+  if (typeof scale.after === 'number') {
+    const verb = typeof scale.before === 'number' ? 'recalibrated' : 'calibrated';
+    clauses.push(`${verb} ${whose} layout to ${metres(scale.after)} across`);
+  }
+  const where = location ? ` in ${location}` : '';
+  clauses.push(...tableClauses(detail.added, 'added', 'to', where));
+  clauses.push(...tableClauses(detail.removed, 'removed', 'from', where));
+  if (typeof detail.moved === 'number' && detail.moved > 0) {
+    clauses.push(`moved ${plural(detail.moved, 'table', 'tables')}${where}`);
+  }
+  if (typeof detail.turned === 'number' && detail.turned > 0) {
+    clauses.push(`turned ${plural(detail.turned, 'table', 'tables')}${where}`);
+  }
+  if (typeof detail.retyped === 'number' && detail.retyped > 0) {
+    clauses.push(`changed the type of ${plural(detail.retyped, 'table', 'tables')}${where}`);
+  }
+  // A section left or joined is renumbered to close the gap or to follow on, which the tables
+  // added and removed already say; a renumbering said on its own is Renumber by position's.
+  const renumbered = names(detail.renumbered);
+  if (renumbered.length && !('added' in detail) && !('removed' in detail)) {
+    clauses.push(`renumbered ${listed(renumbered)}${where}`);
+  }
+  clauses.push(...zoneClauses(detail.zones, where));
+  clauses.push(...ofSections(detail.colours, 'changed', 'colour', 'colours', where));
+  clauses.push(...ofSections(detail.labels, 'moved', 'label', 'labels', where));
+  return clauses.length ? clauses : [`changed ${whose} layout`];
+}
+
+/** No-table zones a save marked, changed and removed: "marked 2 no-table zones in Upper Hall". */
+function zoneClauses(recorded: unknown, where: string): string[] {
+  const zones = asDetail(recorded);
+  const verbs: [string, string][] = [
+    ['added', 'marked'],
+    ['changed', 'changed'],
+    ['removed', 'removed'],
+  ];
+  return verbs.flatMap(([key, verb]) => {
+    const count = zones[key];
+    if (typeof count !== 'number' || count <= 0) return [];
+    return [`${verb} ${plural(count, 'no-table zone', 'no-table zones')}${where}`];
+  });
+}
+
+/** A table type as its history entry records it: its id, its name and its size in words. */
+interface TypeInWords {
+  id: string;
+  name: string;
+  size: string;
+}
+
+function typesInWords(recorded: unknown): TypeInWords[] {
+  return (Array.isArray(recorded) ? recorded : []).map((one) => {
+    const type = asDetail(one);
+    return { id: str(type.id), name: str(type.name), size: str(type.size) };
+  });
+}
+
+/**
+ * What a write of the table types did, a clause for each type it touched, by id: "added Square 4 ft
+ * (122 x 122 cm)", "removed Round 5 ft", "renamed Long to Long 8 ft", "resized Square 4 ft to 120
+ * x 120 cm".
+ */
+function tableTypeClauses(detail: Detail): string[] {
+  const before = typesInWords(asDetail(detail.before).table_types);
+  const after = typesInWords(asDetail(detail.after).table_types);
+  const was = new Map(before.map((type) => [type.id, type]));
+  const now = new Set(after.map((type) => type.id));
+  const clauses: string[] = [];
+  for (const type of after) {
+    const old = was.get(type.id);
+    if (!old) {
+      clauses.push(`added ${type.name} (${type.size})`);
+      continue;
+    }
+    if (old.name !== type.name) clauses.push(`renamed ${old.name} to ${type.name}`);
+    if (old.size !== type.size) clauses.push(`resized ${type.name} to ${type.size}`);
+  }
+  for (const type of before) {
+    if (!now.has(type.id)) clauses.push(`removed ${type.name}`);
+  }
+  return clauses;
+}
+
+/** The section names a layout's save recorded under a field. */
+function names(recorded: unknown): string[] {
+  return Array.isArray(recorded)
+    ? recorded.filter((name): name is string => typeof name === 'string')
+    : [];
+}
+
+/** What a save did to a thing each section has: "changed Gold row's colour in Upper Hall", or
+ * for several "changed the colours of Gold row and Silver aisle in Upper Hall". */
+function ofSections(
+  recorded: unknown,
+  verb: string,
+  one: string,
+  many: string,
+  where: string,
+): string[] {
+  const sections = names(recorded);
+  if (!sections.length) return [];
+  return sections.length === 1
+    ? [`${verb} ${sections[0]}'s ${one}${where}`]
+    : [`${verb} the ${many} of ${listed(sections)}${where}`];
+}
+
+/** The key `layout.describe_change` counts tables of no section under (`IN_NO_SECTION`). */
+const IN_NO_SECTION = 'in no section';
+
+/**
+ * Tables added or removed, a clause for each section in the order recorded: "added 12 tables to
+ * Silver aisle in Upper Hall", "removed 1 table from Gold row in Upper Hall", and for tables of no
+ * section "added 2 tables in no section in Upper Hall".
+ */
+function tableClauses(counts: unknown, verb: string, link: string, where: string): string[] {
+  return Object.entries(asDetail(counts)).flatMap(([section, count]) => {
+    if (typeof count !== 'number' || count <= 0) return [];
+    const tables = plural(count, 'table', 'tables');
+    return section === IN_NO_SECTION
+      ? [`${verb} ${tables} ${IN_NO_SECTION}${where}`]
+      : [`${verb} ${tables} ${link} ${section}${where}`];
+  });
 }
 
 /** The Pricing card's fields, in the card's order and words (`pricing_fields` in
@@ -275,13 +439,66 @@ export const readers: HistoryReaders = {
   },
   'change-setup/floorplan': {
     parts(entry, context) {
-      const { actor, text } = sentence(entry, context);
-      return [actor, text('saved a floorplan to the market')];
+      const { actor, text, detail } = sentence(entry, context);
+      if (isBetaFloorplanEntry(detail)) return [actor, text('saved a floorplan to the market')];
+      return [actor, text(listed(layoutClauses(detail, str(entry.subject.location))))];
     },
     changes(entry, { path }) {
       const detail = asDetail(entry.detail);
+      if (!isBetaFloorplanEntry(detail)) {
+        const scale = asDetail(detail.scale);
+        return {
+          changed:
+            'after' in scale
+              ? [
+                  {
+                    field: 'Metres across',
+                    before: metres(scale.before, [scale.after]),
+                    after: metres(scale.after, [scale.before]),
+                  },
+                ]
+              : [],
+          recorded: [],
+        };
+      }
       return {
         changed: floorplanChanges(asDetail(detail.before), asDetail(detail.after), path),
+        recorded: [],
+      };
+    },
+  },
+  'change-setup/floorplan_removed': {
+    parts(entry, context) {
+      const { actor, text, detail } = sentence(entry, context);
+      const location = str(entry.subject.location);
+      const tables = asDetail(detail.before).tables;
+      const of =
+        typeof tables === 'number' && tables > 0 ? ` of ${plural(tables, 'table', 'tables')}` : '';
+      return [
+        actor,
+        text(`removed ${location ? `${location}'s` : 'a'} layout${of} with its location`),
+      ];
+    },
+  },
+  'change-setup/table_types': {
+    parts(entry, context) {
+      const { actor, text, detail } = sentence(entry, context);
+      const clauses = tableTypeClauses(detail);
+      return [
+        actor,
+        text(`changed the table types${clauses.length ? `: ${listed(clauses)}` : ''}`),
+      ];
+    },
+    changes(entry) {
+      const detail = asDetail(entry.detail);
+      const words = (side: unknown) =>
+        typesInWords(asDetail(side).table_types)
+          .map((type) => `${type.name} (${type.size})`)
+          .join('\n') || 'none';
+      return {
+        changed: [
+          { field: 'Table types', before: words(detail.before), after: words(detail.after) },
+        ],
         recorded: [],
       };
     },

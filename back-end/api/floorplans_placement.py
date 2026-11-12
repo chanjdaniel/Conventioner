@@ -5,13 +5,17 @@ Receives the market it places for, room geometry (walls, obstacles), table
 specifications, and aisle-configuration; returns a list of placed-table positions with x, y,
 rotation in millimetre coordinates, and whether the placement ran out of time before the rest.
 
+A layout's Fill an area (T257) sends the same request with an area to fill, a box or a drawn
+shape, the tables already placed and the way the rows run; the answer's tables stand inside the
+area, in rows, clear of the obstacles and of those tables.
+
 The body is parsed into ``PlaceTablesRequest`` and held to ``floorplan_limits``' bounds before the
 placement runs, so a malformed field or a request too large to place in time is refused with its
 sentence (T272).
 """
 
 import logging
-from typing import Annotated, Dict, List, Optional
+from typing import Annotated, Dict, List, Literal, Optional, Tuple
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
@@ -20,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from api.floorplans_access import market_refusal
 import api.market_actions as Actions
 from client_errors import BadRequestError, field_named_copy, parse_failure_detail
-from datatypes import AisleConfigContract, ObstacleZone, TableTypeObject, WallSegment
+from datatypes import AisleConfigContract, BetaTableType, ObstacleZone, WallSegment
 from floorplan_limits import placement_refusal
 from services.placement_service import auto_place_tables
 from utils.request_body import string_field
@@ -34,6 +38,8 @@ NO_ROOM_SIZE = (
 )
 
 _Measure = Annotated[float, Field(strict=True)]
+_Length = Annotated[float, Field(strict=True, gt=0)]
+_Point = Tuple[_Measure, _Measure]
 
 
 class RoomSize(BaseModel):
@@ -46,22 +52,31 @@ class RoomSize(BaseModel):
 
 
 class PlaceTablesRequest(BaseModel):
-    """Auto-Place's body, in the wire shape ``AutoPlaceButton.vue`` sends: snake case, but for
-    ``aisle_config``'s camel-cased keys. ``market_id`` is read before it, for the access check.
+    """Auto-Place's body, in the wire shape ``AutoPlaceButton.vue`` and the layout's Fill an area
+    (``layoutFill.ts``) send: snake case, but for ``aisle_config``'s camel-cased keys.
+    ``market_id`` is read before it, for the access check.
 
     Its own numbers must be finite; the nested geometry's are judged by ``placement_refusal``,
     since its models are the stored ones, which stay as loose as they were.
+
+    Fill an area adds the area, as a box (``area_mm``: x, y, width, depth) or a drawn shape's
+    corners (``area_polygon_mm``), the tables already placed, each by its four corners as it
+    stands turned (``existing_mm``), and which way the rows run (``direction``).
     """
 
     model_config = ConfigDict(allow_inf_nan=False)
 
     walls: List[WallSegment]
     obstacles: List[ObstacleZone]
-    table_types: List[TableTypeObject]
+    table_types: List[BetaTableType]
     counts: Dict[str, Annotated[int, Field(strict=True, ge=0)]]
     scale_px_per_mm: _Measure
     room_mm: Optional[RoomSize] = None
     aisle_config: Optional[AisleConfigContract] = None
+    area_mm: Optional[Tuple[_Measure, _Measure, _Length, _Length]] = None
+    area_polygon_mm: Optional[List[_Point]] = None
+    existing_mm: List[Tuple[_Point, _Point, _Point, _Point]] = []
+    direction: Literal["across", "down"] = "across"
 
 
 def _parsed_request(data, market_id: str) -> PlaceTablesRequest:
@@ -102,8 +117,17 @@ def place_tables():
             "aisle_config": {
                 "wallBufferMm": 1500,
                 "tableSpacingMm": 1200
-            }
+            },
+            "area_mm": [2000, 3000, 20000, 12000],
+            "existing_mm": [[[x, y], [x, y], [x, y], [x, y]]],
+            "direction": "across"
         }
+
+    ``area_mm`` (a box: x, y, width, depth) or ``area_polygon_mm`` (a drawn shape's corners,
+    ``[[x, y], ...]``, 3 to 50 that do not cross), one or the other, makes it Fill an area: the
+    room is ``room_mm``, which it then needs, the wall buffer is not read, and the tables stand
+    in rows inside the area, ``direction`` saying whether the rows run ``across`` or ``down``,
+    with ``tableSpacingMm`` between the rows and from every table of ``existing_mm``.
 
     **Returns**::
 
@@ -121,7 +145,8 @@ def place_tables():
             "timed_out": false
         }
 
-    ``timed_out`` is true when the grid placement stopped at its deadline before placing them all.
+    ``x_mm`` and ``y_mm`` are a table's centre. ``timed_out`` is true when the grid placement, or
+    an area's rows, stopped at the deadline before placing them all.
     """
     data = request.get_json(silent=True)
     if not data:
@@ -133,7 +158,8 @@ def place_tables():
         return refusal
 
     asked = _parsed_request(data, market_id)
-    if not asked.walls and asked.room_mm is None:
+    fills_an_area = asked.area_mm is not None or asked.area_polygon_mm is not None
+    if asked.room_mm is None and (fills_an_area or not asked.walls):
         raise BadRequestError(NO_ROOM_SIZE)
     refused = placement_refusal(
         walls=asked.walls,
@@ -142,6 +168,9 @@ def place_tables():
         counts=asked.counts,
         room_mm=asked.room_mm.model_dump() if asked.room_mm else None,
         aisle=asked.aisle_config,
+        area_mm=asked.area_mm,
+        area_polygon_mm=asked.area_polygon_mm,
+        existing_mm=asked.existing_mm,
     )
     if refused:
         raise BadRequestError(refused)
@@ -156,6 +185,10 @@ def place_tables():
         scale_px_per_mm=asked.scale_px_per_mm,
         aisle_config=asked.aisle_config.model_dump() if asked.aisle_config else None,
         room_mm=asked.room_mm.model_dump() if asked.room_mm else None,
+        area_mm=asked.area_mm,
+        area_polygon_mm=asked.area_polygon_mm,
+        existing_mm=asked.existing_mm,
+        direction=asked.direction,
     )
 
     return jsonify({"placed_tables": result.placed, "timed_out": result.timed_out}), 200

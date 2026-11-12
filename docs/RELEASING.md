@@ -7,19 +7,19 @@ describes:
   - release-please-config.json
   - back-end/app.py#check_public_endpoint_defenses
   - front-end/vite.config.ts#assertCaptchaSiteKey
-  - front-end/vite.config.ts#assertApiHost
-  - front-end/vite.config.ts#assertNoLocalHatchOnVercel
   - back-end/app.py#healthz
   - front-end/vite.config.ts#buildCommit
   - scripts/deploy_proof.py
-verified: 2026-11-10
+  - front-end/vite.config.ts#assertApiHost
+  - front-end/vite.config.ts#assertNoLocalHatchOnVercel
+verified: 2026-11-11
 sources:
   - T74
   - T254
   - T251
   - T263
-  - T273
   - T270
+  - T273
 ---
 
 # Release Process
@@ -316,6 +316,7 @@ python migrations/migrate_user_emails.py              # stores every account add
 python migrations/check_vendor_day_duplicates.py      # reads only: names (by market, date and record id) any vendor's day held by two records
 python migrations/migrate_placement_history.py        # AFTER the deploy, whenever: moves the placement history into the market's history
 python migrations/migrate_to_one_stage.py             # AFTER the deploy, whenever: moves the three old stage phases into `applications`
+python migrations/migrate_layouts.py                  # AFTER the deploy, whenever: ids on every section and location, the beta's floorplans and their images removed
 python migrations/migrate_organization_people.py      # AFTER the deploy, whenever, `--dry-run` first: folds each organization's three lists of people into its `people` map
 python migrations/migrate_organization_people.py --reconcile  # ONLY after a roll forward over a rollback past the map's release, `--dry-run` first: rebuilds each map from its lists
 ```
@@ -330,6 +331,15 @@ It moves every market in `applications_open`, `applications_closed` or `review` 
 Production held 2 markets when it was written: 1 in an old phase (a market whose vendors apply on its page, in `review`, which comes out not taking applications) and 1 in `market_days`, whose phase history alone is renamed.
 Run `--dry-run` first and read it, then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says.
 It is idempotent: a second run says "Nothing to change".
+
+`migrate_layouts.py` runs **after** the deploy that makes a floorplan a location's layout (T257), whenever the operator likes; a database `init_database.py` started needs it too, since production holds floorplans the beta saved.
+That build reads an unmigrated market without failing: a section or location with no id reads with the id the script would store (`fill_plan_ids` in `back-end/datatypes.py`), and a floorplan the beta saved reads as one of no location and is ignored, so nothing refuses to boot and nothing waits on the script.
+A rollback past that build is not clean, whether the script has run or not: the build before keeps no id, no table type and no layout's location or tables, so its first plan write on a market strips them, and once rolled forward that market's layouts read as the beta's and are gone.
+After the deploy, a Market Setup tab still open on the bundle before sends its plan without ids; on a market with a layout, its write is refused with "This page was opened before an update" when a row it sends would read with an id the market does not hold (a location a newer page added, or one it renamed), so it never drops a layout, and the organizer reloads.
+It gives every section and location without one that id, removes every floorplan with no `locationId` (every one the beta saved; none is kept), and deletes every file in the `floorplan_images` GridFS bucket that no floorplan names, read again from every market just before it deletes, but one uploaded after the run began; a run that met a market changed under it deletes no file and leaves the sweep to the next run.
+It prints each market it changes and the counts ([the market document](implementation/data/market-document.md#the-boot-refusal-and-the-migration)).
+Run `--dry-run` first and read it, then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says; take a `mongodump` first (below), since the images it deletes are gone.
+It is idempotent: a second run changes nothing, and a run that found a market changed under it says so and records no `layouts_v1` marker, so run it again.
 
 `migrate_organization_people.py` runs **after** the deploy that ships an organization's `people` map ([ADR 0025](adr/0025-an-organizations-people-are-one-map.md)), whenever the operator likes, never before it: the build before changes only the three lists, so a map written earlier goes stale under its writes, and the build after reads the map over the lists.
 That build reads an organization stored before the map by folding its three lists, the owner winning, and the first change to its people folds it in, so nothing waits on the script and the boot does not check for it.

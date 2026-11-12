@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api, getApiErrorMessage } from '@/utils/api';
-import type { PlacedTableObject } from '@/assets/types/datatypes';
+import type { BetaPlacedTable } from '@/assets/types/datatypes';
 
 // ── Props ──────────────────────────────────────────────────────────
 const props = defineProps<{
@@ -105,7 +105,7 @@ function buildRequestBody() {
   };
 }
 
-/** Map the API response to PlacedTableObject array. */
+/** Map the API response to BetaPlacedTable array. */
 function mapResponseToPlacedTables(
   raw: Array<{
     x_mm: number;
@@ -115,7 +115,7 @@ function mapResponseToPlacedTables(
     height_mm: number;
     table_type_id: string;
   }>,
-): PlacedTableObject[] {
+): BetaPlacedTable[] {
   return raw.map((t) => ({
     id: crypto.randomUUID(),
     tableTypeId: t.table_type_id,

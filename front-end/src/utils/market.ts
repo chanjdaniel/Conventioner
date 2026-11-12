@@ -21,6 +21,12 @@ export function marketPath(marketId: string, page?: MarketPage | MarketFlow): st
   return page ? `${base}/${page}` : base;
 }
 
+/** A location's layout, or with no location the market's first (T257). */
+export function layoutPath(marketId: string, locationId?: string): string {
+  const path = marketPath(marketId, 'layout');
+  return locationId ? `${path}/${encodeURIComponent(locationId)}` : path;
+}
+
 /**
  * A blocker's `resolutionLink` as an address: the server names the page that holds the remedy,
  * relative to the market's own pages (`applications`, perhaps with a query), and never which market
@@ -123,8 +129,9 @@ export function parseMarketFromApi(market: any): Market {
       : (market.isDraft ?? market.is_draft ?? true),
     phase: phaseRaw ? (phaseRaw as MarketPhase) : undefined,
     // Spread first, so a key this parser does not name (the floorplans, above all) is carried
-    // rather than dropped: the plan's autosave sends a working copy built from this, and a key lost
-    // here is a key the next save erases (E21/F02/S03).
+    // rather than dropped (E21/F02/S03). The plan write keeps the stored layouts and table types
+    // whatever the autosave sends (T257), but every screen reading them reads them from here; each
+    // row's `id` rides along with its row.
     setupObject: {
       ...(market.setupObject ?? {}),
       priority: market.setupObject?.priority || [],
@@ -132,6 +139,7 @@ export function parseMarketFromApi(market: any): Market {
       tiers: market.setupObject?.tiers || [],
       locations: market.setupObject?.locations || [],
       sections: market.setupObject?.sections || [],
+      tableTypes: market.setupObject?.tableTypes || [],
       assignmentOptions: {
         maxAssignmentsPerVendor:
           market.setupObject?.assignmentOptions?.maxAssignmentsPerVendor ?? null,

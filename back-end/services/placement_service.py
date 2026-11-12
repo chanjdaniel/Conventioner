@@ -3,6 +3,11 @@ Placement engine for auto-placing tables within a floorplan.
 
 No Flask dependency - pure geometry logic using Shapely and pyckingsolver.
 Works entirely in millimetre coordinates.
+
+Two things are placed here. A whole room (the floorplan beta's Auto-Place): the solver where it is
+installed, else the grid. And an area of a layout (T257's Fill an area), a box or a drawn shape:
+rows of tables end to end with an aisle between the rows (``_rows_place``), the same on every
+machine, since rows are what was asked for and the solver packs none.
 """
 
 from __future__ import annotations
@@ -10,10 +15,13 @@ from __future__ import annotations
 import logging
 import math
 import time
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 import numpy as np
 from shapely.geometry import Polygon, box
+from shapely.geometry.base import BaseGeometry
+from shapely.ops import transform, unary_union
+from shapely.validation import make_valid
 from shapely.prepared import prep
 
 from client_errors import BadRequestError
@@ -21,7 +29,7 @@ from floorplan_limits import MAX_ROOM_SIDE_MM, ROOM_TOO_LARGE
 from datatypes import (
     WallSegment,
     ObstacleZone,
-    TableTypeObject,
+    BetaTableType,
     AisleConfigObject,
 )
 
@@ -222,7 +230,7 @@ SOLVER_TIME_LIMIT_S = 10.0
 
 def _pyckingsolver_place(
     zone: Polygon,
-    tables: List[TableTypeObject],
+    tables: List[BetaTableType],
     counts: Dict[str, int],
     spacing_mm: float,
     time_limit_s: float = SOLVER_TIME_LIMIT_S,
@@ -301,7 +309,7 @@ GRID_TIME_LIMIT_S = 10.0
 
 def _grid_place(
     zone: Polygon,
-    tables: List[TableTypeObject],
+    tables: List[BetaTableType],
     counts: Dict[str, int],
     spacing_mm: float,
     time_limit_s: float = GRID_TIME_LIMIT_S,
@@ -322,7 +330,7 @@ def _grid_place(
     deadline = time.monotonic() + time_limit_s
 
     # Build flat list of table instances sorted by area (largest first)
-    table_entries: List[TableTypeObject] = []
+    table_entries: List[BetaTableType] = []
     for tt in tables:
         count = counts.get(tt.id, 1)
         for _ in range(count):
@@ -416,6 +424,122 @@ def _grid_place(
     return placed, timed_out
 
 
+# ── an area, in rows ───────────────────────────────────────────────────────────
+
+#: What a row's free stretch may fall short of a whole table by and still hold it, in millimetres:
+#: the float error of the area's own corners, far under anything drawn.
+_FIT_SLACK_MM = 1e-6
+
+
+def _parts(geometry: BaseGeometry) -> List[BaseGeometry]:
+    """A geometry's polygons, however many it is made of."""
+    return list(getattr(geometry, "geoms", [geometry]))
+
+
+def _free_stretches(zone: BaseGeometry, top: float, depth: float) -> List[Tuple[float, float]]:
+    """Where a row *depth* deep with its top edge at *top* is clear of everything, left to right:
+    the stretches of x over which the whole depth of the row is inside *zone*."""
+    minx, _miny, maxx, _maxy = zone.bounds
+    blocked = sorted(
+        (part.bounds[0], part.bounds[2])
+        for part in _parts(box(minx, top, maxx, top + depth).difference(zone))
+        if part.area > _FIT_SLACK_MM
+    )
+    stretches: List[Tuple[float, float]] = []
+    at = minx
+    for left, right in blocked:
+        if left > at:
+            stretches.append((at, left))
+        at = max(at, right)
+    if maxx > at:
+        stretches.append((at, maxx))
+    return stretches
+
+
+def _swapped(geometry: BaseGeometry) -> BaseGeometry:
+    """A geometry with its x and y exchanged: a column is a row of the hall seen sideways."""
+    return transform(lambda x, y: (y, x), geometry)
+
+
+def _area_zone(
+    area: BaseGeometry,
+    room: Polygon,
+    obstacles: List[ObstacleZone],
+    existing: Sequence[Sequence[Tuple[float, float]]],
+    spacing_mm: float,
+) -> BaseGeometry:
+    """Where an area may take tables: the part of it on the floorplan, less the no-table zones and
+    the tables already placed, each of those grown by the aisle. Every piece of it is kept: an
+    area cut in two by a zone is filled on both sides."""
+    # An obstacle of fewer than three points is no shape and takes no floor; one whose sides cross
+    # is mended, so the floor it covers stays clear.
+    taken = [make_valid(Polygon(zone.polygon)) for zone in obstacles if len(zone.polygon) >= 3]
+    taken += [
+        make_valid(Polygon(corners)).buffer(spacing_mm, join_style="mitre") for corners in existing
+    ]
+    zone = area.intersection(room)
+    usable = [shape for shape in taken if not shape.is_empty]
+    return zone.difference(unary_union(usable)) if usable else zone
+
+
+def _rows_place(
+    zone: BaseGeometry,
+    tables: List[BetaTableType],
+    counts: Dict[str, int],
+    spacing_mm: float,
+    direction: str,
+    deadline: float,
+) -> Tuple[List[Dict], bool]:
+    """Fill *zone* with rows of tables: each row's tables end to end, touching, from the left of
+    every stretch of the row that is clear, and the rows *spacing_mm* apart, from the zone's top.
+    ``across`` rows run across the page, their tables unturned; ``down`` rows run down it, from the
+    zone's left, their tables turned a quarter. The answer is in the order placed: row by row, each
+    from its start.
+
+    A type's tables are placed whole before the next type's, which keep the aisle from them.
+    Returns the placed tables and whether it stopped at *deadline*, a ``time.monotonic()`` reading,
+    before the rest.
+    """
+    down = direction == "down"
+    if down:
+        zone = _swapped(zone)
+    placed: List[Dict] = []
+
+    for table_type in tables:
+        wanted = counts.get(table_type.id, 1)
+        if zone.is_empty or zone.area <= 0:
+            break
+        width, depth = table_type.width_mm, table_type.height_mm
+        _minx, miny, _maxx, maxy = zone.bounds
+        mine: List[Polygon] = []
+        top = miny
+        while len(mine) < wanted and top + depth <= maxy + _FIT_SLACK_MM:
+            if time.monotonic() >= deadline:
+                return placed, True
+            for left, right in _free_stretches(zone, top, depth):
+                fit = int((right - left + _FIT_SLACK_MM) // width)
+                for nth in range(min(fit, wanted - len(mine))):
+                    x = left + nth * width
+                    mine.append(box(x, top, x + width, top + depth))
+                    centre = (x + width / 2, top + depth / 2)
+                    placed.append({
+                        "x_mm": round(centre[1] if down else centre[0], 2),
+                        "y_mm": round(centre[0] if down else centre[1], 2),
+                        "rotation": 90.0 if down else 0.0,
+                        "width_mm": table_type.width_mm,
+                        "height_mm": table_type.height_mm,
+                        "table_type_id": table_type.id,
+                    })
+                if len(mine) >= wanted:
+                    break
+            top += depth + spacing_mm
+        if mine:
+            zone = zone.difference(unary_union(mine).buffer(spacing_mm, join_style="mitre"))
+
+    logger.info("Rows placed %d tables in the area", len(placed))
+    return placed, False
+
+
 # ── public entry point ─────────────────────────────────────────────────────────
 
 class PlacementResult(NamedTuple):
@@ -424,8 +548,9 @@ class PlacementResult(NamedTuple):
     #: The placed tables, each a dict of ``x_mm``, ``y_mm`` (its centre), ``rotation``,
     #: ``width_mm``, ``height_mm`` and ``table_type_id``.
     placed: List[Dict]
-    #: True only when the grid stopped at its deadline. The solver's anytime answer is its best
-    #: packing and does not say whether it stopped for time, so it is never reported as timed out.
+    #: True only when the grid, or an area's rows, stopped at the deadline. The solver's anytime
+    #: answer is its best packing and does not say whether it stopped for time, so it is never
+    #: reported as timed out.
     timed_out: bool
 
 
@@ -437,8 +562,12 @@ def auto_place_tables(
     scale_px_per_mm: float,
     aisle_config: Optional[Dict] = None,
     room_mm: Optional[Dict[str, float]] = None,
+    area_mm: Optional[Sequence[float]] = None,
+    area_polygon_mm: Optional[Sequence[Sequence[float]]] = None,
+    existing_mm: Sequence[Sequence[Sequence[float]]] = (),
+    direction: str = "across",
 ) -> PlacementResult:
-    """Auto-place rectangular tables inside the room boundary.
+    """Auto-place rectangular tables inside the room boundary, or inside an area of it.
 
     Parameters
     ----------
@@ -450,7 +579,7 @@ def auto_place_tables(
         (see :class:`ObstacleZone`).
     table_types:
         List of table-type dicts with keys ``id``, ``width_mm``, ``height_mm``
-        (see :class:`TableTypeObject`).
+        (see :class:`BetaTableType`).
     counts:
         Mapping ``table_type_id → quantity``.
     scale_px_per_mm:
@@ -463,6 +592,15 @@ def auto_place_tables(
     room_mm:
         The floor plan's extent, ``width_mm`` by ``height_mm`` from its top-left corner: the room
         when no walls are drawn. Required then; there is no default room.
+    area_mm, area_polygon_mm:
+        An area to fill, one or the other: a box, ``[x, y, width, depth]``, or a drawn shape's
+        corners, ``[[x, y], ...]``. With an area the room is ``room_mm`` whatever walls are sent,
+        the wall buffer is not read, and the tables stand in rows (``_rows_place``), clear of the
+        obstacles and ``table_spacing_mm`` clear of every table of ``existing_mm``.
+    existing_mm:
+        The tables already placed, each its four corners as it stands turned. Read with an area.
+    direction:
+        ``across`` or ``down``: which way an area's rows run.
 
     Returns
     -------
@@ -473,7 +611,7 @@ def auto_place_tables(
     # ── build domain objects ──────────────────────────────────────────────
     wall_objects = [WallSegment(**w) for w in walls]
     obstacle_objects = [ObstacleZone(**o) for o in obstacles]
-    table_objects = [TableTypeObject(**t) for t in table_types]
+    table_objects = [BetaTableType(**t) for t in table_types]
 
     # ── aisle config defaults ─────────────────────────────────────────────
     if aisle_config:
@@ -483,6 +621,26 @@ def auto_place_tables(
 
     wall_buffer = aisle.wall_buffer_mm
     table_spacing = aisle.table_spacing_mm
+
+    # ── an area of the floorplan, in rows ─────────────────────────────────
+    if area_mm is not None or area_polygon_mm is not None:
+        if room_mm is None:
+            # The route refuses an area with no floorplan size before it gets here.
+            raise ValueError("An area needs the floor plan's size.")
+        # The time the zone takes to build is the fill's too.
+        deadline = time.monotonic() + GRID_TIME_LIMIT_S
+        if area_mm is not None:
+            x, y, width, depth = area_mm
+            area: BaseGeometry = box(x, y, x + width, y + depth)
+        else:
+            area = Polygon(area_polygon_mm)
+        zone = _area_zone(
+            area, _build_room_polygon([], room_mm), obstacle_objects, existing_mm, table_spacing,
+        )
+        placed, timed_out = _rows_place(
+            zone, table_objects, counts, table_spacing, direction, deadline,
+        )
+        return PlacementResult(placed=placed, timed_out=timed_out)
 
     # ── geometry prep ─────────────────────────────────────────────────────
     room = _build_room_polygon(wall_objects, room_mm)

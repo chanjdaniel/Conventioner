@@ -19,6 +19,7 @@ const ENTRIES = [
   'folds',
   'proposals',
   'export-vendors',
+  'layout-map',
   'charts',
 ];
 

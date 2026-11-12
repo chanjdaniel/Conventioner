@@ -95,7 +95,7 @@ test('every page of a market puts its frame in the same place, flows included', 
   for (const path of [
     marketSetupPath(draft.marketId, 'form'),
     marketSetupPath(draft.marketId, 'start-from-csv'),
-    marketScreenPath(draft.marketId, 'floorplan'),
+    marketScreenPath(draft.marketId, 'layout'),
     marketSetupPath(open.marketId, 'applications'),
     marketScreenPath(open.marketId, 'import'),
   ]) {
@@ -148,20 +148,6 @@ for (const width of [1440, 1100]) {
     expect(card.x + card.width - (saved.x + saved.width)).toBeCloseTo(24, 0);
   });
 }
-
-test('the floorplan wizard fills the card rather than ending above a grey void', async ({
-  authenticatedPage: page,
-  request,
-}) => {
-  const draft = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  await frameOn(page, marketScreenPath(draft.marketId, 'floorplan'));
-
-  const card = await box(page.getByTestId('market-frame-card'));
-  const next = await box(page.getByTestId('floorplan-workflow-next-btn'));
-  // The wizard's own Next sits at the foot of the card, which reaches the foot of the window.
-  expect(card.y + card.height).toBeGreaterThan(900 - 24);
-  expect(card.y + card.height - (next.y + next.height)).toBeLessThan(32);
-});
 
 test('a market on its way shows the frame it will fill, and one that is missing no bar at all', async ({
   authenticatedPage: page,

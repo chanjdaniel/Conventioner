@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, toRef, watch } from 'vue';
+import { computed, ref, toRef, watch } from 'vue';
 import { type SetupObject, type SectionObject } from '@/assets/types/datatypes';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
@@ -35,6 +35,8 @@ const handleCountInput = (index: number, value: number) => {
 
 const addRow = () => {
   const newSection: SectionObject = {
+    // Stable across renames: a layout's table names its section by it (T257).
+    id: crypto.randomUUID(),
     name: '',
     location: null,
     tier: null,
@@ -49,17 +51,37 @@ const removeRow = (index: number | null) => {
   }
 };
 
+/**
+ * How many tables a section has on its location's layout, or null where its location has none
+ * (T257). A laid-out location's sections are counted from the layout, as the server counts them
+ * on every write (`derive_counts` in `back-end/layout.py`), so the cell is read, not typed: a
+ * typed count would be overwritten by the next save.
+ */
+const layoutCount = (section: SectionObject): number | null => {
+  const locationId = section.location?.id;
+  if (!locationId) return null;
+  const layout = (setupObject.value.floorplans ?? []).find(
+    (floorplan) => floorplan.locationId === locationId,
+  );
+  if (!layout) return null;
+  return layout.tables.filter((table) => table.sectionId === section.id).length;
+};
+
+const anyFromALayout = computed(() =>
+  sections.value.some((section) => layoutCount(section) !== null),
+);
+
 const countTables = () => {
   let sum = 0;
   for (let i = 0; i < sections.value.length; i++) {
-    sum += sections.value[i].count;
+    sum += layoutCount(sections.value[i]) ?? sections.value[i].count;
   }
   return sum;
 };
 </script>
 
 <template>
-  <div class="container" ref="container">
+  <div class="container" :class="{ 'container--from-a-layout': anyFromALayout }" ref="container">
     <div class="column-titles row-container" ref="columnTitles">
       <h3>Section Name</h3>
       <h3>Location</h3>
@@ -126,7 +148,15 @@ const countTables = () => {
             </option>
           </select>
         </div>
-        <div class="row-item">
+        <div v-if="layoutCount(item) !== null" class="row-item">
+          <p class="count-from-layout">
+            <span :data-testid="'setup-section-count-' + index">{{ layoutCount(item) }}</span>
+            <span class="count-source" :data-testid="'setup-section-count-source-' + index">
+              from the layout
+            </span>
+          </p>
+        </div>
+        <div v-else class="row-item">
           <div class="input-container">
             <input
               type="number"
@@ -180,6 +210,28 @@ const countTables = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* A count read from a layout says so under it, which needs more room than three typed digits. */
+.container--from-a-layout {
+  --section-columns: minmax(0, 1.5fr) minmax(0, 1.3fr) minmax(0, 1fr) 6.5rem 2rem;
+}
+
+.count-from-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  font-size: var(--text-sm);
+  /* Two lines in the height a field takes, so a laid-out row is as tall as a typed one. */
+  line-height: 1.2;
+  color: var(--mm-black);
+}
+
+.count-source {
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+  white-space: nowrap;
 }
 
 /* In the flow, under the rows. It was positioned absolutely below the card, and cleared the last

@@ -6,8 +6,9 @@
  * Applications, Assignment, Attendance, Tools and Stats in every phase. The Assignment tab holds
  * four pages: Settings (the rules and the run), Assignments (the assignment by table, read and
  * changed), Vendors (the assignment by vendor) and Payments (the money the assignment is owed,
- * E44/F02/S01); the first two were Assignment and Result until E38/F08/S01. Import and Floorplan
- * are flows entered from a tab rather than places to go, so they stand under that tab.
+ * E44/F02/S01); the first two were Assignment and Result until E38/F08/S01. Import and a
+ * location's layout (T257) are flows entered from a tab rather than places to go, so they stand
+ * under that tab.
  *
  * A tab opens the page the market is worked on in its phase - the one carrying the dot - so the
  * bar and the rail beneath it say the same thing about where the market is. This replaced
@@ -28,7 +29,7 @@ export type MarketPage =
   | 'stats';
 
 /** A flow entered from a tab, rather than a page of one. */
-export type MarketFlow = 'import' | 'floorplan' | 'start-from-csv';
+export type MarketFlow = 'import' | 'layout' | 'start-from-csv';
 
 export type MarketTab =
   'setup' | 'form' | 'applications' | 'assignment' | 'attendance' | 'tools' | 'stats';
@@ -99,7 +100,7 @@ export const PAGE_LABELS: Record<MarketPage, string> = {
 
 const FLOW_TAB: Record<MarketFlow, MarketTab> = {
   import: 'applications',
-  floorplan: 'setup',
+  layout: 'setup',
   'start-from-csv': 'setup',
 };
 
@@ -153,8 +154,8 @@ export function pageOfRoute(
       return 'stats';
     case 'import-applications':
       return 'import';
-    case 'floorplan-editor':
-      return 'floorplan';
+    case 'market-layout':
+      return 'layout';
     case 'start-from-csv':
       return 'start-from-csv';
     default:

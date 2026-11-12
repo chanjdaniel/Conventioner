@@ -25,6 +25,8 @@ describe('the places that fit a phone', () => {
     ['the Applications page', `${MARKET}/applications`],
     ['Stats', `${MARKET}/stats`],
     ['the Discord return page', '/discord/connected'],
+    ["a market's layout", `${MARKET}/layout`],
+    ["a location's layout", `${MARKET}/layout/loc-1`],
   ])('%s fits a phone', (_, path) => {
     expect(fits(path)).toBe(true);
   });
@@ -35,7 +37,6 @@ describe('the places that fit a phone', () => {
     ['Settings', `${MARKET}/settings`],
     ['the import', `${MARKET}/import`],
     ['start-from-CSV', `${MARKET}/start-from-csv`],
-    ['the floorplan', `${MARKET}/floorplan`],
   ])('%s keeps the desktop floor', (_, path) => {
     expect(fits(path)).toBe(false);
   });

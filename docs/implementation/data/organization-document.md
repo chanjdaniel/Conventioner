@@ -3,13 +3,6 @@ layer: implementation
 kind: data
 describes:
   - back-end/datatypes.py#Organization
-  - back-end/datatypes.py#people_from_lists
-  - back-end/datatypes.py#organization_people_of
-  - back-end/organization_people.py#of_person
-  - back-end/migrations/migrate_organization_people.py
-  - back-end/tests/test_migrate_organization_people.py
-  - back-end/tests/test_a_roll_forward_rebuilds_the_people_from_the_lists.py
-  - back-end/tests/test_a_persons_organizations_in_either_shape.py
   - back-end/datatypes.py#OrganizationRole
   - back-end/datatypes.py#MarketRole
   - back-end/api/organizations.py#create_organization
@@ -19,7 +12,6 @@ describes:
   - back-end/api/organizations.py#add_org_admin
   - back-end/api/organizations.py#add_org_member
   - back-end/api/organizations.py#remove_org_user
-  - back-end/api/organizations.py#change_org_place
   - back-end/api/organizations.py#transfer_org_ownership
   - back-end/api/organizations.py#get_history
   - back-end/api/organizations.py#read_organization
@@ -40,7 +32,15 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
-verified: 2026-11-11
+  - back-end/datatypes.py#people_from_lists
+  - back-end/datatypes.py#organization_people_of
+  - back-end/organization_people.py#of_person
+  - back-end/migrations/migrate_organization_people.py
+  - back-end/tests/test_migrate_organization_people.py
+  - back-end/tests/test_a_roll_forward_rebuilds_the_people_from_the_lists.py
+  - back-end/tests/test_a_persons_organizations_in_either_shape.py
+  - back-end/api/organizations.py#change_org_place
+verified: 2026-11-12
 sources:
   - E20/F04/S01
   - E21/F03/S01
@@ -58,8 +58,8 @@ sources:
   - T224
   - T217
   - T263
-  - T283
   - T274
+  - T283
 ---
 
 # The organization document, and roles

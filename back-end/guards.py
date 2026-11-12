@@ -16,11 +16,13 @@ tables that disagree.
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
+from urllib.parse import quote
 
 import api.applications as ApplicationsApi
 from assignment.made_from import review_reopened_since_run
 from assignment.utils import convert_keys_to_camel_case
 from datatypes import ApplicationStatus, IntakeMode, Market, MarketPhase
+import layout as Layout
 from essential_fields import (
     TIER_PREFERENCE_KEY,
     effective_essential_options_for_market,
@@ -251,6 +253,44 @@ class EveryTierHasTablesGuard:
                     f"{'Tier' if len(bare) == 1 else 'Tiers'} {', '.join(bare)} "
                     f"{'has' if len(bare) == 1 else 'have'} no tables. Give each a section with "
                     "tables on Market Setup, or remove it."
+                ),
+            )
+        return PreconditionResult(id=self.id, passed=True, message="")
+
+
+class LayoutTablesHaveSectionsGuard:
+    """Every table of a layout is in a section.
+
+    A laid-out location's sections count the layout's tables in them, so a table in no section (of
+    none, or of a section removed on Section Setup) is a table of the hall no vendor can be given.
+    A table's section settles on leaving draft with the rest of the setup, so this is the last
+    moment it can be put in one or removed (T257). One line names the first layout that has any,
+    and its fix leads to that location's layout.
+    """
+
+    id: str = "layout_tables_have_sections"
+    description: str = "Every table of a layout is in a section"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        setup = market.setup_object
+        for floorplan in Layout.laid_out(setup) if setup else []:
+            loose = len(Layout.tables_in_no_section(floorplan, setup))
+            if not loose:
+                continue
+            location = next(
+                place.name for place in setup.locations if place.id == floorplan.location_id)
+            one = loose == 1
+            return PreconditionResult(
+                id=self.id, passed=False,
+                # The location's own layout, never the market's bare `layout`, which redirects to
+                # its first location's: the panel cannot follow a hop.
+                resolution_link=f"layout/{quote(floorplan.location_id, safe='')}",
+                resolution_label="Open the layout",
+                resolution_action="change-setup",
+                message=(
+                    f"{location}'s layout has {loose} {'table' if one else 'tables'} in no "
+                    f"section. Put {'it' if one else 'them'} in a section or remove "
+                    f"{'it' if one else 'them'}."
                 ),
             )
         return PreconditionResult(id=self.id, passed=True, message="")
@@ -809,6 +849,7 @@ _FORM_HAS_FIELDS = FormHasFieldsGuard()
 _SETUP_HAS_DATES = SetupHasDatesGuard()
 _SETUP_HAS_A_LOCATION = SetupHasALocationGuard()
 _EVERY_TIER_HAS_TABLES = EveryTierHasTablesGuard()
+_LAYOUT_TABLES_HAVE_SECTIONS = LayoutTablesHaveSectionsGuard()
 _PRICE_GROUPS_STAND = PriceGroupsStandGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
@@ -856,13 +897,15 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
 # Keyed by edge, not by target phase, because a precondition can be specific to the route.
 # An edge carries its phase's entry invariants PLUS whatever else that route demands.
 TRANSITION_GUARDS: dict[tuple[str, str], list] = {
-    # The setup's four first, then the form, then Review setup, so the rail offers each in the
+    # The setup's five first (its dates, a location, tables at every tier, every table of a layout
+    # in a section, its price groups), then the form, then Review setup, so the rail offers each in the
     # order the organizer works through them, before the import: a Google Form market's first import
     # judges this edge less its own guard before it writes. Review setup's two guards are this
     # edge's own, never the phase's entry invariants: no other way into Review is refused them
     # (T206).
     ("draft", "applications"): [
-        _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES, _PRICE_GROUPS_STAND,
+        _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES,
+        _LAYOUT_TABLES_HAVE_SECTIONS, _PRICE_GROUPS_STAND,
         _FORM_HAS_FIELDS, _REVIEW_HIGHLIGHTS_DECIDED, _REJECTION_RULES_DECIDED, _RESPONSES_IMPORTED,
     ],
     # TODO: Add _PRIORITY_CONFIGURED guard here (append to list) once it exists.

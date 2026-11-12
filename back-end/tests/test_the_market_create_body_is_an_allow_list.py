@@ -18,7 +18,6 @@ from test_the_organizations_default import world  # noqa: F401 - a fixture, used
 
 import app as app_module
 import api.markets as MarketsApi
-import floorplan_limits as FloorplanLimits
 import pricing as Pricing
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from datatypes import AssignmentObject, Market, MarketPhase, SetupObject
@@ -130,16 +129,21 @@ def test_the_allow_list_names_only_fields_of_a_market():
     assert set(MarketsApi.MARKET_CREATE_FIELDS) <= set(Market.model_fields)
 
 
-#: A floorplan as the wizard sends it, camelCase, with one table in one section.
-FLOORPLAN = {
-    "id": "fp-1", "scalePxPerUnit": 0.1, "scaleUnit": "mm",
-    "tableTypes": [{"id": "tt-1", "name": "6ft Table", "widthMm": 1800, "heightMm": 900,
-                    "maxCapacity": 2}],
-    "walls": [], "obstacles": [],
-    "placedTables": [{"id": "t-1", "tableTypeId": "tt-1", "x": 40, "y": 40, "widthMm": 1800,
-                      "heightMm": 900}],
-    "sections": [{"id": "s-1", "name": "Main Hall", "locationName": "Main Hall",
-                  "tableIds": ["t-1"]}],
+#: A plan with ids, its one location laid out with one table of Main Hall, camelCase.
+LAID_OUT_PLAN = {
+    **COMPLETE_PLAN,
+    "locations": [{"id": "loc-main", "name": "Main Hall"}],
+    "sections": [
+        {**section, "id": section_id, "location": {"id": "loc-main", "name": "Main Hall"}}
+        for section, section_id in zip(COMPLETE_PLAN["sections"], ("sec-main", "sec-garden"))
+    ],
+    "tableTypes": [{"id": "tt-1", "name": "Standard 6 ft", "widthMm": 1830, "depthMm": 760}],
+    "floorplans": [{
+        "id": "fp-1", "locationId": "loc-main", "imageGridfsId": "an-image-of-market-9",
+        "imageWidth": 800, "imageHeight": 600, "scalePxPerUnit": 800 / 30_000,
+        "tables": [{"id": "t-1", "sectionId": "sec-main", "number": 1, "tableTypeId": "tt-1",
+                    "xMm": 1000, "yMm": 1000, "rotation": 0}],
+    }],
 }
 
 
@@ -169,16 +173,21 @@ def _refused_and_unstored(response, world, sentence):  # noqa: F811
 
 
 class TestThePlanIsJudgedAsThePlanWriteJudgesIt:
-    def test_a_floorplan_image_of_another_market_is_refused(
+    def test_the_bodys_floorplans_and_table_types_are_dropped_as_the_plan_write_drops_them(
         self, post_plan, world, monkeypatch,  # noqa: F811
     ):
-        monkeypatch.setattr(
-            MarketsApi.GridfsService, "get_image_market_id", lambda _image: "market-9")
+        def never_asked(_image):
+            raise AssertionError("a dropped floorplan's image is not looked up")
 
-        response = post_plan({**COMPLETE_PLAN, "floorplans": [
-            {**FLOORPLAN, "imageGridfsId": "an-image-of-market-9"}]})
+        monkeypatch.setattr(MarketsApi.GridfsService, "get_image_market_id", never_asked)
 
-        _refused_and_unstored(response, world, MarketsApi.UNTIED_FLOORPLAN_IMAGE)
+        response = post_plan(LAID_OUT_PLAN)
+
+        assert response.status_code == 201, response.get_json()
+        [stored] = [doc for doc in world.markets.docs if doc["id"] != "market-123"]
+        assert stored["setupObject"]["floorplans"] is None
+        assert stored["setupObject"]["tableTypes"] == []
+        assert [section["count"] for section in stored["setupObject"]["sections"]] == [4, 4]
 
     def test_a_half_table_share_over_100_is_refused(self, post_plan, world):  # noqa: F811
         response = post_plan({**COMPLETE_PLAN, "assignmentOptions": {
@@ -198,18 +207,3 @@ class TestThePlanIsJudgedAsThePlanWriteJudgesIt:
             {**COMPLETE_PLAN, "pricing": {"currency": "CAD", "halfTablePercent": 50,
                                           "everyoneElse": [{"tier": "Bronze", "cents": 100}]}}))
         _refused_and_unstored(response, world, Pricing.pricing_refusal(plan))
-
-    def test_more_floorplans_than_a_market_holds_are_refused(self, post_plan, world):  # noqa: F811
-        floorplans = [{**FLOORPLAN, "id": f"fp-{i}"}
-                      for i in range(FloorplanLimits.MAX_FLOORPLANS_PER_MARKET + 1)]
-
-        response = post_plan({**COMPLETE_PLAN, "floorplans": floorplans})
-
-        _refused_and_unstored(response, world, FloorplanLimits.TOO_MANY_FLOORPLANS)
-
-    def test_a_plan_the_plan_write_takes_is_stored(self, post_plan, world):  # noqa: F811
-        response = post_plan({**COMPLETE_PLAN, "floorplans": [FLOORPLAN]})
-
-        assert response.status_code == 201, response.get_json()
-        [stored] = [doc for doc in world.markets.docs if doc["id"] != "market-123"]
-        assert [floorplan["id"] for floorplan in stored["setupObject"]["floorplans"]] == ["fp-1"]

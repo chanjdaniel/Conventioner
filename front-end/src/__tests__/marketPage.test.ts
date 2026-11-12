@@ -93,7 +93,7 @@ describe('the tabs', () => {
     expect(tabOf('vendors')).toBe('assignment');
     expect(tabOf('payments')).toBe('assignment');
     expect(tabOf('import')).toBe('applications');
-    expect(tabOf('floorplan')).toBe('setup');
+    expect(tabOf('layout')).toBe('setup');
     expect(tabOf('stats')).toBe('stats');
     expect(tabOf('tools')).toBe('tools');
   });
@@ -129,7 +129,8 @@ describe('the page a route is', () => {
     expect(pageOfRoute('market-stats', {})).toBe('stats');
     expect(pageOfRoute('market-tools', {})).toBe('tools');
     expect(pageOfRoute('import-applications', {})).toBe('import');
-    expect(pageOfRoute('floorplan-editor', {})).toBe('floorplan');
+    expect(pageOfRoute('market-layout', {})).toBe('layout');
+    expect(pageOfRoute('market-layout', { locationId: 'loc-1' })).toBe('layout');
   });
 
   it('is nothing for a route that is not a market page', () => {

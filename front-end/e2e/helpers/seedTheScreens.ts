@@ -15,7 +15,11 @@ import {
   ensureTestOrgAuthenticated,
   loginViaApi,
   marketNameToSlug,
+  seedLayout,
+  UPPER_HALL_TABLES,
+  UPPER_HALL_ZONES,
   seedPublishedMarketWithAssignments,
+  type SeededLayout,
 } from './seeds';
 import { uniqueMarketName } from './uniqueName';
 import { ensureVerifiedUser } from './verifiedUser';
@@ -44,6 +48,11 @@ export interface SeededMarket {
 export interface TheScreensSeed {
   /** A draft with a 70-character name, a four-date, three-section plan and a long form. */
   draft: SeededMarket;
+  /** A draft whose Upper Hall layout has its floorplan and no scale yet (T257, `seedLayout`). */
+  layout: SeededLayout;
+  /** A draft whose Upper Hall is laid out: calibrated at 30 m across, with Gold row's 13 tables,
+   *  Silver aisle's 6, one in no section, a stage and a pillar (`UPPER_HALL_TABLES`). */
+  laidOut: SeededLayout;
   /** Taking applications on its own page: 40 applications in every review state. */
   open: SeededMarket;
   /** Its own page no longer taking applications (E38/F04/S02), the same applications. */
@@ -794,8 +803,17 @@ export async function seedTheScreens(
   const { id: organizationId, ...organization } = await organizationWithPeople(api, backend);
   const ofTheOrganization = await organizationMarket(api, backend, email, organizationId);
 
+  const layout = await seedLayout(api, backend, email, password, { layout: true });
+  const laidOut = await seedLayout(api, backend, email, password, {
+    metresAcross: 30,
+    tables: UPPER_HALL_TABLES,
+    zones: UPPER_HALL_ZONES,
+  });
+
   return {
     draft,
+    layout,
+    laidOut,
     open,
     closed,
     review,

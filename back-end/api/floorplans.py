@@ -13,10 +13,11 @@ from PIL import Image as PILImage
 
 from api.floorplans_access import image_refusal, market_refusal
 import api.market_actions as Actions
+import floorplan_limits as Limits
 import history as History
 from services.gridfs_service import delete_image, get_image, get_image_market_id, upload_image
 from utils.identity import authenticated_email
-from utils.pdf_converter import pdf_to_images, is_pdf
+from utils.pdf_converter import TooManyPages, UnreadablePdf, pdf_to_images, is_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,15 @@ def upload_floorplan():
     - Image: stores directly in GridFS, returns ``{gridfs_id, width, height}``.
     - PDF: converts each page via ``pdf_to_images``, stores each page
       separately, returns ``{pages: [{gridfs_id, width, height}, ...]}``.
+
+    Held to production's limits (T257): a file over ``MAX_UPLOAD_BYTES`` is refused 413, by the
+    request's ``Content-Length`` before the body is read when it says so, and by the file's own
+    length when it does not; a PDF of more than ``MAX_PDF_PAGES`` pages, or one PDFium cannot open,
+    is refused 400 with a sentence, the latter naming the file.
     """
+    length = request.content_length
+    if length is not None and length > Limits.MAX_UPLOAD_BYTES + Limits.UPLOAD_FORM_ALLOWANCE_BYTES:
+        return jsonify({"error": Limits.UPLOAD_TOO_LARGE}), 413
     try:
         market_id = request.form.get("market_id")
         refusal = market_refusal(market_id, Actions.CHANGE_SETUP, edits=True)
@@ -85,14 +94,22 @@ def upload_floorplan():
         file_bytes = file.read()
         if not file_bytes:
             return jsonify({"error": "Empty file"}), 400
+        if len(file_bytes) > Limits.MAX_UPLOAD_BYTES:
+            return jsonify({"error": Limits.UPLOAD_TOO_LARGE}), 413
 
         filename = file.filename or "floorplan"
 
         # ── PDF path ───────────────────────────────────────────────────
         if is_pdf(content_type) or filename.lower().endswith(".pdf"):
-            page_images = pdf_to_images(file_bytes)
-            if not page_images:
-                return jsonify({"error": "Failed to convert PDF to images"}), 500
+            try:
+                page_images = pdf_to_images(
+                    file_bytes, max_pages=Limits.MAX_PDF_PAGES,
+                    max_side_px=Limits.MAX_PDF_PAGE_SIDE_PX)
+            except TooManyPages:
+                return jsonify({"error": Limits.TOO_MANY_PDF_PAGES}), 400
+            except UnreadablePdf as exc:
+                logger.info("Refused an unreadable PDF for market %s: %s", market_id, exc)
+                return jsonify({"error": Limits.unreadable_pdf(filename)}), 400
 
             pages = []
             for i, page_bytes in enumerate(page_images):

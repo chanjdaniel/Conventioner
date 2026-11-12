@@ -93,16 +93,22 @@ One block per action, in the order of [the actions table](../modules/market-acti
 - `renamed`: renaming a draft
   - Detail: `name`
 - `plan`: a Market Setup card, or the intake mode (`PUT /markets/:id/plan`)
-  - Detail: whichever of `market_dates`, `tiers`, `locations`, `sections`, `floorplans` and `intake_mode` changed
+  - Detail: whichever of `market_dates`, `tiers`, `locations`, `sections` and `intake_mode` changed; never the layouts or the table types, which the plan write keeps as stored and their own writes record (an entry written before T257 may name `floorplans`)
 - `pricing`: the Pricing card, in the same plan write ([a price follows the table](../../business/rules/a-price-follows-the-table.md))
   - Subject: `currency`, the market's, so the prices can be written in it
   - Detail: whichever of `currency`, `half_table_percent`, `groups` (each `{name, conditions, prices}`, the whole list) and `everyone_else` (each tier's `{tier, cents}`) changed; a market never priced is the card's defaults before (CAD, 50, no group, no price), so its first price records only the prices typed
-- `floorplan`: saving a floorplan to the market
-  - Subject: `floorplan_id`
-  - Detail: whichever of `sections`, `locations` and `floorplan_ids` changed, and of the saved floorplan's summary: `tables`, `walls`, `no_go_zones` and `table_types` counted, and `layout_digest`, a digest of all but its id and sections, so a moved table changes it; each null on the side where the market held no floorplan of that id, and never the floorplan itself
+- `floorplan`: saving a location's layout (T257)
+  - Subject: `floorplan_id`, and `location`, its location's name
+  - Detail: what the save changed, `layout.describe_change`'s fields, with no before and after: `started` (its first save), `added` and `removed` (tables counted per section name), `moved`, `turned` (the short way round, so 359.999° to 0° is no turn) and `retyped` (given another table type; how many tables), `renumbered` (section names), `zones` (added, changed and removed counted), `image` (`"replaced"`), `scale` (metres across to the millimetre, `before` and `after`), `colours` and `labels` (section names); never a table itself, and a save that changes nothing records nothing
+  - An entry the beta's save wrote, before this, has `before` and `after`: whichever of `sections`, `locations` and `floorplan_ids` changed, and the saved floorplan's `tables` and `no_go_zones` counted and its `layout_digest`, and earlier still `walls` and `table_types`; it reads as it did
 - `floorplan_image_deleted`: deleting a floorplan image
   - Subject: `image_id`
   - Detail: `image_id`, then null
+- `floorplan_removed`: a location's layout taken with its location by a plan write or the CSV start, its image deleted with it (T257)
+  - Subject: `floorplan_id`, and `location`, its name as the market last held it
+  - Detail: `tables`, the layout's table count, then null
+- `table_types`: the market's table types replaced by `PUT /markets/:id/table-types` (T257)
+  - Detail: `table_types`, before and after, each type `{id, name, size}` with its size in words ("122 x 122 cm"); a write that restates the types records nothing
 
 **`change-form`**
 
@@ -359,7 +365,7 @@ One block per action, in the order its constants stand in `history.py`; a new ki
 
 No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
 
-Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in or out; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
+Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in or out; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); the floorplan routes that keep nothing, or an upload the market uses only once a layout is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
 Two rows record nothing of their own: "Update info the assignment or price reads", asked beside "Update a vendor's info" by the same write, which records it under that row, and who may be chosen as a reviewer, which changes nothing itself.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
 

@@ -42,7 +42,7 @@ sources:
 
 Every market screen stands in [`MarketFrame`](../../../front-end/src/components/MarketFrame.vue): a card whose top, the market's bar and the whole [phase rail](phase-rail.md), sticks under the app bar while the page scrolls from 1024px; up to 1023px, a phone or a portrait tablet, only the bar does.
 On a desk three layers are pinned, [the app bar](app-bar.md), the market bar and the rail, 182px on a draft market with its line of blockers, at 1280x800 and 1920x1080 alike, a cost accepted for always seeing where the market is; and every screen that carries the rail carries the frame, since a frame pinned on one market screen and scrolling away on the next is the inconsistency it exists to remove.
-The import, floorplan and start-from-CSV flows stand in it too.
+The import, start-from-CSV and layout flows stand in it too.
 A screen hands it the market from [the market store](market-store.md) and renders its own content in the frame's slot.
 
 ## What it draws
@@ -69,7 +69,7 @@ A tab is a place to look and never a state: the market's state is its phase, on 
 Stats, last, has no phase of its own and no note: it reads the market from its first application to its archive, and says "Nobody has applied yet." until someone has.
 Tools, just left of it, has none either: it holds the manual tools an organizer runs whenever they choose, each a card of a `.card-grid` on the page's inset, the [Discord card](discord.md) first ([`ToolsView.vue`](../../../front-end/src/views/ToolsView.vue)).
 
-[`front-end/src/utils/marketPage.ts`](../../../front-end/src/utils/marketPage.ts) says which tab holds which page (`TAB_PAGES`), which tab a flow stands under (import under Applications, floorplan and start-from-CSV under Market Setup), and which page a route is (`pageOfRoute`), the one reading of it so the bar and the page row can never disagree.
+[`front-end/src/utils/marketPage.ts`](../../../front-end/src/utils/marketPage.ts) says which tab holds which page (`TAB_PAGES`), which tab a flow stands under (import under Applications, start-from-CSV and a location's layout under Market Setup), and which page a route is (`pageOfRoute`), the one reading of it so the bar and the page row can never disagree.
 `hasAssignment` is the one statement of "an assignment is stored", read by the dot, the landing and the Assignments page.
 
 ## Sharp edges
@@ -107,7 +107,7 @@ The card is at least the height of the window under the app bar, so a short page
 
 **A page says only its own lock; the frame says the person's.**
 The plan says why its setup settled (`setupLockReason`), the form's steps why the form locked, and the Settings page why its rules settled; each disables a control on the table's answer for the action it takes (`mayTake`, [the market store](market-store.md#where-a-screens-permission-comes-from)), but none repeats `readOnlyReason`, or a Viewer reads the same sentence twice on one page.
-The floorplan flow stands in for its wizard on either reason and says only the setup's.
+A location's layout offers nothing to upload or calibrate on either reason and says only the setup's.
 
 **Every market screen is `--workspace-max` wide, and the frame sets it.**
 A screen in the frame sets no width of its own, or moving between a market's screens makes the frame jump.

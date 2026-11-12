@@ -1,15 +1,4 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { seedDraftMarket } from './helpers/seedDraftMarket';
-import {
-  test,
-  expect,
-  TEST_USER,
-  BACKEND_URL,
-  LoginPage,
-  FloorplanWorkflowPage,
-  VendorPage,
-} from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, LoginPage, VendorPage } from './fixtures';
 import { calendarToday, forgetSignInAttempts, signInOnThePage } from './helpers/vendorSignIn';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { TablesPage } from './pages/TablesPage';
@@ -19,12 +8,17 @@ import {
   planSetupObject,
   seedApplicantMarket,
 } from './helpers/seedApplicantMarket';
-import { seedPublishedMarketWithAssignments } from './helpers/seeds';
+import {
+  seedLayout,
+  seedPublishedMarketWithAssignments,
+  UPPER_HALL_TABLES,
+  UPPER_HALL_ZONES,
+} from './helpers/seeds';
+import { LayoutPage } from './pages/LayoutPage';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
 import { mongoEval } from './helpers/mongo';
-import { seedFloorplanTemplate } from './helpers/seedFloorplanTemplate';
 import { saveApplicationForm } from './helpers/saveApplicationForm';
 
 /**
@@ -334,83 +328,79 @@ test('every field of the import has a name', async ({ authenticatedPage: page, r
   expect(await namelessControls(page), 'the mapping step').toEqual([]);
 });
 
-test('the floorplan choice is a dialog', async ({ authenticatedPage: page, request }) => {
-  // A draft with no sections yet, which is where the choice is offered.
-  const { marketId } = await seedDraftMarket(
-    request,
-    BACKEND_URL,
-    TEST_USER.email,
-    TEST_USER.password,
-  );
-  await page.goto(marketSetupPath(marketId, 'setup'));
-  await page.getByTestId('market-setup-choose-path-button').click();
-  const dialog = page.getByRole('dialog', { name: 'Choose your setup path' });
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toHaveAttribute('aria-modal', 'true');
-  await expect(dialog.getByTestId('choose-path-manual')).toBeVisible();
-  await expect(dialog.getByTestId('choose-path-floorplan')).toBeVisible();
-});
-
-test('every field of the floorplan table types has a name, in the form and the dialog', async ({
+test("every control of a layout's upload and its calibration has a name", async ({
   authenticatedPage: page,
   request,
 }) => {
-  // Max Capacity was a `<label>` tied to no control, so its choice had no name (T45).
-  const { marketId } = await seedDraftMarket(
-    request,
-    BACKEND_URL,
-    TEST_USER.email,
-    TEST_USER.password,
-  );
-  const floorplan = new FloorplanWorkflowPage(page);
-  await floorplan.goto(marketId);
-  await floorplan.reachTableTypes(
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'test-floorplan.png'),
-  );
-  await floorplan.tableTypeAddBtn.click();
-  await expect(page.getByRole('group', { name: 'Max Capacity' })).toBeVisible();
-  expect(await namelessControls(page), 'the add form').toEqual([]);
-  await floorplan.tableTypeCancelBtn.click();
+  // Upper Hall's floorplan uploaded and not yet calibrated; Lower Hall's not yet uploaded (T257).
+  const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    layout: true,
+  });
+  const layout = new LayoutPage(page);
 
-  await floorplan.addTableType('Six-foot', '1800', '750');
-  await floorplan.openTableTypeEdit('Six-foot');
-  const dialog = page.getByRole('dialog', { name: 'Edit Table Type' });
-  await expect(dialog.getByRole('group', { name: 'Max Capacity' })).toBeVisible();
-  expect(await namelessControls(page), 'the Edit Table Type dialog').toEqual([]);
+  await layout.goto(seeded.marketId, seeded.lower.id);
+  await expect(layout.uploadDropzone).toBeVisible();
+  expect(await namelessControls(page), 'the upload').toEqual([]);
+
+  await layout.goto(seeded.marketId, seeded.upper.id);
+  await expect(layout.calibrationMap).toBeVisible();
+  await expect(layout.calibrationMap).toHaveAccessibleName("Upper Hall's floorplan");
+  await expect(layout.length).toHaveAccessibleName('Length');
+  await expect(layout.unit).toHaveAccessibleName('Unit');
+  expect(await namelessControls(page), 'the calibration').toEqual([]);
 });
 
-test('every control of the floorplan template dialogs has a name, the list and the confirm too', async ({
+test("every table of a layout's map has a name, and the map its own", async ({
   authenticatedPage: page,
   request,
 }) => {
-  // One saved template, so Load Template has a list and a confirm view to walk (T45).
-  const { marketId } = await seedDraftMarket(
-    request,
-    BACKEND_URL,
-    TEST_USER.email,
-    TEST_USER.password,
-  );
-  const template = await seedFloorplanTemplate(request, BACKEND_URL, [
-    { id: 'round', name: 'Round', widthMm: 1500, heightMm: 1500, maxCapacity: 2, color: '#4A90D9' },
-  ]);
-  const floorplan = new FloorplanWorkflowPage(page);
-  await floorplan.goto(marketId);
-  await floorplan.reachSaveStep(
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'test-floorplan.png'),
-  );
+  // Upper Hall laid out: tables of two sections and one of none, each a button (T257).
+  const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    metresAcross: 30,
+    tables: UPPER_HALL_TABLES,
+    zones: UPPER_HALL_ZONES,
+  });
+  const layout = new LayoutPage(page);
 
-  await floorplan.templateSaveOpenBtn.click();
-  await expect(floorplan.templateNameInput).toBeVisible();
-  expect(await namelessControls(page), 'Save Template').toEqual([]);
-  await page.keyboard.press('Escape');
+  await layout.goto(seeded.marketId, seeded.upper.id);
+  await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+  await expect(layout.map).toHaveAccessibleName('Upper Hall layout, 20 tables');
+  await expect(layout.table('Gold row 13, Standard 6 ft')).toBeVisible();
+  await expect(layout.table('Table in no section, Standard 6 ft')).toBeVisible();
+  expect(await namelessControls(page), 'the map').toEqual([]);
+});
 
-  await floorplan.templateLoadOpenBtn.click();
-  const card = floorplan.templateLoadWindow.getByRole('button', { name: new RegExp(template) });
-  await expect(card).toBeVisible();
-  expect(await namelessControls(page), 'Load Template, its list').toEqual([]);
-  await card.click();
-  await expect(page.getByRole('dialog', { name: 'Confirm Load' })).toBeVisible();
-  expect(await namelessControls(page), 'Load Template, its confirm view').toEqual([]);
+test("every control of Fill an area's strip and its dialog has a name", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    metresAcross: 30,
+    tables: UPPER_HALL_TABLES,
+    zones: UPPER_HALL_ZONES,
+  });
+  const layout = new LayoutPage(page);
+
+  await layout.goto(seeded.marketId, seeded.upper.id);
+  await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+  await layout.toolFill.click();
+  await expect(layout.toolFill).toHaveAttribute('aria-pressed', 'true');
+  await expect(layout.fillView).toHaveAccessibleName('Fill what is in view');
+  expect(await namelessControls(page), 'the options strip').toEqual([]);
+
+  await layout.fillView.click();
+  await expect(layout.fillDialog).toBeVisible();
+  await expect(layout.fillSection).toHaveAccessibleName('Section');
+  await expect(layout.fillType).toHaveAccessibleName('Table type');
+  await expect(page.getByRole('group', { name: 'How many' })).toBeVisible();
+  await expect(layout.fillCountChoice).toHaveAccessibleName('This many');
+  await expect(layout.fillCount).toHaveAccessibleName('Number of tables');
+  await expect(layout.fillFitChoice).toHaveAccessibleName('As many as fit');
+  await expect(layout.fillDirection).toHaveAccessibleName('Direction');
+  await expect(layout.fillAisle).toHaveAccessibleName('Aisle (cm)');
+  await expect(layout.fillInView).toHaveAccessibleName('Fill what is in view');
+  await expect(layout.fillSubmit).toHaveAccessibleName('Fill');
+  expect(await namelessControls(page), 'the dialog').toEqual([]);
 });
 
 test('every control of a vendor notes panel has a name, wherever it opens', async ({
@@ -441,4 +431,51 @@ test('every control of a vendor notes panel has a name, wherever it opens', asyn
     await expect(page.getByTestId(`vendor-drawer-panel-${tab}`)).toBeVisible();
     expect(await namelessControls(page), `a vendor's panel, ${tab}`).toEqual([]);
   }
+});
+
+test("every control of a layout's types, zones and floorplan cards, and the types' dialogs, has a name", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seeded = await seedLayout(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    metresAcross: 30,
+    tables: UPPER_HALL_TABLES,
+    zones: UPPER_HALL_ZONES,
+  });
+  const layout = new LayoutPage(page);
+
+  await layout.goto(seeded.marketId, seeded.upper.id);
+  await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+  await layout.toolZone.click();
+  await expect(layout.toolZone).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    layout.typesCard.getByRole('button', { name: 'Edit or remove Standard 6 ft' }),
+  ).toBeVisible();
+  await expect(layout.zoneLabels.first()).toHaveAccessibleName('Name of zone 1');
+  await expect(layout.showImage).toHaveAccessibleName('Show the floorplan');
+  await expect(layout.replaceImage).toHaveAccessibleName('Replace the image');
+  expect(await namelessControls(page), 'the cards').toEqual([]);
+
+  await layout.typesAdd.click();
+  await expect(layout.typeDialog).toBeVisible();
+  await expect(layout.typeName).toHaveAccessibleName('Name');
+  await expect(layout.typeWidth).toHaveAccessibleName('Width');
+  await expect(layout.typeDepth).toHaveAccessibleName('Depth');
+  await expect(layout.typeUnit).toHaveAccessibleName('Unit');
+  expect(await namelessControls(page), 'the type dialog').toEqual([]);
+  await layout.typeCancel.click();
+
+  await layout.typesSave.click();
+  await expect(layout.saveTypesName).toHaveAccessibleName('Name');
+  expect(await namelessControls(page), 'the save dialog').toEqual([]);
+  await page.keyboard.press('Escape');
+
+  await layout.typesUseSaved.click();
+  await expect(layout.savedTypesDialog).toBeVisible();
+  await expect(
+    layout.savedTypesDialog
+      .getByText(/Listing the saved types|Saved types|No table types are saved/)
+      .first(),
+  ).toBeVisible();
+  expect(await namelessControls(page), 'the saved types dialog').toEqual([]);
 });

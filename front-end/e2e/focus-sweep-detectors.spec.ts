@@ -113,6 +113,83 @@ test.describe('The focus sweep', () => {
     expect(await problemsOfTheFirstStop(page)).toEqual([]);
   });
 
+  /**
+   * A button drawn in an SVG whose units are not pixels, as a table of a layout's map is: `border`
+   * is the shape it draws its focus border with, shown on `:focus`.
+   */
+  const drawnButton = (border: string) => `
+    <style>
+      g { outline: none; }
+      g [data-focus-border] { display: none; }
+      g:focus [data-focus-border] { display: inline; }
+    </style>
+    <svg viewBox="0 0 16000 9000" width="320" height="180">
+      <g role="button" tabindex="0" aria-label="Gold row 1">
+        <rect x="2000" y="2000" width="1830" height="760" fill="#eee" stroke="#333"
+          stroke-width="1.5" vector-effect="non-scaling-stroke" />
+        ${border}
+      </g>
+    </svg>`;
+  const drawnBorder = (attributes: string) =>
+    `<rect x="2012" y="2012" width="1806" height="736" fill="none" data-focus-border ${attributes} />`;
+
+  test('a drawn button that draws the deep green border over its edge passes', async ({ page }) => {
+    await show(
+      page,
+      drawnButton(
+        drawnBorder(
+          `stroke="${LOOKS.borderOnFill}" stroke-width="2" vector-effect="non-scaling-stroke"`,
+        ),
+      ),
+    );
+    await rememberFieldsAtRest(page);
+    expect(await problemsOfTheFirstStop(page)).toEqual([]);
+  });
+
+  test('a drawn button with no border of its own is caught, the outline no answer', async ({
+    page,
+  }) => {
+    // The app's outline on it would be 2 of the drawing's units wide, a 25th of a pixel.
+    await show(page, drawnButton('').replace('g { outline: none; }', ''));
+    expect(await problemsOfTheFirstStop(page)).toEqual([
+      'a drawn button drew no green border: no data-focus-border shape shows',
+    ]);
+  });
+
+  test("a drawn button's border in the drawing's units, or in the plain green, is caught", async ({
+    page,
+  }) => {
+    await show(page, drawnButton(drawnBorder(`stroke="${LOOKS.borderOnFill}" stroke-width="2"`)));
+    expect(await problemsOfTheFirstStop(page)).toEqual([
+      "a drawn button's border is not 2px on the screen: stroke-width 2px, vector-effect none",
+    ]);
+    await show(
+      page,
+      drawnButton(
+        drawnBorder(`stroke="${LOOKS.border}" stroke-width="2" vector-effect="non-scaling-stroke"`),
+      ),
+    );
+    expect(await problemsOfTheFirstStop(page)).toEqual([
+      `a drawn button's border is ${LOOKS.border}, where ${LOOKS.borderOnFill} would show`,
+    ]);
+  });
+
+  test('a drawn button whose border reaches past its edge is caught', async ({ page }) => {
+    await show(
+      page,
+      drawnButton(
+        drawnBorder(
+          `stroke="${LOOKS.borderOnFill}" stroke-width="2" vector-effect="non-scaling-stroke"`,
+        ).replace(
+          'x="2012" y="2012" width="1806" height="736"',
+          'x="1800" y="1800" width="2230" height="1160"',
+        ),
+      ),
+    );
+    await rememberFieldsAtRest(page);
+    expect(await problemsOfTheFirstStop(page)).toEqual(['focus resized a button: 37x15 -> 45x23']);
+  });
+
   test('a button that wears the halo rather than the border is caught', async ({ page }) => {
     await show(page, button('', `outline: none; box-shadow: 0 0 0 3px ${LOOKS.halo};`));
     expect(await problemsOfTheFirstStop(page)).toEqual([

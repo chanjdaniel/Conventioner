@@ -2,7 +2,6 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath } from './helpers/marketScreens';
 import { seedTheScreens } from './helpers/seedTheScreens';
-import { MarketSetupPage } from './pages/MarketSetupPage';
 import { TablesPage } from './pages/TablesPage';
 
 /**
@@ -11,12 +10,11 @@ import { TablesPage } from './pages/TablesPage';
  * The change-placement dialog mounts with `v-if` and `:open="true"`, so it was open from setup,
  * before its root's template ref bound: `useInertBehind` walked once with nothing to walk from and
  * never again. The dialog said `aria-modal="true"` while Tab walked out of it onto the market bar
- * and the phase rail behind it, since September. The choose-path overlay on Setup mounts the same
- * way, and had the same bug (T228 covers it here).
+ * and the phase rail behind it, since September. The choose-path overlay on Setup, which mounted
+ * the same way (T228), went with the floorplan beta's way in (T257).
  *
  * The change-placement dialog is opened on the screens seed's big market: 36 vendors over four
- * dates, so the page behind the dialog is full of controls Tab could reach. The choose-path overlay
- * is opened on its CSV draft, whose plan has no sections yet, which is where the choice is offered.
+ * dates, so the page behind the dialog is full of controls Tab could reach.
  */
 
 const SIZES = [
@@ -25,13 +23,11 @@ const SIZES = [
 ] as const;
 
 let bigMarketId: string;
-let csvDraftId: string;
 
 test.beforeAll(async ({ request }) => {
   test.setTimeout(120_000);
   ({
     big: { marketId: bigMarketId },
-    csvDraft: { marketId: csvDraftId },
   } = await seedTheScreens(request, BACKEND_URL, TEST_USER.email, TEST_USER.password));
 });
 
@@ -109,22 +105,5 @@ for (const size of SIZES) {
 
     // Focus is on the seat's Change again.
     await expect(change).toBeFocused();
-  });
-
-  test(`the choose-path overlay holds the page behind it, ${size.name}`, async ({
-    authenticatedPage: page,
-  }) => {
-    await page.setViewportSize(size.viewport);
-    const setup = new MarketSetupPage(page);
-    await page.goto(marketScreenPath(csvDraftId, 'setup'));
-    await expect(setup.choosePathButton).toBeVisible({ timeout: 15000 });
-
-    // A click, as an organizer opens it; Escape is choosing manual, which changes nothing.
-    await setup.choosePathButton.click();
-    await expectTheDialogHoldsThePage(
-      page,
-      page.getByRole('dialog', { name: 'Choose your setup path' }),
-      'choose-path-window',
-    );
   });
 }

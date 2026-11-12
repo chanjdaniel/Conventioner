@@ -34,6 +34,13 @@ export interface AutosaveOptions {
   may: () => boolean;
   /** The sentence for a failure with no sentence of its own. */
   failure: string;
+  /**
+   * Keep the working copy when the server refuses a save, where the default takes the server's
+   * copy back (a location's layout, T257): the edits stay unsaved, the status line says the
+   * refusal's own sentence with nothing after it, and the next edit, `retry` or a flush sends the
+   * copy again. The screen that then takes the server's copy (its Reload) calls `forget`.
+   */
+  keepOnRefusal?: boolean;
   /** The pause after an edit. */
   delay?: number;
 }
@@ -52,7 +59,8 @@ export interface AutosaveOptions {
  * it carried, so `unsaved` holds until the server has the last one.
  *
  * A save the server refuses drops every edit made so far, since the copy is written whole and every
- * later edit builds on the refused one, and the screen takes the server's copy back and says why.
+ * later edit builds on the refused one, and the screen takes the server's copy back and says why;
+ * a screen that keeps its copy instead says so with `keepOnRefusal`.
  * A save that fails on the way (no answer, a 401, 408, 429 or 5xx) keeps the edits unsaved and
  * says so; nothing retries on a timer, and the next edit, `retry` or a flush sends the copy again.
  *
@@ -134,6 +142,12 @@ export function useAutosave(options: AutosaveOptions) {
       async (err: unknown) => {
         out.value = null;
         const sentence = getApiErrorMessage(err, options.failure);
+        if (isRefusal(err) && options.keepOnRefusal) {
+          status.value = 'refused';
+          message.value = sentence;
+          await options.afterRefusal(sentence);
+          return sentence;
+        }
         if (isRefusal(err)) {
           dropEdits();
           status.value = 'refused';
@@ -204,6 +218,19 @@ export function useAutosave(options: AutosaveOptions) {
    */
   function forgetUnsendable() {
     if (!options.may() && !out.value) dropUnsendable();
+  }
+
+  /**
+   * The screen took the server's copy in place of its own (a layout's Reload, or another
+   * location's layout): what was unsaved is no longer its work, so it is dropped with the line
+   * that spoke of it. A save out is left to answer.
+   */
+  function forget() {
+    dropEdits();
+    if (status.value === 'failed' || status.value === 'refused') {
+      status.value = 'idle';
+      message.value = '';
+    }
   }
 
   function showSaved() {
@@ -314,5 +341,6 @@ export function useAutosave(options: AutosaveOptions) {
     flush,
     retry,
     forgetUnsendable,
+    forget,
   };
 }

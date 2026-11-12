@@ -217,7 +217,7 @@ No screen caps its own height, and no row carries a minimum height.
 The market screen's `height: 80%`, which pinned it to most of the window and hid half of it, was scaffolding from that view's first commit, never a decision, and went with the rest.
 `.app-container` used to be `position: absolute; height: 100vh`, which is why no screen could scroll the page and every tall screen grew nested scrollers of its own; do not reintroduce a viewport-height shell.
 
-**The organizer's screens are designed for 1920x1080**, and since T79 the [layout sweep](#what-keeps-this-true) also measures them at 1440x900; no other width is a layout requirement new work is held to (wayfinding/readable-journey/06), though the focus sweep walks every state at a phone's width but the floorplan beta's wizard steps ([what keeps this true](#what-keeps-this-true)).
+**The organizer's screens are designed for 1920x1080**, and since T79 the [layout sweep](#what-keeps-this-true) also measures them at 1440x900; no other width is a layout requirement new work is held to (wayfinding/readable-journey/06), though the focus sweep walks every state at a phone's width but those marked `deskOnly` ([what keeps this true](#what-keeps-this-true)).
 The vendor page, where vendors check in, is the carve-out: it is not an organizer screen, it is held in a hand at a door, and it works on a phone ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)).
 The [account pages](business/flows/accounts.md) are the way to it, so they work on a phone too: sign in with its tabs, both password-reset pages and email verification stand in one [`AuthCard`](../front-end/src/components/AuthCard.vue), 600px wide at most, with a 16px page gutter at each side, and `sign-in-fits-a-phone.spec.ts` fails on any of them that scrolls sideways at 390px (T73).
 `the-sign-in-fits-a-small-phone.spec.ts` holds the sign-in's tabs and fields inside their column and their boxes at 320px, at 390px and at a desk (T211).
@@ -232,16 +232,16 @@ Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each wit
 - Attendance, the door on market day ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges));
 - the Tools tab, where an organizer may connect Discord from a phone (Daniel, T113);
 - Stats, where how the day stands is read at the market ([the market's statistics](business/flows/stats.md)) (T180);
-- the page Discord sends them back to, an `AuthCard` measured with the account pages.
+- the page Discord sends them back to, an `AuthCard` measured with the account pages;
+- a location's layout, read at the venue and edited at a desk ([the layout page](implementation/modules/floorplan-placement.md#the-layout-page)) (T257).
 
-The setup screens keep the floor, since they are built at a desk before the market and the floorplan and the form builder are drawn for a pointer; one a line:
+The setup screens keep the floor, since they are built at a desk before the market and the form builder is drawn for a pointer; one a line:
 
 - Market Setup's plan, a page of the same view as the Applications page, which alone lifts the floor (`meta.fitsAPhone` names the page);
 - the form builder;
 - Settings, the assignment rules;
 - the import;
-- start-from-CSV;
-- the floorplan beta.
+- start-from-CSV.
 
 `/markets` on a phone narrows its gutter to 16px, as the door does, and its finder's fields and phase toggles wrap; a market's card stacks its facts and Manage under its name, which keeps one line and its ellipsis.
 Its "Previously opened" line stays one 44px row at every width, the words, the name cut with an ellipsis and a chevron, and drops its phase badge at 640px and below so the name keeps the room; the note that a remembered market has gone and the first-time message are a `.note`, wrapping to the column.
@@ -404,6 +404,39 @@ Both are desaturated, which is what lets them sit beside `--mm-green`. Every sat
 `--mm-red` and `--mm-text-red` were both **referenced but never defined** - see `E16/F01`. `var(--mm-red, #cc0000)` carried 24 usages on its fallback, which is how `#cc0000` became the most-used red in the product without anyone choosing it.
 
 Three of the reds being retired cannot carry white text at all: `#e74c3c` (3.82), `#f44336` (3.68, the Reject button) and `#e53935` (4.23).
+
+### The section palette
+
+**A layout draws each section in one of eight colours** (T257), `--layout-section-1-fill` and `--layout-section-1-edge` to `-8-` in `base.css`: a table is filled with its section's tint and edged in its hue, and its number is `--mm-black` on the tint.
+
+| Colour | Hue        | Fill      | `--mm-black` on it | Edge      | On the floor | On white |
+| ------ | ---------- | --------- | ------------------ | --------- | ------------ | -------- |
+| 1      | gold       | `#f8e7c2` | 12.73:1            | `#a97a1b` | 3.42:1       | 3.83:1   |
+| 2      | blue       | `#dce9ee` | 12.53:1            | `#1a6f8b` | 5.09:1       | 5.69:1   |
+| 3      | terracotta | `#f3ddd8` | 11.95:1            | `#b0503f` | 4.62:1       | 5.17:1   |
+| 4      | green      | `#dfebe8` | 12.72:1            | `#36826f` | 4.10:1       | 4.59:1   |
+| 5      | violet     | `#e6e0f3` | 12.08:1            | `#6b54a8` | 5.43:1       | 6.07:1   |
+| 6      | teal       | `#cfeeee` | 12.67:1            | `#0e8a8f` | 3.72:1       | 4.16:1   |
+| 7      | rose       | `#f5dde8` | 12.13:1            | `#b0457a` | 4.72:1       | 5.28:1   |
+| 8      | olive      | `#e8ebd0` | 12.75:1            | `#6f7a25` | 4.19:1       | 4.68:1   |
+
+Each fill carries `--mm-black` past 7:1, since a number on a table drawn small is small type, and each edge stands past 3:1 against the floor (`--layout-floor`) and against white, the ground of a section's name pill; `contrast.test.ts` holds every pair to those floors and the palette to eight colours.
+A section's style stores its colour as the number here, so the order is stored data: a ninth colour goes after these, never between.
+A section with no style takes the next colour unused in its layout, in the plan's order, and once all eight are used the palette starts again, so a ninth section takes the first (`sectionColors` in [`layoutGeometry.ts`](../front-end/src/components/layout/layoutGeometry.ts)).
+A table in no section is grey, `--layout-no-section-fill` and `-edge` (12.36:1, 4.03 and 4.50), and a no-table zone is hatched in `--layout-zone-fill` and `--layout-zone-hatch` (`--mm-black` 13.30 and 9.05 on them) inside a dashed `--layout-zone-edge` (3.66 and 4.09).
+
+**How a layout is drawn** ([`LayoutMap.vue`](../front-end/src/components/layout/LayoutMap.vue), [the drawing](implementation/modules/floorplan-placement.md#the-drawing)):
+
+- the floor is `--layout-floor`, and on a screen the venue's floorplan lies on it at half strength and in grey, so the sections' colours are the only colours;
+- a table is a rectangle at its true size with a 40 mm corner, its edge 1.5px, its number in Outfit 600 at 14px (`--text-sm`) where the table has the room, smaller to fit, and left out below 6px; the number turns with the table and never reads upside down;
+- a section's name is `--text-xs` at 600 in a white pill 22px tall, edged 1.5px in the section's edge, 6px from its tables;
+- a no-table zone is hatched at 45°, 10px apart, inside a 1.5px dashed edge with a 4px corner, its label at 14px where it fits;
+- a selected table is outlined 2.5px in `--mm-black`, 3px outside its edge, and an alignment guide is 1px of `--mm-blue`, dashed;
+- a table picked up by keyboard is drawn lifted: its outline dashed, 6px on and 4px off, and a shadow of `--mm-black` at 30%, 3px under it, straight down the screen however it is turned;
+- while the keys are on the editor's map, the stage round it wears the halo, and the focused table its own border;
+- a row being drawn is its path, 2px of `--mm-blue`, each point laid a 5px white dot edged 2px in it, the first ringed at 11px in 2px of it while a click on it would close the path, as the place a line drawn by hand began is while letting go there would close it, the tables it would place in their section's tint at 75% with a dashed edge, 5px on and 3px off, their count in white at 12px on a `--mm-black` chip 22px tall, 14px from the pointer, and the keys' crosshair two 24px arms of `--mm-black` over white;
+- an area being drawn for Fill an area is its outline, 2px of `--mm-blue`, each corner a 5px white dot edged 2px in it, the first ringed at 11px while a click on it would close the shape; a shape whose sides cross is drawn in `--mm-text-red-on-tint` instead, since it cannot be closed; a box in hand and an area closed are `--mm-blue` at 10% with a dashed edge of 1.5px, 5px on and 3px off;
+- every one of those pixel sizes holds at any zoom, and a table's millimetres are what zoom: 100% is 1px to 25 mm, at which a 6 ft table is 73 by 30px.
 
 ### The brand green is `--mm-green` (`#36826f`)
 
@@ -596,7 +629,7 @@ A screen takes a file on [`FileDropZone.vue`](../front-end/src/components/FileDr
 It tints green under the pointer and while a file is over it, and its words take no pointer events, so crossing them does not fire `dragleave` and flicker the tint off.
 Busy, while its caller reads or uploads a file, it takes no file and mutes its main line, never dimming it with opacity; a chosen file clears the input, so the same file chosen again is read again.
 It judges no file: it hands the one chosen or dropped to its caller, which checks it and says any error.
-The import and the start from a Google Form take their CSV on it, and the floorplan wizard its plan image or PDF.
+The import and the start from a Google Form take their CSV on it, and a location's layout its floorplan image or PDF.
 
 |               | Variants                                                                                | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -639,6 +672,7 @@ On a dark ground, the vendor drawer's and the save dialog's close, it is the pla
 A text button, with no fill, no border and no padding, would have it lie over its words, so it sets `--focus-border-offset` to the border's width in its own rule, and the border runs 2px clear around its words: a vendor's name, a seat's Change, a history entry's toggle, Payments' sorts, the first of a form's steps, which starts at its header's edge.
 A text button whose border would cross what lies around it takes room inside its edge instead, given back so the words stay put: Show on sign-in and the password reset, inside its field, by that much of the field's own padding, so its box stays inside the field's padding and the input keeps its width.
 A market card draws it for its name, whose own box is only the name, and lifts under the pointer alone, since focus moves nothing.
+A button that is a shape of an SVG drawing, as a table of [a layout's map](#the-section-palette) is, draws the border itself (T257): a browser reads an outline's width there in the drawing's own units, a fraction of a pixel on a map in millimetres, so the table draws a shape over its own edge, turned with it, 2px on the screen at any zoom and never past the edge, in the deep green, since the edge it lies over is a section's colour, which the plain green shows on only by chance.
 
 **A soft halo on every other control**, Daniel's choice on the same walk (E38/F01/S01): `--focus-halo`, a white 2px gap then a translucent green glow, in `base.css`.
 `primitives.css` gives it to every link, `summary` and `[tabindex='0']` on `:focus-visible`, with no outline, so the browser's own ring is drawn nowhere.
@@ -727,16 +761,17 @@ A convention nothing enforces is how the product got here. Six checks, the first
 6. **A focus sweep**, [`e2e/focus-sweep.spec.ts`](../front-end/e2e/focus-sweep.spec.ts), presses Tab through every state (E38/F01/S01), with [`e2e/helpers/focusSweep.ts`](../front-end/e2e/helpers/focusSweep.ts)'s judge, Tab walk and menu walk.
    A field it lands on must look as it did unfocused, it and the two boxes around it.
    A button must draw the green border and no halo, inside its edge and not over its words, or 2px clear around them on a text button with no fill or border and inside the window, at the size it had at rest, in the deep green where the plain green is under 3:1 with the fill beneath it or the button has a green border of its own; a box up to four levels around it may draw the border for it.
+   A button that is an SVG shape must instead show a shape of its own marked `data-focus-border`, its stroke 2px with `vector-effect: non-scaling-stroke` and in the deep green, at the size the button had at rest.
    Any other control must draw no outline and the halo for its ground: white at 35% where the first ancestor with a fill is dark, the green halo elsewhere.
    A file input is a control, not a field, since nothing is typed into it and the drop zone around it wears its halo.
    It moves the pointer to the window's corner before it reads how the fields look unfocused, since a focus that scrolls a dialog's body can bring the box around the focused field under a pointer left there, and that box's hover fill read as a look focus drew (T180).
    Both must have rounded corners, no box that clips what lies past its edge may cut either off, and a text control with no fill or border may be no more than 24px wider than its words and its padding, room for a disclosure's marker.
    A box clips only what is placed inside it, so the clip check climbs the chain of containing blocks: a positioned box holds what is placed absolutely, and a box with a `transform`, `translate`, `rotate`, `scale`, `perspective`, `filter` or `backdrop-filter`, a `will-change` naming one of them, a `contain` of `layout`, `paint`, `strict` or `content`, or a `container-type` of `size` or `inline-size` holds what is placed fixed or absolutely.
    A menu's items are no Tab stop, so in every state it opens each menu with Enter on its button (`aria-haspopup="menu"`) and judges each item it reaches with the arrow keys; Enter, and each arrow key that moves to the next item, must land focus on a `[role='menuitem']` of the menu it opened, or the sweep names the menu, its button and where focus is, so a menu that keeps focus on its button cannot pass.
-   [`e2e/focus-sweep-detectors.spec.ts`](../front-end/e2e/focus-sweep-detectors.spec.ts) proves them on fixtures: a halo at the edge of a box that holds it through each of `transform`, `filter`, `will-change: transform` and `contain: paint`, placed absolutely and fixed, is caught, as is one in a static box around a transformed box that holds it, and one in a static box is not; a menu whose arrows leave focus on its button is caught, and a working one passes; and a drop zone that shows no focus for its file input is caught, and one that wears the halo passes; and a button that wears the halo, draws its border outside its edge or over its words, draws the plain green on a green fill or its own green border, draws the deep green where the plain shows, or is resized by focus is caught, as is a text button whose border is cut off by a box or runs off the window, and a button, a text button clear of its words or a card around one drawing it rightly passes.
+   [`e2e/focus-sweep-detectors.spec.ts`](../front-end/e2e/focus-sweep-detectors.spec.ts) proves them on fixtures: a halo at the edge of a box that holds it through each of `transform`, `filter`, `will-change: transform` and `contain: paint`, placed absolutely and fixed, is caught, as is one in a static box around a transformed box that holds it, and one in a static box is not; a menu whose arrows leave focus on its button is caught, and a working one passes; and a drop zone that shows no focus for its file input is caught, and one that wears the halo passes; and a button that wears the halo, draws its border outside its edge or over its words, draws the plain green on a green fill or its own green border, draws the deep green where the plain shows, or is resized by focus is caught, as is a text button whose border is cut off by a box or runs off the window, and a button, a text button clear of its words or a card around one drawing it rightly passes; and a drawn button, an SVG shape, with no border shape of its own, with one in the drawing's units or in the plain green, or with one reaching past its edge is caught, and one drawing the deep green over its edge passes.
    [`e2e/a-focused-button-moves-nothing.spec.ts`](../front-end/e2e/a-focused-button-moves-nothing.spec.ts) reads each button and the boxes around it focused and at rest, on the library's primitives and on Markets, at a desk and on a phone.
    `focus-sweep-detectors.spec.ts` also proves that `alsoAt` adds its size to a copy of a screen's sizes, so a sweep's added size never reaches the sizes another sweep walks, which screens share.
-   It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; the floorplan beta's wizard steps, which cannot be walked that narrow, are marked `deskOnly`.
+   It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; a state that cannot be walked that narrow is marked `deskOnly`.
    Each dialog window a state shows is focused as a keyboard user's would be and must draw no outline, a window behind another dialog on top aside, since it is inert (T148), and a test opens Manage market from the keyboard, where the window takes focus while the market loads (T140).
    Its phone walk found a dialog's buttons running out past the window's left edge where they were wider than it, and the actions row now wraps.
    It landed with what it found fixed: the seat buttons' and the drawer tabs' own rings, and the buttons whose own `box-shadow`, `none` included, outranked the halo they then wore: the start page's, New market, New organization, the vendor rows, and the floorplan's Save & Continue and Sections buttons.
@@ -756,7 +791,8 @@ The list holds these states, one a line, each beside the state it is most like, 
 - the vendor drawer at the door on each of its tabs at 390
 - an Editor's Update info with its essential questions locked
 - settled rules
-- the floorplan wizard's upload step, and its steps with a plan uploaded
+- a location's layout past draft, at its upload step and calibrating
+- a location's layout drawn as its map, with 20 tables
 - the signed-out pages
 
 They are walked over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state, a review divided between two reviewers and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.

@@ -128,50 +128,45 @@ export interface MarketSchema {
       imageGridfsId?: string;
       imageHeight?: number;
       imageWidth?: number;
-      obstacles?: {
-        id?: string;
-        polygon: unknown[][];
-        type: string;
-      }[];
-      placedTables?: {
-        height_mm: number;
-        id?: string;
-        rotation?: number;
-        table_code?: string;
-        table_type_id: string;
-        width_mm: number;
-        x: number;
-        y: number;
-      }[];
+      locationId?: string;
+      pdfPage?: number;
       referenceLineEnd?: unknown[];
       referenceLineLengthMm?: number;
       referenceLineStart?: unknown[];
+      revision?: number;
       scalePxPerUnit?: number;
-      scaleUnit?: string;
-      sections?: {
-        id?: string;
-        location_name: string;
-        name: string;
-        table_ids?: string[];
-        tier_id?: string;
+      sectionStyles?: {
+        color: number;
+        labelAt?: {
+          xMm: number;
+          yMm: number;
+        };
+        sectionId: string;
       }[];
-      tableTypes?: {
-        color?: string;
-        height_mm: number;
-        id?: string;
-        max_capacity: number;
-        name: string;
-        width_mm: number;
+      startingCounts?: {
+        count: number;
+        sectionId: string;
       }[];
-      walls?: {
-        end: unknown[];
+      tables?: {
         id?: string;
-        is_exterior?: boolean;
-        start: unknown[];
-        thickness_mm: number;
+        number?: number;
+        rotation?: number;
+        sectionId?: string;
+        tableTypeId: string;
+        xMm: number;
+        yMm: number;
+      }[];
+      zones?: {
+        depthMm: number;
+        id?: string;
+        label?: string;
+        widthMm: number;
+        xMm: number;
+        yMm: number;
       }[];
     }[];
     locations: {
+      id: string;
       name: string;
     }[];
     marketDates: {
@@ -204,7 +199,9 @@ export interface MarketSchema {
     }[];
     sections: {
       count: number;
+      id: string;
       location: {
+        id: string;
         name: string;
       };
       name: string;
@@ -212,6 +209,12 @@ export interface MarketSchema {
         id: number;
         name: string;
       };
+    }[];
+    tableTypes?: {
+      depthMm: number;
+      id?: string;
+      name: string;
+      widthMm: number;
     }[];
     tiers: {
       id: number;

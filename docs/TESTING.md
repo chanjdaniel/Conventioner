@@ -279,11 +279,8 @@ labels) on a market created through the API path, watches the live preview, save
 reloads to confirm it persisted; a second test seeds an application straight into Mongo
 and asserts the D9 lock then renders the builder read-only with its lock banner, that
 `PUT /markets/{id}/application-form` refuses with 409, and that no whole-market PUT exists to
-smuggle one past it (405). The floorplan suite
-(`floorplan.spec.ts`) drives the create-from-floorplan setup path end to end:
-it walks the floorplan beta's five-step wizard (upload, scale calibration, table
-placement, section grouping, save) and verifies the resulting sections land
-back on Market Setup.
+smuggle one past it (405). A location's layout's specs, which replaced the floorplan beta's, are
+[floorplan E2E](implementation/testing/floorplan-e2e.md)'s.
 The access-control suite (`access-control.spec.ts`) covers who can see a market: an org
 member with no explicit market role, a user granted an explicit role but no org membership,
 membership changes taking effect (adding a user grants visibility, removing revokes it), and
@@ -328,8 +325,8 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `ChoiceField` (a control, a select or a field by how many choices it has)
 - `CsvImportPage`
 - `EmailVerificationPage` (the page a verification link opens)
-- `FloorplanWorkflowPage`
 - `FollowUpDialog` (marking a follow-up, from One by one's card or the All view's drawer)
+- `LayoutPage` (a location's layout page: its upload, calibration, map and tools)
 - `LoginPage`
 - `ManageMarketPage`
 - `MarketSetupPage`

@@ -24,9 +24,8 @@ the offering from moving under recorded answers.
 
 The offering is never an independent list: it is the market plan itself. Dates come from
 ``SetupObject.market_dates``, sections from ``SetupObject.sections``, tiers from
-``SetupObject.tiers``, and table types from the market's floorplan (the latest saved one -
-``floorplans_save`` overwrites ``sections`` and ``locations`` from the latest floorplan too, so
-its table types are the current plan's).
+``SetupObject.tiers``, and table types from the stub (``STUB_TABLE_TYPE``) until the form reads
+the market's own (``SetupObject.table_types``, T257).
 
 Freeze semantics (the D9 principle extended to the offering): while no applicant has recorded
 an answer, the offering follows the market plan live - an organizer edits their plan and the
@@ -151,11 +150,13 @@ def table_choice_for_label(text: Any) -> Optional[str]:
             return code
     return None
 
-# STUB until the floorplan ships. Table type is a property of an individual TABLE, not of its
-# section - any table in any section may be any type - so only a floorplan can truly describe it,
-# and the floorplan GUI is out of MVP scope. Until then every market offers exactly one type, so
-# the ranking is suppressed by the fewer-than-two rule and the question is never asked. The field
-# and its validation stay in place; only a real offering is missing.
+# STUB until table types are made real. Table type is a property of an individual TABLE, not of
+# its section - any table in any section may be any type - so only a layout can truly describe it.
+# The market's types now live in ``setupObject.tableTypes`` and each layout's table names one
+# (T257), but the form and the solver do not read them yet: a follow-up makes them. Until then
+# every market offers exactly one type, so the ranking is suppressed by the fewer-than-two rule and
+# the question is never asked. The field and its validation stay in place; only a real offering is
+# missing.
 STUB_TABLE_TYPE = "Standard"
 
 
@@ -440,7 +441,7 @@ def essential_options_from_setup(setup: Optional[Dict[str, Any]]) -> EssentialFo
         if isinstance(tier, dict)
     ])
 
-    # STUB: one type for every market, whatever floorplans it carries. See STUB_TABLE_TYPE.
+    # STUB: one type for every market, whatever its setupObject.tableTypes. See STUB_TABLE_TYPE.
     table_types = [STUB_TABLE_TYPE]
 
     return EssentialFormOptions(

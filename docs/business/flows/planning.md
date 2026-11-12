@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
   - front-end/src/components/elements/ElementPricing.vue
-verified: 2026-11-10
+verified: 2026-11-11
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -31,6 +31,7 @@ sources:
   - T217
   - T263
   - T271
+  - T257
   - T274
 ---
 
@@ -42,7 +43,7 @@ sources:
 
 Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, Pricing, How vendors apply, and Application form.
 The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.
-It is deliberately not a wizard; the floorplan flow ([E6](#e6-sections-from-a-floorplan)) is the product's one wizard.
+It is deliberately not a wizard; a location's layout has a page of its own ([E6](#e6-a-locations-layout)).
 A draft opens on Market Setup, and an address naming a tab opens that tab, so a shared link keeps working.
 "Plan saved" appears after each edit (debounced about 0.6 s), once the server holds the last edit.
 A save that failed on the way keeps the edit on screen, says why ("You seem to be offline. Check the connection and try again.", say), and offers Retry; one the server refused puts the plan back as the server holds it, and says the server's sentence and "The plan is back as it was last saved."
@@ -92,11 +93,13 @@ Covered by:
 **Status:** Works (walked live).
 "+" adds a row; type a name.
 A market needs at least one before it leaves Draft.
+Removing a location that has a layout ([E6](#e6-a-locations-layout)) asks first, "Remove Upper Hall?", "Its layout of 49 tables goes with it.", with "Remove location and layout" and Cancel, since the layout goes with its location; one with no layout is removed at once.
 
 ## E4. Sections
 
 **Status:** Works (walked live).
 "+" adds a row of name, Location, Tier and Count; "Total tables" sums the counts; tables are named after their section ("North Row 1" to "North Row 4").
+A section of a location that has a layout ([E6](#e6-a-locations-layout)) has no Count to type: the cell reads the number of tables the layout places in it, "13" with "from the layout" under it, and "Total tables" sums those with the typed ones.
 A section may have no tier; a plan without tiers assigns, and its form asks no tier preference (bug 23; re-walked live as P1).
 Covered by:
 
@@ -121,30 +124,56 @@ Covered by:
 - `intake-mode.spec.ts`
 - `where-a-form-starts.spec.ts`
 
-## E6. Sections from a floorplan
+## E6. A location's layout
 
-**Status:** Beta (steps 1 to 4 walked live; grouping by lasso not driven); "Auto-Place Tables" places the count asked for of each type (bug 38, `the-floorplan-beta-places-tables.spec.ts`).
-Offered as "Set up sections from a floorplan instead" on Section Setup while the plan has no sections and the market is a draft.
+**Status:** Begun (T257): a location's floorplan, its scale, its table types and no-table zones, and tables placed one at a time, as rows along a drawn line, or filling an area, then moved, turned, duplicated, lined up, renumbered and removed, one or several at a time, by pointer or by keyboard; the layout after Draft, on a phone and as a PNG come with T257's later tickets.
+Under Section Setup's rows, each named location offers "Lay out Upper Hall", or "Open Upper Hall's layout · 49 tables" once it has one; a location with no name offers nothing until it has one, and a plan that cannot change offers only the layouts it has, to read.
+Opening one saves the plan's pending edits first, then goes to `/markets/<id>/layout/<location>`, under the Market Setup tab; `/markets/<id>/layout` opens the first location's, and the floorplan beta's old address, `/markets/<id>/floorplan`, lands there too.
 
-1. "Choose your setup path": "Manual setup" (Recommended, "Get started") or "From a floorplan" (Beta, "Try the beta").
-2. `/markets/<id>/floorplan`, a five-step wizard with "← Back" and "Next →":
-   1. **Upload:** "Drop a floorplan image or PDF here, or choose a file", the app's one drop zone (PNG, JPG, WebP or PDF; a PDF of more than one page asks which page).
-   2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
-   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted, and when fewer did, whether the room had no space for the rest or Auto-Place ran out of time before them.
-   4. **Edit Layout:** draw walls and obstacle zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
-   5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" writes the sections to the plan.
-      The market opens afterwards with the floorplan's sections and locations and the rest of its plan as it was, or an empty plan when none had been saved, and saving again replaces the floorplan rather than adding a copy.
+1. **Upload:** "Drop the floorplan's image or PDF here, or choose a file", the app's one drop zone, with "Upload the venue's floorplan for Upper Hall to start." beside it.
+   PNG, JPG, WebP or PDF up to 4 MB: a larger image is made smaller first, a larger PDF is refused ("This PDF is larger than 4 MB. Export the page with the plan on it as a PNG or a smaller PDF."), and so are a PDF of more than 20 pages and one that cannot be read ("Venue plan.pdf could not be read as a PDF."), each said as an alert; a PDF of several pages shows the page chosen with "Use page N".
+   The image chosen starts the layout: the server records what Section Setup had for each of the location's sections, and a market with no table type gains "Standard 6 ft".
+2. **Set the scale:** "Drag across something whose length you know, like a wall or a door.", by pointer or with the arrow keys and Enter; type its length in m, cm, mm, ft or in, and "Set the scale".
+   The head row then reads "30.0 m across" (before, "Not calibrated"), and "Recalibrate" draws the line again.
 
-Nothing of the wizard reaches the market until "Save & Continue" (the image is uploaded, but nothing reads it until then): from the upload on, a link, a market tab or Back asks "Leave without saving?" first ("This floorplan is not saved to the market yet. Leaving drops the upload, the scale, the tables and the sections."), with Stay and Leave, and a reload or closing the tab is asked by the browser; the save's own move back to Market Setup never asks.
-The wizard makes no AI calls; placement is a geometry solver ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
-Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
-Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
+3. **Place the tables:** at a desk the map is an editor, with a toolbar over it: Select, Add table, Row of tables, Fill an area, No-table zone, Undo, Redo, Zoom out, Zoom in, Fit.
+   - "Add table" then a click on the floor places a table of the Section and Table type chosen under the toolbar, "Gold row 1", then "Gold row 2", at its true size; the tool stays on.
+   - "Row of tables" lines a drawn line with tables beside it or centred on it, the count following the line as it is drawn, with the Gap between them (none at first): a drag is a straight row, or a curve drawn by hand, smoothed into a few points that can be dragged before Enter places it; clicks lay the line's points, a sharp turn making a corner, and a click on the first point closes it into a shape, its tables spread evenly round it; Rows and Aisle lay rows side by side in the same gesture.
+   - "Fill an area" packs a box dragged, or a shape of clicked corners, with rows of tables of one section and type, a count or as many as fit, round the no-table zones and the tables already placed, and says how many fitted ("Placed 24 of 30; the rest did not fit.").
+   - "No-table zone" marks a box of the hall, a stage or a pillar, named in the panel; a table put down on one is pushed off it, and rows and fills keep clear of it.
+   - A press selects a table (Shift or Ctrl for more), a box dragged on the floor every table whose centre is in it, Ctrl+A all of them and Escape none; the panel's card reads the selection: one table's code, section, type and position in metres, or "3 tables selected" and their codes.
+   - The card's Section and Table type fields change the selection's.
+     Tables put in another section are numbered after its own, so 3 of Gold row's 9 put in Silver aisle (of 18) become Silver aisle 19 to 21, and Gold row closes to 1 to 6.
+   - "Duplicate" puts a copy of each selected table beside it, numbered on, and the Align menu lines several up by an edge or a centre, or spaces them evenly across or down.
+   - A drag moves the selection; near another table's edge or centre it snaps, with a guide line, and Alt places it freely; a table's centre never leaves the floorplan.
+   - The handle above a selected table (beside it, where a neighbour stands above) turns it in 15° steps (Alt: freely), and R or "Turn 90°" by a quarter; its number turns with it.
+   - "Remove" takes the selection away with no question, since Undo brings it back; in Draft the section's later tables close the gap, so removing "Gold row 2" of 4 leaves 1 to 3.
+   - Undo and Redo, by their buttons or Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y, take back and bring back each change, across saves.
+   - The wheel or two fingers move the view, Ctrl and the wheel or a pinch zoom it, and Space and a drag pan.
+   - By keyboard the map is one Tab stop: the arrow keys move between its tables, Enter or Space picks one up, the arrow keys move it 10 cm (1 m with Shift), R turns it, Enter drops it and Escape puts it back; Add table, Row of tables and Fill an area each have a form for the keys, and the panel's "Keyboard" card lists them.
+4. **Sections on the layout:** the panel lists "Sections in Upper Hall", each with its colour, tier and count.
+   - A section's swatch opens eight colours to choose from, and its name on the map is dragged to where it should stand.
+   - Its row's menu has "Renumber by position (rows across the page)", which numbers its tables in rows from the top, each from the left.
+   - A section removed on Section Setup leaves its tables on the layout, grey and numberless: "3 tables are in no section", with "Select them", to put them in a section from the card or remove them.
+     Until then the market stays a draft: "Upper Hall's layout has 3 tables in no section. Put them in a section or remove them.", with "Open the layout" on the rail.
+   - While a section has fewer tables than Section Setup had typed for it when the layout began, the panel says so: "Section Setup had Gold row at 13: 9 placed."
+5. **Table types, zones and the floorplan:** the panel's "Table types" card lists the market's types, each its size and how many tables are of it, with "Add a type", Edit, Remove (refused while tables are of it, with how many), "Use saved types" and "Save these types"; "No-table zones" names each zone; and "Floorplan" hides or shows the image under the tables, with "Replace the image" and "Recalibrate", the tables keeping their places in metres.
+
+The layout is edited at a desk: at a phone's width it is read.
+It saves itself a moment after each change, the head row saying "Saving…" then "Saved"; a save that did not land says why with Retry and keeps what is on screen, a move to another page then asks "Leave without saving?" first, and a reload or a closed tab with a change still waiting is asked by the browser first.
+The head row's switch moves between the market's locations, each its own layout, and when another tab or person saved the layout first it says "This layout changed elsewhere. Reload to see the latest." with Reload, the tab keeping what it shows until then.
+The layout makes no AI calls ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
+Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)).
+Past Draft the layout says the setup is settled and offers nothing to upload (`what-to-show-and-when.spec.ts`).
 Covered by:
 
-- `a-floorplan-save-keeps-the-market-readable.spec.ts`
-- `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures)
-- `the-floorplan-asks-before-it-drops-a-drawing.spec.ts`
-- `the-floorplan-beta-places-tables.spec.ts`
+- `a-layout-saves-once.spec.ts`
+- `a-table-moves-by-keyboard.spec.ts`
+- `a-table-moves-by-pointer.spec.ts`
+- `numbers-follow-the-rules.spec.ts`
+- `rows-and-areas-fill-a-hall.spec.ts`
+- `the-layout-draws-as-a-map.spec.ts`
+- `the-layout-takes-the-same-zone.spec.ts`
 
 ## E7. Edit the plan after Draft
 

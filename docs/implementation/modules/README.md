@@ -19,7 +19,7 @@ One line per node, sorted by file name.
 - [The CSV proposal and start](csv-proposal-and-start.md) - a draft started from its Google Form's responses: a proposal that writes nothing, a confirm that writes all or nothing
 - [The Discord connection](discord.md) - a market connected to a server through Discord's approval screen: one bot, REST only, the card editable until archived, who is in the server and giving its role, optional values
 - [Essential fields](essential-fields.md) - the questions every form asks: asked, required, the offering and its freeze, the reserved prefix
-- [Floorplan placement](floorplan-placement.md) - the beta's Auto-Place: geometry, not AI; the room is the floor plan; no `pyckingsolver` in production; Konva colours
+- [Floorplan placement](floorplan-placement.md) - a location's layout page and its editor; the beta's Auto-Place: geometry, not AI; the room is the floor plan; no `pyckingsolver` in production; Konva colours
 - [The form amendment](form-amendment.md) - fixing the form from inside the first import through the one form writer, in draft; the phase walk is gone
 - [The guards and the phase move](guards.md) - `guards.py`: every precondition, the validated registry, the one stage's two ways in, the one phase writer
 - [What an assignment was made from](made-from.md) - `madeFrom` fingerprints: the one place they are computed, written only by a run

@@ -6,24 +6,15 @@ import type {
   PlaywrightWorkerOptions,
   TestType,
 } from '@playwright/test';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import {
-  expect,
-  TEST_USER,
-  NO_ORG_USER,
-  BACKEND_URL,
-  APP_API,
-  CsvImportPage,
-  FloorplanWorkflowPage,
-} from '../fixtures';
+import { expect, TEST_USER, NO_ORG_USER, BACKEND_URL, APP_API, CsvImportPage } from '../fixtures';
 import { EmailVerificationPage } from '../pages/EmailVerificationPage';
+import { LayoutPage } from '../pages/LayoutPage';
 import { MarketsPage } from '../pages/MarketsPage';
 import { OrganizationsPage } from '../pages/OrganizationsPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { mongoEval } from './mongo';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
-import { loginViaApi } from './seeds';
+import { loginViaApi, UPPER_HALL_TABLES } from './seeds';
 import { calendarToday } from './vendorSignIn';
 import {
   FIRST_IMPORT,
@@ -241,57 +232,148 @@ const changingAMarketRole = async (page: Page, seed: TheScreensSeed) => {
 
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
 
-/** The floor plan the floorplan specs upload: an 800x600 hall, fixture data. */
-const FLOORPLAN = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-  'fixtures',
-  'test-floorplan.png',
-);
-
 /**
- * The draft's floorplan wizard with its plan uploaded, at one of its steps (E38/F01/S01). The
- * market-days market's wizard is settled and draws no field, so these walk the draft's; nothing is
- * saved, so the draft's plan is the seed's.
+ * A location's layout (T257) at one of its steps: the draft's first location, whose layout has not
+ * begun, on its upload's drop zone; and the layout seed's Upper Hall, its floorplan uploaded and its
+ * scale not yet set, calibrating; and the laid-out seed's Upper Hall, drawn as its map, 20 tables
+ * over the faded floorplan with the panel's list of sections: the editor at a desk and the map read
+ * on a phone, then, at a desk, with a table selected, with every table selected, with a section's
+ * colours open, with Add table's options open, with a table picked up by keyboard, with the
+ * panel's list of keys open, with a row being drawn by the crosshair, with a curve drawn by hand
+ * waiting with its points, with an L-shaped area's
+ * corners clicked for Fill an area, with that area closed and its dialog open, with a table type's
+ * dialog open, and with the image being replaced. Nothing is
+ * saved, so each walk finds them as seeded.
  */
-function floorplanAt(stage: 'calibrating' | 'table types' | 'sections' | 'ready' | 'saving') {
+function layoutAt(
+  stage:
+    | 'upload'
+    | 'calibrating'
+    | 'map'
+    | 'selected'
+    | 'several'
+    | 'colours'
+    | 'adding'
+    | 'pickedUp'
+    | 'keys'
+    | 'row'
+    | 'drawn'
+    | 'fillShape'
+    | 'fillDialog'
+    | 'typeDialog'
+    | 'replacing',
+) {
   return async (page: Page, seed: TheScreensSeed) => {
-    const wizard = new FloorplanWorkflowPage(page);
-    await wizard.goto(seed.draft.marketId);
-    if (stage === 'calibrating') {
-      await wizard.waitForWizard();
-      await wizard.uploadFloorplanImage(FLOORPLAN);
-      await wizard.waitForUploadComplete();
-      await wizard.clickNext();
-      await wizard.calibrateStage.waitFor({ state: 'visible', timeout: 10000 });
-      await wizard.drawCalibrationLine();
-      await visible(page, 'scale-calibration-length-input');
+    const layout = new LayoutPage(page);
+    if (stage === 'upload') {
+      await layout.goto(seed.draft.marketId);
+      await expect(layout.uploadDropzone).toBeVisible();
       return;
     }
-    if (stage === 'table types') {
-      await wizard.reachTableTypes(FLOORPLAN);
-      await wizard.tableTypeAddBtn.click();
-      await expect(wizard.tableTypeNameInput).toBeVisible();
+    if (stage !== 'calibrating') {
+      await layout.goto(seed.laidOut.marketId, seed.laidOut.upper.id);
+      await expect(layout.mapImage).toHaveAttribute('href', /^blob:/);
+      await expect(layout.tables).toHaveCount(UPPER_HALL_TABLES.length);
+      if (stage === 'selected') {
+        // Silver aisle's first table, pressed: outlined, the turn handle over it, its card filled.
+        await layout.clickAt([10_000, 11_000]);
+        await expect(layout.selectionTitle).toHaveText('Silver aisle 1');
+        await expect(layout.turnKnob).toBeVisible();
+      }
+      if (stage === 'several') {
+        // Every table selected: the card's count, its first ten codes, its fields reading
+        // "Mixed", and the Align menu beside its buttons.
+        await layout.clickAt([10_000, 11_000]);
+        await page.keyboard.press('Control+a');
+        await expect(layout.selectionTitle).toHaveText(
+          `${UPPER_HALL_TABLES.length} tables selected`,
+        );
+        await expect(layout.selectionAlign).toBeVisible();
+      }
+      if (stage === 'colours') {
+        // Gold row's colours, open under its row of the Sections card.
+        await layout.sectionColour('Gold row').click();
+        await expect(layout.paletteColour('Gold')).toBeFocused();
+      }
+      if (stage === 'adding') {
+        await layout.toolAdd.click();
+        await expect(layout.addSection).toBeVisible();
+      }
+      if (stage === 'pickedUp') {
+        // Gold row's first table, reached by Tab and picked up by Enter: drawn lifted, the map
+        // wearing the halo, and the hint saying the keys that move it.
+        await layout.tabToTheMap();
+        await page.keyboard.press('Enter');
+        await expect(layout.hint).toContainText('Picked up');
+      }
+      if (stage === 'row') {
+        // Row of tables on, its options strip open, and a path of three points laid by the
+        // crosshair round a corner: the row it would place drawn dashed, with its count.
+        await layout.toolRow.click();
+        await layout.tabToTheMap();
+        await page.keyboard.press('Enter');
+        for (let press = 0; press < 5; press += 1) await page.keyboard.press('Shift+ArrowRight');
+        await page.keyboard.press('Enter');
+        for (let press = 0; press < 5; press += 1) await page.keyboard.press('Shift+ArrowDown');
+        await page.keyboard.press('Enter');
+        await expect(layout.rowCount).toBeVisible();
+        await expect(layout.rowTables.first()).toBeVisible();
+      }
+      if (stage === 'drawn') {
+        // Row of tables on, and a quarter of a 5 m circle drawn by hand over the clear floor
+        // south of the tables: let go, it waits as a path with its points, its row and its count.
+        await layout.toolRow.click();
+        const places = Array.from({ length: 41 }, (_, i): [number, number] => {
+          const turn = ((i / 40 - 1) * Math.PI) / 2;
+          return [13_000 + 5000 * Math.cos(turn), 20_500 + 5000 * Math.sin(turn)];
+        });
+        await layout.drawThrough(places);
+        await expect(layout.rowPoints.first()).toBeVisible();
+        await expect(layout.rowTables.first()).toBeVisible();
+        await expect(layout.hint).toContainText('Drag a point to adjust the curve.');
+      }
+      if (stage === 'fillShape' || stage === 'fillDialog') {
+        // Fill an area on, and an L's corners clicked over the clear floor south of the tables.
+        await layout.toolFill.click();
+        const corners: [number, number][] = [
+          [12_000, 13_500],
+          [22_000, 13_500],
+          [22_000, 16_500],
+          [16_000, 16_500],
+          [16_000, 21_000],
+          [12_000, 21_000],
+        ];
+        for (const corner of corners) await layout.clickAt(corner);
+        await expect(layout.fillPoints).toHaveCount(corners.length);
+        // The pointer on the first corner, which wears its ring: a click there closes the shape.
+        await layout.hoverAt(corners[0]);
+        await expect(layout.fillClose).toBeVisible();
+        if (stage === 'fillDialog') {
+          await layout.clickAt(corners[0]);
+          await expect(layout.fillDialog).toBeVisible();
+          await expect(layout.fillSection).toBeFocused();
+        }
+      }
+      if (stage === 'typeDialog') {
+        // Standard 6 ft's dialog, opened from its row's menu of the Table types card.
+        await layout.chooseForType('Standard 6 ft', 'Edit');
+        await expect(layout.typeDialog).toBeVisible();
+        await expect(layout.typeName).toBeFocused();
+      }
+      if (stage === 'replacing') {
+        // "Replace the image": the upload's drop zone in the map's place, and the way back.
+        await layout.replaceImage.click();
+        await expect(layout.uploadDropzone).toBeVisible();
+        await expect(layout.replaceCancel).toBeVisible();
+      }
+      if (stage === 'keys') {
+        await layout.keyboardSummary.click();
+        await expect(layout.keyboard.getByText('Put them back')).toBeVisible();
+      }
       return;
     }
-    if (stage === 'sections') {
-      await wizard.reachTableTypes(FLOORPLAN);
-      await wizard.addTableType('6ft Table', '1800', '900');
-      await wizard.setAutoPlaceCount(4);
-      await wizard.autoPlaceTables();
-      await wizard.waitForNextEnabled();
-      await wizard.clickNext();
-      await wizard.sectionGroupToggle.waitFor({ state: 'visible', timeout: 10000 });
-      await wizard.groupAllTablesIntoSection('Main', 'Main Hall');
-      await page.getByRole('button', { name: /^Sections/ }).click();
-      await expect(page.getByRole('button', { name: /^Sections/ })).toHaveAttribute(
-        'aria-expanded',
-        'true',
-      );
-      return;
-    }
-    await wizard.reachSaveStep(FLOORPLAN);
-    if (stage === 'saving') await wizard.openSaveDialog();
+    await layout.goto(seed.layout.marketId, seed.layout.upper.id);
+    await expect(layout.calibrationMap.locator('image')).toHaveAttribute('href', /^blob:/);
   };
 }
 
@@ -1246,58 +1328,123 @@ export const SCREENS: Screen[] = [
     // Before publishing the door is a note, so the rail is what the state waits on.
     open: at(screen(market, 'attendance'), 'phase-rail-current'),
   })),
+  // A layout past draft, with no floorplan: read, with nothing to upload.
   {
-    name: 'the floorplan',
+    name: 'the layout, past draft',
     who: 'organizer',
-    sizes: ORGANIZER,
-    open: at(screen('big', 'floorplan'), 'market-bar-title'),
+    sizes: FITS_A_PHONE,
+    open: at(screen('big', 'layout'), 'layout-no-floorplan'),
   },
-  // Its upload step is the app's one drop zone (T205), so it is walked at a phone's width too.
+  // Its upload step is the app's one drop zone (T205), and the page fits a phone (T257).
   {
-    name: 'the floorplan, its upload step',
+    name: 'the layout, its upload step',
     who: 'organizer',
-    sizes: ORGANIZER,
-    open: async (page, seed) => {
-      await new FloorplanWorkflowPage(page).goto(seed.draft.marketId);
-      await visible(page, 'floorplan-upload-dropzone');
-    },
+    sizes: FITS_A_PHONE,
+    open: layoutAt('upload'),
   },
-  // The floorplan beta's wizard is laid out for a desk: at a phone's width its calibration field
-  // is off the screen, so its steps cannot be walked there.
   {
-    name: 'the floorplan, calibrating',
+    name: 'the layout, calibrating',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: layoutAt('calibrating'),
+  },
+  // The layout drawn (T257): the map's tables, names and zones, and the panel's sections.
+  {
+    name: 'the layout, its map',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: layoutAt('map'),
+  },
+  // The editor (T257), at a desk alone: a table selected, and Add table's options strip.
+  {
+    name: 'the layout, a table selected',
     who: 'organizer',
     sizes: ORGANIZER,
     deskOnly: true,
-    open: floorplanAt('calibrating'),
+    open: layoutAt('selected'),
   },
+  // Several at once (T257): every table selected, and a section's colours open in the panel, with
+  // the one table in no section counted under the sections.
   {
-    name: 'the floorplan, adding a table type',
+    name: 'the layout, several tables selected',
     who: 'organizer',
     sizes: ORGANIZER,
     deskOnly: true,
-    open: floorplanAt('table types'),
+    open: layoutAt('several'),
   },
   {
-    name: 'the floorplan, its sections listed',
+    name: "the layout, a section's colours",
     who: 'organizer',
     sizes: ORGANIZER,
     deskOnly: true,
-    open: floorplanAt('sections'),
+    open: layoutAt('colours'),
   },
   {
-    name: 'the floorplan, ready to save',
+    name: 'the layout, adding a table',
     who: 'organizer',
     sizes: ORGANIZER,
     deskOnly: true,
-    open: floorplanAt('ready'),
+    open: layoutAt('adding'),
   },
+  // By keyboard (T257): a table picked up, and the panel's list of the editor's keys.
   {
-    name: 'the floorplan, saving',
+    name: 'the layout, a table picked up',
     who: 'organizer',
     sizes: ORGANIZER,
     deskOnly: true,
-    open: floorplanAt('saving'),
+    open: layoutAt('pickedUp'),
+  },
+  {
+    name: 'the layout, its keys listed',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('keys'),
+  },
+  // A row along a drawn path (T257): the options strip, the pending path and the crosshair.
+  {
+    name: 'the layout, a row being drawn',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('row'),
+  },
+  // A row's line drawn by hand (T257): the smoothed path waiting with its points.
+  {
+    name: 'the layout, a curve drawn by hand',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('drawn'),
+  },
+  // Fill an area (T257): a shape's corners clicked over the map, then its dialog.
+  {
+    name: 'the layout, an area being drawn',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('fillShape'),
+  },
+  {
+    name: 'the layout, the Fill dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('fillDialog'),
+  },
+  {
+    name: "the layout, a table type's dialog",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('typeDialog'),
+  },
+  {
+    name: 'the layout, its image being replaced',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: layoutAt('replacing'),
   },
   {
     name: 'market days, the plan',

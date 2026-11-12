@@ -175,7 +175,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### State Management
 
 - **Pinia 4.1.0** - Vue state management
-  - Stores in `src/stores/`: the open market (`market.ts`), the applicant's application and the floorplan wizard
+  - Stores in `src/stores/`: the open market (`market.ts`), the applicant's application and the floorplan beta's wizard (`floorplan.ts`, unreachable)
   - The signed-in user is held by `App.vue` and handed down with provide/inject
 
 ### Routing
@@ -197,8 +197,8 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Reusable composition functions
 - **VueDraggable 4.1.0** - Drag and drop component, resolved to the ES source it publishes (`vite.config.ts`), since its UMD builds evaluate a string and carry a second Vue
   - Drag-and-drop functionality for UI elements
-- **Konva 10** and **vue-konva 4** - The floorplan wizard's canvas
-  - Each floorplan component imports the vue-konva components it draws with; none is installed app-wide, so no page but the floorplan wizard downloads Konva
+- **Konva 10** and **vue-konva 4** - The floorplan beta's canvas, still in the tree and reached by no page
+  - Each floorplan component imports the vue-konva components it draws with; none is installed app-wide, so no page downloads Konva
 
 ### Development Tools
 
@@ -367,7 +367,8 @@ Conventioner/
 │   │   ├── applicants.py, applicant_auth.py  # The public applicant surface
 │   │   ├── placements.py # The only writer of a market's assignment
 │   │   ├── attendance.py, door.py  # Check-in, by the vendor and at the door
-│   │   └── floorplans*.py   # The floorplan wizard (beta)
+│   │   ├── floorplans*.py   # The floorplan routes: a location's layout, its image and placement
+│   │   └── layouts.py    # The market's table types, their own write
 │   ├── utils/            # Utility modules
 │   │   ├── tokens.py     # Token/OTP generation
 │   │   ├── email.py      # Email service integration

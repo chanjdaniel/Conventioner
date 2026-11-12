@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 
-import FloorplanUploader from '@/components/floorplan/FloorplanUploader.vue';
+import FloorplanUploader from '@/components/layout/FloorplanUploader.vue';
 
 const api = vi.hoisted(() => ({ post: vi.fn(), get: vi.fn() }));
 
@@ -11,13 +11,22 @@ vi.mock('@/utils/api', async (importOriginal) => {
   return { ...actual, api };
 });
 
+const shrink = vi.hoisted(() => ({ shrinkToUpload: vi.fn() }));
+
+vi.mock('@/components/layout/shrinkImage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/layout/shrinkImage')>();
+  return { ...actual, shrinkToUpload: shrink.shrinkToUpload };
+});
+
 /**
- * The floorplan uploader takes its file on the shared drop zone (T205, F11 of the 2026-11-02
- * walk), as the import and the start from a Google Form do, where it had drawn a third design
- * with a "Browse Files" button.
+ * A location's floorplan is taken on the shared drop zone (T205, F11 of the 2026-11-02 walk), as
+ * the import and the start from a Google Form do, and held to the upload's limits in the browser
+ * (T257 ticket 02).
  */
-function fileOf(name: string, type: string): File {
-  return new File(['fixture'], name, { type });
+function fileOf(name: string, type: string, size?: number): File {
+  const file = new File(['fixture'], name, { type });
+  if (size !== undefined) Object.defineProperty(file, 'size', { value: size });
+  return file;
 }
 
 async function choose(wrapper: ReturnType<typeof mount>, file: File) {
@@ -26,10 +35,21 @@ async function choose(wrapper: ReturnType<typeof mount>, file: File) {
   await input.trigger('change');
 }
 
-describe('the floorplan uploader', () => {
+const TWO_PAGES = {
+  data: {
+    pages: [
+      { gridfs_id: 'page-1', width: 800, height: 600 },
+      { gridfs_id: 'page-2', width: 800, height: 600 },
+    ],
+  },
+};
+
+describe("a location's floorplan uploader", () => {
   beforeEach(() => {
     api.post.mockReset();
     api.get.mockReset();
+    shrink.shrinkToUpload.mockReset();
+    shrink.shrinkToUpload.mockImplementation(async (file: File) => file);
     // A PDF's preview is the page the server drew, fetched once the upload answers.
     api.get.mockResolvedValue({ data: new Blob(['page'], { type: 'image/png' }) });
     URL.createObjectURL = vi.fn(() => 'blob:fixture');
@@ -40,25 +60,25 @@ describe('the floorplan uploader', () => {
     vi.restoreAllMocks();
   });
 
-  it('offers the shared drop zone, naming the files it takes, and no Browse Files button', () => {
+  it('offers the shared drop zone, naming the files it takes and the limit', () => {
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
 
     const zone = wrapper.get('[data-testid="floorplan-upload-dropzone"]');
     expect(zone.classes()).toContain('file-drop-zone');
-    expect(zone.text()).toContain('Drop a floorplan image or PDF here, or choose a file');
-    expect(zone.text()).toContain('PNG, JPG, WebP or PDF.');
+    expect(zone.text()).toContain("Drop the floorplan's image or PDF here, or choose a file");
+    expect(zone.text()).toContain('PNG, JPG, WebP or PDF, up to 4 MB');
     const input = wrapper.get('[data-testid="floorplan-upload-file-input"]');
     expect(input.attributes('accept')).toBe('image/png,image/jpeg,image/webp,application/pdf');
-    expect(wrapper.text()).not.toContain('Browse Files');
     expect(wrapper.find('button').exists()).toBe(false);
   });
 
-  it('uploads a chosen PNG for its market, busy while it does, then shows its preview', async () => {
+  it('uploads a chosen PNG for its market, busy while it does, then says it is in', async () => {
     let answer!: (value: unknown) => void;
     api.post.mockReturnValue(new Promise((resolve) => (answer = resolve)));
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
 
     await choose(wrapper, fileOf('hall.png', 'image/png'));
+    await flushPromises();
 
     expect(api.post).toHaveBeenCalledTimes(1);
     const [path, form] = api.post.mock.calls[0];
@@ -66,10 +86,7 @@ describe('the floorplan uploader', () => {
     expect((form as FormData).get('market_id')).toBe('market-1');
     const zone = wrapper.get('[data-testid="floorplan-upload-dropzone"]');
     expect(zone.attributes('aria-busy')).toBe('true');
-    expect(
-      wrapper.get('[data-testid="floorplan-upload-file-input"]').attributes('disabled'),
-    ).toBeDefined();
-    expect(wrapper.find('[data-testid="floorplan-upload-progress"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="floorplan-upload-progress"]').text()).toBe('Uploading…');
 
     answer({ data: { gridfs_id: 'image-1', width: 800, height: 600 } });
     await flushPromises();
@@ -77,36 +94,70 @@ describe('the floorplan uploader', () => {
     expect(wrapper.emitted('uploaded')).toEqual([
       [{ gridfs_id: 'image-1', width: 800, height: 600 }],
     ]);
-    expect(wrapper.find('[data-testid="floorplan-upload-dropzone"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="floorplan-upload-progress"]').exists()).toBe(false);
-    expect(wrapper.get('img').attributes('src')).toBe('blob:fixture');
   });
 
-  it('uploads a dropped PDF and offers its pages', async () => {
-    api.post.mockResolvedValue({
-      data: {
-        pages: [
-          { gridfs_id: 'page-1', width: 800, height: 600, page: 1 },
-          { gridfs_id: 'page-2', width: 800, height: 600, page: 2 },
-        ],
-      },
-    });
+  it('stays busy while the caller saves what was chosen', () => {
+    const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1', busy: true } });
+
+    expect(wrapper.get('[data-testid="floorplan-upload-dropzone"]').attributes('aria-busy')).toBe(
+      'true',
+    );
+  });
+
+  it('sends an image over 4 MB as the shrink gives it back', async () => {
+    const smaller = fileOf('hall.webp', 'image/webp', 3_000_000);
+    shrink.shrinkToUpload.mockResolvedValue(smaller);
+    api.post.mockResolvedValue({ data: { gridfs_id: 'image-1', width: 8000, height: 6000 } });
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
 
-    const zone = wrapper.get('[data-testid="floorplan-upload-dropzone"]');
-    await zone.trigger('drop', {
-      dataTransfer: { files: [fileOf('hall.pdf', 'application/pdf')] },
-    });
+    await choose(wrapper, fileOf('hall.png', 'image/png', 5_000_000));
+    await flushPromises();
+
+    expect((api.post.mock.calls[0][1] as FormData).get('file')).toStrictEqual(smaller);
+    expect(wrapper.emitted('uploaded')).toHaveLength(1);
+  });
+
+  it('refuses a PDF over 4 MB in the browser with its sentence, as an alert', async () => {
+    const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
+
+    await choose(wrapper, fileOf('hall.pdf', 'application/pdf', 4_000_001));
+    await flushPromises();
+
+    expect(api.post).not.toHaveBeenCalled();
+    const error = wrapper.get('[data-testid="floorplan-upload-error"]');
+    expect(error.attributes('role')).toBe('alert');
+    expect(error.text()).toBe(
+      'This PDF is larger than 4 MB. Export the page with the plan on it as a PNG or a smaller PDF.',
+    );
+  });
+
+  it('takes a PDF of exactly 4 MB', async () => {
+    api.post.mockResolvedValue({ data: { pages: [{ gridfs_id: 'p', width: 1, height: 1 }] } });
+    const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
+
+    await choose(wrapper, fileOf('hall.pdf', 'application/pdf', 4_000_000));
     await flushPromises();
 
     expect(api.post).toHaveBeenCalledTimes(1);
-    expect(wrapper.emitted('uploaded')?.[0]).toEqual([
-      { gridfs_id: 'page-1', width: 800, height: 600, page: 1 },
-    ]);
-    expect(wrapper.findAll('.page-option')).toHaveLength(2);
   });
 
-  it('shows a PDF as the page the server drew, not the file, and follows the page chosen', async () => {
+  it("uses a one-page PDF's page at once, numbered", async () => {
+    api.post.mockResolvedValue({
+      data: { pages: [{ gridfs_id: 'page-1', width: 1654, height: 2339 }] },
+    });
+    const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
+
+    await choose(wrapper, fileOf('hall.pdf', 'application/pdf'));
+    await flushPromises();
+
+    expect(wrapper.emitted('uploaded')).toEqual([
+      [{ gridfs_id: 'page-1', width: 1654, height: 2339, page: 1 }],
+    ]);
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it('shows a PDF of several pages as the page the server drew, and uses the page chosen', async () => {
     // A browser draws no PDF in an image, so the preview of the file itself was a broken image.
     const drawn = new Map<Blob, string>();
     api.get.mockImplementation(async (path: string) => {
@@ -115,14 +166,7 @@ describe('the floorplan uploader', () => {
       return { data: blob };
     });
     URL.createObjectURL = vi.fn((blob: Blob) => drawn.get(blob) ?? 'blob:the-file');
-    api.post.mockResolvedValue({
-      data: {
-        pages: [
-          { gridfs_id: 'page-1', width: 800, height: 600 },
-          { gridfs_id: 'page-2', width: 800, height: 600 },
-        ],
-      },
-    });
+    api.post.mockResolvedValue(TWO_PAGES);
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
 
     await choose(wrapper, fileOf('hall.pdf', 'application/pdf'));
@@ -130,14 +174,19 @@ describe('the floorplan uploader', () => {
 
     expect(api.get).toHaveBeenCalledWith('/floorplans/page-1', { responseType: 'blob' });
     expect(wrapper.get('img').attributes('src')).toBe('blob:/floorplans/page-1');
+    expect(wrapper.emitted('uploaded')).toBeUndefined();
 
     await wrapper.findAll('.page-radio')[1].setValue();
     await flushPromises();
 
     expect(wrapper.get('img').attributes('src')).toBe('blob:/floorplans/page-2');
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:/floorplans/page-1');
-    expect(wrapper.emitted('uploaded')?.at(-1)).toEqual([
-      { gridfs_id: 'page-2', width: 800, height: 600 },
+    const use = wrapper.get('[data-testid="floorplan-upload-use-page"]');
+    expect(use.text()).toBe('Use page 2');
+    await use.trigger('click');
+
+    expect(wrapper.emitted('uploaded')).toEqual([
+      [{ gridfs_id: 'page-2', width: 800, height: 600, page: 2 }],
     ]);
   });
 
@@ -153,14 +202,7 @@ describe('the floorplan uploader', () => {
       return Promise.resolve({ data: blob });
     });
     URL.createObjectURL = vi.fn((blob: Blob) => urls.get(blob) ?? 'blob:the-file');
-    api.post.mockResolvedValue({
-      data: {
-        pages: [
-          { gridfs_id: 'page-1', width: 800, height: 600 },
-          { gridfs_id: 'page-2', width: 800, height: 600 },
-        ],
-      },
-    });
+    api.post.mockResolvedValue(TWO_PAGES);
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
     await choose(wrapper, fileOf('hall.pdf', 'application/pdf'));
     await flushPromises();
@@ -173,20 +215,10 @@ describe('the floorplan uploader', () => {
 
     expect(wrapper.get('img').attributes('src')).toBe('blob:/floorplans/page-1');
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:/floorplans/page-2');
-    expect(wrapper.emitted('uploaded')?.at(-1)).toEqual([
-      { gridfs_id: 'page-1', width: 800, height: 600 },
-    ]);
   });
 
   it('says a PDF was uploaded when only its page could not be shown', async () => {
-    api.post.mockResolvedValue({
-      data: {
-        pages: [
-          { gridfs_id: 'page-1', width: 800, height: 600 },
-          { gridfs_id: 'page-2', width: 800, height: 600 },
-        ],
-      },
-    });
+    api.post.mockResolvedValue(TWO_PAGES);
     api.get.mockRejectedValueOnce(new Error('offline'));
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
 
@@ -201,63 +233,41 @@ describe('the floorplan uploader', () => {
     expect(wrapper.emitted('uploaded')).toBeUndefined();
   });
 
-  it("offers no page of an earlier PDF once an image is chosen after the PDF's page failed", async () => {
-    api.post.mockResolvedValueOnce({
-      data: {
-        pages: [
-          { gridfs_id: 'page-1', width: 800, height: 600 },
-          { gridfs_id: 'page-2', width: 800, height: 600 },
-        ],
-      },
-    });
-    api.get.mockRejectedValueOnce(new Error('offline'));
-    const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
-    await choose(wrapper, fileOf('hall.pdf', 'application/pdf'));
-    await flushPromises();
-
-    api.post.mockResolvedValueOnce({ data: { gridfs_id: 'image-1', width: 800, height: 600 } });
-    await choose(wrapper, fileOf('hall.png', 'image/png'));
-    await flushPromises();
-
-    expect(wrapper.findAll('.page-option')).toHaveLength(0);
-    expect(wrapper.emitted('uploaded')?.at(-1)).toEqual([
-      { gridfs_id: 'image-1', width: 800, height: 600 },
-    ]);
-    expect(wrapper.find('[data-testid="floorplan-upload-error"]').exists()).toBe(false);
-  });
-
-  it('refuses a file of another type, as before, and uploads nothing', async () => {
+  it('refuses a file of another type with the type sentence, as an alert, and uploads nothing', async () => {
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
 
     await choose(wrapper, fileOf('hall.txt', 'text/plain'));
 
     expect(api.post).not.toHaveBeenCalled();
-    expect(wrapper.get('[data-testid="floorplan-upload-error"]').text()).toBe(
-      'Unsupported file type. Please use PNG, JPG, WebP, or PDF.',
-    );
-    expect(wrapper.emitted('error')).toEqual([
-      ['Unsupported file type. Please use PNG, JPG, WebP, or PDF.'],
-    ]);
+    const error = wrapper.get('[data-testid="floorplan-upload-error"]');
+    expect(error.text()).toBe('This file is not a PNG, JPG, WebP or PDF.');
+    expect(error.attributes('role')).toBe('alert');
+    expect(wrapper.emitted('error')).toEqual([['This file is not a PNG, JPG, WebP or PDF.']]);
     expect(wrapper.find('[data-testid="floorplan-upload-dropzone"]').exists()).toBe(true);
   });
 
-  it('keeps the zone after a failed upload, so another file can be chosen', async () => {
-    api.post.mockRejectedValueOnce(new Error('offline'));
+  it("says the server's refusal as it words it, and keeps the zone for another file", async () => {
+    api.post.mockRejectedValueOnce(
+      Object.assign(new Error('Bad Request'), {
+        isAxiosError: true,
+        response: { status: 400, data: { error: 'hall.pdf could not be read as a PDF.' } },
+      }),
+    );
     const wrapper = mount(FloorplanUploader, { props: { marketId: 'market-1' } });
 
-    await choose(wrapper, fileOf('hall.png', 'image/png'));
+    await choose(wrapper, fileOf('hall.pdf', 'application/pdf'));
     await flushPromises();
 
-    expect(wrapper.get('[data-testid="floorplan-upload-error"]').text()).not.toBe('');
+    expect(wrapper.get('[data-testid="floorplan-upload-error"]').text()).toBe(
+      'hall.pdf could not be read as a PDF.',
+    );
     const zone = wrapper.get('[data-testid="floorplan-upload-dropzone"]');
     expect(zone.attributes('aria-busy')).toBeUndefined();
-    expect(wrapper.find('img').exists()).toBe(false);
 
     api.post.mockResolvedValueOnce({ data: { gridfs_id: 'image-2', width: 800, height: 600 } });
     await choose(wrapper, fileOf('hall.png', 'image/png'));
     await flushPromises();
 
-    expect(api.post).toHaveBeenCalledTimes(2);
     expect(wrapper.find('[data-testid="floorplan-upload-error"]').exists()).toBe(false);
     expect(wrapper.emitted('uploaded')).toEqual([
       [{ gridfs_id: 'image-2', width: 800, height: 600 }],

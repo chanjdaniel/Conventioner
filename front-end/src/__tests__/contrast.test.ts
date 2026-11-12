@@ -104,6 +104,16 @@ function inkOn(name: string, ground: Rgb): Rgb {
 
 const WHITE: Rgb = [255, 255, 255];
 
+/** Each colour a layout draws a table or a zone in (T257): its fill, and the edge round it. */
+const LAYOUT_PAIRS: Array<[string, string]> = [
+  ...Array.from({ length: 8 }, (_, i): [string, string] => [
+    `--layout-section-${i + 1}-fill`,
+    `--layout-section-${i + 1}-edge`,
+  ]),
+  ['--layout-no-section-fill', '--layout-no-section-edge'],
+  ['--layout-zone-fill', '--layout-zone-edge'],
+];
+
 /**
  * Each button fill at rest, then the fills it steps to under the pointer and, where it has one,
  * pressed, and the inks set on it. The `.btn` intents have both steps; the fills only a component's
@@ -236,6 +246,8 @@ describe('the palette carries a contrast contract', () => {
     // unnoticed because a hardcoded colour has no name to hold to a contract.
     ['--mm-red', 'white'],
     ['--mm-blue', 'white'],
+    // A layout's floor (T257), under the floorplan, the tables and their labels.
+    ['--layout-floor', '--mm-black'],
     // How full a cell of the Stats tab's How full table is (T201), its figures in black.
     ...FILL_STEPS.map((step): [string, '--mm-black'] => [step, '--mm-black']),
   ];
@@ -345,9 +357,55 @@ describe('the palette carries a contrast contract', () => {
       '--hover-grey',
       '--edge-shade',
       '--edge-shade-on-dark',
+      // The section palette's fills and edges, held by their own contract below.
+      ...LAYOUT_PAIRS.flat(),
+      '--layout-zone-hatch',
     ]);
     const unaccounted = Object.keys(tokens).filter((t) => !known.has(t));
     expect(unaccounted).toEqual([]);
+  });
+});
+
+/**
+ * The section palette (T257): a layout draws each section's tables filled with its tint and edged
+ * in its hue, a table in no section in grey and a no-table zone hatched. A table's number and a
+ * zone's label are `--mm-black` on the fill, held to 7:1, since a number on a table drawn small is
+ * small type; an edge is what tells one section's tables from the floor and its name pill from a
+ * white page, held to the 3:1 a boundary wants on both.
+ */
+describe('the section palette carries its own contract', () => {
+  const INK_ON_A_TABLE = 7;
+  const A_BOUNDARY = 3;
+
+  it('has eight colours, a fill and an edge each', () => {
+    const numbers = Object.keys(tokens)
+      .map((name) => name.match(/^--layout-section-(\d+)-(fill|edge)$/))
+      .filter((match): match is RegExpMatchArray => match !== null)
+      .map((match) => `${match[1]}-${match[2]}`);
+    expect(numbers.sort()).toEqual(
+      Array.from({ length: 8 }, (_, i) => [`${i + 1}-edge`, `${i + 1}-fill`]).flat(),
+    );
+  });
+
+  for (const [fill, edge] of LAYOUT_PAIRS) {
+    it(`--mm-black reads at 7:1 on ${fill}`, () => {
+      expect(alphaOf(tokens[fill])).toBe(1);
+      expect(contrast(resolve('--mm-black'), resolve(fill))).toBeGreaterThanOrEqual(INK_ON_A_TABLE);
+    });
+
+    it(`${edge} stands at 3:1 against the floor and against white`, () => {
+      expect(alphaOf(tokens[edge])).toBe(1);
+      expect(contrast(resolve(edge), resolve('--layout-floor'))).toBeGreaterThanOrEqual(A_BOUNDARY);
+      expect(contrast(resolve(edge), WHITE)).toBeGreaterThanOrEqual(A_BOUNDARY);
+    });
+  }
+
+  it("a zone's label reads at 7:1 on both greys of its hatch", () => {
+    for (const ground of ['--layout-zone-fill', '--layout-zone-hatch']) {
+      expect(contrast(resolve('--mm-black'), resolve(ground)), ground).toBeGreaterThanOrEqual(
+        INK_ON_A_TABLE,
+      );
+    }
   });
 });
 

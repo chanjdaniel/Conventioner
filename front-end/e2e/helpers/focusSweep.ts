@@ -222,6 +222,33 @@ export async function installTheSweep(page: Page): Promise<void> {
         if (s.boxShadow.includes(halo) || s.boxShadow.includes(haloOnDark)) {
           problems.push(`a button wore the halo: box-shadow ${s.boxShadow}`);
         }
+        // A button that is a shape of an SVG drawing, as a table of a layout's map is, cannot wear
+        // the outline: a browser reads an outline's width there in the drawing's own units, a
+        // fraction of a pixel on a map in millimetres. It draws the border itself, as a shape over
+        // its own edge marked `data-focus-border`, 2px on the screen at any zoom, and in the deep
+        // green, since the edge it lies over is a colour of its own that the plain green shows on
+        // only by chance. That it stays inside the edge is the size check above.
+        if (el instanceof SVGElement) {
+          const drawn = el.querySelector('[data-focus-border]');
+          const d = drawn && getComputedStyle(drawn);
+          if (!d || d.display === 'none' || d.visibility !== 'visible') {
+            problems.push('a drawn button drew no green border: no data-focus-border shape shows');
+            return { id, name, problems };
+          }
+          const effect = d.getPropertyValue('vector-effect');
+          if (d.strokeWidth !== borderWidth || effect !== 'non-scaling-stroke') {
+            problems.push(
+              `a drawn button's border is not ${borderWidth} on the screen: ` +
+                `stroke-width ${d.strokeWidth}, vector-effect ${effect}`,
+            );
+          }
+          if (d.stroke !== borderOnFill) {
+            problems.push(
+              `a drawn button's border is ${d.stroke}, where ${borderOnFill} would show`,
+            );
+          }
+          return { id, name, problems };
+        }
         // A button with no border of its own may have a box up to four levels around it draw
         // the border, as a market card does for its name.
         const draws = (node: Element) => {

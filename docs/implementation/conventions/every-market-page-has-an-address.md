@@ -9,7 +9,8 @@ describes:
   - front-end/src/views/MarketLanding.vue
   - front-end/src/utils/vendorDrawer.ts
   - front-end/src/utils/market.ts#isHere
-verified: 2026-11-10
+  - front-end/src/utils/market.ts#layoutPath
+verified: 2026-11-11
 sources:
   - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/01
@@ -29,6 +30,7 @@ sources:
   - T209
   - T206
   - T223
+  - T257
 ---
 
 # Every market page has an address
@@ -46,7 +48,8 @@ The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/route
 - The Application Form tab keeps its step in its query, `form?step=<essentials|questions|preview|review>`, so a blocker's fix, a bookmark or a shared link opens Review setup as `form?step=review` (T206); no step, an unknown one, or one the path lacks (`preview` on a Google Form market) opens the step the tab opens with none ([building the application form](../../business/flows/form-tab.md)).
 - `/markets/:marketId/assignments`, `/vendors`, `/payments`, `/attendance`, `/tools` and `/stats` are views of their own; the Payments page keeps its filter, search and sort in its query ([payments](../../business/flows/payments.md)), and the Vendors page its search beside its filters, as `search` ([vendors](../../business/flows/vendors.md)).
 - Applications All keeps its filter, Mine, "Assigned to" and search in its query beside the view, as `status`, `mine`, `reviewer` and `search` ([reviewing applications](../../business/flows/review.md#the-all-view)).
-- `/markets/:marketId/import`, `/floorplan` and `/start-from-csv` are flows, entered from a tab rather than places to go; each stands under one tab, the import under Applications and the other two under Market Setup (see [the market frame](../modules/market-frame.md)).
+- `/markets/:marketId/import`, `/start-from-csv` and `/layout/:locationId` are flows, entered from a tab rather than places to go; each stands under one tab, the import under Applications and the other two under Market Setup (see [the market frame](../modules/market-frame.md)).
+  `/markets/:marketId/layout` alone opens the market's first named location's layout, and its address is built by `layoutPath(marketId, locationId)` beside `marketPath()` ([the layout page](../modules/floorplan-placement.md#the-layout-page), T257).
 - `/dev/components` and `/dev/components/:entry` are not market pages either: they are the [component library](../modules/component-library.md), registered only in a development build, so in production they are "page not found" as any unknown address is.
 - `/discord/connected` is not a market page: it is where Discord's approval screen sends the organizer back, its market named by the state it carries, in the tab Connect Discord opened; it says the outcome and links to that market's Tools ([the Discord connection](../modules/discord.md)).
 - `/:marketSlug` alone is the vendor page, [`VendorPage`](../../../front-end/src/views/VendorPage.vue), flagged `meta.vendorFacing` so the app bar shows it the vendors' way to everyone, an organizer included.
@@ -67,6 +70,7 @@ Its tab and another vendor while it is open replace the entry, a vendor its Hist
 Two old names of a market's pages forward, each with its query: `/markets/:marketId/assignment` to `settings` and `/markets/:marketId/result` to `assignments`.
 The Assignment and Result pages took those names ([the assignment and its result](../../business/flows/assignment-and-result.md)) after production's release of 2026-10-18, which still serves the old ones, so they are what organizers have bookmarked; they can go after a release or two.
 `/dashboard`, where signing in landed until Markets took over, and `/` forward to `/markets`.
+`/markets/:marketId/floorplan`, the floorplan beta's wizard, forwards to `/markets/:marketId/layout`, which opens the market's first location's layout, since a location's layout took the beta's place (T257).
 
 Nothing else is kept for an old link, since nothing links to it:
 

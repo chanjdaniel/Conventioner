@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import type { FloorplanTemplate, TableTypeObject } from '@/assets/types/datatypes';
+import type { FloorplanTemplate, BetaTableType } from '@/assets/types/datatypes';
 
 const post = vi.fn();
 const get = vi.fn();
@@ -23,7 +23,7 @@ vi.mock('@/utils/api', async (importOriginal) => ({
 import TemplatePanel from '@/components/floorplan/TemplatePanel.vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 
-const SIX_FOOT: TableTypeObject = {
+const SIX_FOOT: BetaTableType = {
   id: 'six-foot',
   name: 'Six-foot',
   widthMm: 1800,
@@ -32,8 +32,8 @@ const SIX_FOOT: TableTypeObject = {
   color: '#4A90D9',
 };
 
-const EIGHT_FOOT: TableTypeObject = { ...SIX_FOOT, id: 'eight-foot', name: 'Eight-foot' };
-const ROUND: TableTypeObject = { ...SIX_FOOT, id: 'round', name: 'Round' };
+const EIGHT_FOOT: BetaTableType = { ...SIX_FOOT, id: 'eight-foot', name: 'Eight-foot' };
+const ROUND: BetaTableType = { ...SIX_FOOT, id: 'round', name: 'Round' };
 
 const STANDARD: FloorplanTemplate = {
   id: 'tpl-standard',
