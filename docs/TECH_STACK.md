@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-11-10
+verified: 2026-11-13
 sources:
   - T254
   - T251
@@ -204,6 +204,9 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **ESLint 10.13.0** - JavaScript/TypeScript linter
   - Code quality enforcement
   - Vue-specific linting rules from `eslint-plugin-vue` 10 (its `flat/essential` set, plus `vue/no-v-html` as an error, so no template renders raw HTML)
+- **minimatch 11, held by `overrides` in `front-end/package.json`** - the glob matcher under ESLint, typescript-eslint and `@vue/test-utils`'s js-beautify, all development-only
+  - Each of them still asks for minimatch 10, and 10 lacks a security fix that 11.0.1 carries, so the override holds every copy at `^11.0.8`; lint, the type check, Stylelint and the unit tests pass on it
+  - Drop the entry once ESLint, `@eslint/config-array`, `@typescript-eslint/typescript-estree` and js-beautify's `editorconfig` and `glob` all ask for 11
 - **Prettier 3.9.10** - Code formatter, configured in `front-end/.prettierrc.json` (semicolons, single quotes, a 100-character line, trailing commas everywhere)
   - `npm run format` fixes and `npm run format:check` verifies; both cover `front-end/` and `docs/` with that config, leaving out the generated `docs/schema.d.ts`, which its test compares byte for byte (`front-end/.prettierignore`); CI runs the check in `frontend-lint-and-types`, so unformatted front-end code or docs fail the build: run `npm run format` before committing
   - The one-time reformat commits, of the front end and of `docs/`, are listed in `.git-blame-ignore-revs`, which `git blame` skips once `git config blame.ignoreRevsFile .git-blame-ignore-revs` is set

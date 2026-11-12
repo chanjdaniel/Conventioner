@@ -204,6 +204,8 @@ The holds today:
 - `typescript` 7: 7.0 ships no JavaScript API, so `vue-tsc` and typescript-eslint cannot run on it.
 - `@types/node` 25 and later: the types follow the Node major `.nvmrc` pins, 24, and move with that pin ([Node and npm are pinned](../../TECH_STACK.md#node-and-npm-are-pinned)), so a type check never accepts an API the running Node lacks.
 
+A transitive dependency the project needs at a major its dependents do not ask for yet is held by `overrides` in `front-end/package.json`: today minimatch 11 ([the development tools](../../TECH_STACK.md#development-tools)).
+
 The component kit's and icon font's next majors were held too, for their proprietary licence, until T45 removed both packages ([ADR 0015](../../adr/0015-the-app-owns-its-components.md)).
 
 For these ecosystems, security updates take the same titles, and always target the default branch.
