@@ -1064,12 +1064,6 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     ]
     # Whether this reader may open Manage organization, which the list points to.
     market_dict['inOrganization'] = in_organization
-    # Deprecated, for a tab on the old bundle, whose Manage market lists the market's own roles by
-    # it; the next release removes it.
-    market_dict['role_emails'] = {
-        uid: account.email
-        for uid in (market_dict.get('roles') or {}) if (account := accounts.of(uid))
-    }
     # Whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
     # and so name one (the table's verdicts row, a chosen reviewer's too): the organization's
     # people too, if the reader is one.

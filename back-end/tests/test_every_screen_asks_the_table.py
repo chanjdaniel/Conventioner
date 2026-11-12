@@ -201,10 +201,11 @@ class TestTheRulesOfTheMarketsLifeAreServedOnTheirOwn:
 
 
 #: The reasons the screens read before each asked its row, served for old tabs by the release that
-#: brought the rows (1.1.0), and gone in the release after, with the market's role.
+#: brought the rows (1.1.0), and gone in the release after, with the market's role; and the
+#: addresses of the market's own roles, served for old tabs one release after ``peopleWithAccess``.
 GONE_FIELDS = (
     "adminActionsReason", "verdictLockReason", "addVendorReason", "publishResultsReason",
-    "user_role",
+    "user_role", "role_emails",
 )
 
 
