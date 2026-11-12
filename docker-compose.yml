@@ -100,7 +100,13 @@ services:
         condition: service_healthy
     networks:
       - conventioner_network
-    command: flask run --host=0.0.0.0 --port=5001 --cert=adhoc
+    # --reload: back-end/ is mounted over the image's copy, so a stack left up would otherwise
+    # serve the code it started on, and an E2E run after a back-end change would test the old
+    # routes. Werkzeug's reloader restarts the server when a Python file under /app changes; the
+    # restart mints a new signing key, as any restart does, so it signs everyone out unless
+    # SECRET_KEY is set. Not --debug: that also serves the interactive debugger. The image's own
+    # CMD (back-end/Dockerfile) does not reload.
+    command: flask run --reload --host=0.0.0.0 --port=5001 --cert=adhoc
 
   frontend:
     build:
