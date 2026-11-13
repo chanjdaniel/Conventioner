@@ -110,7 +110,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Flask-Session 0.8.0** - Server-side session storage
   - Session store selected by `SESSION_TYPE`, which has no default: `filesystem` (local disk) on a container or VM, `null` (signed cookie only, no server-side store) on a serverless host
   - A sign-in lasts 12 hours, or 30 days with "Remember me", counted from signing in and enforced by the server ([the cookies](implementation/conventions/security-invariants.md#the-cookies)); the session cookie ends with the browser
-  - The session and remember-me cookies are `SameSite=None`, so they are always `Secure` and `HttpOnly` - not configurable ([the cookies](implementation/conventions/security-invariants.md#the-cookies))
+  - The session and remember-me cookies are `SameSite=Lax`, `Secure` and `HttpOnly` - not configurable, since the front end and the API are on one site ([the cookies](implementation/conventions/security-invariants.md#the-cookies))
 
 ### Testing
 
@@ -318,7 +318,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - **CAPTCHA Protection**: reCAPTCHA v3 on registration
 - **Rate Limiting**: every sign-in, code, reset-link, verification-link and sign-up request, counted per address and per caller in the database (`back-end/sign_in_limits.py`), before the account is looked up; a try that signs in is taken back; OTP and password reset requests also wait on the last
 - **Token Expiration**: Time-limited tokens for verification and reset
-- **Secure Sessions**: HTTP-only, `Secure`, `SameSite=None` cookies, signed with a `SECRET_KEY` that has no fallback
+- **Secure Sessions**: HTTP-only, `Secure`, `SameSite=Lax` cookies, signed with a `SECRET_KEY` that has no fallback
 - **CORS Protection**: An explicit origin allowlist (`CORS_ALLOWED_ORIGINS`); `*` is refused, because the session cookie is credentialed
 - **Boot-Time Defenses**: The app refuses to start unless every variable its public surface rests on is configured (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment))
 - **Input Validation**: Pydantic models for type safety
