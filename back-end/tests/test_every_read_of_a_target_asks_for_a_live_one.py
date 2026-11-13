@@ -62,6 +62,9 @@ EXCEPTIONS: Dict[Tuple[str, str], str] = {
         "the boot check reads every market, whatever its state, before anything is served"),
     ("review_team", "_let_go"): (
         "a deal lets go of its own lease whatever state the market is in, so none is left held"),
+    ("api.users", "delete_user"): (
+        "an account owning a market or an organization being deleted keeps it, so the owner the "
+        "deletion's retry asks for still exists"),
     ("organization_people", "forget"): (
         "a deleted account leaves every organization, one being deleted too, so none names it"),
     ("seed_test_markets", "_test_organization"): (

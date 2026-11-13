@@ -338,3 +338,22 @@ class TestATargetBeingDeletedReadsAsAbsent:
 
         assert response.status_code == 404, response.get_json()
         assert real_db[MARKETS_COLLECTION].count_documents({"organizationId": ORG}) == len(markets)
+
+
+class TestAnOwnerOfATargetBeingDeleted:
+    def test_keeps_their_account_so_the_deletion_can_be_sent_again(
+            self, organization, monkeypatch, real_db):
+        """The retry asks for the owner again; an owner deleted between the cut and it would leave
+        the tombstoned target for ever, so their account is refused as for a live one."""
+        client, (draft, _archived) = organization
+        _cut(monkeypatch, "api.applications.delete_applications_for_market")
+        assert client.delete(f"/markets/{draft['id']}").status_code == 500
+        real_db["organizations"].update_one({"id": ORG}, {"$set": {"owner": "someone-else",
+                                                                     "people": {}}})
+        real_db[MARKETS_COLLECTION].delete_many({"id": {"$ne": draft["id"]}})
+
+        refused = client.post("/delete-user", json={"email": OWNER})
+        assert refused.status_code == 409, refused.get_json()
+        assert refused.get_json()["ownedMarkets"] == [draft["name"]]
+        assert real_db["users"].find_one({"id": client.account_id}) is not None
+        assert client.delete(f"/markets/{draft['id']}").status_code == 200
