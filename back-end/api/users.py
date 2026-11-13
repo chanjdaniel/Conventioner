@@ -3,20 +3,21 @@ import time
 import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional, Tuple
-from flask import current_app, request, jsonify, session
+from flask import request, jsonify, session
 from flask_login import UserMixin
-from flask_login.config import COOKIE_NAME
+from flask_login.utils import decode_cookie
 from datatypes import MarketRole, OrganizationRole, User, organization_people_of
 from db_config import get_database
 from utils.email import (
     send_account_exists_email, send_verification_email, send_password_reset_email, send_otp_email
 )
 from utils.captcha import verify_recaptcha
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from utils.email_address import normalized_email
 from utils.request_body import flag_field, json_object, string_field
 import account_secrets
+import organizer_sessions
 import sign_in_limits
 
 db = get_database()
@@ -78,17 +79,19 @@ def ensure_user_indexes() -> None:
         ) from None
 
 
-#: How long a sign-in without "Remember me" lasts (E38/F14/S01): a market day. Its session cookie
-#: ends with the browser, and the server refuses it this long after signing in, since a browser
-#: that restores its tabs restores its session cookies too.
-SIGN_IN_LIFETIME = timedelta(hours=12)
+#: How long a sign-in lasts without "Remember me", and with it (``organizer_sessions``).
+SIGN_IN_LIFETIME = organizer_sessions.SIGN_IN_LIFETIME
+REMEMBERED_SIGN_IN_LIFETIME = organizer_sessions.REMEMBERED_SIGN_IN_LIFETIME
 
-#: How long a sign-in with "Remember me" lasts, from signing in: use does not extend it, so a lost
-#: laptop is signed out within a month. The remember-me cookie expires then, and the server
-#: refuses it then too, whatever the browser kept.
-REMEMBERED_SIGN_IN_LIFETIME = timedelta(days=30)
+#: The remember cookie an organizer's sign-in sets (``app.py``'s ``REMEMBER_COOKIE_NAME``): its
+#: ``__Host-`` prefix holds it to the API's host.
+REMEMBER_COOKIE = "__Host-organizer_remember"
 
-#: The kinds of sign-in a sign-in id names, and how long each lasts.
+#: The remember cookie the sign-ins made before they were kept on the server set, read for one
+#: release (``legacy_remembered_account``) and deleted by every sign-in and sign-out.
+LEGACY_REMEMBER_COOKIE = "remember_token"
+
+#: The kinds of sign-in a legacy sign-in id names, and how long each lasts.
 _LIFETIMES = {"s": SIGN_IN_LIFETIME, "r": REMEMBERED_SIGN_IN_LIFETIME}
 
 #: What a refused sign-in says (E38/F14/S02), in the sign-in screen's words, each with what to do
@@ -260,24 +263,14 @@ def _next_code(wait: Optional[int]) -> str:
     return NEXT_CODE_LATER.format(wait=sign_in_limits.wait_in_words(wait))
 
 
-def _sign_in_id(login_id: str, remembered: bool, signed_in_at: float) -> str:
-    """What the session and the remember-me cookie carry: the account, the kind and the time.
-
-    ``<login id>.<s|r>.<whole seconds since the epoch>``. The session is signed into its cookie with
-    the app's ``SECRET_KEY`` by Flask, or kept on the server behind a random id by flask-session;
-    the remember-me cookie is signed with ``SECRET_KEY`` by Flask-Login's digest. So a browser can
-    change none of it.
-    """
-    return f"{login_id}.{'r' if remembered else 's'}.{int(signed_in_at)}"
-
-
 # users
 class AuthUser(UserMixin):
     """A signed-in account.
 
-    The session and the remember-me cookie name it by a sign-in id (`_sign_in_id`), which holds its
-    login id, not its address: a password reset replaces the login id, so every session and
-    remember-me cookie issued before the reset stops loading the account.
+    The session and the remember cookie name it by its sign-in (``sign_in``): the secret whose hash
+    keys its record in ``organizer_sessions``, or for one release a legacy sign-in id
+    (``_legacy_account``). Either loads the account by its login id, so the one write that replaces
+    the login id, a password reset's, ends every sign-in issued before.
     """
 
     def __init__(self, user: User, sign_in: Optional[str] = None):
@@ -310,16 +303,22 @@ def get_user_by_login_id(login_id):
     return None
 
 
-def signed_in_account(sign_in):
-    """The account a session or remember-me cookie names, or None: the app's user loader.
+def is_legacy_sign_in(sign_in) -> bool:
+    """Whether ``sign_in`` has a legacy sign-in id's shape, ``<login id>.<s|r>.<seconds>``.
 
-    None for a sign-in as old as its kind's length (`SIGN_IN_LIFETIME`, or
-    `REMEMBERED_SIGN_IN_LIFETIME` when remembered), counted from signing in, and for an id of any
-    other shape: every session and remember-me cookie issued before sign-ins carried their time
-    named the bare login id, and is not read.
+    A secret holds no ``.`` (``secrets.token_urlsafe``), so the two shapes cannot be confused.
     """
-    if not isinstance(sign_in, str):
-        return None
+    return isinstance(sign_in, str) and "." in sign_in
+
+
+def _legacy_account(sign_in: str):
+    """The account a legacy sign-in id names, or None, read for one release.
+
+    ``<login id>.<s|r>.<whole seconds since the epoch>``, as sign-ins were named before they were
+    kept on the server: None once it is as old as its kind's length (``SIGN_IN_LIFETIME``, or
+    ``REMEMBERED_SIGN_IN_LIFETIME`` when remembered), and for an id of any other shape, the bare
+    login id that came before it among them.
+    """
     parts = sign_in.rsplit(".", 2)
     if len(parts) != 3:
         return None
@@ -329,17 +328,71 @@ def signed_in_account(sign_in):
         return None
     if _now() - int(signed_in_at) >= lifetime.total_seconds():
         return None
-    account = get_user_by_login_id(login_id)
+    return get_user_by_login_id(login_id)
+
+
+def signed_in_account(sign_in):
+    """The account a session or remember cookie names, or None: the app's user loader.
+
+    A secret is recalled from ``organizer_sessions``: None once its sign-in has ended (signed out,
+    replaced by a sign-in in the browser, ended by a reset or the account's deletion, or past the
+    end its record holds), and
+    None when its account's login id is no longer the one the record was made under. For one
+    release a legacy sign-in id is read too (``_legacy_account``).
+    """
+    if not isinstance(sign_in, str) or not sign_in:
+        return None
+    if is_legacy_sign_in(sign_in):
+        account = _legacy_account(sign_in)
+    else:
+        recalled = organizer_sessions.recall(sign_in)
+        if recalled is None:
+            return None
+        user_id, login_id = recalled
+        account = get_user_by_login_id(login_id)
+        if account is not None and account.id != user_id:
+            return None
     if account is not None:
         account.sign_in = sign_in
     return account
 
 
+def legacy_remembered_account(cookie: Optional[str]):
+    """``(sign_in, account)`` for the legacy ``remember_token`` cookie, or None, read for one
+    release: the sign-in id it carries, so the caller can restore the session, and its account.
+
+    ``cookie`` is the cookie's value, signed by Flask-Login's digest; only a legacy sign-in id in
+    it is read.
+    """
+    sign_in = decode_cookie(cookie) if isinstance(cookie, str) and cookie else None
+    if not is_legacy_sign_in(sign_in):
+        return None
+    account = _legacy_account(sign_in)
+    if account is None:
+        return None
+    account.sign_in = sign_in
+    return sign_in, account
+
+
+def end_this_browsers_sign_ins() -> None:
+    """End, on the server, every sign-in this request's browser holds, whoever's it is: the one its
+    session names and the one its remember cookie names. A legacy sign-in has no record to end;
+    replacing the login id is what ends it."""
+    held = [session.get("_user_id")]
+    remembered = request.cookies.get(REMEMBER_COOKIE)
+    if remembered:
+        held.append(decode_cookie(remembered))
+    for sign_in in dict.fromkeys(held):
+        if isinstance(sign_in, str) and sign_in and not is_legacy_sign_in(sign_in):
+            organizer_sessions.end(sign_in)
+
+
 def _sign_in(login_user, user_doc, remember: bool):
     """Sign the account in for one of the two lengths, giving it a login id at its first sign-in.
 
-    The login id is written only where none is stored, then read back, so two first sign-ins at
-    once agree on one.
+    The sign-in the browser held before is ended first, whoever's it was; the new one is kept on
+    the server (``organizer_sessions``) under the account's login id. The login id is written only
+    where none is stored, then read back, so two first sign-ins at once agree on one.
     """
     if not user_doc.get("login_id"):
         users_collection.update_one(
@@ -352,9 +405,11 @@ def _sign_in(login_user, user_doc, remember: bool):
             raise RuntimeError("an account's login id was not stored at its first sign-in")
         user_doc["login_id"] = stored["login_id"]
 
+    end_this_browsers_sign_ins()
     user_doc.pop('_id', None)
     auth_user = AuthUser(
-        User(**user_doc), sign_in=_sign_in_id(user_doc["login_id"], remember, _now())
+        User(**user_doc),
+        sign_in=organizer_sessions.start(user_doc["id"], user_doc["login_id"], remember),
     )
     if remember:
         login_user(auth_user, remember=True, duration=REMEMBERED_SIGN_IN_LIFETIME)
@@ -362,7 +417,7 @@ def _sign_in(login_user, user_doc, remember: bool):
         login_user(auth_user, remember=False)
         # A browser remembered by an earlier sign-in is not once this one chose otherwise:
         # Flask-Login deletes the cookie on the way out, as it does at sign-out.
-        if current_app.config.get("REMEMBER_COOKIE_NAME", COOKIE_NAME) in request.cookies:
+        if REMEMBER_COOKIE in request.cookies:
             session["_remember"] = "clear"
 
     user_data = {
@@ -451,6 +506,9 @@ def login(bcrypt, login_user):
     return jsonify({"message": SIGN_IN_DOES_NOT_MATCH}), 401
 
 def logout(logout_user):
+    """Sign out: end this browser's sign-in on the server, so a copy of its cookies stops working
+    too, then clear both cookies."""
+    end_this_browsers_sign_ins()
     logout_user()
     return jsonify({"message": "Logged out"}), 200
 
@@ -661,8 +719,8 @@ def reset_password(bcrypt):
     The link is read first only to tell an expired link from one that is not there; the reset is
     one write found by the live link, so of two uses at once one resets and the other is answered
     as a link that is not there. The write verifies the address, ends the account's code and
-    verification link, and replaces the login id, which signs out every session and remember-me
-    cookie issued before.
+    verification link, and replaces the login id, which signs out every session and remember
+    cookie issued before; every record of the account's sign-ins is then ended.
     """
     data = json_object(required=False)
     token = string_field(data, "token")
@@ -685,9 +743,11 @@ def reset_password(bcrypt):
 
     hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
 
-    if not account_secrets.use_reset_link(users_collection, token, hashed_password,
-                                          _new_login_id()):
+    account_id = account_secrets.use_reset_link(users_collection, token, hashed_password,
+                                                _new_login_id())
+    if account_id is None:
         return jsonify({"msg": RESET_INVALID}), 400
+    organizer_sessions.end_all(account_id)
 
     return jsonify({"msg": "Password reset successfully"}), 200
 
@@ -894,6 +954,7 @@ def delete_user(authenticated_email: str):
         # place in every organization they were an admin or a member of (T283).
         if user_id_to_delete:
             OrganizationPeople.forget(user_id_to_delete)
+            organizer_sessions.end_all(user_id_to_delete)
         return jsonify({"msg": "User deleted successfully"}), 200
 
     return jsonify({"msg": "Failed to delete user"}), 500

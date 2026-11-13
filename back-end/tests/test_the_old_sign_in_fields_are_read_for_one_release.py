@@ -26,6 +26,7 @@ from test_the_sign_in_secrets_hold_one_state import Users
 
 NOW = datetime(2026, 11, 13, 9, 0, 0, tzinfo=timezone.utc)
 EMAIL = "fixture-organizer@example.com"
+ACCOUNT_ID = "fixture-organizer-id"
 THE_CODE = "123456"
 NOT_THE_CODE = "000000"
 THE_LINK = "fixture-legacy-reset-link"
@@ -205,14 +206,14 @@ class TestALiveResetLink:
 
     def test_it_resets_once(self, users):
         assert account_secrets.find_link(users, RESET, THE_LINK) is Link.LIVE
-        assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is True
+        assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) == ACCOUNT_ID
 
         account = _account(users)
         assert (account["password"], account["login_id"], account["email_verified"]) == (
             PASSWORD_HASH, LOGIN_ID, True)
         assert account_secrets.find_link(users, RESET, THE_LINK) is Link.INVALID
         assert account_secrets.use_reset_link(users, THE_LINK, "fixture-other-hash",
-                                              LOGIN_ID) is False
+                                              LOGIN_ID) is None
         assert _account(users)["password"] == PASSWORD_HASH
 
     def test_it_is_upgraded_once_on_the_way_and_kept_hashed(self, users):
@@ -237,7 +238,7 @@ class TestALiveResetLink:
                                otp_attempts=0, email_verified=True)
 
         assert account_secrets.find_link(users, RESET, THE_LINK) is Link.LIVE
-        assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is True
+        assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) == ACCOUNT_ID
 
         assert stored_code(_account(users)) is None
         assert _no_legacy_field_left(users)
@@ -248,7 +249,7 @@ def test_an_expired_legacy_link_answers_expired_and_holds_its_wait():
     users = _legacy_link(THE_LINK, NOW - 10 * MINUTE)
 
     assert account_secrets.find_link(users, RESET, THE_LINK) is Link.EXPIRED
-    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is False
+    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is None
     assert account_secrets.issue(users, RESET, dict(_account(users))) == Wait(seconds=50 * 60)
 
 
@@ -309,7 +310,7 @@ class TestALiveVerificationLink:
                                password_reset_token_expires=(NOW + 40 * MINUTE).isoformat())
 
         assert account_secrets.find_link(users, RESET, THE_LINK) is Link.LIVE
-        assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is True
+        assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) == ACCOUNT_ID
 
         assert stored_verification_link(_account(users)) is None
         assert _no_legacy_field_left(users)

@@ -6,10 +6,10 @@ hermetic; unset while ``REAL_MONGODB_REQUIRED`` is true, as CI's backend job set
 fails, so CI can never skip the suite in silence. A server that is not a loopback test server is
 refused before any connection (``harness.server_refusal``).
 
-The three suite-wide fakes of ``tests/conftest.py`` are named again here, so inside this package
-pytest resolves ``applications``, ``market_records`` and ``sign_in_attempts`` to the real
-collections and installs no fake; and since those three are used by every test, every test here
-runs on its own bound database.
+The four suite-wide fakes of ``tests/conftest.py`` are named again here, so inside this package
+pytest resolves ``applications``, ``market_records``, ``sign_in_attempts`` and
+``organizer_sessions`` to the real collections and installs no fake; and since those four are used
+by every test, every test here runs on its own bound database.
 """
 import copy
 import uuid
@@ -88,6 +88,14 @@ def sign_in_attempts(real_db):
     import sign_in_limits
 
     return sign_in_limits.attempts_collection
+
+
+@pytest.fixture
+def organizer_sessions(real_db):
+    """The real organizers' sign-ins, in place of the suite-wide fake."""
+    import organizer_sessions as OrganizerSessions
+
+    return OrganizerSessions.sessions_collection
 
 
 @pytest.fixture

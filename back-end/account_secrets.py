@@ -504,9 +504,10 @@ def find_link(users, kind: Kind, link: str) -> Link:
     return Link.LIVE
 
 
-def use_reset_link(users, link: str, password: str, login_id: str) -> bool:
+def use_reset_link(users, link: str, password: str, login_id: str) -> Optional[str]:
     """Reset the password by the mailed ``link``, in one write found by the filter that names the
-    live link: True for the one use that reset, so of two uses at once one resets.
+    live link: the account's id for the one use that reset, else None, so of two uses at once one
+    resets.
 
     The write sets ``password`` (already hashed) and the new ``login_id``, which ends every sign-in
     issued before; marks the address verified, since following the link proves the mailbox; uses
@@ -522,9 +523,9 @@ def use_reset_link(users, link: str, password: str, login_id: str) -> bool:
             "$unset": {**{kind.path(): "" for kind in KINDS if kind is not RESET},
                        **{field: "" for field in LEGACY_FIELDS}},
         },
-        {"_id": 0, "id": 1},
+        projection={"_id": 0, "id": 1},
     )
-    return used is not None
+    return None if used is None else used.get("id")
 
 
 def use_verification_link(users, link: str) -> Optional[bool]:

@@ -89,8 +89,8 @@ def skip_without_real_dependencies():
 def sessions_load_through_get_user(monkeypatch):
     """Load a test's session through its own ``UsersApi.get_user``, by the address it wrote.
 
-    The app loads a session by its sign-in id, which names the account's login id and when it
-    signed in. A test that signs in by writing ``session["_user_id"] = <address>`` and patching
+    The app loads a session by its sign-in's secret, recalled from ``organizer_sessions``. A test
+    that signs in by writing ``session["_user_id"] = <address>`` and patching
     ``UsersApi.get_user`` uses the address as its fake account's sign-in, so the loader is pointed
     at that patch, whenever it is made.
     """
@@ -1276,6 +1276,19 @@ def sign_in_attempts(monkeypatch):
     return fake
 
 
+@pytest.fixture(autouse=True)
+def organizer_sessions(monkeypatch):
+    """Every organizer's sign-ins kept on the server (``organizer_sessions``), empty for every test,
+    so a sign-in a test makes is ended with the test."""
+    if STUBBED_MODULES:
+        return None
+    import organizer_sessions as OrganizerSessions
+
+    fake = FakeApplicationsCollection()
+    monkeypatch.setattr(OrganizerSessions, "sessions_collection", fake)
+    return fake
+
+
 class FakeGridFS:
     """The floorplan image store, holding each file's bytes, name and metadata as GridFS does."""
 
@@ -1563,6 +1576,11 @@ if not STUBBED_MODULES:
     import remembered_sign_ins as _remembered_sign_ins_module
 
     _stand_in(_remembered_sign_ins_module, "remembered_collection", FakeApplicationsCollection())
+
+    # And the organizers' sign-ins, whose expiry and account indexes the boot builds (T311).
+    import organizer_sessions as _organizer_sessions_module
+
+    _stand_in(_organizer_sessions_module, "sessions_collection", FakeApplicationsCollection())
 
     # And the users collection, whose unique address index the boot builds (E32/F03/S04).
     import api.users as _users_module

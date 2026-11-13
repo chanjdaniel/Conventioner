@@ -37,7 +37,7 @@ It never raises, so each handler keeps its own words and status, and answers Non
 The body itself is read with `json_object()` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), which every route in `back-end/app.py` that reads its body in the view calls, and the vendor's own check-in too; it refuses one that is not a JSON object before any value is read from it ([an exception never reaches a client](an-exception-never-reaches-a-client.md)).
 The floorplan templates' create and update read theirs with it too; saving a floorplan to a market refuses such a body in the same words, and registration answers it as a missing address and password.
 
-A tick box is read with `flag_field(body, key)` from the same module, true only for JSON `true`, so the string `"true"` or a `1` reads as unticked: the organizer's "Remember me" at `/login` and `/login-otp` is one ([users and email](../data/users-and-email.md#the-session-names-the-account-by-its-login-id)).
+A tick box is read with `flag_field(body, key)` from the same module, true only for JSON `true`, so the string `"true"` or a `1` reads as unticked: the organizer's "Remember me" at `/login` and `/login-otp` is one ([users and email](../data/users-and-email.md#a-sign-in-is-kept-on-the-server)).
 
 An address read this way still goes through `normalized_email()` ([users, and the one spelling of an address](../data/users-and-email.md)), which spells it as stored.
 

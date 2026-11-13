@@ -196,3 +196,9 @@ What a mail carries to an organizer's account so they can sign in or settle the 
 The server keeps one record of a sign-in secret, never the secret itself but its hash, in one of four states: being mailed, live, used or discarded.
 _Avoid_: token, OTP, as names of the record
 See [the sign-in secrets](docs/implementation/data/users-and-email.md#the-sign-in-secrets).
+
+**Sign-in**:
+One signed-in browser of an organizer, by password or by code, with "Remember me" or without it.
+The server keeps a record of each sign-in, ended by Sign out, by a password reset or by deleting the account, and at the end of its 12 hours or 30 days.
+_Avoid_: session, for the product's term, since Flask's session is one carrier of it
+See [a sign-in is kept on the server](docs/implementation/data/users-and-email.md#a-sign-in-is-kept-on-the-server).

@@ -127,3 +127,29 @@ class TestEachUniqueBootIndexRefusesOverDuplicates:
         assert DUPLICATE_ADDRESS not in str(refusal.value)
         assert refusal.value.__cause__ is None
         assert all(DUPLICATE_ADDRESS not in record.getMessage() for record in caplog.records)
+
+
+class TestTheOrganizerSessionIndexes:
+    def test_the_boot_builds_the_expiry_and_account_indexes(self, real_db, monkeypatch):
+        harness.build_boot_indexes(monkeypatch)
+
+        indexes = real_db["organizer_sessions"].index_information()
+        assert indexes["organizer_session_ttl"]["key"] == [("expires_at", 1)]
+        assert indexes["organizer_session_ttl"]["expireAfterSeconds"] == 0
+        assert indexes["organizer_session_user"]["key"] == [("user_id", 1)]
+
+    def test_an_index_the_ttl_index_conflicts_with_makes_the_boot_refuse_to_start(
+            self, real_db, monkeypatch, caplog):
+        import app as app_module
+        import organizer_sessions as OrganizerSessions
+
+        # The same key, built without the expiry: the server refuses the TTL index beside it.
+        real_db["organizer_sessions"].create_index([("expires_at", 1)], name="fixture_no_ttl")
+
+        with caplog.at_level(logging.CRITICAL), \
+                pytest.raises(OrganizerSessions.OrganizerSessionIndexError):
+            app_module.verify_organizer_session_indexes()
+
+        assert any(record.getMessage().startswith("Refusing to start: ")
+                   for record in caplog.records)
+        assert "organizer_session_ttl" not in real_db["organizer_sessions"].index_information()

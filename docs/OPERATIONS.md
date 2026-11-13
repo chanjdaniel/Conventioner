@@ -14,7 +14,8 @@ describes:
   - back-end/api/attendance.py#ensure_attendance_indexes
   - back-end/payments.py#ensure_payment_indexes
   - back-end/migrations/check_vendor_day_duplicates.py
-verified: 2026-11-11
+  - back-end/organizer_sessions.py#ensure_organizer_session_indexes
+verified: 2026-11-13
 sources:
   - E32/F03/S03
   - T15
@@ -204,6 +205,8 @@ The back end checks the database as it starts and refuses to serve one it cannot
 - one owed record per vendor's day, `amounts_owed_vendor_day_unique` ([`payments.py`](../back-end/payments.py), through [`unique_indexes.py`](../back-end/unique_indexes.py));
 - one payment per press of Record, `payments_request_key_unique` ([`payments.py`](../back-end/payments.py), through [`unique_indexes.py`](../back-end/unique_indexes.py)).
 
+It refuses too when it cannot build the indexes an organizer's sign-ins rest on, in `organizer_sessions` ([`organizer_sessions.py`](../back-end/organizer_sessions.py)), which carry no unique rule.
+
 Every request then answers 500 `FUNCTION_INVOCATION_FAILED`, and the log says which check refused and what to run (Vercel, the back-end project, Logs).
 Each refusal below names its fix; take a `mongodump` first (above) when the fix writes.
 On a local stack the same refusals appear in `docker compose logs backend`, and the commands run as `docker compose run --rm backend python <script>` - `run`, not `exec`, because the back-end container is crash-looping and there is nothing to attach to ([STARTUP.md](STARTUP.md#troubleshooting)).
@@ -269,6 +272,10 @@ The index only stops an entry recorded twice by one press, so dropping it loses 
 The log names Mongo's error by its type and code only, never its words, since a duplicate key error quotes a vendor's address: code 11000 is duplicate challenges, and 85 or 86 an index of the same name with other options or keys.
 These are applicants' sign-in codes, used once and expiring within ten minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
 The third holds vendors' remembered sign-ins ("Remember me" on the vendor page); its one index is the TTL index `remembered_sign_in_ttl`, so drop a conflicting index of that name (`db.vendor_remembered_sign_ins.dropIndex('<name>')`) and keep the documents, whose loss only makes each remembered vendor enter a code once more.
+
+**"Could not build the indexes on organizer_sessions"**.
+The log names Mongo's error by its type and code only: 85 or 86 is an index of the same name with other options or keys, or another index on `expires_at` without the expiry, which the TTL index cannot stand beside.
+The collection holds organizers' sign-ins ([ADR 0027](adr/0027-an-organizers-sign-in-is-kept-on-the-server.md)), and its indexes are the TTL index `organizer_session_ttl` on `expires_at` and `organizer_session_user` on `user_id`, so drop the conflicting index (`db.organizer_sessions.dropIndex('<name>')`) and keep the documents, then redeploy; anything else is the database's own trouble (reachability, the user's rights, Atlas's status).
 
 **"Refusing to start: ... are not as a deployment needs them"**, naming variables.
 A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)), remove each local-development switch it names ([a deployed host refuses local switches](RELEASING.md#a-deployed-host-refuses-local-switches)), and redeploy.

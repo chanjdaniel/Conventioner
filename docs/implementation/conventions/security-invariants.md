@@ -6,6 +6,9 @@ describes:
   - back-end/app.py#configure_public_endpoint_defenses
   - back-end/app.py#RefusingLoginManager
   - back-end/app.py#hold_a_restored_session_to_its_browser
+  - back-end/app.py#a_legacy_remembered_account
+  - back-end/app.py#forget_the_legacy_remember_cookie
+  - back-end/organizer_sessions.py
   - back-end/utils/deployment.py
   - back-end/utils/session_storage.py
   - back-end/utils/env_file.py
@@ -43,6 +46,7 @@ sources:
   - T254
   - T251
   - T273
+  - T311
 ---
 
 # Security invariants
@@ -195,18 +199,24 @@ A test that needs a real-looking value composes it (`"user@" + "gmail.com"`) ins
 
 ## The cookies
 
-**Both cookies a sign-in sets, the session and the remember-me cookie, are `Secure`, `SameSite=None` and `HttpOnly`, and none of it is configurable.**
+**Both cookies a sign-in sets, the session and the remember cookie `__Host-organizer_remember`, are `Secure`, `SameSite=None` and `HttpOnly`, and none of it is configurable.**
 The app and the API are on different hosts, so the browser must attach the cookies to the app's requests to the API, which takes `SameSite=None`; a browser accepts a `SameSite=None` cookie only when it is Secure, so a switch could only ship a cookie the browser drops, or sends in the clear where it does not.
 Loopback counts as a secure context, so local development is unaffected.
-The settings sit together in [`app.py`](../../../back-end/app.py) under one comment; `HttpOnly` is Flask-Login's default for the remember-me cookie and is asserted rather than set.
-Both name the account by its login id, which a password reset replaces, so a reset ends every session and remember-me cookie issued before it: [users and email](../data/users-and-email.md#the-session-names-the-account-by-its-login-id).
+The settings sit together in [`app.py`](../../../back-end/app.py) under one comment; `HttpOnly` is Flask-Login's default for the remember cookie and is asserted rather than set.
+The remember cookie's `__Host-` prefix holds it to the API's host, as the vendor's is below: a browser takes it, and its deletion, only with `Secure`, `Path=/` and no `Domain`, so no `REMEMBER_COOKIE_DOMAIN` is set, and `RefusingLoginManager._clear_cookie` deletes it with the attributes it was set with, since Flask-Login's own deletion sends no `Secure` and a browser would refuse it.
 
-**How long a sign-in lasts is two named constants in [`api/users.py`](../../../back-end/api/users.py), and the server enforces both, not only the browser** (E38/F14/S01, ["Remember me" at sign-in](../../business/flows/accounts.md#a2-sign-in-and-sign-out)).
+**A sign-in is kept on the server** ([ADR 0027](../../adr/0027-an-organizers-sign-in-is-kept-on-the-server.md)): both cookies carry a random secret, and `organizer_sessions` keeps only its SHA-256, beside the account, its login id and when the sign-in ends, so a copy of the database signs nobody in ([a sign-in is kept on the server](../data/users-and-email.md#a-sign-in-is-kept-on-the-server)).
+Sign out ends the browser's sign-in there, so a copy of its cookies stops working too; a new sign-in in the browser ends the one it held; a password reset, which replaces the login id, and deleting the account end every one of the account's.
+The browser cannot change what it carries either way: the session is signed into its cookie with `SECRET_KEY`, or kept on the server behind a random id, and the remember cookie is signed with `SECRET_KEY` by Flask-Login's digest.
+
+**How long a sign-in lasts is two named constants in [`organizer_sessions.py`](../../../back-end/organizer_sessions.py), and the server enforces both, not only the browser** (E38/F14/S01, ["Remember me" at sign-in](../../business/flows/accounts.md#a2-sign-in-and-sign-out)).
 `SIGN_IN_LIFETIME`, 12 hours, is a sign-in without "Remember me": it sets the session cookie only, which ends with the browser in either store: Flask's cookie session is never made permanent, and `SESSION_PERMANENT` is off for flask-session's store on disk.
-`REMEMBERED_SIGN_IN_LIFETIME`, 30 days, is one with it: the remember-me cookie also expires then (`REMEMBER_COOKIE_DURATION`), and use does not extend it (`REMEMBER_COOKIE_REFRESH_EACH_REQUEST` is off).
-Both cookies carry a sign-in id, the login id with the sign-in's kind and time, which a browser cannot change: the session is signed into its cookie with `SECRET_KEY`, or kept on the server behind a random id, and the remember-me cookie is signed with `SECRET_KEY`, so the user loader can refuse a sign-in as old as its length whatever a browser kept: a browser that restores its tabs restores a session cookie too.
-A sign-in id of any other shape loads no one, so the year-long remember-me cookies and the sessions issued before it are not read, and every organizer signs in once more after the release that brings it.
-The cookie keeps Flask-Login's name, so a browser's old one is replaced or cleared at its next sign-in, and a sign-in without "Remember me" clears a remember-me cookie the browser held.
+`REMEMBERED_SIGN_IN_LIFETIME`, 30 days, is one with it: the remember cookie also expires then (`REMEMBER_COOKIE_DURATION`), and use does not extend it (`REMEMBER_COOKIE_REFRESH_EACH_REQUEST` is off).
+Each sign-in's document holds its `expires_at`, and the user loader recalls only a document whose `expires_at` is ahead, so a sign-in ends when it was made to whatever a browser kept: a browser that restores its tabs restores a session cookie too.
+A sign-in without "Remember me" clears a remember cookie the browser held, and ends its sign-in on the server.
+
+**For one release, the sign-ins made before they were kept on the server still sign in**, so the deploy signs nobody out: a session holding a sign-in id, `<login id>.<s|r>.<seconds>`, and the old cookie `remember_token` holding one, read by `a_legacy_remembered_account` in [`app.py`](../../../back-end/app.py).
+Each ends as before, at its length counted from its time, or when the login id it names is replaced; every sign-in and sign-out deletes the old cookie (`forget_the_legacy_remember_cookie`).
 
 **A vendor's remember cookie, `__Host-vendor_remember_<market id>`, is `Secure`, `SameSite=None` and `HttpOnly` too**, set from the `VENDOR_REMEMBER_COOKIE_*` keys in the same settings block in [`app.py`](../../../back-end/app.py) by [`back-end/remembered_sign_ins.py`](../../../back-end/remembered_sign_ins.py) ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 The `__Host-` prefix, as [OWASP's Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) recommends, holds it to the host that set it, so a subdomain cannot overwrite it; a browser refuses such a cookie, a clearing one too, unless it is `Secure` and `Path=/` with no `Domain`, and `set_cookie` and `clear_cookie` send all three.
@@ -219,9 +229,9 @@ The vendor's token still lives in the tab's `sessionStorage` for 30 minutes; the
 
 **A session is held to the client that signed in**: Flask-Login's `session_protection = "strong"` refuses a request whose client, its address and browser, is not the one the session recorded.
 It applies in both stores, and to a session made permanent too, which Flask-Login's own "strong" would only mark not fresh.
-A session the remember-me cookie restores records its client too (`hold_a_restored_session_to_its_browser` in [`app.py`](../../../back-end/app.py)): Flask-Login's restore does not, so until E38/F14/S01 a remembered browser was signed back in for one request and then signed out, its cookie deleted.
+A session the remember cookie restores records its client too (`hold_a_restored_session_to_its_browser` in [`app.py`](../../../back-end/app.py)), and so does one the old `remember_token` restores for the release: Flask-Login's restore does not, so until E38/F14/S01 a remembered browser was signed back in for one request and then signed out, its cookie deleted.
 
-**A refused request ends no sign-in** (T177): `RefusingLoginManager` in [`app.py`](../../../back-end/app.py) answers a request from another client as signed out, and leaves the session and the remember-me cookie as they were for the browser that signed in.
+**A refused request ends no sign-in** (T177): `RefusingLoginManager` in [`app.py`](../../../back-end/app.py) answers a request from another client as signed out, and leaves the session, the remember cookie and the sign-in's document as they were for the browser that signed in.
 Flask-Login's own "strong" deletes both from a session that is not permanent, so one request the server could not hold to the browser signed it out.
 In the store on disk (the stack, CI, a container host) the deletion is on the server, so it holds even when nobody reads the answer: the back end serves a request a closed connection cut short of its User-Agent, and at the next request the session's file is gone.
 In the cookie store (production's `SESSION_TYPE=null`, [operations](../../OPERATIONS.md#configuration-and-secrets)) the deletion travels in the answer, so it signed out only a browser that read it.

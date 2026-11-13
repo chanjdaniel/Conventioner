@@ -18,6 +18,13 @@ describes:
   - back-end/api/users.py#_password_matches
   - back-end/api/users.py#get_user_by_login_id
   - back-end/api/users.py#signed_in_account
+  - back-end/api/users.py#legacy_remembered_account
+  - back-end/api/users.py#end_this_browsers_sign_ins
+  - back-end/api/users.py#logout
+  - back-end/organizer_sessions.py
+  - back-end/app.py#verify_organizer_session_indexes
+  - back-end/app.py#a_legacy_remembered_account
+  - back-end/app.py#forget_the_legacy_remember_cookie
   - back-end/api/users.py#get_users_by_ids
   - back-end/api/users.py#_sign_in
   - back-end/api/users.py#reset_password
@@ -37,6 +44,8 @@ describes:
   - back-end/tests/test_one_writer_of_the_sign_in_secrets.py
   - back-end/tests/test_the_verification_link_answers.py
   - back-end/tests/real_mongo/test_the_sign_in_secret_races.py
+  - back-end/tests/test_the_organizer_sessions_are_indexed.py
+  - back-end/tests/real_mongo/test_organizer_sessions_on_the_server.py
 verified: 2026-11-13
 sources:
   - E32/F03/S04
@@ -75,22 +84,38 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `password_reset_token`, `password_reset_token_expires` | the reset link as it was kept before `secrets`, in clear: read for one release, upgraded to `secrets.reset` the first time the account is read, and written by nothing ([the old fields](#the-old-fields-read-for-one-release))         |
 | `secrets`                                              | the account's sign-in secrets, one record by kind, each kept hashed: the sign-in code is `secrets.code`, the reset link `secrets.reset`, the verification link `secrets.verify` ([the sign-in secrets](#the-sign-in-secrets))           |
 | `otp`, `otp_expires`, `otp_attempts`                   | the sign-in code as it was kept before `secrets`, in clear: read for one release, upgraded to `secrets.code` the first time the account is read, and written by nothing ([the old fields](#the-old-fields-read-for-one-release))        |
-| `login_id`                                             | the account a session or remember-me cookie names, in its sign-in id: a random value, made at the first sign-in and replaced by a password reset                                                                                        |
+| `login_id`                                             | the account a sign-in is kept under: a random value, made at the first sign-in and replaced by a password reset, so every sign-in issued before it loads no one ([a sign-in is kept on the server](#a-sign-in-is-kept-on-the-server))   |
 
-## The session names the account by its login id
+## A sign-in is kept on the server
 
-The session and the remember-me cookie name the account by its `login_id`, not its address, inside a sign-in id (`AuthUser.get_id`): `<login id>.<s|r>.<seconds since the epoch>`, the kind saying whether "Remember me" was ticked and the time when the account signed in.
-Each signed-in request reads it through the app's user loader, `signed_in_account`, which refuses a sign-in as old as its kind's length ([the cookies](../conventions/security-invariants.md#the-cookies)) and an id of any other shape, then loads the account by its login id (`get_user_by_login_id`); `authenticated_email()` then reads the loaded account's address, and permissions are decided by the account's id.
-**A password reset replaces the login id**, in the same write as the new password ([the reset link used](#the-sign-in-secrets)), so every session and remember-me cookie issued before the reset loads no one and that browser is signed out; signing in again works at once.
-An organizer who resets a password because a device was lost or shared is signed out on it.
-A login id that matches no account loads no one, with no fallback to loading by address: a fallback would keep every remember-me cookie issued before the reset, or before login ids, signing in.
-So every organizer must sign in once more after the release that brings login ids, since their sessions had named the account by its address, and once more after the release that brings sign-in ids, since theirs had named the bare login id.
+**Every sign-in, by password or by code, is one document in `organizer_sessions`**, which [`back-end/organizer_sessions.py`](../../../back-end/organizer_sessions.py) alone reads and writes ([ADR 0027](../../adr/0027-an-organizers-sign-in-is-kept-on-the-server.md)).
+`start` makes a random secret (`secrets.token_urlsafe(32)`) and stores its SHA-256 as the document's `_id`, beside `user_id`, the account's `login_id`, `remembered`, `created_at` and `expires_at`, `created_at` plus `SIGN_IN_LIFETIME` (12 hours) or, with "Remember me", `REMEMBERED_SIGN_IN_LIFETIME` (30 days); the secret is never stored.
+The secret is the sign-in's id (`AuthUser.get_id`): the session carries it and, with "Remember me", so does the remember cookie `__Host-organizer_remember`, signed by Flask-Login's digest ([the cookies](../conventions/security-invariants.md#the-cookies)).
+Each signed-in request reads it through the app's user loader, `signed_in_account`, which recalls the document (`recall`: found by the hash, and only while `expires_at` is ahead, read without a write, so use never extends it), then loads the account by the document's login id (`get_user_by_login_id`), refusing one whose id is not the document's `user_id`; `authenticated_email()` then reads the loaded account's address, and permissions are decided by the account's id.
+Each signed-in request so costs one read more than the account's, the document by `_id`.
+
+**What ends a sign-in:**
+
+- Sign out (`logout`) ends this browser's sign-in on the server, then clears both cookies, so a copy of the browser's cookies taken before loads no one.
+- A sign-in first ends the sign-in the browser held, whoever's it was: the one its session names and the one its remember cookie names (`end_this_browsers_sign_ins`), so a browser remembered for someone else, or a sign-in without "Remember me" after one with it, leaves no earlier sign-in on the server.
+- **A password reset replaces the login id**, in the same write as the new password ([the reset link used](#the-sign-in-secrets)), so every sign-in issued before the reset loads no one at once; `end_all` then removes the account's documents. An organizer who resets a password because a device was lost or shared is signed out on it, and signing in again works at once.
+- Deleting the account ends every one of its sign-ins (`end_all`, [deleting an account](#deleting-an-account)).
+- A TTL index on `expires_at` removes a document once it has ended, and an index on `user_id` serves `end_all`; both are built by `ensure_organizer_session_indexes`, and the boot refuses to start without them (`verify_organizer_session_indexes` in [`app.py`](../../../back-end/app.py), [lookup indexes](lookup-indexes.md)).
+
+A login id that matches no account loads no one, with no fallback to loading by address: a fallback would keep every sign-in issued before the reset, or before login ids, signing in.
+
+**For one release a sign-in made before sign-ins were kept on the server still signs in**, so the deploy signs nobody out.
+Its id is `<login id>.<s|r>.<seconds since the epoch>`, the kind saying whether "Remember me" was ticked and the time when the account signed in, in the session or in the old `remember_token` cookie; a secret holds no `.`, so the two shapes cannot be confused (`is_legacy_sign_in`).
+The user loader reads it as before, refusing one as old as its kind's length and an id of any other shape, the bare login id that came before it among them.
+Flask-Login asks `a_legacy_remembered_account` in `app.py` once the session and the new cookie have loaded no one: it reads a legacy id from `remember_token` (`legacy_remembered_account`) and restores it into the session, which is held to the browser as the new cookie's restore is.
+A legacy sign-in has no document, so a replaced login id is what ends it: a reset does.
+Every answer that signs in or out deletes a `remember_token` the browser sent (`forget_the_legacy_remember_cookie`, after Flask-Login's `user_logged_in` and `user_logged_out`), so it cannot bring a sign-in back; a refused sign-in leaves it.
 
 **Both sign-ins, the password and the code, give an account its login id at its first sign-in** (`_sign_in`): it is written only where none is stored, then read back, so two first sign-ins at once agree on one and neither signs the other out.
 A read-back that finds none is the server's fault, logged and answered 500, never a refused sign-in.
 
 Both read the body's `remember` with `flag_field`, so only JSON `true` is "Remember me" ([a request value is a string](../conventions/a-request-value-is-a-string.md#the-one-spelling)).
-The tests are [`back-end/tests/test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py).
+The tests are [`back-end/tests/test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py), with the boot's indexes in [`test_the_organizer_sessions_are_indexed.py`](../../../back-end/tests/test_the_organizer_sessions_are_indexed.py) and the sign-ins on a real server in [`real_mongo/test_organizer_sessions_on_the_server.py`](../../../back-end/tests/real_mongo/test_organizer_sessions_on_the_server.py).
 A route test that signs in by writing the session with an address points the user loader at its own fake account with conftest's `sessions_load_through_get_user`.
 
 **A refused sign-in says what to do next, in three named sentences in `users.py`** (E38/F14/S02, [the sign-in's messages](../../business/flows/accounts.md#a2-sign-in-and-sign-out)).
@@ -283,5 +308,6 @@ The body's `msg` is one sentence for each, space-joined: "Transfer ownership of 
 A role below Owner on a market is not ownership, and the deletion goes ahead ([what each role may do](../../business/rules/what-each-role-may-do.md#a-chosen-reviewer-and-where-a-role-comes-from)).
 [`test_delete_user_authorization.py`](../../../back-end/tests/test_delete_user_authorization.py) pins that only the session's own account is deleted, each refusal alone and both together, and an Admin, Editor or Viewer of a market deleted.
 Deleting it takes their place in every organization's people, the map and its `admins` and `members` mirror alike ([the organization's people](../modules/organization-people.md)); a role entry naming them on a market stays in that market's `roles`.
+It ends every sign-in of the account too (`organizer_sessions.end_all`), so no record of one is left.
 
 What an organizer does with their account, from registering to resetting a password, is [the accounts flows](../../business/flows/accounts.md).

@@ -213,6 +213,7 @@ BOOT_INDEX_BUILDS: Tuple[Tuple[str, str], ...] = (
     ("api.applications", "ensure_application_indexes"),
     ("api.applicant_auth", "ensure_applicant_login_indexes"),
     ("api.users", "ensure_user_indexes"),
+    ("organizer_sessions", "ensure_organizer_session_indexes"),
     ("api.attendance", "ensure_attendance_indexes"),
     ("payments", "ensure_payment_indexes"),
     ("lookup_indexes", "ensure_lookup_indexes"),

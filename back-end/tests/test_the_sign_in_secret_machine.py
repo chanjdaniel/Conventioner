@@ -262,7 +262,7 @@ def _with_a_live_link(users):
 def test_a_password_reset_ends_the_code(clock, row):
     users = _with_a_live_link(_users(row))
 
-    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is True
+    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) == ACCOUNT_ID
 
     assert _code(users) is None
 
@@ -410,13 +410,13 @@ def test_link_used(clock, row):
 
     assert found is LINK_USED[row]
     if found is Link.LIVE:
-        assert reset is True
+        assert reset == ACCOUNT_ID
         [account] = users.docs
         assert (account["password"], account["login_id"], account["email_verified"]) == (
             PASSWORD_HASH, LOGIN_ID, True)
         assert _link(users) == {**LINK_ROWS[row], "state": USED, "next_allowed_at": None}
     else:
-        assert reset is False
+        assert reset is None
         assert users.docs == before
 
 
@@ -425,7 +425,7 @@ def test_a_link_not_the_one_stored_is_invalid_and_resets_nothing(clock):
     before = copy.deepcopy(users.docs)
 
     assert account_secrets.find_link(users, RESET, NOT_THE_LINK) is Link.INVALID
-    assert account_secrets.use_reset_link(users, NOT_THE_LINK, PASSWORD_HASH, LOGIN_ID) is False
+    assert account_secrets.use_reset_link(users, NOT_THE_LINK, PASSWORD_HASH, LOGIN_ID) is None
     assert users.docs == before
 
 
@@ -435,7 +435,7 @@ def test_a_link_expiring_between_its_read_and_its_use_resets_nothing(clock):
     clock["at"] = NOW + 30 * MINUTE
     before = copy.deepcopy(users.docs)
 
-    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is False
+    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is None
     assert users.docs == before
 
 
@@ -443,7 +443,7 @@ def test_of_two_uses_of_one_link_one_resets(clock):
     users = _link_users("live, unexpired")
 
     assert [account_secrets.use_reset_link(users, THE_LINK, password, LOGIN_ID)
-            for password in ("fixture-first-hash", "fixture-second-hash")] == [True, False]
+            for password in ("fixture-first-hash", "fixture-second-hash")] == [ACCOUNT_ID, None]
     assert users.docs[0]["password"] == "fixture-first-hash"
 
 
@@ -651,7 +651,7 @@ def test_a_live_link_on_an_address_verified_meanwhile_is_used_and_says_so(clock)
 def test_a_password_reset_ends_the_verification_link(clock, row):
     users = _with_a_live_link(_verify_users(row))
 
-    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is True
+    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) == ACCOUNT_ID
 
     assert _verify(users) is None
     assert users.docs[0]["email_verified"] is True

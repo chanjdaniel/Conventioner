@@ -46,7 +46,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Flask-Login 0.6.3** - User session management
   - Handles user authentication state
   - Session-based authentication (not JWT)
-  - A login id identifies the account, not its address ([users and email](implementation/data/users-and-email.md#the-session-names-the-account-by-its-login-id))
+  - A login id identifies the account, not its address ([users and email](implementation/data/users-and-email.md#a-sign-in-is-kept-on-the-server))
 - **Flask-Bcrypt 1.0.1** - Password hashing
   - Secure password storage using bcrypt
   - Password verification for login
