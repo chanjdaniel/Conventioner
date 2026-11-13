@@ -230,6 +230,60 @@ describe('with `closeDisabled`', () => {
   });
 });
 
+/*
+ * A dialog that disables its confirm while it saves, without holding its closes (Record payment,
+ * T315): pressing the confirm drops the focus to `<body>`, and a refusal enables it again with the
+ * dialog open and its error shown, so the shell answers that as it answers a hold's end.
+ */
+describe('with `confirmDisabled` ending', () => {
+  it('the confirm enabled again with the focus on the body puts the focus inside the window', async () => {
+    await openFromTheButton({ confirmDisabled: true });
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+
+    await wrapper!.setProps({ dialog: { confirmDisabled: false, error: 'That did not save.' } });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('people-find'));
+  });
+
+  /*
+   * The field is also the first safe control, so Cancel is the case that tells a focus left alone
+   * from one moved there.
+   */
+  it.each(['people-find', 'people-cancel-button'])(
+    'a confirm that toggles as a field is typed leaves the focus on %s',
+    async (testid) => {
+      await openFromTheButton({ confirmDisabled: true });
+      const focused = byTestId(testid)!;
+      focused.focus();
+
+      await wrapper!.setProps({ dialog: { confirmDisabled: false } });
+      await flushPromises();
+      await wrapper!.setProps({ dialog: { confirmDisabled: true } });
+      await flushPromises();
+      await wrapper!.setProps({ dialog: { confirmDisabled: false } });
+      await flushPromises();
+
+      expect(document.activeElement).toBe(focused);
+    },
+  );
+
+  it('the confirm enabled again with the focus in a dialog over it leaves it there', async () => {
+    await openFromTheButton({ confirmDisabled: true });
+    const over = document.createElement('div');
+    over.setAttribute('role', 'dialog');
+    over.innerHTML = '<button data-testid="over-button">Done</button>';
+    document.body.append(over);
+    byTestId('over-button')!.focus();
+
+    await wrapper!.setProps({ dialog: { confirmDisabled: false } });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('over-button'));
+  });
+});
+
 describe('its title', () => {
   it('is the `title` string, which also names the dialog', async () => {
     await openFromTheButton();

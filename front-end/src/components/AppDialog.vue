@@ -209,15 +209,18 @@ watch(
 );
 
 /**
- * Focus comes back inside when a hold ends. A save in flight disables what held the focus (the
- * confirm, Cancel), so the browser drops it to `<body>`; a refusal ends the hold with the dialog
- * still open, and focus would stay outside it, where no Tab reaches the dialog. Focus left inside
- * stays where it is, and so does focus in another dialog, one opened over this.
+ * Focus comes back inside when a hold ends, or when the confirm is enabled again. A save in flight
+ * disables what held the focus (the confirm, and Cancel too in a dialog that holds its closes), so
+ * the browser drops it to `<body>`; a refusal ends the hold, or enables the confirm, with the
+ * dialog still open, and focus would stay outside it, where no Tab reaches the dialog. Focus left
+ * inside stays where it is, as in a field whose typing enables the confirm, and so does focus in
+ * another dialog, one opened over this.
  */
 watch(
-  () => props.closeDisabled,
-  async (held, wasHeld) => {
-    if (held || !wasHeld || !props.open) return;
+  () => [props.closeDisabled, props.confirmDisabled] as const,
+  async ([held, confirmOff], [wasHeld, confirmWasOff]) => {
+    const released = (wasHeld && !held) || (confirmWasOff && !confirmOff);
+    if (!released || !props.open) return;
     await nextTick();
     if (!props.open) return;
     const active = document.activeElement;
