@@ -31,6 +31,19 @@ describe('api client', () => {
     expect(handlers).toHaveLength(0);
   });
 
+  it('adds no request transformer but the size refusal, which can set a header as an interceptor can', async () => {
+    const { default: axios } = await import('axios');
+    const { api } = await import('@/utils/api');
+
+    const ownTransforms = [axios.defaults.transformRequest].flat();
+    const transforms = [api.defaults.transformRequest].flat();
+
+    expect(transforms.slice(0, -1)).toEqual(ownTransforms);
+    expect(transforms.map((transform) => transform?.name).slice(-1)).toEqual([
+      'refuseWhatTheHostWould',
+    ]);
+  });
+
   it('does not read the stored user, so a tampered localStorage changes no request', async () => {
     const getItemMock = vi.fn().mockReturnValue('"attacker@example.com"');
     vi.stubGlobal('localStorage', { getItem: getItemMock });
