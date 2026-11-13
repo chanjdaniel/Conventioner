@@ -28,6 +28,7 @@ sources:
   - T255
   - T270
   - T307
+  - T277
   - T316
 ---
 
@@ -196,7 +197,7 @@ The release carrying T283 keeps an organization's people in one map: once it is 
 The dry run is the read-only count of how many organizations do not parse on the release before (an owner also an admin or a member), and it writes nothing.
 It prints each organization's id and name; only its counts go into the team's records, never a name or an id.
 The release carrying T316 stores each market's assignment state, and Publish results the revision it stood on: once it is deployed, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_assignment_state.py --dry-run` ([`migrate_assignment_state.py`](../back-end/migrations/migrate_assignment_state.py)), which names each market it would change by id and what it would set, and counts them, then without `--dry-run`, and again after any roll-forward past a rollback.
-Until it runs, that release reads each market's state off its rows by the same rule, so nothing refuses to boot and nothing a market shows changes.
+Until it runs, that release reads each market's state off its rows by the same rule ([the assignment's lifecycle](implementation/modules/assignment-lifecycle.md)), so nothing refuses to boot, and running it changes nothing a market shows.
 A market that changed between the script's read and its write on three tries is listed as skipped, and running it again sets it.
 
 ### When the back end refuses to boot

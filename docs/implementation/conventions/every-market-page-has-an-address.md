@@ -10,7 +10,7 @@ describes:
   - front-end/src/utils/vendorDrawer.ts
   - front-end/src/utils/market.ts#isHere
   - front-end/src/utils/market.ts#layoutPath
-verified: 2026-11-11
+verified: 2026-11-14
 sources:
   - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/01

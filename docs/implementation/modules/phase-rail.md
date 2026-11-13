@@ -37,6 +37,7 @@ sources:
   - T214
   - T260
   - T263
+  - T277
   - T316
 ---
 
@@ -104,6 +105,7 @@ A Google Form market's way into the stage is its first import, so its rail offer
 Someone the table's Move the phase row refuses (`mayTake(market, MarketAction.MovePhase)`, E39/F01/S02) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 
 **A move lands on the guide's page for the phase entered**, in any direction (`landingPage`), and the router starts a new page at its top.
+The page reads the phase moved to and the market's served `allocation` ([the assignment's lifecycle](assignment-lifecycle.md)), from the re-read market or the one the rail had, since a move may change whether a run reads as out of date but never whether tables are allocated: Begin assignment on tables assigned by hand alone lands on Settings.
 The rail navigates there itself: it once emitted an event no screen listened to, so every move landed on the server and the organizer stayed where they had clicked, an import's result still drawn (E32/F01/S01).
 A spec that clicks a move follows it to that page; it does not stay on the tab it clicked from.
 Before posting, the rail awaits the screen's `beforeTransition` (the plan flushes its pending autosave there), and after the move it calls the store's `refresh()`.

@@ -12,6 +12,7 @@ describes:
 verified: 2026-11-11
 sources:
   - T209
+  - T277
   - T316
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01

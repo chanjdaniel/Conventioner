@@ -9,7 +9,7 @@ describes:
   - back-end/app.py#publish_market_results
   - back-end/guards.py#AssignmentNotBeforeReviewGuard
   - back-end/guards.py#AssignmentComputedGuard
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - wayfinding/readable-journey/01
   - wayfinding/rejection-visibility/02
@@ -22,12 +22,14 @@ sources:
   - T202
   - T207
   - T274
+  - T277
   - T316
 ---
 
 # Publish results waits for the allocation
 
 A market publishes its results in `assignment`, once a table allocation has been run and is current, and only then; publishing settles that assignment, and the market goes live only after it.
+Where the allocation stands (`none`, `pinned`, `current`, `stale`, `published` or `changed_since_published`) is stored and served by one owner, [the assignment's lifecycle](../../implementation/modules/assignment-lifecycle.md).
 Tables assigned by hand alone are no allocation: publishing them told every other approved vendor they had no table, though the solver never ran (T316).
 The rule is the same on both paths ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)): a market that imports its vendors tells them on its vendor page, which opens with its results ([a gated market answers as absent](a-gated-market-answers-as-absent.md)).
 No email goes out on either: the confirmation says so, and gives the page's address to share.
@@ -41,7 +43,7 @@ Before E36 results could be published on a market with nothing reviewed and noth
 Publishing results stays its own act, never part of going live; the decision and what it costs are [ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md).
 
 **Publishing settles the allocation.**
-After it the run is refused (`assign_refusal`, served as `assignRefusalReason`) and [the assignment rules](the-assignment-rules-close-with-the-assignment.md) lock; a single seat is still changed by hand on the Assignments page.
+After it the run is refused (`assign_refusal`, served as `assignRefusalReason`) and [the assignment rules](the-assignment-rules-close-with-the-assignment.md) lock; a single seat is still changed by hand on the Assignments page, and its dialog and its history entry say it came after results were published ([placing by hand](../flows/placing-by-hand.md)).
 There is no unpublish: nothing writes `resultsPublished` back to false.
 
 **The market does not go live first.**
@@ -68,7 +70,7 @@ An ADMIN or the owner, as with every action that tells people outside the market
   The Applications page ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)) draws the button on both paths, from `assignment` on only, for whoever may publish, and disables it with the rule's words while it refuses, so it is offered exactly when the endpoint would take it.
 - [`back-end/result_outcome.py`](../../../back-end/result_outcome.py) is the one reading of who has a table, for the confirmation and for the applicant's page.
 - `AssignmentComputedGuard` refuses going live on tables assigned by hand alone in the same terms, and keeps the market from its market days with nothing allocated; it, `ResultsPublishedGuard` and `AssignmentNotBeforeReviewGuard` in [`back-end/guards.py`](../../../back-end/guards.py), kept by [the guards](../../implementation/modules/guards.md); whether the run is current is [what it was made from](../../implementation/modules/made-from.md).
-- `back-end/tests/test_publishing_settles_the_assignment.py`, `back-end/tests/test_results_wait_for_the_allocation.py`, `front-end/e2e/results-wait-for-the-allocation.spec.ts` and, for a CSV market, `front-end/e2e/a-google-form-markets-vendor-page.spec.ts` pin it, and `back-end/tests/test_back_to_review.py` and `front-end/e2e/a-reopened-review-waits-for-a-new-run.spec.ts` the wait after Back to review; a seed that publishes a market publishes its results first ([the E2E seeds](../../implementation/testing/e2e-seeds.md#reaching-a-stored-assignment)).
+- `back-end/tests/test_publishing_settles_the_assignment.py`, `back-end/tests/test_results_wait_for_the_allocation.py`, `back-end/tests/test_publish_needs_a_run.py`, `back-end/tests/test_the_allocation_table.py`, `front-end/e2e/results-wait-for-the-allocation.spec.ts` and, for a CSV market, `front-end/e2e/a-google-form-markets-vendor-page.spec.ts` pin it, and `back-end/tests/test_back_to_review.py` and `front-end/e2e/a-reopened-review-waits-for-a-new-run.spec.ts` the wait after Back to review; a seed that publishes a market publishes its results first ([the E2E seeds](../../implementation/testing/e2e-seeds.md#reaching-a-stored-assignment)).
 - Publishing is recorded in [the market's history](../../implementation/data/history.md) (`publish-results`), with who published.
 
 ## Superseded

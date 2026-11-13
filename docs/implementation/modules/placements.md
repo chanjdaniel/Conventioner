@@ -21,7 +21,7 @@ describes:
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
   - back-end/assignment/assignment.py#vendors_to_show
   - front-end/src/views/ResultView.vue#runPlacementChange
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -50,12 +50,15 @@ sources:
   - T263
   - T270
   - T201
+  - T277
+  - T316
 ---
 
 # Placements
 
 Who sits where, stored once on the market and written by one module.
-[`back-end/api/placements.py`](../../../back-end/api/placements.py) is the only writer of `assignmentObject` ([the market document](../data/market-document.md)), the stored assignment that check-in reads at the door and the organizer edits one seat at a time.
+[`back-end/api/placements.py`](../../../back-end/api/placements.py) holds the only doors that change the seats of `assignmentObject` ([the market document](../data/market-document.md)), the stored assignment that check-in reads at the door and the organizer edits one seat at a time.
+Each writes through `store`, the one write of the rows, in [the assignment's lifecycle](assignment-lifecycle.md), which also stores the assignment's state (`none`, `pinned` or `run`) beside them; Publish results' `publishedRevision` and the migration's state are that module's too.
 The organizer edits it on the Assignments page, which fits a phone (`meta.fitsAPhone`, [the design language](../../design-system.md#layout)): the vendor drawer's "Change assignment" at the door leads there, so a seat can be changed on the phone it was tapped on (T142).
 Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
@@ -158,15 +161,16 @@ Which side of a table is free lives in `assignment_slots` (`[left, right]`, None
 Do not conflate them; see `MarketTableRow` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), beside `VendorAssignmentResult` and `AssignmentObject`.
 
 **Statistics are never stored.**
-A write sets `vendorAssignments`, `assignmentDate` and, for a run alone, `madeFrom`, counts `assignmentObject.revision` one up, and clears `assignmentStatistics`, so a stale copy is never resurrected.
+A write sets `vendorAssignments`, `assignmentDate`, `state` and, for a run alone, `madeFrom`, counts `assignmentObject.revision` one up, and clears `assignmentStatistics`, so a stale copy is never resurrected.
 
 ## The trail
 
 Every change here is recorded in [the market's history](../data/history.md), under the `assign` action: a placement, a freed seat, a swap, and a solver run as one entry, with how many placements it wrote and how many pins it kept.
+A placement, a free or a swap made while results are published (`Lifecycle.results_published`) records `after_results` in its entry, since that vendor's page had already told them where they sit.
 
 ## Why
 
-- [Assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md): `assign_phase_refusal`, and after results are published `assign_refusal`, served as `assignRefusalReason`.
+- [Assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md): `assign_phase_refusal`, and after results are published, as [the assignment's lifecycle](assignment-lifecycle.md) reads them, `assign_refusal`, served as `assignRefusalReason`.
 - [A seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md), and anyone may be pinned, warned.
 - [Adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md): seated here, by hand, as a held pin.
 - [An assignment knows when it is out of date](../../business/rules/an-assignment-knows-when-it-is-out-of-date.md): only a run records what it was made from ([made from](made-from.md)).

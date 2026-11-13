@@ -10,7 +10,7 @@ describes:
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
   - front-end/src/utils/blockerLink.ts
-verified: 2026-11-11
+verified: 2026-11-14
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -32,6 +32,7 @@ sources:
   - T263
   - T274
   - T257
+  - T277
   - T316
 ---
 
@@ -82,7 +83,7 @@ That the action is a row of the table is held by `TestEveryRemedyNamesTheActionI
 
 **`_validate_registry()` runs at import and refuses tables that disagree**, so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
 It refuses an edge naming a phase `MarketPhase` lacks, guards on an edge that is not in `VALID_TRANSITIONS`, entry invariants for a phase no edge enters, and an edge into a phase that does not carry all of that phase's entry invariants.
-An entry invariant is what makes a rule hold of every market in the phase rather than only on the route its author thought of: `market_days` requires a stored assignment, no orphaned pin, no run made before the review was last reopened and published results, on both paths ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), on both edges into it.
+An entry invariant is what makes a rule hold of every market in the phase rather than only on the route its author thought of: `market_days` requires a table allocation with someone seated (tables assigned by hand alone are none), no orphaned pin, no run made before the review was last reopened and published results, on both paths ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), on both edges into it.
 
 **A guard reads the market's state, never its phase.**
 `test_no_guard_reads_the_phase` ([`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py)) pins it, so a judgement made before a write, as the first import's below, means what it says.
@@ -130,9 +131,10 @@ Do not add a second copy of that write: the endpoint carried one until E26, whic
 Its entry invariant is the warning `AssignmentComputedGuard` heeds: a guard must wait on something the product actually writes.
 
 **The assignment's guards ask its lifecycle owner.**
-`AssignmentComputedGuard` asks [the assignment's lifecycle owner](../../../back-end/assignment/lifecycle.py) where the allocation stands, as `ResultsPublishedGuard` and `ResultsNotPublishedGuard` ask it whether results are out, without judging whether a run is out of date, so no guard reads the phase: it refuses nothing allocated, tables assigned by hand alone, and an allocation with no row (T316).
+`AssignmentComputedGuard` asks the assignment's lifecycle owner ([`back-end/assignment/lifecycle.py`](../../../back-end/assignment/lifecycle.py), [the assignment's lifecycle](assignment-lifecycle.md)) where the allocation stands, as `ResultsPublishedGuard` and `ResultsNotPublishedGuard` ask it whether results are out, without judging whether a run is out of date, so no guard reads the phase: it refuses nothing allocated, tables assigned by hand alone, and an allocation with no row (T316).
 With no row where a run is refused, once results are out or in a market left in Offers, its remedy is "Assign tables" on `assignments`, where a seat is still given by hand.
 Its words and remedy are the lifecycle owner's (`assignment/lifecycle.py#unallocated_refusal`), which reads the phase so that no guard does; its verdict is the same in every phase.
+The three entry invariants on `market_days` about the assignment (`assignment_computed`, `assignment_after_review`, `results_published`) stay one guard per condition, so the rail names the one that stands; together they pass exactly when the owner's `may_go_live` holds, which `back-end/tests/test_the_allocation_table.py` checks over every allocation.
 
 **`take_move` records the move in [the market's history](../data/history.md)** once it is taken (`move-phase`, the phase before and after, by whoever made it); the phase history stays the state the guards read.
 

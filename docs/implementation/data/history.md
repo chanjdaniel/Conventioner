@@ -41,6 +41,7 @@ sources:
   - T217
   - T263
   - T283
+  - T277
   - T316
 ---
 
@@ -79,7 +80,7 @@ Every other kind of change gives its detail the changed fields before and after,
 An import, the start from a CSV and a run record their counts instead, and a verdict is recorded whole each time it is given, since each one is.
 **The placement kinds are the one exception**: their details keep the shapes they had before the history widened, because the entries moved from `placement_history` have no before to give.
 A `placed` entry written since adds one key, `before`: the seat the vendor left on that date (`table_code`, `table_choice`), null when they had none, so a move reads from one seat to the other; an older `placed` entry has no `before` key at all, which says the seat left is unknown, not that there was none.
-A `placed`, `freed` or `swapped` entry written while results are published adds `after_results: true` (T316), since that vendor's page had already told them where they sit; the routes pass the lifecycle owner's `results_published` of the market they read, and the key is absent otherwise, so every older entry, and every one written before results, reads as it always did.
+A `placed`, `freed` or `swapped` entry written while results are published adds `after_results: true` (T316), since that vendor's page had already told them where they sit; the routes pass the lifecycle owner's `results_published` of the market they read ([the assignment's lifecycle](../modules/assignment-lifecycle.md)), and the key is absent otherwise, so every older entry, and every one written before results, reads as it always did.
 
 **A run is one entry**, not none and not one per placement.
 Leaving runs out would make the history lie by omission, since a placement changed between two hand edits would have no explanation; one entry per placement would drown the hand edits, which are the entries anyone reads.

@@ -4,13 +4,15 @@ kind: rule
 describes:
   - back-end/api/markets.py#assignment_rules_lock_reason
   - back-end/assignment/made_from.py#assignment_rules
-verified: 2026-11-10
+verified: 2026-11-14
 sources:
   - E22/F02
   - E22/F02/S01
   - E22/F02/S02
   - E36/F04/S02
   - T263
+  - T277
+  - T316
 ---
 
 # The assignment rules close with the assignment
@@ -40,5 +42,6 @@ A plan write that leaves the rules as they are asks only Market Setup's row, and
 ## Where it is kept
 
 - `assignment_rules_lock_reason` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), read by the plan write (`prepared_plan`) and served on the market as `assignmentRulesLockReason` for the rules page to mirror rather than decide the phases itself.
+  Whether results are published it asks [the assignment's lifecycle](../../implementation/modules/assignment-lifecycle.md), so a seat changed by hand after results keeps the rules closed.
 - The rules' comparable shape is `assignment_rules` in [`back-end/assignment/made_from.py`](../../../back-end/assignment/made_from.py), the same shape a run fingerprints ([what an assignment was made from](../../implementation/modules/made-from.md)).
 - The rest of the plan settles earlier, on leaving draft, under its own lock (`setupLockReason`).

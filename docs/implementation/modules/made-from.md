@@ -3,7 +3,7 @@ layer: implementation
 kind: module
 describes:
   - back-end/assignment/made_from.py
-verified: 2026-11-03
+verified: 2026-11-14
 sources:
   - wayfinding/the-assignment-tab/03
   - E22/F03
@@ -15,6 +15,8 @@ sources:
   - E27/F01/S01
   - T207
   - T263
+  - T277
+  - T316
 ---
 
 # What an assignment was made from
@@ -40,12 +42,13 @@ Since T207 a run also records the review it stands on, so Back to review makes t
 **This is the ONE place a fingerprint is computed.**
 The run ([placements](placements.md), `run_assignment`) and the read (`GET /markets/:id`, served as `assignmentOutOfDate`) both call `fingerprint`, so they can never disagree about what "the same" means.
 
-**Only a solver run writes `madeFrom`.**
+**Only a solver run writes `madeFrom`**, save the migration's legacy marker below.
 A hand placement, a freed seat or a swap is an edit to the result, never an input, so it leaves the fingerprints alone and never makes an assignment out of date.
 So does a change to how the solver scores what it reads (a multi-select answer scored by its best choice, E34/F05/S01): no input moved, so a stored run is not out of date, and running it again is the organizer's choice.
 
 **An assignment with no fingerprints is served as not out of date, never as stale.**
 One made before the fingerprints existed is not known to be out of date, and a notice on every existing market would teach organizers to ignore it.
+Since T316 a run must record what it was made from, so the migration gives such an allocation `{"legacy": "before-fingerprints"}` (`LEGACY_MADE_FROM`, [the assignment's lifecycle](assignment-lifecycle.md)), which holds no group of `GROUPS` and so is compared on none.
 An assignment with no placements is likewise never out of date.
 
 **An incomplete approved application counts as a change.**
@@ -65,12 +68,13 @@ A run recorded before the `review` group existed is not known to be out of date 
 **A field added to `SolverVendor` changes every stored fingerprint** unless `_ADDED_SINCE_FINGERPRINTS` names it with the value that means "nothing" (`table_share_also` is there, E27), and every stored assignment would then read as out of date.
 
 **The read is computed only in `assignment`**, the one phase that can act on it by running again; every other phase's read is served `[]` and spared reading the approved applications.
+The served `allocation` judges a run `stale` by this list in `assignment`, and in `applications` by `review_reopened_since_run` alone ([the assignment's lifecycle](assignment-lifecycle.md)).
 
 ## Why
 
 - [An assignment knows when it is out of date](../../business/rules/an-assignment-knows-when-it-is-out-of-date.md).
 - [The assignment rules close with the assignment](../../business/rules/the-assignment-rules-close-with-the-assignment.md): the rules' shape is compared here.
-- [Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): results are published only while the stored run is current by these fingerprints.
+- [Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): results are published only while the stored run is current by these fingerprints, as [the assignment's lifecycle](assignment-lifecycle.md) reads them.
 - [ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md): the `review` group, which keeps a run made before Back to review from being published or going live.
 
 The organizer reads it as the Assignments page's out-of-date note ([J5](../../business/flows/assignment-and-result.md#j5-the-result-is-out-of-date)).
