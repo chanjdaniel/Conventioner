@@ -1,3 +1,12 @@
+<script lang="ts">
+/**
+ * How often the roster reads itself again while the page is in view (T318): the door's question is
+ * "who is here now", so more often than the review lists' half minute. At the real size, about 200
+ * seats across a market's days, a read is about 55 KB.
+ */
+export const REREAD_MS = 15_000;
+</script>
+
 <script setup lang="ts">
 /**
  * The door on market day (E29/F01): one market date at a time, every vendor the assignment places
@@ -11,9 +20,13 @@
  *
  * In Market Days, whoever may check vendors in opens the door code here, full screen, for the
  * device that stands at the entrance or a printed poster (ADR 0022).
+ *
+ * The roster stays fresh by itself (T318): a vendor who scans themselves in, or a second
+ * organizer's check-in, shows within `REREAD_MS` with no tap, and at once when the tab comes back
+ * into view or the browser comes back online.
  */
 import { MarketAction, mayTake } from '@/utils/marketActions';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api, getApiErrorMessage } from '@/utils/api';
@@ -25,6 +38,7 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import VendorNameButton from '@/components/VendorNameButton.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
+import ListFreshness from '@/components/ListFreshness.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import DoorCodeScreen from '@/components/DoorCodeScreen.vue';
 import { offersDoorCode } from '@/utils/doorCode';
@@ -60,13 +74,22 @@ const { market } = useOpenMarket(marketId);
 const dates = ref<string[]>([]);
 const roster = ref<RosterRow[]>([]);
 const errorMessage = ref('');
-/** The roster's own read that failed, which Try again reads once more (E38/F11/S01). */
+/** The roster's first read that failed, which Try again reads once more (E38/F11/S01). */
 const readError = ref('');
 const isLoading = ref(false);
+/** When the roster was last read from the server, in milliseconds, or null before the first. */
+const readAt = ref<number | null>(null);
+/** A Refresh in flight, so its button cannot be pressed twice. */
+const refreshing = ref(false);
+/** A read after the first that failed: the rows stay, and this says they are old. */
+const refreshError = ref('');
 const show = ref<Show>('all');
 const search = ref('');
-/** The row whose write is in flight, so its button cannot be pressed twice. */
-const busyRow = ref('');
+/**
+ * The rows whose write is in flight, each held busy on its own, so a queue at the door moves: taps
+ * on several rows all go through. Replaced on each change, so Vue sees it.
+ */
+const busyRows = ref<ReadonlySet<string>>(new Set());
 
 /**
  * The date the page opens on: today when it is a market date, else the next one, else the last -
@@ -149,40 +172,145 @@ function whoFor(row: RosterRow): string {
   return row.vendorName || row.vendorEmail;
 }
 
-async function loadAttendance(): Promise<void> {
-  readError.value = '';
-  if (!marketId.value) return;
-  isLoading.value = roster.value.length === 0;
+/**
+ * One counter orders every read and write's answer. A read takes a number as it is asked, and its
+ * answer lands only if nothing newer was asked or landed since: two reads in flight can answer in
+ * either order, and the older landing last showed a vendor just checked in as not here.
+ */
+let asked = 0;
+/** Reads in flight, so the clock never asks for a second while one is out. */
+let reading = 0;
+/** The page was left: nothing reads again, and nothing in flight lands. */
+let left = false;
+const COULD_NOT_UPDATE = 'Could not update. The roster is as it was last read.';
+
+/**
+ * Read the roster. Before the first read lands, a failure is the page that could not be read, with
+ * Try again; after it, a failure keeps the rows and says they are old. A dropped answer changes
+ * nothing on screen, its error included.
+ */
+async function read(): Promise<void> {
+  if (!marketId.value || left) return;
+  const mine = ++asked;
+  const forMarket = marketId.value;
+  reading += 1;
+  isLoading.value = readAt.value === null && !readError.value;
   try {
     const { data } = await api.get<{ dates: string[]; roster: RosterRow[] }>(
-      `/markets/${encodeURIComponent(marketId.value)}/attendance`,
+      `/markets/${encodeURIComponent(forMarket)}/attendance`,
     );
+    if (mine !== asked) return;
     dates.value = data.dates ?? [];
     roster.value = data.roster ?? [];
+    readAt.value = Date.now();
+    readError.value = '';
+    refreshError.value = '';
   } catch (err: unknown) {
-    readError.value = getApiErrorMessage(err, 'Attendance could not be loaded.');
+    if (mine !== asked) return;
+    if (readAt.value === null) {
+      readError.value = getApiErrorMessage(err, 'Attendance could not be loaded.');
+    } else {
+      refreshError.value = COULD_NOT_UPDATE;
+    }
   } finally {
-    isLoading.value = false;
+    reading -= 1;
+    if (mine === asked) isLoading.value = false;
   }
 }
 
-/** A write is followed by a re-read, never a patch: the roster says what the server holds. */
-async function write(row: RosterRow, method: 'post' | 'delete') {
-  busyRow.value = rowKey(row);
+/** Try again, after the first read failed: the page says it is loading again. */
+function retry(): void {
+  readError.value = '';
+  void read();
+}
+
+/** Refresh, at once: a re-read, which keeps the rows if it fails. */
+async function refresh(): Promise<void> {
+  if (refreshing.value) return;
+  refreshing.value = true;
+  try {
+    await read();
+  } finally {
+    refreshing.value = false;
+  }
+}
+
+/** Another market's roster is never shown under this one's, nor its time or its failure. */
+function openMarket(): void {
+  dates.value = [];
+  roster.value = [];
+  readAt.value = null;
+  readError.value = '';
+  refreshError.value = '';
   errorMessage.value = '';
-  const url = `/markets/${encodeURIComponent(marketId.value)}/attendance`;
+  busyRows.value = new Set();
+  void read();
+}
+
+/**
+ * Read again every `REREAD_MS` while the page is in view, and at once when it comes back into view
+ * or the browser comes back online, so "who is missing" is true when it is asked. Hidden, it reads
+ * nothing: a phone in a pocket spends no battery or data on it.
+ */
+let rereading: ReturnType<typeof setInterval> | null = null;
+function tick(): void {
+  if (document.visibilityState === 'visible' && reading === 0) void read();
+}
+function backInView(): void {
+  if (document.visibilityState === 'visible') void read();
+}
+onMounted(() => {
+  rereading = setInterval(tick, REREAD_MS);
+  document.addEventListener('visibilitychange', backInView);
+  window.addEventListener('online', backInView);
+});
+onUnmounted(() => {
+  if (rereading) clearInterval(rereading);
+  document.removeEventListener('visibilitychange', backInView);
+  window.removeEventListener('online', backInView);
+  left = true;
+  asked += 1;
+});
+
+function holdBusy(key: string, busy: boolean): void {
+  const rows = new Set(busyRows.value);
+  if (busy) rows.add(key);
+  else rows.delete(key);
+  busyRows.value = rows;
+}
+
+/**
+ * The row shows the server's answer at once, and a re-read follows: a slow re-read never leaves
+ * the organizer wondering whether it worked. The answer counts as newer than every read in flight,
+ * so none of them, asked before it, undoes it.
+ */
+async function write(row: RosterRow, method: 'post' | 'delete') {
+  const key = rowKey(row);
+  holdBusy(key, true);
+  errorMessage.value = '';
+  const forMarket = marketId.value;
+  const url = `/markets/${encodeURIComponent(forMarket)}/attendance`;
   const body = { vendorEmail: row.vendorEmail, date: row.date };
   try {
-    if (method === 'post') await api.post(url, body);
-    else await api.delete(url, { data: body });
-    await loadAttendance();
+    let arrived: Pick<RosterRow, 'checkedInAt' | 'checkedInBy' | 'checkedInVia'>;
+    if (method === 'post') {
+      const { data } = await api.post<{ checkedInAt: string }>(url, body);
+      arrived = { checkedInAt: data.checkedInAt, checkedInBy: signedInEmail(), checkedInVia: null };
+    } else {
+      await api.delete(url, { data: body });
+      arrived = { checkedInAt: null, checkedInBy: null, checkedInVia: null };
+    }
+    if (forMarket !== marketId.value) return;
+    asked += 1;
+    roster.value = roster.value.map((one) => (rowKey(one) === key ? { ...one, ...arrived } : one));
+    void read();
   } catch (err: unknown) {
     errorMessage.value = getApiErrorMessage(
       err,
       method === 'post' ? 'That check-in was not recorded.' : 'That check-in was not undone.',
     );
   } finally {
-    busyRow.value = '';
+    holdBusy(key, false);
   }
 }
 
@@ -199,13 +327,13 @@ const canWriteNotes = computed(() => mayTake(market.value, MarketAction.WriteVen
 const details = useVendorDetails(marketId, market);
 const drawer = useVendorDrawer();
 
-watch(marketId, loadAttendance, { immediate: true });
+watch(marketId, openMarket, { immediate: true });
 </script>
 
 <template>
-  <MarketFrame :market="market" @retry="loadAttendance">
+  <MarketFrame :market="market" @retry="retry">
     <div class="door">
-      <ReadFailed v-if="readError" name="attendance" :message="readError" @retry="loadAttendance" />
+      <ReadFailed v-if="readError" name="attendance" :message="readError" @retry="retry" />
       <p v-if="errorMessage" class="door-error" role="alert">{{ errorMessage }}</p>
       <p v-if="isLoading" class="door-note">Loading…</p>
       <!-- Said of a roster that was read: under a failed read there is nothing to say it of. -->
@@ -228,15 +356,27 @@ watch(marketId, loadAttendance, { immediate: true });
               <span class="door-date-count">{{ tally(date).here }}/{{ tally(date).expected }}</span>
             </button>
           </nav>
-          <button
-            v-if="offersTheDoorCode"
-            type="button"
-            class="btn btn--secondary btn--compact door-code-open"
-            data-testid="attendance-door-code"
-            @click="showingDoorCode = true"
-          >
-            Door code
-          </button>
+          <!-- When the roster was read, and the door code: together at the row's end, or the end of
+               a line of their own when the dates fill theirs. -->
+          <div class="door-tools">
+            <ListFreshness
+              class="door-freshness"
+              testid="attendance"
+              :readAt="readAt"
+              :refreshing="refreshing"
+              :failed="refreshError"
+              @refresh="refresh"
+            />
+            <button
+              v-if="offersTheDoorCode"
+              type="button"
+              class="btn btn--secondary btn--compact door-code-open"
+              data-testid="attendance-door-code"
+              @click="showingDoorCode = true"
+            >
+              Door code
+            </button>
+          </div>
         </div>
 
         <div class="door-bar">
@@ -319,7 +459,7 @@ watch(marketId, loadAttendance, { immediate: true });
                 v-if="!row.checkedInAt"
                 type="button"
                 class="btn btn--primary btn--compact"
-                :disabled="busyRow === rowKey(row)"
+                :disabled="busyRows.has(rowKey(row))"
                 :aria-label="`Check in ${whoFor(row)}`"
                 data-testid="attendance-check-in"
                 @click="write(row, 'post')"
@@ -330,7 +470,7 @@ watch(marketId, loadAttendance, { immediate: true });
                 v-else
                 type="button"
                 class="btn btn--secondary btn--compact"
-                :disabled="busyRow === rowKey(row)"
+                :disabled="busyRows.has(rowKey(row))"
                 :aria-label="`Undo ${whoFor(row)}'s check-in`"
                 data-testid="attendance-undo"
                 @click="write(row, 'delete')"
@@ -388,8 +528,30 @@ watch(marketId, loadAttendance, { immediate: true });
 }
 
 /* At the row's end, and at the end of its own line when the dates fill theirs. */
-.door-code-open {
+.door-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
   margin-inline-start: auto;
+}
+
+/* The time, Refresh and a failed read's line are the group's own items, so that line goes under
+   the row, whole, rather than between Refresh and Door code, where on a phone it pushed Door code
+   onto a line of its own. */
+.door-freshness {
+  display: contents;
+}
+
+.door-freshness :deep(.freshness-error) {
+  flex-basis: 100%;
+  order: 1;
+  text-align: end;
+}
+
+.door-code-open {
+  margin-inline-start: var(--space-2);
 }
 
 .door-dates,

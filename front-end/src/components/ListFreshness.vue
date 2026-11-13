@@ -1,10 +1,12 @@
 <script setup lang="ts">
 /**
- * When the review's list was last read, and Refresh (E38/F05/S03), as both views show it.
+ * When a list was last read, and Refresh: the review's lists (E38/F05/S03) and the door's roster
+ * (T318) show it.
  *
- * Others decide and open cards while a reviewer works, and the list on screen is what was read,
- * not what is: this says how old it is, ageing as it sits, and reads it again on request. The view
- * owns the read; this only shows it and asks for another.
+ * Others change what a list shows while someone works from it, and the list on screen is what was
+ * read, not what is: this says how old it is, ageing as it sits, and reads it again on request. The
+ * view owns the read; this only shows it and asks for another. `testid` starts its test ids, so
+ * each screen's are its own: `<testid>-updated`, `<testid>-refresh`, `<testid>-refresh-error`.
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { updatedAgo } from '@/utils/updatedAgo';
@@ -15,6 +17,7 @@ const props = defineProps<{
   refreshing: boolean;
   /** Why the last refresh failed, in one line; empty when it did not. */
   failed: string;
+  testid: string;
 }>();
 const emit = defineEmits<{ refresh: [] }>();
 
@@ -35,12 +38,12 @@ const words = computed(() =>
 
 <template>
   <div class="freshness">
-    <span v-if="words" class="freshness-time" data-testid="applications-updated">{{ words }}</span>
+    <span v-if="words" class="freshness-time" :data-testid="`${testid}-updated`">{{ words }}</span>
     <button
       type="button"
       class="btn btn--secondary btn--compact"
       :disabled="refreshing"
-      data-testid="applications-refresh"
+      :data-testid="`${testid}-refresh`"
       @click="emit('refresh')"
     >
       Refresh
@@ -49,7 +52,7 @@ const words = computed(() =>
       v-if="failed"
       class="freshness-error"
       role="alert"
-      data-testid="applications-refresh-error"
+      :data-testid="`${testid}-refresh-error`"
     >
       {{ failed }}
     </span>

@@ -14,6 +14,7 @@ describes:
   - back-end/app.py#get_door_code
   - back-end/app.py#make_door_code
   - front-end/src/views/AttendanceStatusView.vue
+  - front-end/src/components/ListFreshness.vue
   - front-end/src/components/DoorCodeScreen.vue
   - front-end/src/utils/doorCode.ts
   - front-end/src/utils/qrDrawing.ts
@@ -45,6 +46,7 @@ sources:
   - T270
   - T201
   - T274
+  - T318
 ---
 
 # Attendance and the door
@@ -119,6 +121,16 @@ It loads through the change loader (`_load_market_to_change`), so an archived ma
 It writes through `record_attendance`, which stamps `checked_in_by`, so the two doors record alike, and a vendor checking in again after an organizer did is no longer credited to the organizer.
 `_door_write` catches nothing: a market that does not exist answers 404, an archived one or a person the row refuses 403 with its sentence, and one that cannot be read `Invalid market data`, 400, each raised by the change loader ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)); a body that is not a JSON object is `A JSON object is required`, 400.
 A vendor checking in on another day than today is not refused, and no screen suggests it.
+
+**The roster stays fresh by itself** (T318).
+It was read on load and after the organizer's own tap, so a vendor who scanned themselves in, or another organizer's check-in, showed only after this organizer's next tap or a reload, and "who is missing" was stale at exactly the moment it was asked.
+Attendance reads its roster again every 15 seconds while the page is in view (`REREAD_MS`), and at once when the tab comes back into view or the browser comes back online; hidden, it reads nothing, and the clock never asks for a read while one is out.
+Every read takes a number from one counter as it is asked, and its answer lands only if nothing newer was asked or landed since, so two reads answering out of order never show a vendor just checked in as not here; a dropped answer changes nothing on screen, its error included.
+A check-in or its undo shows on its row from the server's answer at once (`checkedInAt` from the answer and `checkedInBy` the signed-in address, or all three cleared), counts as newer than every read in flight, and a re-read follows; each row is held busy only while its own write is out, so taps on several rows all go through.
+The top row ends with [`ListFreshness`](../../../front-end/src/components/ListFreshness.vue) (`attendance-updated`, `attendance-refresh`) before Door code: when the roster was last read, ageing on screen, and Refresh.
+A re-read or a Refresh that fails keeps the rows and says "Could not update. The roster is as it was last read." on a line under the top row, until a read lands: between Refresh and Door code it pushed Door code onto a line of its own on a phone; a first read that fails is still the page that could not be read, with Try again.
+There is no offline copy and no queue of taps.
+`AttendanceStatusView.test.ts` holds each of these, and [`the-door-stays-fresh.spec.ts`](../../../front-end/e2e/the-door-stays-fresh.spec.ts) a vendor's own check-in showing on the open roster once `page.clock` runs 15 seconds, and a re-read that fails.
 
 **The page offers Check in and Undo only in Market Days, to someone who may check vendors in, and a row offering neither ends at its status** (`door-row--read`).
 At a desk each row's last column, 7rem, holds the action; for someone offered none it is dropped, since the empty column left each status about 130px short of the row's edge (E38/F15/S04).

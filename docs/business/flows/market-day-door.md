@@ -21,6 +21,7 @@ sources:
   - E38/F09/S01
   - E38/F15/S04
   - T202
+  - T318
 ---
 
 # Publishing, and the door on market day
@@ -112,6 +113,9 @@ Covered by:
    With no code yet it offers "Make a door code".
    "Print" prints the same poster on one page, and "New code" asks "Make a new door code? The current code and every printed poster of it stop working.", on Cancel, before it makes another; the code stays the same until then.
    A Viewer is offered no Door code, and the server refuses them the code.
+7. The roster reads itself again every 15 seconds while the page is in view, and at once when the tab comes back into view or the browser comes back online, so a vendor who scanned in, or another organizer's check-in, shows with no tap or reload.
+   "Updated just now" or "Updated N minutes ago" and "Refresh" stand before "Door code", at the end of the dates' row; a read that fails keeps the rows and says "Could not update. The roster is as it was last read." under that row.
+   Taps on several rows' Check in go through at once, each row showing its check-in as soon as the server answers.
 
 It lists everyone expected on the day, so it shows who is missing; "Nobody is assigned on this date." on a date with nobody.
 It works at a phone's width, as only the other organizer screens that fit a phone do ([attendance and the door](../../implementation/modules/attendance-and-door.md#sharp-edges)), and there its rows keep a gutter at both sides rather than running to the card's edges (T15).
@@ -123,6 +127,7 @@ Covered by:
 - `the-door-code.spec.ts`
 - `the-door-keeps-its-own-day.spec.ts`
 - `the-door-on-market-day.spec.ts`
+- `the-door-stays-fresh.spec.ts`
 
 ## The rules it obeys
 

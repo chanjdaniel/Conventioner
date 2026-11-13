@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/application/ApplicationMonitor.vue
   - front-end/src/components/application/ApplicationsAll.vue
   - front-end/src/components/market/MarketApplicationsTab.vue
-  - front-end/src/components/application/ListFreshness.vue
+  - front-end/src/components/ListFreshness.vue
   - front-end/src/components/market/ReviewersPanel.vue
   - front-end/src/components/market/ReviewerName.vue
   - front-end/src/components/application/VerdictUndoLine.vue
@@ -75,7 +75,7 @@ The page offers no import on either path ([review needs an import](../rules/revi
 The page has two views ([`MarketApplicationsTab.vue`](../../../front-end/src/components/market/MarketApplicationsTab.vue)), chosen under "How do you want to review?" with a line on what each is: "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)), first and the default, and "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)).
 The choice is kept in the address: no `view` is All, and a saved `?view=all` still opens it; One by one is `?view=one`, and so is a link to one application (`?application=<id>`, as the Assignment tab's refusal links to it), which opens on its card.
 Choosing All drops both `view` and `application`.
-Both views say when their list was last read from the server, "Updated just now" or "Updated N minutes ago", ageing on screen, with "Refresh" beside it to read it again at once ([`ListFreshness.vue`](../../../front-end/src/components/application/ListFreshness.vue)).
+Both views say when their list was last read from the server, "Updated just now" or "Updated N minutes ago", ageing on screen, with "Refresh" beside it to read it again at once ([`ListFreshness.vue`](../../../front-end/src/components/ListFreshness.vue)).
 A refresh is a re-read, not a reset: the All view keeps the ticks of rows still shown, One by one keeps the card up while it is still to decide and moves on from one decided elsewhere, and a refresh that fails says "Could not refresh. The list is as it was last read." and keeps the list.
 The page fits a phone, in every phase it is shown in, as the plan, the form and Settings do not ([the design language](../../design-system.md#layout), T180): on a phone the All view's row reads down, the name and address, the leading answers, then the status lines, each row's tick a 44px square, and the vendor drawer and Update info open inside the window; One by one's card is the window less its gutters, its verdict buttons wrapping inside it, "Include the N follow-ups", "Show N reviewed" and "Choose what leads the card" are 44px targets, and the reviewed applications, what leads the card, the follow-up, reviewers, Open applications and Publish results dialogs open inside the window (`the-market-on-a-phone.spec.ts`).
 A first read that fails says what went wrong (the connection, the server, or the server's own reason), with "Try again" to read it once more ([`ReadFailed.vue`](../../../front-end/src/components/ReadFailed.vue)).

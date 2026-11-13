@@ -15,6 +15,10 @@ export class AttendanceStatusPage {
   /** Every row's Check in and Undo, offered only to whoever may check vendors in. */
   readonly checkIns: Locator;
   readonly undos: Locator;
+  /** When the roster was last read, Refresh, and the line a failed re-read leaves (T318). */
+  readonly updated: Locator;
+  readonly refresh: Locator;
+  readonly refreshError: Locator;
   /** "Door code", offered in Market Days to whoever may check vendors in (ADR 0022). */
   readonly doorCodeButton: Locator;
   /** The door code's full-screen view, and what it shows. */
@@ -43,6 +47,9 @@ export class AttendanceStatusPage {
     this.readOnly = page.getByTestId('market-read-only');
     this.checkIns = page.getByTestId('attendance-check-in');
     this.undos = page.getByTestId('attendance-undo');
+    this.updated = page.getByTestId('attendance-updated');
+    this.refresh = page.getByTestId('attendance-refresh');
+    this.refreshError = page.getByTestId('attendance-refresh-error');
     this.doorCodeButton = page.getByTestId('attendance-door-code');
     this.doorCode = page.getByTestId('door-code');
     this.doorCodeScroller = page.getByTestId('door-code-scroll');

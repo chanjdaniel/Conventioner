@@ -64,7 +64,7 @@ import AppDialog from '@/components/AppDialog.vue';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import ListFrame from '@/components/ListFrame.vue';
-import ListFreshness from '@/components/application/ListFreshness.vue';
+import ListFreshness from '@/components/ListFreshness.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
 import SearchPicker from '@/components/SearchPicker.vue';
@@ -550,6 +550,7 @@ async function decideSelection() {
 <template>
   <div class="all-view" data-testid="applications-all">
     <ListFreshness
+      testid="applications"
       :readAt="readAt"
       :refreshing="refreshing || saving"
       :failed="refreshError"

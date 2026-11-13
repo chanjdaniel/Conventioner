@@ -63,7 +63,7 @@ import {
   reviewerLine,
 } from '@/utils/reviewers';
 import { useMarketStore } from '@/stores/market';
-import ListFreshness from '@/components/application/ListFreshness.vue';
+import ListFreshness from '@/components/ListFreshness.vue';
 import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
 import { useVerdictUndo } from '@/utils/verdictUndo';
 import VerdictUndoLine from '@/components/application/VerdictUndoLine.vue';
@@ -911,6 +911,7 @@ function submittedOn(app: Application): string {
     <ListFreshness
       v-if="!loading"
       class="monitor-freshness"
+      testid="applications"
       :readAt="readAt"
       :refreshing="refreshing || saving"
       :failed="refreshError"
