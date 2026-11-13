@@ -14,7 +14,7 @@ import pytest
 import api.discord_connection as DiscordConnection
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
-import api.placements as PlacementsApi
+import assignment.lifecycle as Lifecycle
 import csv_import as CsvImport
 import csv_start as CsvStart
 import discord_client as Discord
@@ -31,6 +31,8 @@ from test_csv_proposal_api import CSV as START_CSV
 ORGANIZER = "fixture-organizer@example.com"
 CHANGED = {"error": MARKET_CHANGED, "code": "market_changed"}
 ROW = "stop-applications"
+#: What a run records it was made from, in its shape; the values are no real fingerprints.
+MADE_FROM = {"rules": "r", "plan": "p", "applications": "a", "review": "1"}
 
 
 def _kinds(market_records, market):
@@ -53,9 +55,9 @@ class TestPublishResults:
             email="vendor-2@example.com", date="2026-12-05", table_code="A1",
             table_choice="Full Table", section="Main Hall", tier="Gold", location="Hall")]
         interleave("api.applicants.publish_results_refusal",
-                   lambda: PlacementsApi._store_vendor_assignments(
-                       market_from_document(_stored(real_db, market)), rerun,
-                       "2026-11-11T09:00:00Z"))
+                   lambda: Lifecycle.store(
+                       market_from_document(_stored(real_db, market)), Lifecycle.Event.RUN, rerun,
+                       assignment_date="2026-11-11T09:00:00Z", made_from=MADE_FROM))
 
         response = client.post(f"/markets/{market['id']}/publish-results")
 

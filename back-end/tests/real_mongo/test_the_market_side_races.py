@@ -17,7 +17,7 @@ from market_write import MarketChanged
 
 import api.applicants as ApplicantsApi
 import api.markets as MarketsApi
-import api.placements as PlacementsApi
+import assignment.lifecycle as Lifecycle
 import review_team as ReviewTeam
 from real_mongo import harness
 
@@ -191,8 +191,9 @@ class TestTwoAssignmentWritesFromOneRevisionLandOne:
         as_read = market_from_document(_stored(real_db, market["id"]))
         assert (as_read.assignment_object.revision or 0) == read_revision
 
-        answered = race(2, lambda i: PlacementsApi._store_vendor_assignments(
-            as_read, rows[i], f"2026-11-0{i + 1}T09:00:00Z"))
+        answered = race(2, lambda i: Lifecycle.store(
+            as_read, Lifecycle.Event.RUN, rows[i], assignment_date=f"2026-11-0{i + 1}T09:00:00Z",
+            made_from={"rules": f"run-{i}"}))
 
         landed, refused = _outcomes(answered, MarketChanged)
         assert len(landed) == 1 and len(refused) == 1, answered
@@ -202,6 +203,7 @@ class TestTwoAssignmentWritesFromOneRevisionLandOne:
         assert stored["assignmentDate"] == f"2026-11-0{winner + 1}T09:00:00Z"
         assert [row["email"] for row in stored["vendorAssignments"]] == [
             f"vendor-{winner}@example.com"]
+        assert (stored["state"], stored["madeFrom"]) == ("run", {"rules": f"run-{winner}"})
 
 
 class _Clock:

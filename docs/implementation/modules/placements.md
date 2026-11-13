@@ -76,7 +76,7 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
 1. One write on the day's owed record, landing only while its amount by hand is the one read, keeps the freed line and, when `deductOwed` asked it, the free's $0 (`PaymentsApi.keep_freed_line`); unasked, it puts back the amount a stopped free's $0 replaced, or none.
    An amount that keeps changing under it is refused, 409, with nothing written.
-2. The seat is freed (`_store_vendor_assignments`).
+2. The seat is freed (`lifecycle.store`).
 3. When step 2 is refused by the revision, the record goes back as it held before, only while it still holds what step 1 wrote, and the error goes on.
    When it raises anything else, which may come after the store reached the database, the record goes back that way only while the stored assignment still seats the vendor that day; when that cannot be read, the line stays, since a held seat reads its own price over it.
 4. The freed entry is recorded, and with the deduction an "owed set" entry from what the line owed as the request read it, while the seat was held, to 0.
@@ -105,8 +105,8 @@ Placing into a taken seat is still refused while the organizer can see both vend
 A swap is atomic because three separate operations invite a half-finished state, and the half-finished state is a vendor standing at no table on market day.
 
 **No change lands over another.**
-Each of the four reads the whole assignment and writes it back whole (`_store_vendor_assignments`), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
-So the write goes through [the market write](market-write.md), `_store_vendor_assignments` taking the market as the change read it: it lands only while the market is in the phase it was read in and `assignmentObject.revision` is still the one read (taken from the stored document, which a run's solver never touches), and counts the revision one more.
+Each of the four reads the whole assignment and writes it back whole through `store` in [`back-end/assignment/lifecycle.py`](../../../back-end/assignment/lifecycle.py), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
+So the write goes through [the market write](market-write.md), `store` taking the market as the change read it: it lands only while the market is in the phase it was read in and `assignmentObject.revision` is still the one read (taken from the stored document, which a run's solver never touches), and counts the revision one more.
 A run also holds `resultsPublished` as read, so an allocation never lands after Publish results told applicants the one before it; and since the phase is held, no placement, free or swap lands on a market archived a moment before.
 Otherwise the change is refused with the market write's `MarketChanged` (409) and [its one sentence](market-write.md#what-it-answers), before any history or payments line is recorded.
 An assignment stored before the count existed has none, and reads as 0.

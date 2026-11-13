@@ -18,7 +18,7 @@ describes:
   - back-end/api/markets.py#write_application_form
   - back-end/api/markets.py#save_plan
   - back-end/api/floorplans_save.py#save_floorplan_to_market
-  - back-end/api/placements.py#_store_vendor_assignments
+  - back-end/assignment/lifecycle.py#store
   - back-end/api/applicants.py#publish_results
   - back-end/api/applicants.py#set_applications_stopped
   - back-end/api/door.py#make_door_code
@@ -145,7 +145,7 @@ Elsewhere:
 - The start from a CSV (`confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py)), holding `applicationForm` as read, which the start judged had no questions of its own, and counting `formRevision`, since it writes the questions; it writes the plan too, built on the plan as read, so it holds `planRevision` at its value as read and counts it ([the CSV proposal and start](csv-proposal-and-start.md)).
 - The floorplan save (`save_floorplan_to_market` in [`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)), a location's layout, which writes the plan through the plan's own judge, holding the phase and `planRevision` as read and counting it; it answers its refusal as its own 409 `STALE_LAYOUT`, which the layout editor offers Reload for ([a location's layout](floorplan-placement.md)).
 - The table types write (`save_table_types` in [`back-end/api/layouts.py`](../../../back-end/api/layouts.py)), holding the phase and `planRevision` as read and counting it, since it writes part of the plan ([a location's layout](floorplan-placement.md)).
-- Every write of the assignment, a run, a placement, a free and a swap (`_store_vendor_assignments` in [`back-end/api/placements.py`](../../../back-end/api/placements.py)), counting `assignmentObject.revision` from the one read; a run also holds `resultsPublished`, so an allocation never lands after Publish results, and no placement lands on a market archived a moment before ([placements](placements.md#the-four-doors)).
+- Every write of the assignment, a run, a placement, a free and a swap (`store` in [`back-end/assignment/lifecycle.py`](../../../back-end/assignment/lifecycle.py), which [`back-end/api/placements.py`](../../../back-end/api/placements.py) calls), counting `assignmentObject.revision` from the one read; a run also holds `resultsPublished`, so an allocation never lands after Publish results, and no placement lands on a market archived a moment before ([placements](placements.md#the-four-doors)).
   The Tables page reads its grid again on the refusal and says the sentence in the seat's dialog ([placing by hand](../../business/flows/placing-by-hand.md)).
 
 ## The form's revision

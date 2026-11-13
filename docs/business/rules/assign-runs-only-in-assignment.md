@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/api/placements.py#assign_phase_refusal
   - back-end/api/placements.py#assign_refusal
-  - back-end/api/placements.py#_store_vendor_assignments
+  - back-end/assignment/lifecycle.py#store
   - front-end/src/utils/assignPhase.ts
 verified: 2026-10-29
 sources:
@@ -41,5 +41,5 @@ An EDITOR, the bar every placement write sets; an archived market refuses anyone
 
 - `assign_phase_refusal` in [`back-end/api/placements.py`](../../../back-end/api/placements.py) says the phase rule, and `assign_refusal` adds published results (E36/F04/S02); the market read serves it as `assignRefusalReason`, so the "Allocate tables" button says no first.
 - [`front-end/src/utils/assignPhase.ts`](../../../front-end/src/utils/assignPhase.ts) mirrors the phase rule for the screens that word it before a read (the empty result, the pin hint, the out-of-date line); the server is the enforcement.
-- The run itself is [placements](../../implementation/modules/placements.md); its write holds the phase and `resultsPublished` as the run read them, so a run in flight when the market moved, or when results were published, stores nothing and answers the one "this market changed" 409.
+- The run itself is [placements](../../implementation/modules/placements.md); its write (`store` in [`back-end/assignment/lifecycle.py`](../../../back-end/assignment/lifecycle.py)) holds the phase and `resultsPublished` as the run read them, so a run in flight when the market moved, or when results were published, stores nothing and answers the one "this market changed" 409.
 - **A seed or a spec that wants an assignment walks the market to `assignment` first**: assigning from `draft` is a 409 (`front-end/e2e/helpers/seedAssignedMarket.ts`, [the E2E seeds](../../implementation/testing/e2e-seeds.md#reaching-a-stored-assignment)).

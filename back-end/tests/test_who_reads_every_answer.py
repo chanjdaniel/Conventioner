@@ -18,6 +18,7 @@ import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.placements as PlacementsApi
 import api.users as UsersApi
+import assignment.lifecycle as Lifecycle
 from datatypes import MarketPhase
 
 MARKET = "market-123"
@@ -171,7 +172,7 @@ def test_the_assignment_read_never_carries_them(market, monkeypatch, email, phas
 def test_running_the_assignment_never_carries_them(market, monkeypatch):
     market(MarketPhase.ASSIGNMENT, setupObject=COMPLETE_PLAN)
     _assignable(monkeypatch, PlacementsApi)
-    monkeypatch.setattr(PlacementsApi, "_store_vendor_assignments", lambda *_args: None)
+    monkeypatch.setattr(Lifecycle, "store", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(PlacementsApi.History, "record_assignment_run", lambda *_a, **_k: None)
     monkeypatch.setattr(PlacementsApi.PaymentsApi, "seated_again", lambda *_args: None)
 

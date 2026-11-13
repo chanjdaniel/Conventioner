@@ -1006,13 +1006,65 @@ def stored_market(phase: MarketPhase = MarketPhase.DRAFT, **overrides) -> dict:
         "creationDate": "2026-01-01T00:00:00Z",
         "roles": {"user-1": "owner"},
         "modificationList": [],
-        "assignmentObject": {"vendorAssignments": [], "assignmentStatistics": None},
+        "assignmentObject": stored_assignment("none"),
         "isDraft": phase == MarketPhase.DRAFT,
         "phase": phase.value,
         "slug": market_name_slug(name),
     }
     doc.update(overrides)
     return doc
+
+
+def stored_assignment(
+    state, rows=(), made_from=None, revision=0, published_revision=None,
+) -> dict:
+    """An assignment object as Mongo holds it, camelCase, in a state the product can make (T316).
+
+    ``rows`` are stored rows (camelCase dicts) or ``VendorAssignmentResult``s. Refuses a state its
+    rows and ``made_from`` contradict, so no test stands on an assignment no write could store: a
+    ``run`` with no ``made_from`` (the reproduction T316 fixed stood on one), a ``pinned`` with no
+    row, an unflagged row or a ``made_from``, and a ``none`` with a row or a ``made_from``. A test
+    of how a contradiction is read builds its document by hand.
+    """
+    from assignment.utils import convert_keys_to_camel_case
+    from datatypes import AssignmentState, VendorAssignmentResult
+
+    state = AssignmentState(state)
+    stored_rows = [
+        convert_keys_to_camel_case(row.model_dump())
+        if isinstance(row, VendorAssignmentResult) else dict(row)
+        for row in rows
+    ]
+    if state is AssignmentState.RUN and not made_from:
+        raise ValueError("a run records what it was made from: pass made_from")
+    if state is AssignmentState.PINNED and (
+            not stored_rows or made_from
+            or not all(row.get("handPlaced") for row in stored_rows)):
+        raise ValueError("pinned is one or more rows, every one hand-placed, and no made_from")
+    if state is AssignmentState.NONE and (stored_rows or made_from):
+        raise ValueError("none is no row and no made_from")
+    document = {
+        "vendorAssignments": stored_rows,
+        "assignmentStatistics": None,
+        "state": state.value,
+        "revision": revision,
+    }
+    if made_from:
+        document["madeFrom"] = dict(made_from)
+    if published_revision is not None:
+        document["publishedRevision"] = published_revision
+    return document
+
+
+def assignment_object(*args, **kwargs) -> AssignmentObject:
+    """``stored_assignment``'s twin as the model, for ``client_market``; refuses what it refuses."""
+    from assignment.utils import convert_keys_to_snake_case
+
+    stored = stored_assignment(*args, **kwargs)
+    made_from = stored.pop("madeFrom", None)
+    model = AssignmentObject(**convert_keys_to_snake_case(stored))
+    # Its keys are the run's groups, not field names: kept as they are spelled.
+    return model.model_copy(update={"made_from": made_from})
 
 
 def client_market(**overrides) -> Market:
