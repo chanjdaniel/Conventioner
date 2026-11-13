@@ -285,6 +285,11 @@ def test_results_are_out_when_published_or_changed_since():
     (MarketPhase.MARKET_DAYS, a_run(), {"resultsPublished": True}, "published"),
 ], ids=["none", "pinned", "current", "stale", "published"])
 def test_the_market_read_serves_the_allocation(monkeypatch, phase, assignment, fields, standing):
+    assert read_market(monkeypatch, phase, assignment, **fields)["allocation"] == standing
+
+
+def read_market(monkeypatch, phase, assignment, **fields) -> dict:
+    """The market read of its owner, over one stored market."""
     monkeypatch.setattr(UsersApi, "get_user", lambda _email: SimpleNamespace(
         id="user-1", email="owner@example.com"))
     monkeypatch.setattr(UsersApi, "get_user_by_id", lambda _uid: None)
@@ -294,9 +299,35 @@ def test_the_market_read_serves_the_allocation(monkeypatch, phase, assignment, f
     monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(stored_market(
         phase, _id="mongo-1", setupObject=PLAN, phaseHistory=history(*REVIEWED_ONCE),
         assignmentObject=assignment, **fields)))
+    return MarketsApi.get_market_for_user("owner@example.com", "market-123")
 
-    assert MarketsApi.get_market_for_user("owner@example.com", "market-123")["allocation"] == (
-        standing)
+
+@pytest.mark.parametrize("assignment, standing, waits", [
+    (a_run(), "current", None),
+    (a_run(**PLAN_CHANGED), "stale", Lifecycle.OUT_OF_DATE),
+], ids=["current", "stale"])
+def test_the_market_read_reads_the_approved_applications_once(
+        monkeypatch, assignment, standing, waits):
+    """The groups the read computes for ``assignmentOutOfDate`` serve the allocation and
+    ``publishWaitsReason`` too, so the approved applications are read once for the whole read."""
+    calls = []
+
+    def counted(market):
+        calls.append(market.id)
+        return MadeFrom.changed_since_run(market)
+
+    monkeypatch.setattr(Lifecycle, "changed_since_run", counted)
+    monkeypatch.setattr(MarketsApi, "changed_since_run", counted)
+    read = read_market(monkeypatch, MarketPhase.ASSIGNMENT, assignment)
+    assert (read["allocation"], read["publishWaitsReason"]) == (standing, waits)
+    assert calls == ["market-123"]
+
+
+def test_publish_refusal_uses_the_groups_it_is_handed(monkeypatch):
+    monkeypatch.setattr(Lifecycle, "changed_since_run", lambda _market: pytest.fail("read again"))
+    assert Lifecycle.publish_refusal(market(assignment=a_run()), changed=["rules"]) == (
+        Lifecycle.OUT_OF_DATE)
+    assert Lifecycle.publish_refusal(market(assignment=a_run(**PLAN_CHANGED)), changed=[]) is None
 
 
 # --- The fixtures refuse what no write could store ----------------------------------------------

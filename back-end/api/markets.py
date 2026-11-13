@@ -1023,7 +1023,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['verdictsSettledReason'] = verdicts_settled
     adding_vendors = adding_refusal(market.phase)
     market_dict['addingVendorsReason'] = adding_vendors
-    publish_waits = ApplicantsApi.publish_results_refusal(market)
+    publish_waits = ApplicantsApi.publish_results_refusal(
+        market, changed=market_dict['assignmentOutOfDate'])
     market_dict['publishWaitsReason'] = publish_waits
     market_dict['publishOutcomes'] = (
         None if refusals[Actions.PUBLISH_RESULTS.id] or publish_waits

@@ -306,15 +306,18 @@ NOBODY_HAS_A_TABLE = (
 )
 
 
-def publish_refusal(market: Market) -> Optional[str]:
+def publish_refusal(
+    market: Market, *, changed: Optional[Sequence[str]] = None,
+) -> Optional[str]:
     """Why results cannot be published now, or None while they can (E36/F04/S01, T316).
 
     Results wait for a table allocation that was run and is current, in ``assignment``, so every
     applicant is told what the market will hold. Tables assigned by hand alone are no allocation:
     publishing them told every other approved vendor they had no table, though the solver never
     ran (T277). A run freed down to no row is refused too, since it would tell every applicant no.
+    ``changed`` is handed to ``allocation`` as the caller computed it.
     """
-    standing = allocation(market)
+    standing = allocation(market, changed=changed)
     if results_out(standing):
         return ALREADY_PUBLISHED
     if market.phase is not MarketPhase.ASSIGNMENT:

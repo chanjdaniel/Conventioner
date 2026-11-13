@@ -117,8 +117,8 @@ class TestBackToReviewAgainstPublishResults:
 
         judged = []
 
-        def publish_refusal_then_meet(market):
-            refusal = JUDGE_PUBLISH(market)
+        def publish_refusal_then_meet(market, **kwargs):
+            refusal = JUDGE_PUBLISH(market, **kwargs)
             # Publish's own judgment only: a refused move asks it again, after its write, and by
             # then Publish has judged.
             if not judged:

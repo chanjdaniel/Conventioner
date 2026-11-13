@@ -21,7 +21,7 @@ Publication gate (captain ruling 2026-07-13):
 
 import logging
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from client_errors import parse_failure_detail
 from application_write import record_application_answers, validate_application_answers
@@ -926,7 +926,9 @@ def reassign_follow_up(
     return {"application": _application_response_organizer(app)}, 200
 
 
-def publish_results_refusal(market: Market) -> Optional[str]:
+def publish_results_refusal(
+    market: Market, *, changed: Optional[Sequence[str]] = None,
+) -> Optional[str]:
     """Why results cannot be published now, or None while they can (E36/F04/S01).
 
     The assignment's lifecycle owner says it (``lifecycle.publish_refusal``, T316): results wait
@@ -938,7 +940,7 @@ def publish_results_refusal(market: Market) -> Optional[str]:
     The same rule on both kinds of market: a Google Form market's vendors read their result on its
     vendor page, which opens with it (ADR 0022).
     """
-    return Lifecycle.publish_refusal(market)
+    return Lifecycle.publish_refusal(market, changed=changed)
 
 
 def applications_stop_refusal(market: Market) -> Optional[str]:
