@@ -32,7 +32,7 @@ describes:
   - back-end/api/applicant_auth.py#_send_code_email
   - back-end/tests/test_the_code_mail_carries_only_words.py
   - front-end/vite.config.ts#assertNoLocalHatchOnVercel
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - T74
   - T109
@@ -43,6 +43,7 @@ sources:
   - T254
   - T251
   - T273
+  - T317
 ---
 
 # Security invariants
@@ -147,10 +148,10 @@ So the check runs on the PC, before anything leaves it, and CI is only the backs
 | [`.githooks/pre-commit`](../../../.githooks/pre-commit) | the staged lines, so an ignored export added with `git add -f`, or its rows pasted next to a tracked file, is refused                                                                    |
 | [`.githooks/pre-push`](../../../.githooks/pre-push)     | each commit the push sends that no remote-tracking branch already has, its lines and its message: the second net, for a commit made with the hooks skipped                               |
 | the gate's [`nm-test.sh`](../../../scripts/nm-test.sh)  | each commit since `origin/dev`, then every file of the tree at `HEAD`, since the gate pushes the branch: the gate's test step runs it with `--real-data-only`, these checks and no suite |
-| CI's `real-data` job                                    | the pull request's commits, then every file of the merge it checks out, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection   |
+| the real-data steps of CI's `real-data-and-workflows`   | the pull request's commits, then every file of the merge it checks out, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection   |
 
 **The gate's own commits are CI's to check.**
-Its document, lint and CI-fix steps commit after its test step has run `nm-test.sh`, and the gate pushes them from its own repository under `~/.no-mistakes/`, where `core.hooksPath` is not set, so neither the hooks nor `nm-test.sh` read them: CI's `real-data` job on the pull request is the only check they get.
+Its document, lint and CI-fix steps commit after its test step has run `nm-test.sh`, and the gate pushes them from its own repository under `~/.no-mistakes/`, where `core.hooksPath` is not set, so neither the hooks nor `nm-test.sh` read them: the real-data steps of CI's `real-data-and-workflows` on the pull request are the only check they get.
 
 All four run one checker, [`scripts/real_data_check.py`](../../../scripts/real_data_check.py).
 It fails an added line holding an email address outside the fixture domains (`example.com`, `example.org`, `example.net` and their subdomains, `*.test`, `*.example`, `*.invalid`, `*.localhost`, and the services' own in its `FIXTURE_DOMAINS`: the project's, Resend's test sender, the placeholder MongoDB host and commit trailers'), or a North American phone number written with separators outside the fictional 555-0100 to 555-0199.

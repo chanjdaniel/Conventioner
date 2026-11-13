@@ -12,7 +12,7 @@ describes:
   - scripts/deploy_proof.py
   - front-end/vite.config.ts#assertApiHost
   - front-end/vite.config.ts#assertNoLocalHatchOnVercel
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - T74
   - T254
@@ -20,6 +20,7 @@ sources:
   - T263
   - T270
   - T273
+  - T317
 ---
 
 # Release Process
@@ -35,12 +36,12 @@ This project uses a **dev → main promotion flow**:
   It is deployed only by hand, through the Deploy workflow, and is reached **only** by promoting `dev` → `main` as a deliberate, versioned release.
   Never commit or open PRs directly against `main` (the release-please Release PR and a `hotfix/` PR are the exceptions, [below](#hotfixes)).
 
-**Both branches are protected** (since 2026-10-18): a PR into either needs the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `zizmor` checks to pass (`e2e` passes only when every shard does), and a push to `main` is accepted only for a commit that has passed them.
-A PR into `dev` also needs `knowledge-graph`, `real-data`, `CodeQL` and `agent-review`, ten in all; `main` asks only the six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
+**Both branches are protected** (since 2026-10-18): a PR into either needs the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `real-data-and-workflows` checks to pass (`e2e` passes only when every shard does), and a push to `main` is accepted only for a commit that has passed them.
+A PR into `dev` also needs `knowledge-graph`, `CodeQL` and `agent-review`, nine in all; `main` asks only the six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
 Branches need not be up to date before merging, because a promotion is only ever made from a commit whose own `dev` run passed.
 `main` keeps a linear history; force pushes are blocked on both.
 Admins can override `main`'s protection, deliberately: it is how the Release PR is merged (below), and the way out in an emergency.
-`dev`'s binds admins too (`enforce_admins`): nothing merges into `dev`, the merge of `main` back into it included, without all ten checks, short of changing the protection itself.
+`dev`'s binds admins too (`enforce_admins`): nothing merges into `dev`, the merge of `main` back into it included, without all nine checks, short of changing the protection itself.
 
 ```
 feature/* ──PR──▶ dev ──promotion──▶ main (versioned release) ──by hand──▶ deploy

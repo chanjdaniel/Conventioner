@@ -408,7 +408,7 @@ Connecting through the card skips Discord's approval screen under it, and connec
 
 Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`.
 [CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which checks
-branch protection requires (ten on `dev`, `CodeQL` among them, and six on `main`), why a flaky test fails the build, and what the no-mistakes gate
+branch protection requires (nine on `dev`, `CodeQL` among them, and six on `main`, `real-data-and-workflows` on both), why a flaky test fails the build, and what the no-mistakes gate
 runs through `scripts/nm-test.sh` (the real-data checks alone, since CI runs every suite before a merge).
 
 ## Stack limits

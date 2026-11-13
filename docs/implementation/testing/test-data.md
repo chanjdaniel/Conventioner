@@ -16,7 +16,7 @@ describes:
   - front-end/e2e/helpers/seedApplication.ts#nameFromEmail
   - scripts/real_data_check.py
   - scripts/real_data_terms.txt
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - T109
   - T131
@@ -24,6 +24,7 @@ sources:
   - T204
   - T263
   - T201
+  - T317
 ---
 
 # Test data
@@ -78,7 +79,7 @@ The seeds' older synthetic names stay as they are: "Main Hall", "Hall A", "Test 
 
 ## What the check enforces
 
-[`scripts/real_data_check.py`](../../../scripts/real_data_check.py) runs in the git hooks, the gate's `nm-test.sh` and CI's `real-data` job; [real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc) says each rule in full, and where each runs.
+[`scripts/real_data_check.py`](../../../scripts/real_data_check.py) runs in the git hooks, the gate's `nm-test.sh` and the real-data steps of CI's `real-data-and-workflows`; [real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc) says each rule in full, and where each runs.
 
 - Everywhere: an email address outside the fixture domains, a phone number written with separators outside 555-0100 to 555-0199, and a MongoDB Atlas host that is not a placeholder.
 - Everywhere: a name listed in [`scripts/real_data_terms.txt`](../../../scripts/real_data_terms.txt), the real organization's, market's, venue's and groups' names, held as hashes; only the root `README.md`, `CHANGELOG.md`, `docs/records/` and the list itself may hold one.

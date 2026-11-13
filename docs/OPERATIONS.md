@@ -15,7 +15,7 @@ describes:
   - back-end/payments.py#ensure_payment_indexes
   - back-end/migrations/check_vendor_day_duplicates.py
   - back-end/host_limits.py
-verified: 2026-11-11
+verified: 2026-11-14
 sources:
   - E32/F03/S03
   - T15
@@ -27,8 +27,9 @@ sources:
   - T263
   - T255
   - T270
-  - T315
   - T307
+  - T315
+  - T317
 ---
 
 # Operations
@@ -312,7 +313,7 @@ Every stack's back-end container sets `MONGODB_HOST=mongodb`, so `scripts/th-com
 
 In short (the detail is [RELEASING.md](RELEASING.md)):
 
-- Changes reach `dev` by PR; `dev` requires ten checks, `CodeQL` among them, and `main` six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
+- Changes reach `dev` by PR; `dev` requires nine checks, `CodeQL` among them, and `main` six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
 - Promote a commit whose `dev` CI is green: `git fetch origin && git push origin <sha>:main`.
   The Test workflow runs on `main`; once it is green, start the Deploy workflow by hand (Actions, Deploy, Run workflow, from `main`, or `gh workflow run deploy.yml --ref main`), which refuses a commit whose Test run has not passed, builds both projects without giving them a domain and proves each serves this commit, then promotes the back end, waits until `api.conventioner.io` serves the commit, promotes the front end and waits for `conventioner.io` ([how a deploy proves itself](RELEASING.md#how-a-deploy-proves-itself)).
   Nothing deploys by itself: no push, merge or PR reaches Vercel.
