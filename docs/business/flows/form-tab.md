@@ -29,6 +29,7 @@ sources:
   - T223
   - T274
   - T271
+  - T315
 ---
 
 # Building the application form
@@ -48,6 +49,7 @@ The step header is a named navigation of buttons, the current one marked as the 
 Moving between steps never loses an unsaved edit; only "Save Form" writes the questions, and it sits on Your questions and on Preview, while how the last save went shows on every step, since "Ask this" saves the moment it is ticked.
 A locked form opens on Review setup, the step still the organizer's to change; the earlier steps stay one click away, read only under the lock's reason, and Review setup shows no lock.
 A person who may change nothing finds every step read only, Review setup included, and reads why once, above the page; a step's banner says only the form's own lock (T15).
+As the tab opens it shows the form the market already holds, if any, and reads the server's copy, saying "Loading the application form..." at the top of the step until it answers, unless a lock's reason stands there; the line is in the beige card's muted ink (`--mm-text-muted-on-beige`), since the plain muted ink is 4.23:1 on beige, below AA (T315), and nothing is editable until the answer comes.
 The step is in the address, `form?step=review` for Review setup, so a link, a bookmark or a refresh opens the step it names ([every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md), T206).
 Choosing a step from the header, Back or Next replaces the address rather than adding to the browser's history, so Back leaves the tab; a link naming another step while the tab is open moves there.
 With no step named, or one the path lacks, the step is chosen once, as the tab opens: a lock that lands while the organizer is on a step does not move them off it.
