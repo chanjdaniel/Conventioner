@@ -109,6 +109,11 @@ for (const [how, signIn] of [
       expect(kept.map((cookie) => cookie.name)).toEqual([REMEMBER_COOKIE]);
       expect(kept[0].expires).toBeGreaterThan(before + THIRTY_DAYS_S - 60);
       expect(kept[0].expires).toBeLessThanOrEqual(Date.now() / 1000 + THIRTY_DAYS_S);
+      // Sent on the app's own requests, kept where no script on the page reads them.
+      for (const name of ['session', REMEMBER_COOKIE]) {
+        const cookie = (await page.context().cookies()).find((c) => c.name === name);
+        expect(cookie, name).toMatchObject({ sameSite: 'Lax', secure: true, httpOnly: true });
+      }
 
       const again = await reopened(browser, page.context());
       try {
