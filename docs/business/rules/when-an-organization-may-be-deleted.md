@@ -9,6 +9,7 @@ describes:
   - back-end/api/organizations.py#delete_organization
   - back-end/api/organizations.py#_mark_deleting
   - back-end/api/organizations.py#_take_its_markets
+  - back-end/api/organizations.py#_taken
   - back-end/api/organizations.py#_owner_asks
   - front-end/src/components/DeleteOrgDialog.vue
   - back-end/history.py#delete_for_organization
@@ -60,6 +61,7 @@ The organization's owner, alone ([the organization document](../../implementatio
 - Unless the trail holds the deletion's entry already, `_take_its_markets` gives each live market the preview did not find blocking the same tombstone, each by one write held on its stored phase as read, then judges every market again as it now stands.
   **A market that entered a blocking phase after the preview is not deleted**: a draft's first import, which takes it into Review, lands between the preview and its tombstone, so the second judgment finds it live and under way, takes every tombstone of this trail id away again, the organization's included, and refuses, naming it.
   A market another deletion is taking (its own Delete) is not judged again, since it is going already.
+  A live market the second judgment finds in a phase that keeps no deletion back was created into the organization after its markets were read, since a creation stores its market before it asks the organization, held live, to list it: it is given the tombstone too (`_taken`), and goes with the others rather than being named as under way.
 - Then it writes the trail under its trail id, deletes each of its markets through [market deletion](../../implementation/modules/market-deletion.md), deletes the organization's own history (`delete_for_organization` in [`back-end/history.py`](../../../back-end/history.py)), pulls the organization from its people's lists and deletes it.
   Each step deletes what is there, so a retry cut after any of them leaves one trail entry, naming every market as it stood before any went, and nothing behind.
 - `back-end/tests/test_organization_deletion.py` and `front-end/e2e/org-deletion.spec.ts` pin it; `back-end/tests/test_the_organizations_history.py` pins that the history goes and the trail is still written; `back-end/tests/real_mongo/test_a_deletion_leaves_a_tombstone.py` cuts each step on a real server and sends it again.
