@@ -343,7 +343,7 @@ One block per action, in the order its constants stand in `history.py`; a new ki
 
 **`delete-market`**
 
-- null: a market of the organization deleted (Manage market's Delete), recorded once under the deletion's trail id, by whoever began it, so a retried deletion adds no second entry; its own history goes with it, so its organization's keeps that it went
+- null: a market of the organization deleted (Manage market's Delete), recorded once under the deletion's trail id, by whoever began it, so a retried deletion adds no second entry (two Delete requests of one market overlapping in time can each insert one: [market deletion](../modules/market-deletion.md)); its own history goes with it, so its organization's keeps that it went
   - Subject: `market_id`
   - Detail: `name`, null after
 
