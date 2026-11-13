@@ -151,19 +151,37 @@ def stubbed(tmp_path):
     root = repo_with_scripts(tmp_path)
     calls = tmp_path / "calls.log"
     calls.touch()
-    stub = f'#!{BASH}\necho "$(basename "$0") $*" >>{calls}\n'
+    # A stub fails when its whole call is $STUB_FAILS, and npm's lockfile-only install writes
+    # $STUB_LOCKFILE into the lockfile when that is set, as a different npm would.
+    stub = f'#!{BASH}\necho "$(basename "$0") $*" >>{calls}\n[[ "$(basename "$0") $*" != "${{STUB_FAILS:-}}" ]] || exit 1\n'
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    for path in (bin_dir / "npm", bin_dir / "npx", bin_dir / "docker", root / "scripts" / "seed_fixture.sh",
+    for path in (bin_dir / "npx", bin_dir / "docker", root / "scripts" / "seed_fixture.sh",
                  root / "scripts" / "lock-backend-requirements.sh"):
         path.write_text(stub)
         path.chmod(0o755)
+    (bin_dir / "npm").write_text(
+        stub + 'if [[ $* == "install --package-lock-only"* && -n ${STUB_LOCKFILE:-} ]]; then\n'
+        '  echo "$STUB_LOCKFILE" >package-lock.json\nfi\n'
+    )
+    (bin_dir / "npm").chmod(0o755)
+    # The Node on PATH says it is $STUB_NODE, .nvmrc's unless a test says otherwise.
+    (bin_dir / "node").write_text(f'#!{BASH}\necho "${{STUB_NODE:-v24.22.1}}"\n')
+    (bin_dir / "node").chmod(0o755)
     (root / "scripts" / "th-compose.sh").write_text(
         stub + 'if [[ $1 == ports ]]; then echo "export TH_MONGO_PORT=1 TH_BACKEND_PORT=2 TH_FRONTEND_PORT=3"; fi\n'
     )
     (root / "scripts" / "th-compose.sh").chmod(0o755)
     for folder in ("back-end", "front-end"):
         (root / folder).mkdir()
+    (root / ".nvmrc").write_text("24.22.1\n")
+    (root / "front-end" / "package-lock.json").write_text('{"lockfileVersion": 3}\n')
+    for args in (
+        ["add", "."],
+        ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "--no-verify", "-m", "chore: pins"],
+        ["update-ref", "refs/remotes/origin/dev", "HEAD"],
+    ):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
     python = tmp_path / "python"
     python.write_text(
         textwrap.dedent(
@@ -188,9 +206,13 @@ def stubbed(tmp_path):
         PATH=f"{bin_dir}:{env['PATH']}",
     )
 
-    def run(*args):
+    def run(*args, **stubs):
         result = subprocess.run(
-            [BASH, str(root / "scripts" / "nm-test.sh"), *args], env=env, capture_output=True, text=True, timeout=60
+            [BASH, str(root / "scripts" / "nm-test.sh"), *args],
+            env={**env, **stubs},
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         return result, calls.read_text().splitlines()
 
@@ -202,7 +224,13 @@ UNIT_SUITES = [
     "python scripts/knowledge_graph.py check",
     "lock-backend-requirements.sh ",
     "python -m pytest tests/ -v",
-    "npm ci",
+    # As CI's frontend-lint-and-types job, in its order.
+    "npm ci --engine-strict",
+    "npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
+    "npm run format:check",
+    "npm run lint:check",
+    "npm run lint:css",
+    "npm run type-check",
     "npm run test:unit",
     "npm run build-only",
     "npm run bundle-budget",
@@ -249,6 +277,52 @@ def test_skip_e2e_runs_every_other_suite_and_leaves_playwright_to_ci(stubbed):
     assert "Playwright" in line
     assert "E2E tests: OK" not in result.stdout
     assert "===== All tests passed =====" in result.stdout
+
+
+@pytest.mark.parametrize("check", ["format:check", "lint:check", "lint:css", "type-check"])
+def test_a_failing_front_end_check_fails_the_run_before_the_unit_tests(stubbed, check):
+    run, _ = stubbed
+
+    result, calls = run("--skip-e2e", STUB_FAILS=f"npm run {check}")
+
+    assert result.returncode != 0
+    assert suites(calls)[-1] == f"npm run {check}"
+    assert "npm run test:unit" not in calls
+    assert "Frontend lint and types: OK" not in result.stdout
+
+
+def test_the_front_end_checks_pass_with_one_line_before_the_unit_tests(stubbed):
+    run, _ = stubbed
+
+    result, _ = run("--skip-e2e")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    out = result.stdout
+    assert out.index("===== Frontend Lint and Types =====") < out.index("Frontend lint and types: OK")
+    assert out.index("Frontend lint and types: OK") < out.index("===== Frontend Unit Tests =====")
+
+
+def test_a_node_other_than_nvmrcs_fails_the_run_before_npm_installs(stubbed):
+    run, _ = stubbed
+
+    result, calls = run("--skip-e2e", STUB_NODE="v22.1.0")
+
+    assert result.returncode != 0
+    assert "nm-test: ERROR: Node is v22.1.0, not v24.22.1 (.nvmrc); run nvm use" in result.stderr
+    assert not [call for call in calls if call.startswith("npm ")]
+
+
+def test_a_lockfile_the_npm_writes_otherwise_fails_the_run_and_is_left_to_read(stubbed, tmp_path):
+    run, _ = stubbed
+
+    result, calls = run("--skip-e2e", STUB_LOCKFILE='{"lockfileVersion": 2}')
+
+    assert result.returncode != 0
+    assert suites(calls)[-1] == "npm install --package-lock-only --ignore-scripts --no-audit --no-fund"
+    assert '+{"lockfileVersion": 2}' in result.stdout
+    assert "package-lock.json" in result.stderr
+    lock = tmp_path / "repo" / "front-end" / "package-lock.json"
+    assert lock.read_text() == '{"lockfileVersion": 2}\n'
 
 
 def test_an_unknown_argument_fails_the_run_before_anything_runs(stubbed):

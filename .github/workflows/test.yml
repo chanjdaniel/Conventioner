@@ -257,8 +257,10 @@ jobs:
           git diff --exit-code package-lock.json
       - name: Format check (Prettier)
         run: npm run format:check
+      # Never fixes: a fix on the runner is thrown away, so `eslint --fix` passed every auto-fixable
+      # rule. Refuses a warning as lint:css does (T221), since a warning let pass lands on dev.
       - name: Lint (full repo)
-        run: npm run lint
+        run: npm run lint:check
       # Refuses errors and warnings alike (T221): a warning this step let pass reached dev, and
       # then landed on whichever later change touched the file.
       - name: Lint styles against the design language
