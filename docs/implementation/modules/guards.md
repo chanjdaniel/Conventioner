@@ -69,6 +69,7 @@ A guard that sets a `resolution_link` sets the `resolution_action` its remedy ta
 | Pick market dates, Change the dates, Add a location, Add tables, Give every tier tables, Fix the price groups | `setup`                | `change-setup`        |
 | Open the layout                                                                                               | `layout/<location id>` | `change-setup`        |
 | Allocate tables (`AssignmentComputedGuard`, `AssignmentNotBeforeReviewGuard`, `NoApprovedApplicationsGuard`)  | `settings`             | `assign`              |
+| Assign tables (`AssignmentComputedGuard`, every seat freed after results are published)                       | `assignments`          | `assign`              |
 | Publish results                                                                                               | `applications`         | `publish-results`     |
 | Finish deciding                                                                                               | `applications`         | `give-verdicts`       |
 | Import responses                                                                                              | `import`               | `import-applications` |
@@ -130,6 +131,7 @@ Its entry invariant is the warning `AssignmentComputedGuard` heeds: a guard must
 
 **The assignment's guards ask its lifecycle owner.**
 `AssignmentComputedGuard` asks [the assignment's lifecycle owner](../../../back-end/assignment/lifecycle.py) where the allocation stands, as `ResultsPublishedGuard` and `ResultsNotPublishedGuard` ask it whether results are out, without judging whether a run is out of date, so no guard reads the phase: it refuses nothing allocated, tables assigned by hand alone, and an allocation with no row (T316).
+With results published and no row, its remedy is "Assign tables" on `assignments`, since a run is refused once results are out and a seat is still given there by hand.
 
 **`take_move` records the move in [the market's history](../data/history.md)** once it is taken (`move-phase`, the phase before and after, by whoever made it); the phase history stays the state the guards read.
 

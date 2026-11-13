@@ -34,6 +34,7 @@ sources:
   - T224
   - T263
   - T283
+  - T316
 ---
 
 # Placing by hand
@@ -56,6 +57,9 @@ The keyboard works them alone: the arrow keys move through the list, Enter takes
 None of them passes the picker's `cap`, so each draws every choice it finds.
 The dialog is the wide size, since a real name and address with a table and a side did not fit the standard one.
 On a phone the page and the dialog fit the window (T142): a held seat's "Change", each "What to do with them" choice and each "Which seat" choice are thumb's targets, and the dialog's buttons wrap onto a second row where three do not fit on one.
+
+**After results are published, the dialog says what a change does to a vendor's page** (T316), in a note last in its body, above its actions (`placement-dialog-results-out`): on a held seat, "Results are published, so <occupant>'s vendor page tells them they have <table> on <date>. Freeing, moving or swapping them changes what it says, and nothing is sent to them.", the occupant as the dialog names them and the table in words ("Front 1, left half"); on an empty seat, "Results are published, so whoever you assign here reads this table on their vendor page at once, and nothing is sent to them."
+The Assignments page tells the dialog from the served `allocation` (`published` or `changed_since_published`); before results there is no note.
 
 Every change goes through [the one writer of placements](../../implementation/modules/placements.md), and each is recorded in [the market's history](../../implementation/data/history.md).
 
@@ -172,6 +176,7 @@ With nothing filtered and nothing there it says "No assignments have been change
 A vendor's drawer holds their placements on its History tab, among everything else the market's history holds about them ([the vendor drawer](vendor-drawer.md)).
 Each entry leads with the market day it is about, "Every market day" on a run and on the rules, then says who made the change and what changed, naming each vendor by name with their email beside, and when: "e2e@example.com assigned <vendor> at Front 10 (Full Table)" (the table alone where no table choice was recorded), "e2e@example.com moved <vendor> from Back 1 to Front 10 (Full Table)" when they had a table that day, "e2e@example.com swapped <vendor> and <vendor> - now at Front 10 and Back 1", "e2e@example.com freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "e2e@example.com allocated tables: N assignments written, M pins preserved", and names nobody, so it is in no vendor's tab.
 A move recorded before the history kept the table left reads as an assignment.
+A change made while results are published says so after the day: a free and a move add ", after results were published: their vendor page had shown Back 1", naming the table the vendor's page had shown, and an assignment of an empty seat and a swap add ", after results were published" (T316).
 Covered by:
 
 - `the-assignment-history.spec.ts`

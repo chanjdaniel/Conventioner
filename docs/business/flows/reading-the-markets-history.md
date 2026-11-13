@@ -38,6 +38,7 @@ sources:
   - T263
   - T257
   - T283
+  - T316
 ---
 
 # Reading the market's history
@@ -74,6 +75,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    - A possible Discord match declined reads "e2e@example.com said the Discord member @fern_studio_42 is not Ana Rivera", opening to the member, by username and the names that looked alike, and the username on file it was offered for ([possible matches](../../implementation/modules/discord.md#possible-matches)); one confirmed is the update of their info it saved.
    - "e2e@example.com assigned Ana Rivera at B7 (Full Table) on Nov 19, 2026"
    - A placement reads the same in [the assignment history](placing-by-hand.md#j13-assignment-history), which is this list, but for its day, which leads the entry there: a move names the table left and the table taken, "e2e@example.com moved Ana Rivera from A3 to B7 (Full Table) on Nov 19, 2026", and allocating tables reads "allocated tables: 40 assignments written, 3 pins preserved".
+   - A placement made while results are published says so after its day (T316): "e2e@example.com freed B7, leaving Ana Rivera with no table on Nov 19, 2026, after results were published: their vendor page had shown B7", a move naming the table left the same way, and an assignment of an empty seat or a swap ending ", after results were published".
    - A vendor's money reads in the market's currency ([payments](../../implementation/data/payments.md)), each opening to its amount, how it was paid, the day and the note, or the amount owed, in the Payment tab's words:
      - "… seated Ana Rivera again on May 8, 2099, taking back the $0.00 set when the table was freed"
      - "e2e@example.com recorded a payment of $50.00 from Ana Rivera"
