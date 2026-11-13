@@ -11,16 +11,21 @@ describes:
   - front-end/src/utils/sessionEnded.ts#signOut
   - front-end/src/utils/sessionEnded.ts#forgetTheSession
   - front-end/src/utils/sessionEnded.ts#endTheSessionOnTheServer
+  - front-end/src/utils/sessionEnded.ts#signOutEverywhere
+  - front-end/src/components/SignOutEverywhereDialog.vue
+  - front-end/src/__tests__/signingOutEverywhere.test.ts
+  - front-end/e2e/sign-out-everywhere.spec.ts
   - front-end/src/views/PasswordResetRequestView.vue
   - front-end/src/views/PasswordResetView.vue
   - front-end/e2e/the-app-bar.spec.ts
   - front-end/src/__tests__/theBarsCurrentPlace.test.ts
-verified: 2026-11-10
+verified: 2026-11-13
 sources:
   - T209
   - T214
   - T260
   - T263
+  - T311
 ---
 
 # The app bar
@@ -49,7 +54,7 @@ A new market screen needs nothing there; [`theBarsCurrentPlace.test.ts`](../../.
 **The account menu is `RowMenu` with its `trigger` slot.**
 The button shows the address and a chevron, 32px tall and at most 260px wide; the address gives way first when the window is short of room, cut with an ellipsis, with its whole value as a `title` on the words.
 The words name the button, as [every control is named](../conventions/every-control-is-named.md#the-rules) asks, so `RowMenu`'s `label` then names the open menu alone.
-It holds Change password and Sign out.
+It holds Change password, Sign out and [Sign out everywhere](#sign-out-everywhere).
 
 ## Who sees what
 
@@ -86,7 +91,7 @@ Its words stand at the bar's own 16px inset, on the logo's left edge, at a desk 
 **At 640px and below the links and the account menu stand aside for a menu button**, a 44px square at the band's right named "Open menu" or "Close menu", with `aria-expanded` and `aria-controls`; its icon is the menu's, or the close icon while open.
 
 **The button opens a sheet hanging from the bar**, the window's width, white with `--shadow-card`, over a `rgba(0, 0, 0, 0.5)` scrim that fills the window below the bar.
-It holds the same things as the desk's bar, in 44px rows: Markets and Organizations in a `nav` named "Main", a line, the address in `--mm-text-muted`, then Change password and Sign out.
+It holds the same things as the desk's bar, in 44px rows: Markets and Organizations in a `nav` named "Main", a line, the address in `--mm-text-muted`, then Change password, Sign out and Sign out everywhere.
 The current row is `--mm-green`, semibold, with a 3px bar at its left edge, and carries `aria-current="page"`; a row's words stand on the logo's left edge, at 16px.
 A long address wraps whole, since a `title` is no use to a thumb, and the row grows with it.
 Taller than the window, the sheet scrolls within itself, in a [`ScrollBox`](../../design-system.md#the-primitive-layer) that shades the edge with more beyond it.
@@ -119,6 +124,19 @@ A failed reset forgets nothing.
 It posts `/logout` (`endTheSessionOnTheServer`, which a finished reset uses too), then forgets `localStorage` and the market store (`forgetTheSession`) and goes to `/login`, whether or not the post succeeded, so a sign-out that failed on the wire still leaves this browser signed out.
 It uses `fetch`, not the app's `axios`, so a 401 from `/logout` is not told as a session that ended under the organizer.
 
+## Sign out everywhere
+
+**Sign out everywhere, the account menu's and the sheet's last entry, ends every sign-in of the account, on every device and browser, this one too** (T311).
+It opens [`SignOutEverywhereDialog`](../../../front-end/src/components/SignOutEverywhereDialog.vue), a narrow destructive [dialog](../conventions/dialogs.md) on `AppDialog`, "Sign out everywhere?", saying "This signs you out on every device and browser, this one too.", with Cancel and "Sign out everywhere", opening on Cancel, since a stray press would sign out the laptop at the door mid-market.
+The bar teleports it to the body, so it stands over the page as any dialog does.
+From the sheet, focus goes to the menu button before the sheet closes, so the dialog gives focus back there; from the account menu, `RowMenu` has already put it on the account button.
+
+**[`signOutEverywhere`](../../../front-end/src/utils/sessionEnded.ts) posts `/logout-everywhere` through the app's `api`**, which replaces the account's login id, ends every record of its sign-ins and signs this browser out ([what ends a sign-in](../data/users-and-email.md#a-sign-in-is-kept-on-the-server)).
+Done, it forgets the session (`forgetTheSession`) and goes to `/login?everywhere=1`, where sign-in says "You are signed out on every device." in the place of "Your session has ended" (`loginAddress`'s `everywhere`).
+Unlike `signOut` it goes through `api`, so a 401 is a session already over, which ends as any organizer request's 401 does, saying it ended.
+Any other failure forgets nothing, since every other browser is still signed in: the dialog holds through the request (`closeDisabled`, its confirm reading "Signing out…") and stays open saying "Could not sign out everywhere. Try again.".
+The dialog closes too when the stored user changes under it, as the sheet does.
+
 ## Sharp edges
 
 **The break is the market frame's, `width <= 640px`, in CSS**, so the two layouts never disagree with the frame's.
@@ -134,11 +152,12 @@ The cost is that a person can no longer pinch such a screen out to see all of it
 This is measured in Chromium's phone emulation only; Safari on an iPhone has not been tried.
 
 **The links that fill the band or the scrolling sheet wear `--focus-halo-inset`, since those edges would cut a halo off.**
-The menu button and the sheet's Sign out are buttons, so they draw the [green border](../../design-system.md), which lies inside the edge already.
+The menu button and the sheet's Sign out and Sign out everywhere are buttons, so they draw the [green border](../../design-system.md), which lies inside the edge already.
 
 **The bar does not print**: `App.vue` hides its `header` under `@media print`.
 
-**Tests drive it as a person does**: [`the-app-bar.spec.ts`](../../../front-end/e2e/the-app-bar.spec.ts) at 1280 and under a phone's own emulation, dragging a floored screen sideways with a synthesized gesture, since `window.scrollTo` moves the layout viewport and says nothing of a thumb; `helpers/screens.ts` walks the account menu and the sheet through the layout, contrast, focus and accessibility sweeps.
+**Tests drive it as a person does**: [`the-app-bar.spec.ts`](../../../front-end/e2e/the-app-bar.spec.ts) at 1280 and under a phone's own emulation, dragging a floored screen sideways with a synthesized gesture, since `window.scrollTo` moves the layout viewport and says nothing of a thumb; `helpers/screens.ts` walks the account menu, the sheet and Sign out everywhere's dialog, opened from each, through the layout, contrast, focus and accessibility sweeps.
+[`sign-out-everywhere.spec.ts`](../../../front-end/e2e/sign-out-everywhere.spec.ts), at a desk and on a phone, on an account of its own, signs in a second browser with "Remember me", asks and cancels, then confirms, and finds the second browser's next page on sign-in saying its session ended, a copy of its cookies and its remember cookie alone answering 401, and an aborted request leaving the dialog saying so with both browsers signed in; [`signingOutEverywhere.test.ts`](../../../front-end/src/__tests__/signingOutEverywhere.test.ts) holds each outcome of `signOutEverywhere` and the dialog's hold, failure and 401.
 
 ## Why
 

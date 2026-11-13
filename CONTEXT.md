@@ -199,6 +199,6 @@ See [the sign-in secrets](docs/implementation/data/users-and-email.md#the-sign-i
 
 **Sign-in**:
 One signed-in browser of an organizer, by password or by code, with "Remember me" or without it.
-The server keeps a record of each sign-in, ended by Sign out, by a new sign-in in the same browser, by a password reset or by deleting the account, and at the end of its 12 hours or 30 days.
+The server keeps a record of each sign-in, ended by Sign out, by a new sign-in in the same browser, by Sign out everywhere, by a password reset or by deleting the account, and at the end of its 12 hours or 30 days.
 _Avoid_: session, for the product's term, since Flask's session is one carrier of it
 See [a sign-in is kept on the server](docs/implementation/data/users-and-email.md#a-sign-in-is-kept-on-the-server).

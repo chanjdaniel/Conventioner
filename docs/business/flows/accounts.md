@@ -101,6 +101,10 @@ Covered by:
 2. Expect the Markets list (`/markets`), or the page the address carried in `next` (E38/F11/S01).
 3. Choose "Sign out" in the app bar ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
    Sign out ends the sign-in on the server, so a copy of the browser's cookies taken before is signed out with it ([a sign-in is kept on the server](../../implementation/data/users-and-email.md#a-sign-in-is-kept-on-the-server)).
+4. Or choose "Sign out everywhere", below Sign out, to end every sign-in of the account, on every device and browser, this one too.
+   It asks first, "Sign out everywhere?", opening on Cancel; confirmed, expect `/login` saying "You are signed out on every device."
+   Every other browser signed in to the account, remembered or not, lands on sign-in at its next page, saying "Your session has ended. Sign in again.", and signing in again works at once.
+   When the request fails the dialog stays, saying "Could not sign out everywhere. Try again.", and every browser is still signed in.
 
 Branches: wrong password, unverified account, too many tries, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the Markets list).
 A market link opened while signed out returns there after sign-in, by password or by code, rather than to the Markets list.
@@ -121,10 +125,11 @@ Covered by:
 - `auth.spec.ts`
 - `remember-me.spec.ts`
 - `sign-in-fits-a-phone.spec.ts`
+- `sign-out-everywhere.spec.ts`
 - `smoke.spec.ts`
 - `the-sign-in-fits-a-small-phone.spec.ts`
 - `the-sign-in-says-what-to-do-next.spec.ts`
-- `the-way-in-lines-up.spec.ts` ("every row of the sheet is one shape, Sign out included")
+- `the-way-in-lines-up.spec.ts` ("every row of the sheet is one shape, Sign out and Sign out everywhere included")
 
 ## A3. Sign in with an emailed code
 

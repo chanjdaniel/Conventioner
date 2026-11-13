@@ -84,7 +84,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `password_reset_token`, `password_reset_token_expires` | the reset link as it was kept before `secrets`, in clear: read for one release, upgraded to `secrets.reset` the first time the account is read, and written by nothing ([the old fields](#the-old-fields-read-for-one-release))         |
 | `secrets`                                              | the account's sign-in secrets, one record by kind, each kept hashed: the sign-in code is `secrets.code`, the reset link `secrets.reset`, the verification link `secrets.verify` ([the sign-in secrets](#the-sign-in-secrets))           |
 | `otp`, `otp_expires`, `otp_attempts`                   | the sign-in code as it was kept before `secrets`, in clear: read for one release, upgraded to `secrets.code` the first time the account is read, and written by nothing ([the old fields](#the-old-fields-read-for-one-release))        |
-| `login_id`                                             | the account a sign-in is kept under: a random value, made at the first sign-in and replaced by a password reset, so every sign-in issued before it loads no one ([a sign-in is kept on the server](#a-sign-in-is-kept-on-the-server))   |
+| `login_id`                                             | the account a sign-in is kept under: a random value, made at the first sign-in, replaced by a reset or Sign out everywhere, so every earlier sign-in loads no one ([a sign-in is kept on the server](#a-sign-in-is-kept-on-the-server)) |
 
 ## A sign-in is kept on the server
 
@@ -99,6 +99,8 @@ Each signed-in request so costs one read more than the account's, the document b
 - Sign out (`logout`) ends this browser's sign-in on the server, then clears both cookies, so a copy of the browser's cookies taken before loads no one.
 - A sign-in first ends the sign-in the browser held, whoever's it was: the one its session names and the one its remember cookie names (`end_this_browsers_sign_ins`), so a browser remembered for someone else, or a sign-in without "Remember me" after one with it, leaves no earlier sign-in on the server.
 - **A password reset replaces the login id**, in the same write as the new password ([the reset link used](#the-sign-in-secrets)), so every sign-in issued before the reset loads no one at once; `end_all` then removes the account's documents. An organizer who resets a password because a device was lost or shared is signed out on it, and signing in again works at once.
+- **Sign out everywhere replaces the login id** (`POST /logout-everywhere`, `logout_everywhere`), in one write filtered on the account's id, so every sign-in issued before loads no one at once, a legacy one included; `end_all` then removes the account's documents and `logout_user` clears both cookies in this browser ([the app bar](../modules/app-bar.md#sign-out-everywhere)).
+  A failed write is the error handler's 500 and ends nothing; signing in again works at once.
 - Deleting the account ends every one of its sign-ins (`end_all`, [deleting an account](#deleting-an-account)).
 - A TTL index on `expires_at` removes a document once it has ended, and an index on `user_id` serves `end_all`; both are built by `ensure_organizer_session_indexes`, and the boot refuses to start without them (`verify_organizer_session_indexes` in [`app.py`](../../../back-end/app.py), [lookup indexes](lookup-indexes.md)).
 
@@ -108,7 +110,7 @@ A login id that matches no account loads no one, with no fallback to loading by 
 Its id is `<login id>.<s|r>.<seconds since the epoch>`, the kind saying whether "Remember me" was ticked and the time when the account signed in, in the session or in the old `remember_token` cookie; a secret holds no `.`, so the two shapes cannot be confused (`is_legacy_sign_in`).
 The user loader reads it as before, refusing one as old as its kind's length and an id of any other shape, the bare login id that came before it among them.
 Flask-Login asks `a_legacy_remembered_account` in `app.py` once the session has loaded no one and the browser holds no new remember cookie: it reads a legacy id from `remember_token` (`legacy_remembered_account`) and restores it into the session, which is held to the browser as the new cookie's restore is.
-A legacy sign-in has no document, so a replaced login id is what ends it: a reset does.
+A legacy sign-in has no document, so a replaced login id is what ends it: a reset or Sign out everywhere does.
 Every answer that signs in or out deletes a `remember_token` the browser sent (`forget_the_legacy_remember_cookie`, after Flask-Login's `user_logged_in` and `user_logged_out`), so it cannot bring a sign-in back; a refused sign-in leaves it.
 
 **Both sign-ins, the password and the code, give an account its login id at its first sign-in** (`_sign_in`): it is written only where none is stored, then read back, so two first sign-ins at once agree on one and neither signs the other out.
