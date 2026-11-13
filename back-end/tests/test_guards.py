@@ -877,6 +877,26 @@ class TestAssignmentComputedGuard:
         self._refused(
             self._evaluate(assignment_object("run", made_from=self.RUN)), self.NOTHING)
 
+    FREED_AFTER_RESULTS = (
+        "Nobody has a table, so this market's vendor page could not tell anyone where to stand. "
+        "Results are published, so tables are not allocated again: assign each one by hand."
+    )
+
+    @pytest.mark.parametrize("assignment", [
+        assignment_object("run", made_from=RUN),
+        AssignmentObject(),
+    ], ids=["a run", "a market published before T316"])
+    def test_every_seat_freed_after_results_points_at_assigning_by_hand(self, assignment):
+        """The server refuses a run once results are out, so Allocate tables would be refused:
+        the remedy is the grid, where a seat is still given by hand (T316)."""
+        result = self._evaluate(assignment, results_published=True)
+
+        assert not result.passed
+        assert result.id == "assignment_computed"
+        assert result.message == self.FREED_AFTER_RESULTS
+        assert (result.resolution_link, result.resolution_label, result.resolution_action) == (
+            "assignments", "Assign tables", "assign")
+
     def test_a_market_published_before_runs_recorded_their_state_passes(self):
         """Published on tables assigned by hand before T316: nothing in a running market moves."""
         published = AssignmentObject(vendor_assignments=[self._seat(hand_placed=True)])
@@ -1343,6 +1363,7 @@ class TestEveryRemedyNamesTheActionItTakes:
         "Fix the price groups": "change-setup",
         "Open the layout": "change-setup",
         "Allocate tables": "assign",
+        "Assign tables": "assign",
         "Publish results": "publish-results",
         "Finish deciding": "give-verdicts",
         "Import responses": "import-applications",
