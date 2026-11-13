@@ -13,7 +13,7 @@ describes:
   - back-end/api/organizations.py#get_history
   - back-end/tests/test_the_organizations_history.py
   - back-end/api/organizations.py#get_default_permission_history
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
@@ -306,7 +306,7 @@ A `dealt` entry is worded by its kind, whichever action dealt it (an applicant's
 
 ### What an organization records
 
-An organization's own changes are entries keyed by `organization_id` (E40/F02/S01), written by `record_for_organization`, which [`back-end/api/organizations.py`](../../../back-end/api/organizations.py), market creation and deletion and [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) call once the change has landed, under the same guard as `record`.
+An organization's own changes are entries keyed by `organization_id` (E40/F02/S01), written by `record_for_organization`, which [`back-end/api/organizations.py`](../../../back-end/api/organizations.py), market creation and deletion and [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) call once the change has landed, under the same guard as `record`; a market's own Delete records once its tombstone is set and its records are gone, before the market document goes ([market deletion](../modules/market-deletion.md#sharp-edges)).
 An organization has no table of its own, so its actions are the history's own verbs, constants in `history.py`, but for a market deleted from it, which is the table's own row `delete-market`, the verb its check asked; the kinds and details are a market's where the change is the same.
 None names a vendor.
 
@@ -343,7 +343,7 @@ One block per action, in the order its constants stand in `history.py`; a new ki
 
 **`delete-market`**
 
-- null: a market of the organization deleted (Manage market's Delete), only by the deletion that took it; its own history goes with it, so its organization's keeps that it went
+- null: a market of the organization deleted (Manage market's Delete), recorded once under the deletion's trail id, by whoever began it, so a retried deletion adds no second entry; its own history goes with it, so its organization's keeps that it went
   - Subject: `market_id`
   - Detail: `name`, null after
 
@@ -372,7 +372,7 @@ That test sends every write route as the screen sends it and asserts its one ent
 **Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts), which composes each area's words from its own file under [`historyReaders/`](../../../front-end/src/utils/historyReaders/) ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-historys-words)), a placement's among them, and must be changeable without a migration.
 
 **Writing an entry never fails the change it records.**
-Every write records after its change has landed (the placement writes in `api/placements.py`, [placements](../modules/placements.md), after the seat is taken), and `record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.
+Every write records after its change has landed, a market's deletion once its records are gone (the placement writes in `api/placements.py`, [placements](../modules/placements.md), after the seat is taken), and `record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.
 So a write refused because the market changed under it ([the market write](../modules/market-write.md)) stored nothing and records nothing.
 A subject or a detail that reads or computes anything is given to `record` as a builder, a callable it runs inside the same guard as the insert, since one that raised before it got there would answer the change with a 500 just the same.
 The failure is logged by the error's type, the kind and the market's id only, never its message: a driver's message can quote the document it refused, and an entry holds answers and addresses.

@@ -50,10 +50,11 @@ describes:
   - front-end/e2e/helpers/savePlan.ts
   - front-end/e2e/a-plan-save-from-an-older-tab.spec.ts
   - back-end/api/layouts.py#save_table_types
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - T244
   - T274
+  - T307
 ---
 
 # The market write
@@ -78,6 +79,8 @@ write_market(as_read, update, *, holds=(), revisions=None, counts=()) -> Written
 
 **Always the market's `id` and its stored `phase` as read**, `{"$exists": false}` when the read had none, so a write a phase rule judged never lands after a move, an archive or a return to draft.
 
+**Always the market live**, `deleting: {"$exists": false}` (`tombstone.live`), so no write lands on a market being deleted ([the tombstone](market-deletion.md#the-tombstone)).
+
 **Each key in `holds` at its value as read**: equal to it, `{"$exists": false}` when the read had no such key (a key written null since is a change), and a null matching null or missing, as the server reads an equality.
 A key under a null or scalar parent reads as absent, as the server reads it.
 A sub-document is held by equality, which the server reads in field order; that is safe because the value is the server's own, read back in the order it is stored.
@@ -92,7 +95,7 @@ An update that counts one of those keys itself is refused with `RuntimeError`.
 ## What it answers
 
 - A write that matched answers `Written`.
-- No match, and the market is gone: `MarketNotFoundError`, "Market not found", 404.
+- No match, and the market is gone or being deleted: `MarketNotFoundError`, "Market not found", 404.
   The class lives here, and `api/markets.py` imports it, since `market_write` cannot import the markets API.
 - No match, and the market is there: `MarketChanged`, a `ConflictError`, carrying `latest`, the market as it now stands.
   Its body is `{"error": MARKET_CHANGED, "code": "market_changed"}`, status 409 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md#the-types)).
@@ -186,8 +189,8 @@ Every exception is permanent: a write waiting to move onto the helper is no reas
 
 The exceptions, each with its reason in the list:
 
-- the market's creation (an insert: no market as read, and the unique slug index settles an address race);
-- its deletion (it keeps no rule beyond the right to delete, and deletes in its own order, [market deletion](market-deletion.md));
+- the market's creation (an insert: no market as read, and the unique slug index settles an address race), with its delete of the new market when its organization began its deletion meanwhile;
+- its deletion, by its own Delete or its organization's: the tombstone, held on the market being live and, for an organization's, on its phase as read, a tombstone taken back by its trail id, and the market's last delete (it keeps no rule beyond the right to delete, and deletes in its own order, [market deletion](market-deletion.md));
 - the dealing lease's writes in `review_team.py` (a lease protocol of their own, [ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md));
 - the essential offering's freeze (the first writer wins, held by no snapshot stored yet, [essential fields](essential-fields.md));
 - the key migration in `market_documents.py` and the migrations under `migrations/`, each run once by an operator outside any request;
