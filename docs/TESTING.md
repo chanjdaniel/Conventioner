@@ -40,7 +40,7 @@ It takes, in order, `COMPOSE_PROJECT_NAME` with `TH_MONGO_PORT`, `TH_BACKEND_POR
 It refuses when only some of those variables are set, and `--primary` with any of them set or from a treehouse slot, where plain `docker compose` names the project after the directory, the primary checkout's.
 It used to fall back to the primary stack's defaults, so a run outside a slot that had not yet exported its own stack wiped the primary checkout's local database.
 
-It seeds a stack that already runs and never starts one: start the stack first (`scripts/th-compose.sh up -d` in a treehouse worktree, `docker compose up -d` in the primary checkout).
+It seeds a stack that already runs and never starts one: start the stack first, as the [E2E section](#end-to-end-e2e-tests) shows.
 With the stack's back end not running, or not answering within 60 seconds, it exits non-zero before it resets anything.
 It used to bring a stopped stack up itself, so a seed after a refused or forgotten start left a stack outside whatever owned the slot's stacks.
 
@@ -168,9 +168,8 @@ scripts/real-mongo-test.sh                                                  # th
 scripts/real-mongo-test.sh tests/real_mongo/test_the_applicant_side_races.py -q  # pytest's arguments, from back-end/
 ```
 
-Its server is the compose file's `mongodb` image as CI runs it, with no credentials and 64000 open files, on a loopback port Docker picks, with no volume: `/data/db` and `/data/configdb` are tmpfs and the container is started with `--rm`.
-Never start a MongoDB for the suite by hand with `docker run`: without those, removing the container leaves the image's two anonymous volumes, about 0.3 GB a run, with nothing saying whose they are.
-Its Python is `PYTHON_CMD` (default `python3`), with both requirements files installed.
+Its server is made and removed as [the real-MongoDB suite](implementation/testing/real-mongo-suite.md) describes; its Python is `PYTHON_CMD` (default `python3`), with both requirements files installed.
+Never start a MongoDB for the suite by hand with `docker run`: removing such a container leaves the image's two anonymous volumes, about 0.3 GB a run, with nothing saying whose they are.
 Against a worktree stack's MongoDB instead, its port from `scripts/th-compose.sh ports`:
 
 ```bash
