@@ -11,10 +11,11 @@ import { test, expect } from './fixtures';
  * seem to be offline". So the app's API client refuses such a body before it is sent.
  *
  * The host is played by a server of the test's own on another origin: it answers the preflight as
- * the back end does, which a preflight's empty body lets through, and the request itself 413 with
- * no CORS header. Not by `page.route`: its `fulfill` adds the CORS header a cross-origin answer
- * lacks (Playwright issue 12929), so the page would read a 413 the host's never shows it. The
- * page's Content-Security-Policy, which names the production API, is bypassed to reach it.
+ * the back end does, allowing the app's own origin alone, which a preflight's empty body lets
+ * through, and the request itself 413 with no CORS header. Not by `page.route`: its `fulfill`
+ * adds the CORS header a cross-origin answer lacks (Playwright issue 12929), so the page would
+ * read a 413 the host's never shows it. The page's Content-Security-Policy, which names the
+ * production API, is bypassed to reach it.
  */
 const TOO_LARGE = 'This was larger than the 4.5 MB one request can carry.';
 
@@ -23,10 +24,12 @@ let hostOrigin = '';
 const sent: string[] = [];
 
 test.beforeAll(async () => {
+  // The app's origin, as the back end's own allow-list names it: never the asking origin echoed.
+  const appOrigin = new URL(String(test.info().project.use.baseURL)).origin;
   host = createServer((req, res) => {
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
-        'Access-Control-Allow-Origin': String(req.headers.origin ?? ''),
+        'Access-Control-Allow-Origin': appOrigin,
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Methods': 'POST',
         'Access-Control-Allow-Headers': 'Content-Type',
