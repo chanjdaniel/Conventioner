@@ -22,7 +22,6 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { marketPath } from '@/utils/market';
 import { outOfDateLine } from '@/utils/assignmentOutOfDate';
 import { hasAssignment } from '@/utils/marketPage';
-import { canAssignIn } from '@/utils/assignPhase';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { satisfactionPercent } from '@/utils/satisfactionPercent';
 import { useResultFilters } from '@/utils/useResultFilters';
@@ -31,8 +30,10 @@ const props = defineProps<{ market: Market }>();
 
 const assigned = computed(() => hasAssignment(props.market));
 const outOfDate = computed(() =>
-  outOfDateLine(props.market.assignmentOutOfDate, props.market.phase),
+  outOfDateLine(props.market.assignmentOutOfDate, props.market.allocation),
 );
+/** A run may happen now, by the server's word (T316): it serves no refusal. */
+const mayRun = computed(() => !props.market.assignRefusalReason);
 
 const statistics = ref<AssignmentStatistics | null>(null);
 
@@ -176,7 +177,7 @@ async function downloadCsv(): Promise<void> {
       </template>
       <NothingAssigned v-else :market="market" testid="result-empty">
         <!-- Where a run can happen the tables are drawn below, for pinning before it (E11/F02/S01). -->
-        <span v-if="canAssignIn(market.phase)" data-testid="result-pin-before-run">
+        <span v-if="mayRun" data-testid="result-pin-before-run">
           Anyone you assign below first keeps their table: allocating tables assigns everyone else
           around them.
         </span>

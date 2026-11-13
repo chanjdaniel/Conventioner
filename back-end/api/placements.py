@@ -190,8 +190,9 @@ ASSIGN_PHASE = MarketPhase.ASSIGNMENT
 def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     """Why the assignment cannot be run in this phase, or None.
 
-    Mirrored by ``front-end/src/utils/assignPhase.ts``, which lets the button say no before it is
-    pressed. Each message names an action available from the phase the organizer is actually in.
+    Served through ``assign_refusal`` as ``assignRefusalReason``, which the screens read rather
+    than keep a copy of (T316), so the button says no before it is pressed. Each message names an
+    action available from the phase the organizer is actually in.
     """
     if phase is ASSIGN_PHASE:
         return None

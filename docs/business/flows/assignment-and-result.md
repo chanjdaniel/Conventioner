@@ -62,7 +62,7 @@ An organizer's result is who sits where, which is the tables; so Assignments is 
 Assignments fits a phone, since the vendor drawer's "Change assignment" at the door leads there: its figures stack, its filters wrap, a half table's two seats stand one under the other, and every seat's control is a thumb's target (T142).
 Allocating tables lands on Assignments.
 Allocating tables again asks nothing: every hand assignment is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-allocate-tables-again-keeping-hand-assignments)), and in Assignment nothing has yet been sent to anyone.
-Before the first run Assignments, Vendors and Payments say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
+Before the first run Assignments, Vendors and Payments say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the server refuses a run, why, in its words (`assignRefusalReason`); where a run can still happen the tables are drawn below it, so a seat can be given first.
 
 How the solver assigns vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
 

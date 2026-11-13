@@ -140,6 +140,7 @@ Covered by:
 
 **Status:** Works (walked live).
 Every hand assignment is a pin; on the Settings page, "Allocate tables again" says "Keeps your N hand assignments; allocates tables for everyone else again." (or "Allocates tables for everyone again." with none) and seats pins first.
+With pins only and no allocation run yet, the button reads "Allocate tables" and its line "Keeps your N hand assignments; allocates tables for everyone else." (T316).
 Covered by:
 
 - `placement-pins.spec.ts`
