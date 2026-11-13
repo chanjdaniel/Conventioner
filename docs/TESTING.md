@@ -424,6 +424,8 @@ Measured on 2026-10-23 on a 12-core, 31 GiB Linux machine (Compose 5.6.1), one g
 | frontend      | 1g / 2 / 256                | 471 MiB (46%)                      | 151% (75%) | 38 (15%)  |
 | mongo-express | 256m / 0.5 / 64             | not started by an `nm-test.sh` run |            |           |
 
+The back end's row predates its reloader (`flask run --reload`), which runs a second process watching the code.
+Measured again on 2026-11-13 over a whole Playwright run on a worktree stack (2383 tests, 2.1 hours, one worker, `docker stats` read about every 2 seconds), the back end peaked at 344 MiB (45%) and 38 PIDs (15%), with no reload during the run; that stack ran under a CPU limit other than 1, so its CPU peak, 126%, is not comparable to the table's.
 MongoDB started at 768m and 1 CPU: the first run took it to 630 MiB (82%) and 101% of its one core, so it was raised and the run repeated.
 Neither run had a container killed for memory (`docker events --filter event=oom` over each run).
 A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise its limit here with a new measurement, not by guessing.
