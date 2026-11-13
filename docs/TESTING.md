@@ -5,7 +5,7 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - E34/F03/S02
   - E35/F02/S01
@@ -40,7 +40,11 @@ It takes, in order, `COMPOSE_PROJECT_NAME` with `TH_MONGO_PORT`, `TH_BACKEND_POR
 It refuses when only some of those variables are set, and `--primary` with any of them set or from a treehouse slot, where plain `docker compose` names the project after the directory, the primary checkout's.
 It used to fall back to the primary stack's defaults, so a run outside a slot that had not yet exported its own stack wiped the primary checkout's local database.
 
-This brings up the Docker stack, creates the test users, creates an organization
+It seeds a stack that already runs and never starts one: start the stack first, as the [E2E section](#end-to-end-e2e-tests) shows.
+With the stack's back end not running, or not answering within 60 seconds, it exits non-zero before it resets anything.
+It used to bring a stopped stack up itself, so a seed after a refused or forgotten start left a stack outside whatever owned the slot's stacks.
+
+On a running stack it empties the database, creates the test users, creates an organization
 (`Seed Test Org`, reused if the user already has one), and creates a market in it.
 The output prints the credentials and market ID.
 
@@ -157,7 +161,16 @@ The suite reads no `.env`, so a stale one on your machine cannot change its resu
 `back-end/tests/real_mongo/` runs against a real MongoDB server, named by `REAL_MONGODB_URI`, each test on a database of its own that it drops.
 Unset, every test there skips, so an `nm-test.sh` run stays hermetic; CI's `backend` job runs it on a `mongo:7` service, the local stack's version ([why not production's 8.0](implementation/testing/real-mongo-suite.md#the-mongodb-version)), and sets `REAL_MONGODB_REQUIRED=true` so it can never skip.
 It refuses a `mongodb+srv://` URI, a host that is not loopback and the primary checkout's port 27017.
-Run it against a worktree stack's MongoDB, its port from `scripts/th-compose.sh ports`:
+Run it with `scripts/real-mongo-test.sh`, which starts a MongoDB of its own for the run and removes it however the run ends:
+
+```bash
+scripts/real-mongo-test.sh                                                  # the whole package
+scripts/real-mongo-test.sh tests/real_mongo/test_the_applicant_side_races.py -q  # pytest's arguments, from back-end/
+```
+
+Its server is made and removed as [the real-MongoDB suite](implementation/testing/real-mongo-suite.md) describes; its Python is `PYTHON_CMD` (default `python3`), with both requirements files installed.
+Never start a MongoDB for the suite by hand with `docker run`: removing such a container leaves the image's two anonymous volumes, about 0.3 GB a run, with nothing saying whose they are.
+Against a worktree stack's MongoDB instead, its port from `scripts/th-compose.sh ports`:
 
 ```bash
 cd back-end
@@ -216,8 +229,10 @@ The build itself fails if any module of the development-only [component library]
 ## End-to-End (E2E) Tests
 
 ```bash
-# Start the Docker stack and seed test data
-cd .. && ./scripts/seed_fixture.sh --primary  # omit --primary in a treehouse worktree
+# Start the Docker stack, then seed test data: the seed never starts a stack
+cd ..
+DISABLE_EMAIL=true DISCORD_FAKE=true docker compose up -d  # scripts/th-compose.sh up -d in a treehouse worktree
+./scripts/seed_fixture.sh --primary  # omit --primary in a treehouse worktree
 
 # Run E2E tests
 cd front-end
@@ -408,6 +423,8 @@ Measured on 2026-10-23 on a 12-core, 31 GiB Linux machine (Compose 5.6.1), one g
 | frontend      | 1g / 2 / 256                | 471 MiB (46%)                      | 151% (75%) | 38 (15%)  |
 | mongo-express | 256m / 0.5 / 64             | not started by an `nm-test.sh` run |            |           |
 
+The back end's row predates its reloader (`flask run --reload`): the server process watches the code and exits on a change, and a parent process, which loads the app too, starts it again, so the back end holds two copies of the app, and the boot's checks and index builds run in both at each stack start.
+Measured again on 2026-11-13 over a whole Playwright run on a worktree stack (2383 tests, 2.1 hours, one worker, `docker stats` read about every 2 seconds), the back end peaked at 344 MiB (45%) and 38 PIDs (15%), with no reload during the run; that stack ran under a CPU limit other than 1, so its CPU peak, 126%, is not comparable to the table's.
 MongoDB started at 768m and 1 CPU: the first run took it to 630 MiB (82%) and 101% of its one core, so it was raised and the run repeated.
 Neither run had a container killed for memory (`docker events --filter event=oom` over each run).
 A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise its limit here with a new measurement, not by guessing.

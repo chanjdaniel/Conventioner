@@ -50,10 +50,11 @@ This file holds what nearly every session needs; everything else is in the knowl
   The primary checkout's plain `docker compose up -d` needs `DISABLE_EMAIL=true`, or the password-reset E2E 500s on the missing `RESEND_API_KEY`, and `DISCORD_FAKE=true`, or the Discord E2E finds no Discord ([a fake Discord](docs/TESTING.md#a-fake-discord)).
   Every stack listens on `127.0.0.1` only, so dial it there, never at `localhost` ([why](docs/TESTING.md#testing-gotchas)).
   A worktree's stack and ports come from its treehouse slot: [`scripts/README-treehouse.md`](scripts/README-treehouse.md).
-- **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
+- **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`, on a running stack: the seed never starts one, and refuses when the stack's back end is not running.
   The seed empties the stack's database, so it refuses unless it is told the stack: the slot it sits in, the exported `th-compose.sh ports`, or `--primary` in the primary checkout ([why](docs/TESTING.md#quick-start-seed-fixture)).
   Playwright config auto-detects worktree port via `stack().frontendPort`.
 - Back end: `cd back-end && python -m pytest tests/ -v`, with both `requirements.txt` and `requirements-dev.txt` installed.
+  Its real-MongoDB suite, which skips there: `scripts/real-mongo-test.sh`, which starts a MongoDB of its own and removes it, leaving no volume; never start one for it by hand with `docker run` ([why](docs/TESTING.md#the-real-mongodb-suite)).
   Front-end unit tests: `cd front-end && npm run test:unit`.
 - **Run `npm run format` in `front-end/` before committing**: CI's `format:check` fails unformatted front-end code and `docs/`.
 - `scripts/nm-test.sh --skip-e2e` runs every suite but Playwright; without the flag it adds Playwright, on an isolated stack of its own.

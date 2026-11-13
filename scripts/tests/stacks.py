@@ -33,24 +33,27 @@ def clean_env(**extra):
 
 # A stub that logs every call: `docker`/`th-compose.sh` say the back end runs, `curl` answers the
 # readiness probe with 200 and the login with nothing, so the seed stops right after its first login.
+# STACK_STOPPED makes `ps` list no service, BACKEND_SILENT makes the probe answer nothing, as curl does
+# when nothing listens, and `sleep` returns at once.
 SEED_STUB = """#!/usr/bin/env bash
 printf '%s %s\\n' "$(basename "$0")" "$*" >> "$CALL_LOG"
 case "$(basename "$0")" in
-  curl) case " $* " in *" -w "*) echo 200 ;; *) echo '{}' ;; esac ;;
-  *) case " $* " in *" ps "*) echo backend ;; esac ;;
+  sleep) ;;
+  curl) case " $* " in *" -w "*) [ -n "${BACKEND_SILENT:-}" ] && echo 000 || echo 200 ;; *) echo '{}' ;; esac ;;
+  *) case " $* " in *" ps "*) [ -n "${STACK_STOPPED:-}" ] || echo backend ;; esac ;;
 esac
 exit 0
 """
 
 
 def run_seed(checkout, tmp_path, *args, **env):
-    """Run a copy of `seed_fixture.sh` in `checkout` with stub `docker`, `curl` and `th-compose.sh`.
+    """Run a copy of `seed_fixture.sh` in `checkout` with stub `docker`, `curl`, `sleep` and `th-compose.sh`.
 
     Returns the finished process and every call the stubs logged, each as "<program> <arguments>".
     """
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
-    for name in ("docker", "curl"):
+    for name in ("docker", "curl", "sleep"):
         (bin_dir / name).write_text(SEED_STUB)
         (bin_dir / name).chmod(0o755)
     scripts = checkout / "scripts"
