@@ -4,7 +4,7 @@ kind: runbook
 describes:
   - back-end/vercel.json
   - front-end/vercel.json
-verified: 2026-11-09
+verified: 2026-11-13
 sources:
   - T254
 ---
