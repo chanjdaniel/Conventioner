@@ -74,6 +74,9 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
         ("market_id",),
         ("market_id", "at", "id"),
         ("organization_id", "at", "id"),
+        # An entry written once under a given id (a market Delete's delete-market entry, under its
+        # deletion's trail id) is upserted by id.
+        ("id",),
     ],
     # A market's notes, read whole by each page that shows its vendors, and one vendor's written.
     VENDOR_NOTES_COLLECTION: [

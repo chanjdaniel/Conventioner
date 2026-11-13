@@ -49,6 +49,16 @@ def test_the_ids_every_screen_reads_by_are_among_them():
     assert ("market_id",) in LOOKUP_INDEXES["history"]
 
 
+def test_history_is_built_an_index_on_the_id_an_entry_is_upserted_by():
+    """A market Delete upserts its delete-market entry by the deletion's trail id."""
+    db = _Database()
+
+    built = ensure_lookup_indexes(db)
+
+    assert ("id",) in db["history"].created
+    assert "history(id)" in built
+
+
 def test_a_persons_organizations_are_found_by_an_index_in_either_shape():
     """``organization_people.of_person`` asks a key of the people map, which only a wildcard index
     covers, and on an organization stored before the map its three lists (T283)."""
