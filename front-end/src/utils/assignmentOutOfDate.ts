@@ -3,15 +3,16 @@
  *
  * The server decides WHAT changed, from the fingerprints a run records
  * (`back-end/assignment/made_from.py`), and serves the groups as `assignmentOutOfDate`; this only
- * words them. It says nothing outside `assignment`, the one phase in which running again is
- * possible, because a notice the organizer cannot act on is noise.
+ * words them, and only when the served `allocation` is `stale` (T316), the word Publish results is
+ * refused on, so the notice and the refusal never disagree. The server serves the groups only in
+ * `assignment`, the one phase in which running again is possible, because a notice the organizer
+ * cannot act on is noise.
  *
  * The reopened review (`review`, T207) is no input that "changed": the run was made before the
  * review it now stands on. It is said in a sentence of its own, first, since it is often why the
  * approved applications changed too.
  */
-import type { AssignmentInputGroup } from '@/assets/types/datatypes';
-import { canAssignIn } from '@/utils/assignPhase';
+import type { Allocation, AssignmentInputGroup } from '@/assets/types/datatypes';
 
 const REVIEW_REOPENED = 'The review was reopened after tables were allocated.';
 
@@ -24,10 +25,9 @@ const WORDS: Record<Exclude<AssignmentInputGroup, 'review'>, string> = {
 
 export function outOfDateLine(
   groups: string[] | undefined,
-  phase: string | undefined | null,
+  allocation: Allocation | undefined | null,
 ): string | null {
-  // The one phase an assignment runs in, as `assignPhase.ts` states it.
-  if (!canAssignIn(phase)) return null;
+  if (allocation !== 'stale') return null;
   const sentences = [
     ...((groups ?? []).includes('review') ? [REVIEW_REOPENED] : []),
     ...changedLine(groups ?? []),

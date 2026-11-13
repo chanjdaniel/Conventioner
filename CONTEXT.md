@@ -185,6 +185,13 @@ _Avoid_: Placed, unplaced, seated
 What the solver produces for the whole market: every assignment it makes in one run. "Allocate tables" runs it; assignments made by hand are kept, and new **assignment rules** take effect only when tables are allocated again.
 _Avoid_: Assignment, assignment results, "run the assignment"
 
+**Pins only**:
+An assignment made of tables assigned by hand, with no table allocation run yet; results cannot be published on it.
+_Avoid_: "a run", "allocated"
+
+**Changed since results**:
+An assignment changed by hand after Publish results, so some vendor's page now says something other than it said when results were published.
+
 **Assignment rules**:
 The organizer's inputs to the solver: the **Priority**, the **Max assignments per vendor**, and how many of a section's tables may be split between half-table vendors. What the organizer sets before allocating tables, as distinct from the **table allocation** it produces.
 

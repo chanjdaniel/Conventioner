@@ -18,7 +18,6 @@ describes:
   - back-end/api/markets.py#write_application_form
   - back-end/api/markets.py#save_plan
   - back-end/api/floorplans_save.py#save_floorplan_to_market
-  - back-end/api/placements.py#_store_vendor_assignments
   - back-end/api/applicants.py#publish_results
   - back-end/api/applicants.py#set_applications_stopped
   - back-end/api/door.py#make_door_code
@@ -50,12 +49,17 @@ describes:
   - front-end/e2e/helpers/savePlan.ts
   - front-end/e2e/a-plan-save-from-an-older-tab.spec.ts
   - back-end/api/layouts.py#save_table_types
+  - back-end/assignment/lifecycle.py#store
+  - back-end/assignment/lifecycle.py#publish
+  - back-end/migrations/migrate_assignment_state.py
 verified: 2026-11-13
 sources:
   - T244
   - T274
-  - T315
   - T307
+  - T277
+  - T316
+  - T315
 ---
 
 # The market write
@@ -137,7 +141,7 @@ In [`back-end/api/markets.py`](../../../back-end/api/markets.py):
 
 Elsewhere:
 
-- Publish results (`publish_results` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)), holding `resultsPublished` and `assignmentObject.revision`: an allocation stored after Publish judged the one it read current refuses the publish, and Back to review, which moves the phase, never crosses it ([Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)).
+- Publish results (`publish_results` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py), writing through `publish` in [`back-end/assignment/lifecycle.py`](../../../back-end/assignment/lifecycle.py)), holding `resultsPublished` and `assignmentObject.revision`, and setting `assignmentObject.publishedRevision` to the revision held ([the assignment's lifecycle](assignment-lifecycle.md)): an allocation stored after Publish judged the one it read current refuses the publish, and Back to review, which moves the phase, never crosses it ([Publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)).
 - Stop or take applications (`set_applications_stopped`), holding `intakeMode`.
 - The door code (`make_door_code` in [`back-end/api/door.py`](../../../back-end/api/door.py)), holding the phase alone, so a market archived since it was loaded gets no code.
 - The Discord connection ([`back-end/api/discord_connection.py`](../../../back-end/api/discord_connection.py), [the Discord connection](discord.md)): the check and the run hold the server, the role and the username question they read the members against (the check its `checkedAt` too), declining a possible match holds the server, and the card's save and a connection hold each field they change, or `discord` whole on a market never connected.
@@ -146,8 +150,9 @@ Elsewhere:
 - The start from a CSV (`confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py)), holding `applicationForm` as read, which the start judged had no questions of its own, and counting `formRevision`, since it writes the questions; it writes the plan too, built on the plan as read, so it holds `planRevision` at its value as read and counts it ([the CSV proposal and start](csv-proposal-and-start.md)).
 - The floorplan save (`save_floorplan_to_market` in [`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)), a location's layout, which writes the plan through the plan's own judge, holding the phase and `planRevision` as read and counting it; it answers its refusal as its own 409 `STALE_LAYOUT`, which the layout editor offers Reload for ([a location's layout](floorplan-placement.md)).
 - The table types write (`save_table_types` in [`back-end/api/layouts.py`](../../../back-end/api/layouts.py)), holding the phase and `planRevision` as read and counting it, since it writes part of the plan ([a location's layout](floorplan-placement.md)).
-- Every write of the assignment, a run, a placement, a free and a swap (`_store_vendor_assignments` in [`back-end/api/placements.py`](../../../back-end/api/placements.py)), counting `assignmentObject.revision` from the one read; a run also holds `resultsPublished`, so an allocation never lands after Publish results, and no placement lands on a market archived a moment before ([placements](placements.md#the-four-doors)).
+- Every write of the assignment, a run, a placement, a free and a swap (`store` in [`back-end/assignment/lifecycle.py`](../../../back-end/assignment/lifecycle.py), which [`back-end/api/placements.py`](../../../back-end/api/placements.py) calls), counting `assignmentObject.revision` from the one read; a run also holds `resultsPublished`, so an allocation never lands after Publish results, and no placement lands on a market archived a moment before ([placements](placements.md#the-four-doors)).
   The Tables page reads its grid again on the refusal and says the sentence in the seat's dialog ([placing by hand](../../business/flows/placing-by-hand.md)).
+- The assignment state's migration (`set_one` in [`back-end/migrations/migrate_assignment_state.py`](../../../back-end/migrations/migrate_assignment_state.py)), holding the state, `madeFrom`, `resultsPublished`, `publishedRevision` and the assignment's `revision` as it judged them, the revision held but not counted, since the rows are unchanged; a market changed meanwhile is judged again, up to three tries ([the assignment's lifecycle](assignment-lifecycle.md#the-migration)).
 
 ## The form's revision
 
@@ -194,7 +199,7 @@ The exceptions, each with its reason in the list:
 - its deletion, by its own Delete or its organization's: the tombstone, held on the market being live and, for an organization's, on its phase as read, a tombstone taken back by its trail id, and the market's last delete (it keeps no rule beyond the right to delete, and deletes in its own order, [market deletion](market-deletion.md));
 - the dealing lease's writes in `review_team.py` (a lease protocol of their own, [ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md));
 - the essential offering's freeze (the first writer wins, held by no snapshot stored yet, [essential fields](essential-fields.md));
-- the key migration in `market_documents.py` and the migrations under `migrations/`, each run once by an operator outside any request;
+- the key migration in `market_documents.py` and the migrations under `migrations/`, each run once by an operator outside any request, save the assignment state's, below;
 - `reset_database.py`, an operator script emptying every collection of a local database, whose receiver is a variable.
 
 A migration that reaches the markets collection by a name the walk does not read as markets (`collection`) is not seen; the walk reads names, not data flow.

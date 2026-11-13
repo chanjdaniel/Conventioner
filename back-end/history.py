@@ -307,33 +307,48 @@ def _record_placement(
     )
 
 
-def record_placed(market_id: str, actor: str, placement, left=None) -> None:
+def _after_results(detail: Dict[str, Any], after_results: bool) -> Dict[str, Any]:
+    """``detail`` with ``after_results: true`` when the placement was written while results were
+    published (T316), since that vendor's page had already told them where they sit. The key is
+    absent otherwise, so every entry written before it reads as it always did."""
+    return {**detail, "after_results": True} if after_results else detail
+
+
+def record_placed(
+    market_id: str, actor: str, placement, left=None, *, after_results: bool = False,
+) -> None:
     """One vendor put in one seat by hand, and the seat they ``left`` on that date: ``before``,
     null when they had none. Entries older than ``before`` carry no such key."""
-    _record_placement(market_id, actor, PLACED, [placement.email], {
+    _record_placement(market_id, actor, PLACED, [placement.email], _after_results({
         "date": placement.date,
         "table_code": placement.table_code,
         "table_choice": placement.table_choice,
         "before": {"table_code": left.table_code, "table_choice": left.table_choice}
         if left is not None else None,
-    })
+    }, after_results))
 
 
-def record_freed(market_id: str, actor: str, email: str, date: str, table_code: str) -> None:
+def record_freed(
+    market_id: str, actor: str, email: str, date: str, table_code: str, *,
+    after_results: bool = False,
+) -> None:
     """One seat emptied. Recorded even though nobody was placed: it is what a vendor dropping out
     looks like, and the question "where did they go" is asked about exactly this."""
-    _record_placement(market_id, actor, FREED, [email], {"date": date, "table_code": table_code})
+    _record_placement(market_id, actor, FREED, [email], _after_results(
+        {"date": date, "table_code": table_code}, after_results))
 
 
-def record_swapped(market_id: str, actor: str, date: str, first, second) -> None:
+def record_swapped(
+    market_id: str, actor: str, date: str, first, second, *, after_results: bool = False,
+) -> None:
     """Two vendors traded seats - ONE entry, because it was one action."""
-    _record_placement(market_id, actor, SWAPPED, [first.email, second.email], {
+    _record_placement(market_id, actor, SWAPPED, [first.email, second.email], _after_results({
         "date": date,
         "seats": [
             {"email": first.email, "table_code": first.table_code},
             {"email": second.email, "table_code": second.table_code},
         ],
-    })
+    }, after_results))
 
 
 def record_assignment_run(

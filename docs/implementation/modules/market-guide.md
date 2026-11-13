@@ -3,7 +3,7 @@ layer: implementation
 kind: module
 describes:
   - front-end/src/utils/marketGuide.ts
-verified: 2026-11-10
+verified: 2026-11-14
 sources:
   - wayfinding/what-to-show-and-when/02
   - wayfinding/what-to-show-and-when/map
@@ -19,6 +19,8 @@ sources:
   - E38/F15/S04
   - T207
   - T260
+  - T277
+  - T316
 ---
 
 # The market guide
@@ -30,16 +32,20 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
 ## What it answers
 
 - **The page a market is worked on in its phase** (`currentPage`): the page carrying the bar's dot, where `/markets/:marketId` lands, and where the rail's sentence links.
-  Only the phase and whether an assignment is stored decide it, so the three can never disagree.
+  Only the phase and the served `allocation` decide it ([the assignment's lifecycle](assignment-lifecycle.md)), an absent one read as `none` and never worked out from rows, so the three can never disagree.
+  In Assignment it is Settings until tables are allocated (`none`, or `pinned`: tables assigned by hand alone are no allocation), then Assignments; in Offers and Archived, Settings or Market Setup only on `none`.
   A phase this build does not recognise gets Market Setup, the one page that is never wrong to show.
 - **Where a move into a phase lands** (`landingPage`): that page; a row may name a flow its work is done in instead (`lands`), but none does now, so a move into the stage lands on Applications on both paths.
 - **The page a tab opens** (`pageForTab`): the one carrying the dot when the tab holds it, else its first.
 - **The rail's sentence** (`nextStep`): one sentence naming the one next step, linking to where it is done.
-  When the server would refuse that step, the sentence is its first blocker from `transitionBlockers` instead, for someone who may take the blocker's remedy, except before an assignment is run, when running it is the step.
+  When the server would refuse that step, the sentence is its first blocker from `transitionBlockers` instead, for someone who may take the blocker's remedy, except in Assignment before tables are allocated (`none` or `pinned`), when running it is the step.
+  On `pinned` the step says "Set the rules and allocate tables. The tables you assigned by hand are kept.".
 - **The first thing in a move's way** (`firstInTheWay`), which the sentence and the rail's main button read: the first blocker served, except that the form comes before Review setup (T260).
   The plan gives the form its essential questions, so the server's form guard passes before the organizer has drafted from their Google Form or added a question of their own, and Review setup's decision was offered first, with nothing of theirs to decide on.
   While the form is not drafted, with none of the organizer's own questions (`applicationForm.fields` empty or absent) and no start from a Google Form's responses run (`exampleColumns` absent, since the start keeps it, an empty list when every column of the organizer's own was left out), and `review_highlights_decided` or `rejection_rules_decided` is the first blocker, the step is the form, with the open decision after it: on a Google Form market, for someone who may take the start (`import-applications`) while the server does not refuse it (`csvStartRefusal`), "Draft from your Google Form" to `start-from-csv`, "Your form asks only the essential questions so far. Draft the rest from your Google Form's responses, then decide what reviewers read first on Review setup."; otherwise "Add your questions" to `form?step=questions` on the `change-form` row, "... Add any of your own on Your questions, then ...".
   It refuses nothing: a form of essential questions alone still opens once Review setup is decided, and the moves are still judged by the served blockers, so the move's disabled reason stays Review setup's.
+  A run gone stale is the one blocker swapped (T316): when the blocker is `results_published`, Publish results is refused, the allocation is `stale` and the server takes a run, the step is the server's refusal (`publishWaitsReason`, "The table allocation is out of date. …") with "Allocate tables" on Settings as its remedy.
+- **Whether the server takes a remedy** (`serverTakesRemedy`): "Allocate tables" (Assign on Settings) only while `assignRefusalReason` is clear, "Publish results" only while `publishWaitsReason` is, an answer the read does not carry leaving it to the role, so [the phase rail](phase-rail.md) never offers a remedy the server refuses (T316).
 - **The action a step takes** (`NextStep.action`): the row of [the market's actions](market-actions.md) table the step's work takes, so [the phase rail](phase-rail.md) links the sentence only for someone who may take it ([what each role may do](../../business/rules/what-each-role-may-do.md)).
   A step read off a blocker takes the blocker's `resolutionAction`, served by [the guards](guards.md); a step read off the guide's row takes the row's `action`:
 
@@ -47,8 +53,8 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
   | ------------------------------------------- | ----------------------- | -------------------------------- |
   | draft                                       | setup                   | `change-setup`                   |
   | applications                                | applications            | `give-verdicts`                  |
-  | assignment, not assigned                    | settings                | `assign`                         |
-  | assignment, assigned, results not published | assignments             | `assign`                         |
+  | assignment, nothing run                     | settings                | `assign`                         |
+  | assignment, run made, results not published | assignments             | `assign`                         |
   | assignment, results published               | assignments             | `move-phase`                     |
   | offers                                      | assignments or settings | `assign`                         |
   | market days, a date to come                 | attendance              | `check-in`                       |
@@ -64,7 +70,7 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
   A blocker that names no remedy reads to someone who may do the row's work, and to an onlooker only when its guard is one of `FACTS`, keyed on the guard's id: today only `all_applications_reviewed`, which names no remedy only to say "There are no applications for this market.", read after the stage's lead in the onlooker's words.
   Every other guard the rail can meet that names no remedy has two, on two pages, and its message ends in them (`no_orphaned_pin`'s "Restore the seat in the plan, or move or free those vendors.", `no_asked_for_tier_without_tables`'s "Add a section at that tier, or reject those applications", `form_has_fields`'s "Add market dates, tiers or sections ... or add a custom field"), so an onlooker reads the onlooker sentence instead; so does one from a guard this build does not know.
   `no_applications_yet` names no remedy and is a fact too, but it guards only the move back to draft, which is never the rail's step onward.
-  By the built-in table a Viewer reads, in draft, "The market is being planned. Read its plan on Market Setup."; in the stage, what the stage is in words that ask nobody to review (`watchedStageLead`), then "Read where each application stands." or, on a Google Form market, "Read where each response stands.", whether applications still wait or every one is decided; in Assignment, "Tables are not allocated yet. Read the rules they will follow on Settings.", or "Tables are allocated, and the market is not published yet. Read the assignments." on both paths, while the results wait to be published too, or, once results are published, "Results are published, so the assignments are settled. Check-in with the door code opens when the market is published."; at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance."; and on a market left in Offers, which nothing moves a market into now but whose step onward still has blockers, "This market is in Offers. Read the assignments." or, with nothing allocated, "Read the rules on Settings." after the same first sentence.
+  By the built-in table a Viewer reads, in draft, "The market is being planned. Read its plan on Market Setup."; in the stage, what the stage is in words that ask nobody to review (`watchedStageLead`), then "Read where each application stands." or, on a Google Form market, "Read where each response stands.", whether applications still wait or every one is decided; in Assignment, "Tables are not allocated yet. Read the rules they will follow on Settings.", or "Tables are allocated, and the market is not published yet. Read the assignments." on both paths, while the results wait to be published too, or, once results are published, "Results are published, so the assignments are settled. Check-in with the door code opens when the market is published."; at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance."; and on a market left in Offers, which nothing moves a market into now but whose step onward still has blockers, "This market is in Offers. Read the assignments." or, with nothing stored, "Read the rules on Settings." after the same first sentence.
   The sentence goes with the answer, not the role: a chosen Viewer may give verdicts, so reads the stage's own sentence and its blocker, and an Editor reads the onlooker's where the row's work is moving the phase.
 - **What someone who may do the row's work, but not take the step onward, is told** (`GuideRow.helper`): the step onward is the standing blocker's remedy, or, with none standing, moving the phase.
   Only Assignment with tables allocated and results not published has one: an Editor may change the seats there but publish neither the results nor the market, and reads "Check the assignments; the results are published by whoever may publish them." on both paths, since both publish results before the market goes live ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), a step taking `assign`.

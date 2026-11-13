@@ -19,7 +19,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import quote
 
 import api.applications as ApplicationsApi
-from assignment.made_from import review_reopened_since_run
+import assignment.lifecycle as Lifecycle
 from assignment.utils import convert_keys_to_camel_case
 from datatypes import ApplicationStatus, IntakeMode, Market, MarketPhase
 import layout as Layout
@@ -413,7 +413,7 @@ class NoApplicationsYetGuard:
 
 
 class AssignmentComputedGuard:
-    """A market cannot go live until the solver has actually placed someone.
+    """A market cannot go live until a table allocation has actually placed someone.
 
     Publishing is what puts the market's vendor page (``/<slug>``) on the air, and a market with no
     computed assignment serves a page that can tell nobody where to stand.
@@ -422,30 +422,43 @@ class AssignmentComputedGuard:
     of sitting in the phase, whatever route got you there, so a second route added later cannot
     bypass it.
 
-    It reads ``assignmentObject.vendorAssignments`` because that is what the solver actually writes.
-    The cautionary example is in this same file: ``offers`` has an entry invariant and is deadlocked
-    precisely because that invariant waits on statuses nothing ever sets.
+    It asks the assignment's lifecycle owner (``assignment/lifecycle.py``, T316) where the
+    allocation stands, and refuses ``none``, ``pinned`` (tables assigned by hand alone, which told
+    every other approved vendor they had no table though the solver never ran, T277) and an
+    allocation with no row stored. Its words and remedy are the owner's (``unallocated_refusal``),
+    which reads the phase so that no guard does: with nobody seated where a run is refused (results
+    published, or a market left in Offers), the remedy is assigning by hand on the Assignments
+    page. Its verdict is the same in every phase. The cautionary example
+    is in this same file: ``offers`` has an entry invariant and is deadlocked precisely because
+    that invariant waits on statuses nothing ever sets.
     """
 
     id: str = "assignment_computed"
     description: str = "Tables have been allocated"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
-        assignment = market.assignment_object
-        placements = getattr(assignment, "vendor_assignments", None) or []
-        if not placements:
+        refusal = Lifecycle.unallocated_refusal(market)
+        if refusal is None:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        if refusal.remedy is Lifecycle.Remedy.BY_HAND:
+            # A run is refused here, so the remedy is the grid, where a seat is still given by
+            # hand (T316).
             return PreconditionResult(
                 id=self.id,
                 passed=False,
-                message=(
-                    "No tables have been allocated for this market, so its vendor page could "
-                    "not tell anyone where to stand. Allocate tables first."
-                ),
-                resolution_link="settings",
-                resolution_label="Allocate tables",
+                message=refusal.message,
+                resolution_link="assignments",
+                resolution_label="Assign tables",
                 resolution_action="assign",
             )
-        return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id,
+            passed=False,
+            message=refusal.message,
+            resolution_link="settings",
+            resolution_label="Allocate tables",
+            resolution_action="assign",
+        )
 
 
 class AssignmentNotBeforeReviewGuard:
@@ -456,16 +469,16 @@ class AssignmentNotBeforeReviewGuard:
     kinds of market (ADR 0022), so a market meets this only before publishing, where it names the
     fix that comes first: allocate tables, then publish them.
 
-    Reads only the ``review`` group (``assignment.made_from``), never the approved applications:
-    it stays cheap, and a plan or rule edit made after publishing, when runs are refused, never
-    keeps a market from going live.
+    Reads only the ``review`` group (``assignment.made_from``, through the lifecycle owner), never
+    the approved applications: it stays cheap, and a plan or rule edit made after publishing, when
+    runs are refused, never keeps a market from going live.
     """
 
     id: str = "assignment_after_review"
     description: str = "Tables were allocated after the review last closed"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
-        if not review_reopened_since_run(market):
+        if not Lifecycle.review_reopened_since_run(market):
             return PreconditionResult(id=self.id, passed=True, message="")
         return PreconditionResult(
             id=self.id,
@@ -487,14 +500,14 @@ class ResultsPublishedGuard:
     An ENTRY INVARIANT on ``market_days``, like the assignment it follows: check-in on the air with
     applicants still reading "Submitted" was the state this closes. It holds on both kinds of
     market: a Google Form market's vendors read their table on its vendor page, which opens with
-    its results (ADR 0022). Reads the flag, never the phase.
+    its results (ADR 0022). Asks the lifecycle owner whether results are out, never the phase.
     """
 
     id: str = "results_published"
     description: str = "Results are published to vendors"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
-        if market.results_published:
+        if Lifecycle.results_published(market):
             return PreconditionResult(id=self.id, passed=True, message="")
         return PreconditionResult(
             id=self.id,
@@ -516,14 +529,15 @@ class ResultsNotPublishedGuard:
     applicant has read whether they have a table, so a verdict changed after it would change what
     they were told; from then on a seat placed or freed by hand is the way to change who has one.
     It holds on both kinds of market, since a Google Form market publishes results too (ADR 0022).
-    Reads the flag, never the phase, and offers no way back: no page reopens the review.
+    Asks the lifecycle owner whether results are out, never the phase, and offers no way back: no
+    page reopens the review.
     """
 
     id: str = "results_not_published"
     description: str = "Results are not yet published to applicants"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
-        if not market.results_published:
+        if not Lifecycle.results_published(market):
             return PreconditionResult(id=self.id, passed=True, message="")
         return PreconditionResult(
             id=self.id,

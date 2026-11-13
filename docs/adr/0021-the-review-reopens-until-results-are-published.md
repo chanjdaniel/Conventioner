@@ -10,7 +10,7 @@ describes:
   - back-end/api/markets.py#apply_phase_transition
   - back-end/api/applicants.py#publish_results
   - front-end/src/components/PhaseRail.vue
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - T191
   - T207

@@ -20,7 +20,7 @@ import app as app_module
 import api.markets as MarketsApi
 import pricing as Pricing
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
-from datatypes import AssignmentObject, Market, MarketPhase, SetupObject
+from datatypes import AssignmentObject, AssignmentState, Market, MarketPhase, SetupObject
 
 #: A value, unlike its default, for every stored field of ``Market``, as the body spells it.
 EVERY_FIELD = {
@@ -41,6 +41,8 @@ EVERY_FIELD = {
         "assignment_date": "2026-11-01T00:00:00Z",
         "made_from": {"vendors": "a-fingerprint"},
         "revision": 3,
+        "state": "run",
+        "published_revision": 3,
     },
     "phase": MarketPhase.MARKET_DAYS.value,
     "application_form": {
@@ -67,7 +69,9 @@ EVERY_FIELD = {
 SERVER_WRITTEN = ("id", "roles", "phase_history", "permissions")
 
 #: Where a required field of ``Market`` starts, since it has no default of its own.
-STARTS = {"modification_list": [], "assignment_object": AssignmentObject().model_dump()}
+#: A new market's assignment stores its state, nothing assigned and no run (T316).
+STARTS = {"modification_list": [], "assignment_object": AssignmentObject(
+    state=AssignmentState.NONE).model_dump()}
 
 
 def default_of(field: str):

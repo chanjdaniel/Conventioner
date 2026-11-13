@@ -37,6 +37,8 @@ sources:
   - T214
   - T260
   - T263
+  - T277
+  - T316
 ---
 
 # The phase rail
@@ -62,6 +64,10 @@ The fix is drawn only for someone who may move the phase and may take the blocke
 The 409's panel ([`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue)), headed "Cannot proceed:", draws a blocker's link on the same answer (`blockerLink`), and still says the blocker.
 A missing action, as from an older server, withholds them all, as `mayTake` withholds anything unanswered.
 So an Editor on a draft missing its dates is still led to "Pick market dates", and a Viewer, or an Admin whose table refuses the setup, is offered no fix ([what each role may do](../../business/rules/what-each-role-may-do.md)).
+
+**A remedy the server refuses is never offered** (T316).
+Beside the role's answer, the fix and the sentence's link read the server's own answer for the action the remedy takes (`serverTakesRemedy` in [`marketGuide.ts`](../../../front-end/src/utils/marketGuide.ts)): "Allocate tables" (Assign on Settings) only while `assignRefusalReason` is clear, "Publish results" only while `publishWaitsReason` is, so a market left in Offers is offered neither, and an answer the read does not carry leaves the remedy to the role.
+A run gone stale is the one remedy swapped (`firstInTheWay`): when Publish results is refused on allocation `stale` and the server takes a run, the step says the server's refusal ("The table allocation is out of date. …") and its fix is "Allocate tables" on Settings.
 Where the step, or the remedy of the blocker refusing it, is not theirs, the sentence is not the step either: the guide says what they may do there, a read, and the rail links it like any other step, so a Viewer on a draft missing its dates reads "The market is being planned. Read its plan on Market Setup.", and at the door reads "Follow who has checked in at the door." and from another tab is led to Attendance ([the market guide](market-guide.md), E38/F15/S04).
 
 **Both paths draw the same five stages, named by the path.**
@@ -99,6 +105,7 @@ A Google Form market's way into the stage is its first import, so its rail offer
 Someone the table's Move the phase row refuses (`mayTake(market, MarketAction.MovePhase)`, E39/F01/S02) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 
 **A move lands on the guide's page for the phase entered**, in any direction (`landingPage`), and the router starts a new page at its top.
+The page reads the phase moved to and the market's served `allocation` ([the assignment's lifecycle](assignment-lifecycle.md)), from the re-read market or the one the rail had, since a move may change whether a run reads as out of date but never whether tables are allocated: Begin assignment on tables assigned by hand alone lands on Settings.
 The rail navigates there itself: it once emitted an event no screen listened to, so every move landed on the server and the organizer stayed where they had clicked, an import's result still drawn (E32/F01/S01).
 A spec that clicks a move follows it to that page; it does not stay on the tab it clicked from.
 Before posting, the rail awaits the screen's `beforeTransition` (the plan flushes its pending autosave there), and after the move it calls the store's `refresh()`.

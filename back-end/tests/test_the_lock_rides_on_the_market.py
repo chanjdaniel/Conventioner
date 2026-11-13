@@ -148,8 +148,13 @@ def test_outside_assignment_the_market_is_read_without_its_applications(serve, m
     """Only `assignment` can act on it, so no other phase pays for reading the approved applications -
     least of all a running market, read on the day by everyone at once (E22/F03/S01)."""
 
-    def unexpected(_market):
+    import assignment.made_from as MadeFrom
+
+    def unexpected(*_args):
         raise AssertionError("fingerprints computed outside assignment")
 
     monkeypatch.setattr(MarketsApi, "changed_since_run", unexpected)
+    # Nor does anything else the read serves, the allocation and Publish results' refusal among
+    # them (T316): nothing reads the approved applications.
+    monkeypatch.setattr(MadeFrom, "approved_solver_vendors", unexpected)
     assert serve(phase)["assignmentOutOfDate"] == []

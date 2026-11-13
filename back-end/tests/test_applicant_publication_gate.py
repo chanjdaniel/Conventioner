@@ -109,27 +109,22 @@ def test_application_response_organizer_always_sees_truth():
 
 
 def publishable(phase=MarketPhase.ASSIGNMENT, **overrides):
-    """A market whose results may be published (E36/F04/S01): in assignment, with a stored run. A
-    form market unless a test says otherwise; a Google Form market publishes under the same rule
-    (ADR 0022)."""
-    from conftest import stored_market
-    return stored_market(phase, **{
+    """A market whose results may be published (E36/F04/S01): in assignment, with a run stored and
+    current. A form market unless a test says otherwise; a Google Form market publishes under the
+    same rule (ADR 0022). Whether a run is current, and every other refusal, is
+    ``test_results_wait_for_the_allocation.py``'s."""
+    from conftest import made_from_now, stored_assignment, stored_market
+    doc = stored_market(phase, **{
         "id": "market-1",
         "intakeMode": "form",
         "resultsPublished": False,
-        "assignmentObject": {"vendorAssignments": [{
-            "email": "ana@example.com", "date": "2026-11-18", "tableCode": "A 1",
-            "tableChoice": "Full Table", "section": "A", "tier": "Gold", "location": "Main Hall",
-        }]},
         **overrides,
     })
-
-
-@pytest.fixture(autouse=True)
-def a_current_run(monkeypatch):
-    """The stored run is current: whether it is, is TestWhenResultsMayBePublished's."""
-    import api.applicants as ApplicantsApi
-    monkeypatch.setattr(ApplicantsApi, "changed_since_run", lambda _market: [])
+    doc["assignmentObject"] = stored_assignment("run", [{
+        "email": "ana@example.com", "date": "2026-11-18", "tableCode": "A 1",
+        "tableChoice": "Full Table", "section": "A", "tier": "Gold", "location": "Main Hall",
+    }], made_from=made_from_now(doc), revision=1)
+    return doc
 
 
 def _markets(monkeypatch, doc):
@@ -150,6 +145,8 @@ def test_publish_results_flips_the_flag(monkeypatch):
     assert status == 200
     assert result["results_published"] is True
     assert fake.doc.get("resultsPublished") is True
+    # It stores the assignment revision it stood on, so a change by hand after it reads as one.
+    assert fake.doc["assignmentObject"]["publishedRevision"] == 1
 
 
 def test_a_google_form_market_publishes_its_results(monkeypatch):

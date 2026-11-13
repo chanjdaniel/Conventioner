@@ -114,6 +114,7 @@ The assignment:
 - Before changing the solver or a placement rule, read [the assignment solver](docs/implementation/modules/assignment-solver.md) and [the assignment behaviour suite](docs/implementation/testing/assignment-behaviour-suite.md); the rules it keeps are listed in [business/rules/](docs/business/rules/README.md).
 - Before changing a placement, a pin or a swap, read [placements](docs/implementation/modules/placements.md) and [ADR 0002](docs/adr/0002-a-pin-is-a-placement-row.md).
 - Before changing what an assignment remembers of its inputs, read [what an assignment was made from](docs/implementation/modules/made-from.md).
+- Before changing the assignment's state, Publish results' need for a run or what a change after results says, read [the assignment's lifecycle](docs/implementation/modules/assignment-lifecycle.md).
 - Before changing check-in or the attendance page, read [attendance and the door](docs/implementation/modules/attendance-and-door.md).
 - Before changing a layout, its editor or Fill an area, read [the layout](docs/implementation/modules/floorplan-placement.md).
 - Before changing the Discord card, the bot or what it asks of Discord, read [the Discord connection](docs/implementation/modules/discord.md).

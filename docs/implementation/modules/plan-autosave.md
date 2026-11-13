@@ -4,7 +4,7 @@ kind: module
 describes:
   - front-end/src/utils/useAutosave.ts
   - front-end/src/views/MarketSetupView.vue
-verified: 2026-11-11
+verified: 2026-11-14
 sources:
   - T271
   - T244

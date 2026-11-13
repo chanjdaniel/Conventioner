@@ -5,6 +5,8 @@ and a flag saying "hand-placed" cannot answer it. The entries live in the market
 (E40/F01/S01), and Assignment history reads that history narrowed to the ``assign`` action. The
 endpoint that once served them alone is gone (T224), so this reads them as that dialog does.
 """
+from types import SimpleNamespace
+
 import pytest
 
 from conftest import a_solver_vendor, FakeMarketsCollection, stored_market
@@ -229,3 +231,79 @@ def test_deleting_a_market_deletes_its_trail_through_the_endpoint(monkeypatch, h
     MarketsApi.delete_market("market-123", "owner@example.com")
 
     assert assignments("market-123") == []
+
+
+def row(email, table_code):
+    """A stored placement as the record functions read it."""
+    return SimpleNamespace(email=email, date="2026-08-01", table_code=table_code,
+                           table_choice="Full Table")
+
+
+class TestAChangeAfterResultsSaysSo:
+    """A placement written while results are published says so in its history detail (T316):
+    that vendor's page has told them where they sit, so a change then is not like any other.
+    The key is absent otherwise, so every entry from before reads as it always did."""
+
+    @pytest.fixture(params=[False, True], ids=["before results", "after results"])
+    def published(self, request, collection):
+        if request.param:
+            collection.doc["resultsPublished"] = True
+        return request.param
+
+    def detail(self, history):
+        [entry] = history.docs
+        return entry["detail"]
+
+    def says_so(self, detail, published):
+        if published:
+            assert detail["after_results"] is True
+        else:
+            assert "after_results" not in detail
+
+    def test_an_assignment_of_an_empty_seat(self, collection, history, published):
+        PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
+
+        self.says_so(self.detail(history), published)
+
+    def test_a_move(self, collection, history, published):
+        seat(collection, "ana@example.com", "2026-08-01", "Hall A 2")
+
+        PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
+
+        detail = self.detail(history)
+        assert detail["before"]["table_code"] == "Hall A 2"
+        self.says_so(detail, published)
+
+    def test_a_free(self, collection, history, published):
+        seat(collection, "ana@example.com", "2026-08-01", "Hall A 1")
+
+        PlacementsApi.remove_placement(
+            "market-123", "ana@example.com", "2026-08-01", "organizer@x.test")
+
+        self.says_so(self.detail(history), published)
+
+    def test_a_swap(self, collection, history, published):
+        seat(collection, "ana@example.com", "2026-08-01", "Hall A 1")
+        seat(collection, "ben@example.com", "2026-08-01", "Hall A 2")
+
+        PlacementsApi.swap_placements(
+            "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "organizer@x.test")
+
+        self.says_so(self.detail(history), published)
+
+    @pytest.mark.parametrize("record", [
+        lambda after: History.record_placed(
+            "m", "a@x.test", row("ana@example.com", "Hall A 1"), None, after_results=after),
+        lambda after: History.record_freed(
+            "m", "a@x.test", "v@x.test", "2026-08-01", "A 1", after_results=after),
+        lambda after: History.record_swapped(
+            "m", "a@x.test", "2026-08-01", row("ana@example.com", "Hall A 1"),
+            row("ben@example.com", "Hall A 2"), after_results=after),
+    ], ids=["placed", "freed", "swapped"])
+    def test_the_key_is_written_only_when_true(self, history, record):
+        record(False)
+        record(True)
+
+        before, after = (doc["detail"] for doc in history.docs)
+        assert "after_results" not in before
+        assert after["after_results"] is True
