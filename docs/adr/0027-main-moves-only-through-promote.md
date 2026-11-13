@@ -24,8 +24,9 @@ The agents act as Daniel's GitHub account, so GitHub could not tell an agent's p
 ## Decision
 
 **A GitHub App is the only actor that pushes to `main`, and only the Promote workflow holds its key.**
-The App is installed on this repository alone, with Contents read and write and no webhook.
-Each run of [`.github/workflows/promote.yml`](../../.github/workflows/promote.yml) mints a token that lasts an hour and may write this repository's contents and nothing else, and only the step that moves `main` holds it.
+The App is installed on this repository alone, with Contents and Workflows read and write and no webhook.
+Each run of [`.github/workflows/promote.yml`](../../.github/workflows/promote.yml) mints a token that lasts an hour and may write this repository's contents and workflow files and nothing else, and only the step that moves `main` holds it.
+It needs Workflows because GitHub refuses an App's move of a branch that changes a file under `.github/workflows/` without it, and a promotion often carries one, a Dependabot bump of an action's pin among them.
 
 **Promote checks the sha before it moves anything.**
 Daniel starts it by hand from `dev` with a commit's full sha, and [`scripts/promote_check.py`](../../scripts/promote_check.py) refuses unless the commit's Test run on a push to `dev` passed, the commit is on `dev`, and `main` is its ancestor.

@@ -71,8 +71,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 scripts/promote_check.py --commit "$COMMIT"
 
-      # A one-hour token that may write this repository's contents and nothing else. The action
-      # revokes it when the job ends.
+      # A one-hour token that may write this repository's contents and workflow files and nothing
+      # else: GitHub refuses an App's move of a ref that changes a file under .github/workflows/
+      # unless it may write workflows, and a promotion often carries one. The action revokes it
+      # when the job ends.
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app
         with:
@@ -80,6 +82,7 @@ jobs:
           private-key: ${{ secrets.PROMOTE_APP_PRIVATE_KEY }}
           repositories: Conventioner
           permission-contents: write
+          permission-workflows: write
 
       # The only step that holds the App's token. `force=false` makes GitHub refuse anything but a
       # fast-forward, so a `main` that moved since the check is refused, never rewritten. `main` is

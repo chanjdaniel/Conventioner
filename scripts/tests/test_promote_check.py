@@ -606,7 +606,9 @@ def test_the_check_runs_the_script_on_the_commit_given_with_the_runs_own_token()
     assert step["if"] is None
 
 
-def test_the_app_s_token_asks_only_to_write_this_repository_s_contents():
+def test_the_app_s_token_asks_only_to_write_this_repository_s_contents_and_workflow_files():
+    # GitHub refuses an App's ref update that changes a file under .github/workflows/ unless its
+    # token may write workflows, and a promotion often carries a workflow change.
     step = step_named("actions/create-github-app-token")
 
     assert step["id"] == "app"
@@ -616,6 +618,7 @@ def test_the_app_s_token_asks_only_to_write_this_repository_s_contents():
         "private-key": "${{ secrets.PROMOTE_APP_PRIVATE_KEY }}",
         "repositories": "Conventioner",
         "permission-contents": "write",
+        "permission-workflows": "write",
     }
 
 
