@@ -179,6 +179,9 @@ export function parseMarketFromApi(market: any): Market {
     // Which of the rules, the plan and the approved applications changed since the stored
     // assignment ran (E22/F03/S01): computed by the server on every read of one market.
     assignmentOutOfDate: market.assignmentOutOfDate,
+    // Where the table allocation stands (T316): what the rail, the bar and the landing read.
+    // Undefined on a read that does not carry it, which they read as nothing allocated.
+    allocation: market.allocation,
     // Hand placements at a seat the plan no longer has (bug 31): marked on Assignments and the vendor's
     // panel, and the reason Publish is refused.
     orphanedPins: market.orphanedPins ?? [],

@@ -56,7 +56,9 @@ export type SetupViewPage = (typeof SETUP_VIEW_PAGES)[number];
 
 /**
  * Whether the market holds an assignment: any placement stored. The one statement of it, read by
- * every page that changes with it - the bar and page row's dot, the landing, the Assignments page.
+ * the pages that ask whether there are rows to show - the tables grid, Vendors, Payments, Discord.
+ * Where a market is worked on reads the served `allocation` instead (T316): hand assignments alone
+ * store rows, but are no table allocation.
  */
 export function hasAssignment(
   market: Pick<Market, 'assignmentObject'> | null | undefined,

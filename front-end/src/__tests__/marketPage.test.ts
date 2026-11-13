@@ -10,7 +10,7 @@ import {
   type MarketPage,
 } from '@/utils/marketPage';
 import { currentPage, pageForTab } from '@/utils/marketGuide';
-import { MarketPhase } from '@/assets/types/datatypes';
+import { MarketPhase, type Allocation } from '@/assets/types/datatypes';
 import { assignmentPlacing } from './support/assignment';
 
 /**
@@ -24,32 +24,52 @@ import { assignmentPlacing } from './support/assignment';
 describe('the page a market is worked on in its phase', () => {
   it('opens a draft on the PLAN, not the form', () => {
     // The plan comes first and the form is built from it (the-order-of-the-work ticket 01).
-    expect(currentPage(MarketPhase.Draft, false)).toBe('setup');
+    expect(currentPage(MarketPhase.Draft, 'none')).toBe('setup');
   });
 
   it('works the stage where applications arrive and are reviewed on the Applications page', () => {
-    expect(currentPage(MarketPhase.Applications, false)).toBe('applications');
+    expect(currentPage(MarketPhase.Applications, 'none')).toBe('applications');
   });
 
-  it('is the rules until an assignment exists, and the result after', () => {
-    expect(currentPage(MarketPhase.Assignment, false)).toBe('settings');
-    expect(currentPage(MarketPhase.Assignment, true)).toBe('assignments');
-    expect(currentPage(MarketPhase.Offers, true)).toBe('assignments');
+  it('is the rules until tables are allocated, and the assignments after', () => {
+    // Where the table allocation stands, as the market read serves it (T316): hand assignments
+    // alone are not an allocation, so the run on Settings is still the work.
+    const pages: Record<Allocation, MarketPage> = {
+      none: 'settings',
+      pinned: 'settings',
+      current: 'assignments',
+      stale: 'assignments',
+      published: 'assignments',
+      changed_since_published: 'assignments',
+    };
+    for (const [allocation, page] of Object.entries(pages) as [Allocation, MarketPage][]) {
+      expect(currentPage(MarketPhase.Assignment, allocation), allocation).toBe(page);
+    }
+    // A read that did not carry it reads as nothing allocated.
+    expect(currentPage(MarketPhase.Assignment, undefined)).toBe('settings');
+    expect(currentPage(MarketPhase.Assignment, null)).toBe('settings');
+  });
+
+  it('is the assignments of a market left in Offers, once anything is assigned', () => {
+    expect(currentPage(MarketPhase.Offers, 'none')).toBe('settings');
+    for (const allocation of ['pinned', 'current', 'published'] as const) {
+      expect(currentPage(MarketPhase.Offers, allocation), allocation).toBe('assignments');
+    }
   });
 
   it('is attendance while the market is running', () => {
-    expect(currentPage(MarketPhase.MarketDays, true)).toBe('attendance');
+    expect(currentPage(MarketPhase.MarketDays, 'published')).toBe('attendance');
   });
 
   it('is the result of an archived market that ran, and the plan of one that never did', () => {
-    expect(currentPage(MarketPhase.Archived, true)).toBe('assignments');
-    expect(currentPage(MarketPhase.Archived, false)).toBe('setup');
+    expect(currentPage(MarketPhase.Archived, 'published')).toBe('assignments');
+    expect(currentPage(MarketPhase.Archived, 'none')).toBe('setup');
   });
 
   it('still gives a page to a phase this build does not recognise', () => {
     // The plan is editable in every phase, so it is the one page that is never wrong to show.
     for (const unknown of [undefined, null, '', 'a_phase_from_the_future']) {
-      expect(currentPage(unknown, false)).toBe('setup');
+      expect(currentPage(unknown, 'none')).toBe('setup');
     }
   });
 });
@@ -101,16 +121,19 @@ describe('the tabs', () => {
 
 describe('the page a tab opens', () => {
   it('is the page carrying the dot, when the tab holds it', () => {
-    expect(pageForTab('assignment', MarketPhase.Assignment, true)).toBe('assignments');
-    expect(pageForTab('assignment', MarketPhase.Assignment, false)).toBe('settings');
+    expect(pageForTab('assignment', MarketPhase.Assignment, 'current')).toBe('assignments');
+    expect(pageForTab('assignment', MarketPhase.Assignment, 'published')).toBe('assignments');
+    expect(pageForTab('assignment', MarketPhase.Assignment, 'pinned')).toBe('settings');
+    expect(pageForTab('assignment', MarketPhase.Assignment, 'none')).toBe('settings');
+    expect(pageForTab('assignment', MarketPhase.Assignment, undefined)).toBe('settings');
   });
 
   it("is the tab's first page otherwise", () => {
-    expect(pageForTab('assignment', MarketPhase.Draft, false)).toBe('settings');
-    expect(pageForTab('setup', MarketPhase.MarketDays, true)).toBe('setup');
-    expect(pageForTab('attendance', MarketPhase.MarketDays, true)).toBe('attendance');
-    expect(pageForTab('stats', MarketPhase.Applications, false)).toBe('stats');
-    expect(pageForTab('tools', MarketPhase.MarketDays, true)).toBe('tools');
+    expect(pageForTab('assignment', MarketPhase.Draft, 'none')).toBe('settings');
+    expect(pageForTab('setup', MarketPhase.MarketDays, 'published')).toBe('setup');
+    expect(pageForTab('attendance', MarketPhase.MarketDays, 'published')).toBe('attendance');
+    expect(pageForTab('stats', MarketPhase.Applications, 'none')).toBe('stats');
+    expect(pageForTab('tools', MarketPhase.MarketDays, 'published')).toBe('tools');
   });
 });
 

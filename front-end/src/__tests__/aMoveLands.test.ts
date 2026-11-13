@@ -78,9 +78,40 @@ describe('a move lands on the page for the phase it enters', () => {
     expect(router.push).toHaveBeenCalledWith('/markets/market-1/settings');
   });
 
+  // Where the table allocation stands decides it, as the market read serves it (T316): tables
+  // assigned by hand alone are no allocation, so the run on Settings is still the step.
+  it('Begin assignment on hand assignments alone lands on the settings', async () => {
+    await move(
+      { phase: MarketPhase.Applications, assignmentObject: ASSIGNED, allocation: 'pinned' },
+      MarketPhase.Assignment,
+    );
+
+    expect(router.push).toHaveBeenCalledWith('/markets/market-1/settings');
+  });
+
+  it('Begin assignment again after a run lands on the assignments', async () => {
+    // The re-read after the move serves the market in Assignment, its run out of date.
+    api.get.mockResolvedValue({
+      data: {
+        market: {
+          id: 'market-1',
+          phase: MarketPhase.Assignment,
+          assignmentObject: ASSIGNED,
+          allocation: 'stale',
+        },
+      },
+    });
+    await move(
+      { phase: MarketPhase.Applications, assignmentObject: ASSIGNED, allocation: 'stale' },
+      MarketPhase.Assignment,
+    );
+
+    expect(router.push).toHaveBeenCalledWith('/markets/market-1/assignments');
+  });
+
   it('Publish lands at the door', async () => {
     await move(
-      { phase: MarketPhase.Assignment, assignmentObject: ASSIGNED },
+      { phase: MarketPhase.Assignment, assignmentObject: ASSIGNED, allocation: 'published' },
       MarketPhase.MarketDays,
     );
 

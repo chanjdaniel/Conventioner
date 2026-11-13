@@ -11,7 +11,6 @@ import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { marketPath } from '@/utils/market';
-import { hasAssignment } from '@/utils/marketPage';
 import { currentPage } from '@/utils/marketGuide';
 import { useOpenMarket } from '@/utils/openMarket';
 
@@ -24,7 +23,7 @@ watch(
   market,
   (arrived) => {
     if (!arrived || arrived.id !== marketId.value) return;
-    void router.replace(marketPath(arrived.id, currentPage(arrived.phase, hasAssignment(arrived))));
+    void router.replace(marketPath(arrived.id, currentPage(arrived.phase, arrived.allocation)));
   },
   { immediate: true },
 );

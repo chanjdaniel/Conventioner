@@ -15,14 +15,7 @@ import type { Market } from '@/assets/types/datatypes';
 import ScrollBox from '@/components/ScrollBox.vue';
 import { marketPath } from '@/utils/market';
 import { placeFilterQuery } from '@/utils/resultFilters';
-import {
-  PAGE_LABELS,
-  TAB_PAGES,
-  hasAssignment,
-  pageOfRoute,
-  tabOf,
-  type MarketPage,
-} from '@/utils/marketPage';
+import { PAGE_LABELS, TAB_PAGES, pageOfRoute, tabOf, type MarketPage } from '@/utils/marketPage';
 import { currentPage } from '@/utils/marketGuide';
 
 const props = defineProps<{ market: Market | null }>();
@@ -30,7 +23,7 @@ const route = useRoute();
 
 const here = computed(() => pageOfRoute(route.name, route.params));
 const pages = computed(() => (here.value ? TAB_PAGES[tabOf(here.value)] : []));
-const current = computed(() => currentPage(props.market?.phase, hasAssignment(props.market)));
+const current = computed(() => currentPage(props.market?.phase, props.market?.allocation));
 
 /** The two pages that read the assignment through the same filters (E28/F02/S02). */
 const FILTERED_PAGES: readonly MarketPage[] = ['assignments', 'vendors'];
