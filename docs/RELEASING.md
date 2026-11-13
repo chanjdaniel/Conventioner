@@ -12,7 +12,7 @@ describes:
   - scripts/deploy_proof.py
   - front-end/vite.config.ts#assertApiHost
   - front-end/vite.config.ts#assertNoLocalHatchOnVercel
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - T74
   - T254
@@ -123,7 +123,7 @@ Every check the Deploy workflow makes after it builds lives in [`scripts/deploy_
    A build made without it, a local or CI one, reports `null`.
 3. **"The staged back end is this commit" and "The staged front end is this commit"** read each deployment's own `*.vercel.app` address.
    The address must report exactly this commit, else the run refuses at once; a back end still starting, answering 503 or `unavailable`, is retried every 10 seconds for up to 120.
-   Then the back end's answer must say `"localDev": false` and `"deployed": true`, exactly, and carry `x-content-type-options` and `referrer-policy`, and the front end must serve its app at `/markets` with its five security headers.
+   Then the back end's answer must say `"localDev": false` and `"deployed": true`, exactly, and carry `x-content-type-options` and `referrer-policy`, and the front end must serve its app at `/markets` with its five security headers, the policy among them as `content-security-policy`, which a report-only header does not stand for.
    The two values prove the [deployed-host refusal](#a-deployed-host-refuses-local-switches) armed: the build has its hatch off, and sees the platform variable that makes its boot refuse one.
    They read the address through the pinned Vercel CLI's `vercel curl`, which sends Vercel's Protection Bypass for Automation for the deployment's project, so the check works whether or not Deployment Protection is on.
    When a project has no automation bypass secret, `vercel curl` creates one on the first run, a setting the workflow adds by itself; it is in the project's Settings, Deployment Protection.

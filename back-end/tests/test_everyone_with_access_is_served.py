@@ -8,8 +8,8 @@ organization admin given Editor on the market read as an Editor. The read serves
 the market's own role and their place in the organization beside it.
 
 The organization's rows name its people, so they reach only a reader who belongs to it or may give
-and take roles on the market; anyone else reads the market's own roles in the same shape, as
-``role_emails`` served them, and no organization person's address.
+and take roles on the market; anyone else reads the market's own roles in the same shape, and no
+organization person's address.
 """
 from collections import Counter
 from types import SimpleNamespace
