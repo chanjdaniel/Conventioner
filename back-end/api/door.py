@@ -27,6 +27,7 @@ import api.markets as MarketsApi
 import history as History
 from datatypes import MarketPhase
 from market_documents import market_doc_key
+from tombstone import live
 from market_write import write_market
 from utils.email import frontend_url
 
@@ -92,7 +93,7 @@ def door_code_matches(market_id: str, typed: Optional[str]) -> bool:
 
 def _held_code(market_id: str) -> Optional[Dict[str, Any]]:
     document = MarketsApi.markets_collection.find_one(
-        {market_doc_key("id"): market_id}, {DOOR_CODE_KEY: 1})
+        live({market_doc_key("id"): market_id}), {DOOR_CODE_KEY: 1})
     held = (document or {}).get(DOOR_CODE_KEY)
     return held if isinstance(held, dict) and held.get("code") else None
 

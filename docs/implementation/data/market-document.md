@@ -31,7 +31,7 @@ describes:
   - back-end/datatypes.py#SetupObject
   - back-end/datatypes.py#FloorplanObject
   - back-end/datatypes.py#TableTypeObject
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - E02
   - E03/F03
@@ -220,6 +220,14 @@ Creation and rename both ask `public_address_refusal()` (`api/markets.py`), so "
 The unique index is the database's refusal of the same thing, for two creations that race past the check.
 The organizer meets it as the create-market dialog's refusal ([a name that is already someone's address](../../business/flows/creating-a-market.md#d5-a-name-that-is-already-someones-address)).
 
+## Being deleted
+
+**A market being deleted carries `deleting: {at, by, trail_id}`, and reads as absent while it does** ([the tombstone](../modules/market-deletion.md#the-tombstone)).
+Its deletion sets it first, by one conditional write, and deletes the document last; a market without the key is live, so no stored market needed a migration.
+Every request's read and write of a market passes its filter through `live` in [`back-end/tombstone.py`](../../../back-end/tombstone.py), which adds `deleting: {"$exists": false}`, and a guard test fails one that does not, unless its site says why.
+So a raw read of a market by id writes `markets_collection.find_one(live({"id": market_id}))`, never the bare filter.
+A market being deleted still holds its slug in the unique index until it is gone, so `public_address_refusal` reads it too.
+
 ## The phase, and `isDraft`
 
 **`phase` is the single source of truth for the market lifecycle; `is_draft` is derived from it.**
@@ -245,7 +253,7 @@ The fallback stays `archived` though the old build's publishing meant a running 
 Until it runs, such a market reads as finished: it takes no check-in, and reads as a market that ran, its vendor page the record, only once someone has checked in there ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).
 For one release it also reads the three phases E38/F04 folded into `applications` (`LEGACY_STAGE_PHASES`) as `migrate_to_one_stage.py` would leave them: `applications`, or `draft` for a Google Form market that imported nothing; and `applications_stopped_from_market_document()` reads a form market still stored in `applications_closed` or `review` as stopped, unless `applicationsStopped` says otherwise ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 `market_from_document()` takes `applications_stopped` from it, and nothing is written back; a later release drops the aliases.
-`load_market_context()` (`api/markets.py`) is the shared market, organization and permission load every endpoint uses.
+`load_market_context()` (`api/markets.py`) is the shared market, organization and permission load nearly every endpoint uses; the market's own Delete reads the document whatever its state instead, to resume from its tombstone ([market deletion](../modules/market-deletion.md#the-tombstone)).
 **A document the model refuses is served to no one**: the read and the Markets list both parse it through `_readable_market`, which logs the market's id and why (`_log_unreadable_market`, never what the document held); the read answers it 404 and the list leaves it out and lists the rest ([the organization document](organization-document.md#what-a-person-may-do-on-a-market), T181).
 
 **`market_from_document()` withholds `phase` and `intake_mode` from the Pydantic parse** and takes both from their document readers, `phase_from_market_document()` and `intake_mode_from_market_document()`.

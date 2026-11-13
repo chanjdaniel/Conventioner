@@ -8,7 +8,7 @@ describes:
   - back-end/guards.py#ResultsPublishedGuard
   - back-end/app.py#publish_market_results
   - back-end/guards.py#AssignmentNotBeforeReviewGuard
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - wayfinding/readable-journey/01
   - wayfinding/rejection-visibility/02

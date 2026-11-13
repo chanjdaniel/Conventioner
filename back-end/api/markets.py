@@ -98,6 +98,7 @@ from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
 import services.gridfs_service as GridfsService
+from tombstone import live, new_tombstone, tombstone_of
 from utils.email_address import normalized_email
 
 logging.basicConfig(level=logging.INFO)
@@ -171,7 +172,7 @@ def _load_market_and_organization_for(
 ) -> LoadedMarket:
     """``_load_market_for``, with the organization it read to ask the row, for a write that asks
     another row too and so need not read the organization again."""
-    market_dict = markets_collection.find_one({"id": market_id})
+    market_dict = markets_collection.find_one(live({"id": market_id}))
     if not market_dict:
         raise MarketNotFoundError("Market not found")
 
@@ -831,7 +832,7 @@ def derive_unassigned_tables_from_rows(rows: List[MarketTableRow]) -> Dict[str, 
 
 def get_market(market_id: str) -> Optional[Dict[str, Any]]:
     """Get a market by id. (Deprecated - use get_market_for_user instead)"""
-    return markets_collection.find_one({"id": market_id})
+    return markets_collection.find_one(live({"id": market_id}))
 
 
 class MarketContext(NamedTuple):
@@ -876,8 +877,9 @@ def read_refused(market: Market, role: Optional[MarketRole]) -> bool:
 
 
 def load_market_context(market_id: str) -> Optional[MarketContext]:
-    """Load a market with its parsed model and owning organization, or None if absent."""
-    market_dict = markets_collection.find_one({"id": market_id})
+    """Load a market with its parsed model and owning organization, or None if absent or being
+    deleted (``tombstone``)."""
+    market_dict = markets_collection.find_one(live({"id": market_id}))
     if not market_dict:
         return None
 
@@ -1094,7 +1096,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
 def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:
     """Get all markets by owner. (Deprecated - use get_markets_for_user instead)"""
     # Find markets where owner_email has OWNER role
-    return list(markets_collection.find({f"roles.{owner_email}": MarketRole.OWNER.value}))
+    return list(markets_collection.find(live({f"roles.{owner_email}": MarketRole.OWNER.value})))
 
 
 def _named_by_the_read(market: Market, organization: Optional[Organization]) -> List[str]:
@@ -1244,11 +1246,11 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     # wildcard index on the map serves (``lookup_indexes``). It was read by turning every market's
     # map into an array first, which no index can serve: every Markets page read every market.
     markets_with_role = markets_collection.find(
-        {f"{market_doc_key('roles')}.{user_id}": {"$exists": True}}
+        live({f"{market_doc_key('roles')}.{user_id}": {"$exists": True}})
     )
     org_ids = [org['id'] for org in user_orgs]
     org_markets = markets_collection.find(
-        market_doc_filter("organization_id", {"$in": org_ids})
+        live(market_doc_filter("organization_id", {"$in": org_ids}))
     ) if org_ids else []
 
     for documents in (markets_with_role, org_markets):
@@ -1354,13 +1356,19 @@ def create_market(market: Market, owner_email: str) -> tuple:
     
     if market.organization_id:
         try:
-            organizations_collection = db["organizations"]
-            organizations_collection.update_one(
-                {"id": market.organization_id},
+            added = OrgsApi.organizations_collection.update_one(
+                live({"id": market.organization_id}),
                 {"$addToSet": {"markets": market_id}}
             )
         except Exception as e:
             logger.warning(f"Failed to add market to organization: {e}")
+        else:
+            if added.matched_count == 0:
+                # Its organization began its deletion (or went) since the request read it, and
+                # that deletion may have listed its markets already: this one is taken back rather
+                # than left belonging to nothing (``tombstone``).
+                markets_collection.delete_one({"id": market_id})
+                raise NotFoundError("Organization not found")
     
     return result, market_id
 
@@ -2653,23 +2661,35 @@ def _record_role(
 
 
 def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
-    """Delete a market. Only owner can delete."""
-    context = load_market_context(market_id)
-    if context is None:
+    """Delete a market, as its owner: its tombstone first, then its records, then it.
+
+    A deletion cut at any step is resumed by the same request sent again: the market is read
+    whatever its state, so the retry finds the tombstone and goes on with its trail id, under which
+    the organization's history records that it went, once. A market its organization's deletion is
+    taking reads as absent here; that deletion finishes it.
+    """
+    document = markets_collection.find_one({"id": market_id})
+    if document is None:
         raise MarketNotFoundError("Market not found")
-    if context.market is None:
+    market = _readable_market(document)
+    if market is None:
         raise BadRequestError("Invalid market data")
+    organization = _load_organization(market.organization_id)
+    if market.organization_id and _organization_is_deleting(market.organization_id):
+        raise MarketNotFoundError("Market not found")
 
-    market = context.market
-
-    refused = Actions.refusal(Actions.DELETE_MARKET, requesting_user, market, context.organization)
+    refused = Actions.refusal(Actions.DELETE_MARKET, requesting_user, market, organization)
     if refused:
         raise ForbiddenError(refused)
 
+    tombstone = tombstone_of(document) or MarketDeletion.mark_deleting(
+        markets_collection, document, new_tombstone(requesting_user))
+    if tombstone is None:
+        raise MarketNotFoundError("Market not found")
+
     if market.organization_id:
         try:
-            organizations_collection = db["organizations"]
-            organizations_collection.update_one(
+            OrgsApi.organizations_collection.update_one(
                 {"id": market.organization_id},
                 {"$pull": {"markets": market_id}}
             )
@@ -2678,16 +2698,26 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
 
     # Its applications, check-ins, sign-in codes and placement trail go with it (bug 47): each
     # names people, and leaving them behind would outlive the thing they describe.
-    result = MarketDeletion.delete_market_and_records(markets_collection, market_id)
-    # Its own history went with it; its organization's keeps that it went (E40/F02/S01), when this
-    # deletion is the one that took it.
-    if market.organization_id and result.deleted_count == 1:
+    MarketDeletion.delete_records(market_id)
+    # Its own history went with it; its organization's keeps that it went (E40/F02/S01), recorded
+    # under the deletion's trail id before the market goes, so a retry records it once.
+    if market.organization_id:
         History.record_for_organization(
-            market.organization_id, requesting_user, History.DELETE_MARKET,
+            market.organization_id, tombstone.get("by") or requesting_user, History.DELETE_MARKET,
             subject={"market_id": market_id},
             detail=lambda: History.changes({"name": market.name}, {"name": None}),
+            entry_id=tombstone["trail_id"],
         )
-    return result
+        # Its organization's deletion may have taken the market meanwhile, and the organization's
+        # history with it: the entry just written would outlive them, so it goes as theirs did.
+        if MarketDeletion.organization_taken(market.organization_id):
+            History.delete_for_organization(market.organization_id)
+    return markets_collection.delete_one({"id": market_id})
+
+
+def _organization_is_deleting(organization_id: str) -> bool:
+    """Whether the market's organization carries a tombstone: its deletion owns the market's."""
+    return tombstone_of(OrgsApi.organizations_collection.find_one({"id": organization_id})) is not None
 
 
 RENAME_REFUSED_AFTER_DRAFT = (

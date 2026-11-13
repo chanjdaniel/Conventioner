@@ -16,7 +16,7 @@ describes:
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/tests/test_undoing_a_verdict.py
   - back-end/tests/test_the_market_list_shows_what_the_read_serves.py
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01

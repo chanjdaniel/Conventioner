@@ -34,6 +34,7 @@ from client_errors import (
 )
 from datatypes import OrganizationRole, organization_people_of
 from db_config import get_database
+from tombstone import live
 
 db = get_database()
 organizations_collection = db["organizations"]
@@ -324,7 +325,7 @@ def _write(org: Dict[str, Any], people: Dict[str, str], after: Dict[str, str],
         query = {"id": org["id"], **held, **lists_held}
     else:
         query, update = folding_write(org, after)
-    return organizations_collection.update_one(query, update).matched_count > 0
+    return organizations_collection.update_one(live(query), update).matched_count > 0
 
 
 def folding_write(org: Dict[str, Any],
@@ -359,7 +360,7 @@ def reconciling_write(org: Dict[str, Any],
 def _met_a_change(org_id: str, event: Event, target_id: str) -> ClientError:
     """What a write that matched nothing answers, from one more read: the organization gone, a
     removed person already gone (which Manage organization reads as done), else the 409."""
-    now = organizations_collection.find_one({"id": org_id})
+    now = organizations_collection.find_one(live({"id": org_id}))
     if not now:
         return NotFoundError("Organization not found")
     if event is Event.REMOVE and organization_people_of(now).get(target_id) is None:
@@ -395,7 +396,7 @@ def _record_role(
 def _requester(org_id: str, requesting_user_email: str) -> Tuple[Dict[str, Any], Any]:
     """The organization as read and the account asking: 404 for an organization nobody has, 403
     for an address with no account."""
-    org = organizations_collection.find_one({"id": org_id})
+    org = organizations_collection.find_one(live({"id": org_id}))
     if not org:
         raise NotFoundError("Organization not found")
     requester = UsersApi.get_user(requesting_user_email)

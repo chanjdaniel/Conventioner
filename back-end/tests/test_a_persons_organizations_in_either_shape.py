@@ -11,6 +11,7 @@ import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
 import api.users as UsersApi
 import organization_people as OrganizationPeople
+from tombstone import live
 
 PERSON = SimpleNamespace(id="user-person", email="person@example.com")
 OWNER = SimpleNamespace(id="user-owner", email="owner@example.com")
@@ -58,7 +59,7 @@ def stored(monkeypatch):
 def test_the_markets_list_and_the_organizations_page_find_the_same_organizations(stored):
     assert {org["id"] for org in OrgsApi.organization_documents_of(PERSON.id)} == THEIRS
     assert {org.id for org in PermissionsApi.get_user_organizations(PERSON.email)} == THEIRS
-    assert stored.queries == [OrganizationPeople.of_person(PERSON.id)] * 2
+    assert stored.queries == [live(OrganizationPeople.of_person(PERSON.id))] * 2
 
 
 @pytest.mark.parametrize("not_an_id", [None, "", 7, "a.b", "$where"])

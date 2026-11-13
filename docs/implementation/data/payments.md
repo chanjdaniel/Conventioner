@@ -24,7 +24,6 @@ describes:
 verified: 2026-11-13
 sources:
   - T92
-  - T315
   - E44/F01/S01
   - E44/F01/S02
   - E42/F01/S04
@@ -32,6 +31,7 @@ sources:
   - T263
   - T270
   - T201
+  - T315
 ---
 
 # Payments, and what a vendor owes

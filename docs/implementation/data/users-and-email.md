@@ -29,7 +29,7 @@ describes:
   - back-end/tests/test_one_account_per_address.py
   - back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py
   - back-end/tests/test_delete_user_authorization.py
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - E32/F03/S04
   - T85

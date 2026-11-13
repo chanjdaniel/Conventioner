@@ -13,7 +13,7 @@ describes:
   - front-end/src/utils/reviewers.ts
   - front-end/src/components/market/ReviewerName.vue
   - back-end/review_team.py#deal_waiting
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - E38/F07
   - E38/F07/S01

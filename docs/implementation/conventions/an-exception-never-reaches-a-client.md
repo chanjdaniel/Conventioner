@@ -3,8 +3,6 @@ layer: implementation
 kind: convention
 describes:
   - back-end/client_errors.py
-  - back-end/host_limits.py
-  - back-end/tests/test_the_hosts_request_limit.py
   - back-end/utils/request_body.py#json_object
   - back-end/tests/test_an_exception_never_reaches_a_client.py
   - back-end/app.py#get_assigned_market
@@ -102,7 +100,9 @@ describes:
   - back-end/api/markets.py#take_move
   - back-end/utils/captcha.py#verify_recaptcha
   - back-end/tests/test_captcha.py
-verified: 2026-11-11
+  - back-end/host_limits.py
+  - back-end/tests/test_the_hosts_request_limit.py
+verified: 2026-11-13
 sources:
   - T74
   - E41/F01/S01

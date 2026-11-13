@@ -77,9 +77,6 @@ class FakeMarkets:
         self.finds = 0
 
     def _matches(self, doc, query):
-        (key, condition), = query.items()
-        if key.startswith("roles."):
-            return (key.split(".", 1)[1] in doc.get("roles", {})) == condition["$exists"]
         return mongo_matches(doc, query)
 
     def find_one(self, query, projection=None):
@@ -97,11 +94,7 @@ class FakeOrganizations:
         self.docs = docs
 
     def find(self, query, projection=None):
-        (clauses,) = query.values()
-        return iter([
-            dict(doc) for doc in self.docs.values()
-            if any(mongo_matches(doc, clause) for clause in clauses)
-        ])
+        return iter([dict(doc) for doc in self.docs.values() if mongo_matches(doc, query)])
 
 
 @pytest.fixture

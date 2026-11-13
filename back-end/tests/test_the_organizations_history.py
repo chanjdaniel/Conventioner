@@ -10,10 +10,12 @@ from types import SimpleNamespace
 import pytest
 
 from conftest import (
+    FakeMarketsCollection,
     FakeOrganizations,
     install_organizations,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
+    stored_market,
 )
 from test_reading_the_history import PagedHistory, _matches
 
@@ -52,7 +54,7 @@ def history(monkeypatch):
 @pytest.fixture
 def org(monkeypatch, history):
     organizations = install_organizations(monkeypatch, FakeOrganizations({
-        "id": ORG, "name": "Ember Markets", "owner": OWNER.id, "admins": [ADMIN.id],
+        "_id": "org-object-id", "id": ORG, "name": "Ember Markets", "owner": OWNER.id, "admins": [ADMIN.id],
         "members": [MEMBER.id], "markets": [], "theme": None,
     }))
     by_email = {person.email: person for person in PEOPLE}
@@ -302,10 +304,11 @@ class TestDeletingIt:
         self, org, history, monkeypatch,
     ):
         trail = []
-        monkeypatch.setattr(OrgsApi, "markets_collection", SimpleNamespace(find=lambda _q: iter([])))
+        monkeypatch.setattr(OrgsApi, "markets_collection",
+                            SimpleNamespace(find=lambda _q, _projection=None: iter([])))
         monkeypatch.setattr(
             OrgsApi.DeletionTrail, "record_organization_deletion",
-            lambda organization, doomed, actor: trail.append((organization["id"], actor)))
+            lambda organization, doomed, actor, _trail_id: trail.append((organization["id"], actor)))
         OrgsApi.update_organization(ORG, OWNER.email, "Ember Collective")
         History.record_for_organization(
             "org-2", OWNER.email, History.CHANGE_ORGANIZATION, kind=History.RENAMED,
@@ -409,24 +412,27 @@ def test_every_organization_write_route_records_or_says_why_not():
 
 
 class TestAMarketDeleted:
-    def test_deleting_a_market_is_recorded_in_its_organization(self, org, history, monkeypatch):
-        market = SimpleNamespace(organization_id=ORG, name="Winter Fair")
-        monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: SimpleNamespace(
-            market=market, organization=None, document={}))
+    def test_deleting_a_market_is_recorded_in_its_organization_once(self, org, history, monkeypatch):
+        """A deletion cut before the market goes is sent again, and records that it went once:
+        the entry is written under the deletion's trail id."""
+        markets = FakeMarketsCollection(stored_market(id="m-9", name="Winter Fair", organizationId=ORG))
+        monkeypatch.setattr(MarketsApi, "markets_collection", markets)
         monkeypatch.setattr(MarketsApi.Actions, "refusal", lambda *_a: None)
-        monkeypatch.setattr(MarketsApi.MarketDeletion, "delete_market_and_records",
-                            lambda _markets, _id: SimpleNamespace(deleted_count=1))
-        monkeypatch.setattr(MarketsApi, "db", {"organizations": SimpleNamespace(
-            update_one=lambda *_a, **_k: None)})
+        delete_one = markets.delete_one
 
-        MarketsApi.delete_market("m-9", ADMIN.email)
-        monkeypatch.setattr(MarketsApi.MarketDeletion, "delete_market_and_records",
-                            lambda _markets, _id: SimpleNamespace(deleted_count=0))
+        def cut(_query):
+            markets.delete_one = delete_one
+            raise RuntimeError("the process stopped here")
+
+        markets.delete_one = cut
+        with pytest.raises(RuntimeError):
+            MarketsApi.delete_market("m-9", ADMIN.email)
         MarketsApi.delete_market("m-9", ADMIN.email)
 
         entry = only(history)
         assert entry["actor"] == ADMIN.email
         assert entry["action"] == History.DELETE_MARKET
+        assert markets.doc is None
         assert entry["subject"] == {"market_id": "m-9"}
         assert entry["detail"] == {"before": {"name": "Winter Fair"}, "after": {"name": None}}
 

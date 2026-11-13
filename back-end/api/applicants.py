@@ -51,6 +51,7 @@ from datatypes import (
     phase_from_market_document,
     phase_label,
 )
+from tombstone import live
 from utils.application_token import (
     verify_application_token,
 )
@@ -59,6 +60,7 @@ import api.applications as ApplicationsApi
 import api.attendance as AttendanceApi
 import api.market_actions as Actions
 import history as History
+import market_deletion as MarketDeletion
 import review_team as ReviewTeam
 import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_snake_case
@@ -409,6 +411,19 @@ def _stored_placements(market_doc: Dict[str, Any]) -> List[VendorAssignmentResul
     return [VendorAssignmentResult(**convert_keys_to_snake_case(row)) for row in rows]
 
 
+def _gone_under_the_save(
+    markets_collection: Any, market_id: str,
+) -> Optional[Tuple[Dict[str, Any], int]]:
+    """The 404 a save answers when its market is gone or certainly going under it, having taken
+    back what it wrote (``market_deletion.kept_only_while_live``); None while the market is live,
+    or carries a tombstone its organization's deletion may still take back."""
+    try:
+        MarketDeletion.kept_only_while_live(markets_collection, market_id)
+    except MarketDeletion.MarketGoneUnderWrite:
+        return {"error": "Market not found."}, 404
+    return None
+
+
 def save_applicant_application(
     market_slug: str, token_payload: Dict[str, Any], form_data: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], int]:
@@ -485,13 +500,16 @@ def save_applicant_application(
         # check and the write; the application made for these answers must not outlive them.
         if existing is None:
             ApplicationsApi.delete_application(app_doc.get("id", ""))
-        return {"error": error}, 422
+        return _gone_under_the_save(db["markets"], market_id) or ({"error": error}, 422)
 
     answered = app_doc.get("form_data") or {}
 
     # The market's rules judge it as it arrives (E33/F03/S02); the applicant is told nothing of it.
     # Read whole, through the canonical parse: the applicant's projection carries only what they see.
-    market = market_from_document(db["markets"].find_one({"id": market_id}))
+    whole = db["markets"].find_one(live({"id": market_id}))
+    if whole is None:
+        return _gone_under_the_save(db["markets"], market_id) or ({"error": "Market not found."}, 404)
+    market = market_from_document(whole)
     verdicts = RejectionRules.judge(RejectionRules.Rulebook(market), market_id, app.id)
     # After the rules, so the entry says what they did to it: no rule records an entry of its own.
     saved = app
@@ -502,6 +520,11 @@ def save_applicant_application(
     # (E38/F07/S03): the applicant's own save is its arrival, so it is recorded as theirs, and it
     # deals theirs alone.
     ReviewTeam.deal_arrivals(market, email, History.APPLY, only=app.id)
+    # After the save's last write: a deletion that began after the market was read above has
+    # swept, or will sweep, everything written here, or this takes it back (``market_deletion``).
+    gone = _gone_under_the_save(db["markets"], market_id)
+    if gone:
+        return gone
     if verdicts.rejected:
         app = Application(**ApplicationsApi.find_application_by_id(app.id))
 
@@ -961,7 +984,7 @@ def set_applications_stopped(
     from db_config import get_database
     db = get_database()
 
-    doc = db["markets"].find_one({"id": market_id})
+    doc = db["markets"].find_one(live({"id": market_id}))
     if not doc:
         return {"error": "Market not found."}, 404
     refusal = applications_stop_refusal(market_from_document(doc))
@@ -991,7 +1014,7 @@ def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
     from db_config import get_database
     db = get_database()
 
-    doc = db["markets"].find_one({"id": market_id})
+    doc = db["markets"].find_one(live({"id": market_id}))
     if not doc:
         return {"error": "Market not found."}, 404
 

@@ -45,6 +45,7 @@ from client_errors import BadRequestError, ConflictError, ForbiddenError
 import history as History
 from market_documents import market_doc_key
 from market_write import MarketChanged, document_as_read, write_market
+from tombstone import live
 from utils.email_address import normalized_email
 
 
@@ -482,7 +483,7 @@ def _still_holds(market_id: str, email: str, date: str) -> bool:
     read, which leaves a free's kept line in place rather than risk taking a freed day's line."""
     try:
         stored = MarketsApi.markets_collection.find_one(
-            {"id": market_id}, {"assignmentObject.vendorAssignments": 1})
+            live({"id": market_id}), {"assignmentObject.vendorAssignments": 1})
     except Exception:  # noqa: BLE001 - the free's own error is the one that goes on
         return False
     rows = ((stored or {}).get("assignmentObject") or {}).get("vendorAssignments") or []

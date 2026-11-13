@@ -34,6 +34,7 @@ import api.users as UsersApi
 import history as History
 from client_errors import BadRequestError, ForbiddenError, NotFoundError
 from datatypes import MarketPhase
+from tombstone import live
 
 ORG_MEMBER = "org-member@example.com"
 OUTSIDER = "outsider@example.com"
@@ -236,7 +237,8 @@ class TestAStoredDefaultThatIsNotAMap:
         table = OrgsApi.set_default_permission(ORG_ID, "check-in", "admin", ORG_ADMIN)
 
         assert world.organizations.writes == [(
-            {"id": ORG_ID}, {"$set": {"default_permissions": {"check-in": {"role": "admin"}}}})]
+            live({"id": ORG_ID}),
+            {"$set": {"default_permissions": {"check-in": {"role": "admin"}}}})]
         assert row(table, "check-in")["role"] == "admin"
 
     def test_a_map_keeps_its_other_rows(self, world):

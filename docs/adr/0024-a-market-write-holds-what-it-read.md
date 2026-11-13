@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/market_write.py
   - back-end/tests/test_every_market_write_holds_what_it_read.py
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - T244
   - T274
