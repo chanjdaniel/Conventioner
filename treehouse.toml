@@ -12,12 +12,14 @@
 # file, so a raw worktree is missing .env/node_modules.
 # The th-lease.sh wrapper leases AND pre-warms in one step.
 
-# Pool size: a ceiling that only stops a runaway, not the bound in use.
-# The agent team's resource level bounds the worktrees (its room check before a
-# task opens, and its admission of each launch), well below this number.
+# Pool size: this bounds the pool's disk, since an idle worktree stays until
+# someone runs `treehouse prune`, and each holds its own node_modules and build
+# output (a few hundred MB to about 2 GB).
+# The agent team's resource level bounds the worktrees in use (its room check
+# before a task opens, and its admission of each launch).
 # treehouse cannot be uncapped: it refuses every lease at 0 or a negative value,
 # and caps an omitted key at 16.
-max_trees = 100
+max_trees = 20
 
 # Empty => worktrees live under $HOME/.treehouse/.
 root = ""

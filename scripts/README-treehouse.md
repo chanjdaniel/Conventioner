@@ -100,10 +100,12 @@ and ports as `export` lines (`eval "$(scripts/th-compose.sh ports)"`).
 - `treehouse prune` - remove stale idle worktrees (dry-run; `--yes` to apply)
 - `treehouse destroy <path> --yes` - remove a specific worktree; a leased one also needs
   `--include-leased` (and a dirty or busy one `--include-unlanded` or `--include-in-use`)
-- `max_trees` is set in `treehouse.toml` (100, a ceiling that only stops a runaway: the agent
-  team's resource level, its room check before a task opens and its admission of each launch,
-  bounds the worktrees well below it; treehouse refuses every lease at 0 or a negative value,
-  and caps an omitted key at 16)
+- `max_trees` is set in `treehouse.toml` (20).
+  It bounds the pool's disk, since an idle worktree stays until someone runs `treehouse prune`
+  and each holds a few hundred MB to about 2 GB.
+  The agent team's resource level, its room check before a task opens and its admission of each
+  launch, bounds the worktrees in use.
+  treehouse refuses every lease at 0 or a negative value, and caps an omitted key at 16.
 
 > **⚠️ `treehouse prune` and `treehouse destroy` do NOT tear down per-slot docker
 > stacks.** Docker teardown lives only in `th-return.sh`. If you `prune` (it
