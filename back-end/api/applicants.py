@@ -64,7 +64,7 @@ import market_deletion as MarketDeletion
 import review_team as ReviewTeam
 import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_snake_case
-from assignment.made_from import changed_since_run
+import assignment.lifecycle as Lifecycle
 import rejection_rules as RejectionRules
 import remembered_sign_ins as RememberedSignIns
 import essential_fields as EssentialFields
@@ -929,29 +929,16 @@ def reassign_follow_up(
 def publish_results_refusal(market: Market) -> Optional[str]:
     """Why results cannot be published now, or None while they can (E36/F04/S01).
 
-    Results wait for the allocation: in assignment, once a run is stored and current, so every
-    applicant is told what the market will hold, and nobody's answer shifts under them through a
-    later run. Served as ``publishWaitsReason``, beside the table's Publish results answer, so the
-    button is offered exactly when the endpoint would take it.
+    The assignment's lifecycle owner says it (``lifecycle.publish_refusal``, T316): results wait
+    for a table allocation that was run and is current, in assignment, so every applicant is told
+    what the market will hold, and nobody's answer shifts under them through a later run. Served as
+    ``publishWaitsReason``, beside the table's Publish results answer, so the button is offered
+    exactly when the endpoint would take it.
 
     The same rule on both kinds of market: a Google Form market's vendors read their result on its
     vendor page, which opens with it (ADR 0022).
     """
-    if market.results_published:
-        return "Results are already published."
-    if market.phase is not MarketPhase.ASSIGNMENT:
-        return (
-            "Results are published once tables have been allocated, so each applicant is told "
-            "whether they have a table."
-        )
-    if not market.assignment_object.vendor_assignments:
-        return "Allocate tables first: results tell each applicant whether they have a table."
-    if changed_since_run(market):
-        return (
-            "The table allocation is out of date. Allocate tables again before publishing, so "
-            "applicants are told what the market will hold."
-        )
-    return None
+    return Lifecycle.publish_refusal(market)
 
 
 def applications_stop_refusal(market: Market) -> Optional[str]:
@@ -1001,7 +988,8 @@ def set_applications_stopped(
 
 
 def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
-    """Flip the results_published flag on a market, making verdicts visible to applicants.
+    """Flip the results_published flag on a market, making verdicts visible to applicants, and
+    store the assignment revision it stood on (``lifecycle.publish``, T316).
 
     This is the single, deliberate, organizer-controlled moment the review verdicts become
     visible to the applicants who hold them. Before this call, every approved and rejected
@@ -1022,13 +1010,8 @@ def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
     if refusal:
         return {"error": refusal}, 409
 
-    # Holding what the refusal read (T207): Back to review checks the flag and then moves the
-    # phase, so this write holds the phase, and the flag against a second publish, as they were
-    # read; two requests in flight together never leave the review open on published results. It
-    # holds the assignment's revision too, so an allocation stored after this one was judged
-    # current refuses the publish rather than be published unjudged.
-    write_market(doc, {"$set": {market_doc_key("results_published"): True}}, holds=(
-        market_doc_key("results_published"), f"{market_doc_key('assignment_object')}.revision"))
+    # Holding what the refusal read, and storing the revision it stood on (T207, T316).
+    Lifecycle.publish(doc)
     History.record(market_id, by, Actions.PUBLISH_RESULTS,
                    detail=lambda: History.changes(
                        {"results_published": False}, {"results_published": True}))

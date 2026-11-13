@@ -225,9 +225,10 @@ RESULTS_PUBLISHED_REFUSAL = (
 
 def assign_refusal(market: Market) -> Optional[str]:
     """Why this market's assignment cannot be run now, or None (E36/F04/S02): its phase, or its
-    published results. Served as ``assignRefusalReason``, so the Assign button says no first."""
+    published results, as the lifecycle owner reads them (T316). Served as
+    ``assignRefusalReason``, so the Assign button says no first."""
     return assign_phase_refusal(market.phase) or (
-        RESULTS_PUBLISHED_REFUSAL if market.results_published else None
+        RESULTS_PUBLISHED_REFUSAL if Lifecycle.results_published(market) else None
     )
 
 

@@ -32,6 +32,7 @@ sources:
   - T263
   - T274
   - T257
+  - T316
 ---
 
 # The guards and the phase move
@@ -126,6 +127,9 @@ Do not add a second copy of that write: the endpoint carried one until E26, whic
 **`offers` is deadlocked, and kept.**
 `assignment -> offers` waits on `NoApprovedApplicationsGuard`, and nothing writes the statuses that would clear it; it is a post-MVP phase off the rail's spine, and `market_days` is reached from `assignment` directly.
 Its entry invariant is the warning `AssignmentComputedGuard` heeds: a guard must wait on something the product actually writes.
+
+**The assignment's guards ask its lifecycle owner.**
+`AssignmentComputedGuard` asks [the assignment's lifecycle owner](../../../back-end/assignment/lifecycle.py) where the allocation stands, as `ResultsPublishedGuard` and `ResultsNotPublishedGuard` ask it whether results are out, without judging whether a run is out of date, so no guard reads the phase: it refuses nothing allocated, tables assigned by hand alone, and an allocation with no row (T316).
 
 **`take_move` records the move in [the market's history](../data/history.md)** once it is taken (`move-phase`, the phase before and after, by whoever made it); the phase history stays the state the guards read.
 

@@ -20,13 +20,17 @@ of it, of the rows beside it, and of ``publishedRevision``:
 - ``store`` is the one write of the rows and the state, holding what the request read.
 - ``allocation`` is where the table allocation stands, served on the market read as
   ``allocation``: ``none``, ``pinned``, ``current``, ``stale``, ``published`` or
-  ``changed_since_published``. ``results_out`` asks it whether results are published.
+  ``changed_since_published``. ``results_out`` asks it whether results are published, and
+  ``results_published`` asks it of a market, as every refusal that reads the assignment does.
+- ``publish_refusal`` is why Publish results waits: for a run that is current, never on tables
+  assigned by hand alone. ``publish`` is its write, storing the revision it stood on, and
+  ``may_go_live`` is what the ``market_days`` entry invariants about the assignment ask together.
 
 Imports nothing in ``api/``, so the guards, the routes and the migration can all import it.
 """
 import logging
 from enum import Enum
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence
+from typing import Any, Dict, List, Mapping, NamedTuple, Optional, Sequence
 
 from assignment.made_from import changed_since_run, review_reopened_since_run
 from assignment.utils import convert_keys_to_camel_case
@@ -220,7 +224,9 @@ def _stale(market: Market, changed: Optional[Sequence[str]]) -> bool:
     return False
 
 
-def allocation(market: Market, *, changed: Optional[Sequence[str]] = None) -> Allocation:
+def allocation(
+    market: Market, *, changed: Optional[Sequence[str]] = None, judge_stale: bool = True,
+) -> Allocation:
     """Where the market's table allocation stands.
 
     With results published, ``published`` while the stored ``revision`` is the one Publish results
@@ -229,6 +235,11 @@ def allocation(market: Market, *, changed: Optional[Sequence[str]] = None) -> Al
     ``state_of``: ``none`` and ``pinned`` as stored, and a run ``stale`` or ``current`` as
     ``_stale`` judges it. ``changed`` is ``changed_since_run(market)`` when the caller has it, so a
     read in ``assignment`` reads the approved applications once.
+
+    ``judge_stale`` false reads a run as ``current`` without asking whether it is out of date: for
+    a reader that asks only whether results are out or whether a run is stored, which staleness
+    never changes. It reads neither the phase nor the approved applications, so the guards, whose
+    verdicts must not depend on the phase they are asked in, read it so.
     """
     assignment_object = market.assignment_object
     if market.results_published:
@@ -241,9 +252,101 @@ def allocation(market: Market, *, changed: Optional[Sequence[str]] = None) -> Al
         return Allocation.NONE
     if state is AssignmentState.PINNED:
         return Allocation.PINNED
-    return Allocation.STALE if _stale(market, changed) else Allocation.CURRENT
+    if judge_stale and _stale(market, changed):
+        return Allocation.STALE
+    return Allocation.CURRENT
 
 
 def results_out(standing: Allocation) -> bool:
     """Whether results are published, as the assignment's own refusals ask it."""
     return standing in (Allocation.PUBLISHED, Allocation.CHANGED_SINCE_PUBLISHED)
+
+
+def results_published(market: Market) -> bool:
+    """Whether results are published, as the assignment's own refusals ask it: ``results_out`` of
+    the allocation, which never needs its staleness judged.
+
+    The applicant-facing reads ask the stored flag instead (``market_documents.results_are_out``):
+    they ask whether applicants were told, not where the allocation stands.
+    """
+    return results_out(allocation(market, judge_stale=False))
+
+
+ALREADY_PUBLISHED = "Results are already published."
+PUBLISHED_IN_ASSIGNMENT = (
+    "Results are published once tables have been allocated, so each applicant is told whether "
+    "they have a table."
+)
+NOTHING_ALLOCATED = "Allocate tables first: results tell each applicant whether they have a table."
+PINS_ONLY = (
+    "Only tables assigned by hand are stored. Allocate tables first: allocating keeps them and "
+    "assigns every other approved vendor, so each applicant is told whether they have a table."
+)
+OUT_OF_DATE = (
+    "The table allocation is out of date. Allocate tables again before publishing, so applicants "
+    "are told what the market will hold."
+)
+NOBODY_HAS_A_TABLE = (
+    "Nobody has a table in this allocation, so every applicant would read that they did not get "
+    "one. Allocate tables again, or assign tables, before publishing."
+)
+
+
+def publish_refusal(market: Market) -> Optional[str]:
+    """Why results cannot be published now, or None while they can (E36/F04/S01, T316).
+
+    Results wait for a table allocation that was run and is current, in ``assignment``, so every
+    applicant is told what the market will hold. Tables assigned by hand alone are no allocation:
+    publishing them told every other approved vendor they had no table, though the solver never
+    ran (T277). A run freed down to no row is refused too, since it would tell every applicant no.
+    """
+    standing = allocation(market)
+    if results_out(standing):
+        return ALREADY_PUBLISHED
+    if market.phase is not MarketPhase.ASSIGNMENT:
+        return PUBLISHED_IN_ASSIGNMENT
+    if standing is Allocation.NONE:
+        return NOTHING_ALLOCATED
+    if standing is Allocation.PINNED:
+        return PINS_ONLY
+    if standing is Allocation.STALE:
+        return OUT_OF_DATE
+    if not market.assignment_object.vendor_assignments:
+        return NOBODY_HAS_A_TABLE
+    return None
+
+
+def may_publish(market: Market) -> bool:
+    """Whether Publish results would be taken now: ``publish_refusal`` has nothing to say."""
+    return publish_refusal(market) is None
+
+
+def may_go_live(market: Market) -> bool:
+    """Whether the assignment lets the market reach its market days: results are out, on at least
+    one stored row. The ``market_days`` entry invariants keep one guard per condition, so the rail
+    names the one that stands; together they pass exactly when this holds."""
+    return results_published(market) and bool(market.assignment_object.vendor_assignments)
+
+
+def publish(document: Mapping[str, Any]) -> None:
+    """Publish results' write: ``resultsPublished`` set, and ``publishedRevision`` set to the
+    assignment ``revision`` it stood on, so a change by hand after it reads as
+    ``changed_since_published``.
+
+    ``document`` is the market as the caller read and judged it (``publish_refusal``). The write
+    holds what that read (T207): the phase, since Back to review checks the flag and then moves
+    it, and the flag against a second publish, so two requests in flight together never leave the
+    review open on published results; and the assignment's revision, so an allocation stored after
+    this one was judged refuses the publish rather than be published unjudged. A market whose
+    assignment never stored a revision stood on 0, as the model reads it.
+
+    Raises:
+        MarketChanged: the market changed since it was read; nothing was stored.
+    """
+    assignment_key = market_doc_key("assignment_object")
+    revision = (document.get(assignment_key) or {}).get("revision") or 0
+    results_key = market_doc_key("results_published")
+    write_market(document, {"$set": {
+        results_key: True,
+        f"{assignment_key}.publishedRevision": revision,
+    }}, holds=(results_key, f"{assignment_key}.revision"))

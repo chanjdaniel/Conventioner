@@ -329,7 +329,7 @@ def _why_the_review_is_closed(market: Market) -> Optional[str]:
     """
     if review_is_open(market.phase):
         return None
-    if market.results_published:
+    if Lifecycle.results_published(market):
         return "published"
     if market.phase is MarketPhase.ASSIGNMENT:
         return "allocating"
@@ -480,7 +480,7 @@ def assignment_rules_lock_reason(market: Market) -> Optional[str]:
         return ARCHIVED_REFUSAL
     if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is None:
         return ASSIGNMENT_RULES_SETTLED
-    if market.results_published:
+    if Lifecycle.results_published(market):
         return ASSIGNMENT_RULES_PUBLISHED
     return None
 

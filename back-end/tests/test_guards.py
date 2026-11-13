@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
-from conftest import complete_setup, review_setup_decided
+from conftest import assignment_object, complete_setup, review_setup_decided
 
 import guards
 from datatypes import (
@@ -18,6 +18,7 @@ from datatypes import (
 )
 from guards import (
     AllApplicationsReviewedGuard,
+    AssignmentComputedGuard,
     AssignmentNotBeforeReviewGuard,
     NoAskedForTierWithoutTablesGuard,
     NoOrphanedPinGuard,
@@ -818,6 +819,80 @@ class TestBackToReview:
 
         assert guard.id == "results_not_published"
         assert guard.description
+
+
+class TestAssignmentComputedGuard:
+    """A market goes live only on a table allocation that placed someone (T316, T277 ticket 03).
+
+    Tables assigned by hand alone are no allocation: going live on them told every other approved
+    vendor they had no table, though the solver never ran.
+    """
+
+    NOTHING = (
+        "No tables have been allocated for this market, so its vendor page could not tell anyone "
+        "where to stand. Allocate tables first."
+    )
+    PINS_ONLY = (
+        "Only tables assigned by hand are stored, so every other approved vendor would read that "
+        "they did not get one. Allocate tables first: allocating keeps the tables you assigned."
+    )
+    RUN = {"rules": "r", "plan": "p", "applications": "a", "review": "1"}
+
+    @staticmethod
+    def _seat(hand_placed=False):
+        return VendorAssignmentResult(
+            email="ana@example.com", date="2026-08-01", table_code="A 1",
+            table_choice="Full Table", section="A", tier="Gold", location="Hall",
+            hand_placed=hand_placed)
+
+    def _evaluate(self, assignment, **overrides):
+        return AssignmentComputedGuard().evaluate(_make_market(
+            phase=MarketPhase.ASSIGNMENT, assignment_object=assignment, **overrides), None)
+
+    def _refused(self, result, message):
+        assert not result.passed
+        assert result.id == "assignment_computed"
+        assert result.message == message
+        assert (result.resolution_link, result.resolution_label, result.resolution_action) == (
+            "settings", "Allocate tables", "assign")
+
+    def test_nothing_allocated_is_refused_in_words(self):
+        self._refused(self._evaluate(assignment_object("none")), self.NOTHING)
+
+    def test_tables_assigned_by_hand_alone_are_refused_in_words(self):
+        pinned = assignment_object("pinned", [self._seat(hand_placed=True)])
+
+        self._refused(self._evaluate(pinned), self.PINS_ONLY)
+
+    def test_a_run_passes(self):
+        assert self._evaluate(assignment_object("run", [self._seat()], made_from=self.RUN)).passed
+
+    def test_a_run_edited_by_hand_passes(self):
+        edited = assignment_object(
+            "run", [self._seat(hand_placed=True)], made_from=self.RUN)
+
+        assert self._evaluate(edited).passed
+
+    def test_a_run_freed_down_to_nobody_is_refused(self):
+        self._refused(
+            self._evaluate(assignment_object("run", made_from=self.RUN)), self.NOTHING)
+
+    def test_a_market_published_before_runs_recorded_their_state_passes(self):
+        """Published on tables assigned by hand before T316: nothing in a running market moves."""
+        published = AssignmentObject(vendor_assignments=[self._seat(hand_placed=True)])
+
+        assert self._evaluate(published, results_published=True).passed
+
+    def test_it_reads_no_application(self, monkeypatch):
+        """Whether the run is out of date is not its question, so it asks the owner without it."""
+        import assignment.made_from as MadeFrom
+
+        def refuse(*_args):
+            raise AssertionError("read the approved applications")
+
+        monkeypatch.setattr(MadeFrom, "approved_solver_vendors", refuse)
+
+        assert self._evaluate(assignment_object("run", [self._seat()], made_from=self.RUN)).passed
 
 
 class TestAssignmentNotBeforeReviewGuard:

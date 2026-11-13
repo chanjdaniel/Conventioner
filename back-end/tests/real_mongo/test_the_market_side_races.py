@@ -86,7 +86,7 @@ class TestBackToReviewAgainstPublishResults:
     refused, and the market never stands in the review with its results published (T207)."""
 
     @pytest.fixture
-    def publishable(self, real_db, signed_in, market_in):
+    def publishable(self, real_db, signed_in, market_in, allocated):
         """A market in Assignment whose allocation Publish results takes, and its document as
         both requests read it."""
         signed_in(OWNER)
@@ -95,12 +95,11 @@ class TestBackToReviewAgainstPublishResults:
             market = market_in(
                 MarketPhase.ASSIGNMENT, intakeMode="form",
                 phaseHistory=_history(MarketPhase.DRAFT, MarketPhase.APPLICATIONS,
-                                      MarketPhase.ASSIGNMENT),
-                assignmentObject={"vendorAssignments": [
-                    {"email": "vendor-1@example.com", "date": "2026-12-05", "tableCode": "A1",
-                     "tableChoice": "Full Table", "section": "Main Hall", "tier": "Gold",
-                     "location": "Hall", "handPlaced": False}],
-                    "assignmentStatistics": None, "revision": 1})
+                                      MarketPhase.ASSIGNMENT))
+            allocated(market, [
+                {"email": "vendor-1@example.com", "date": "2026-12-05", "tableCode": "A1",
+                 "tableChoice": "Full Table", "section": "Main Hall", "tier": "Gold",
+                 "location": "Hall", "handPlaced": False}])
             return market["id"], _stored(real_db, market["id"])
         return make
 
@@ -171,6 +170,8 @@ class TestBackToReviewAgainstPublishResults:
                 assert published == ({"results_published": True}, 200)
                 assert stored["phase"] == MarketPhase.ASSIGNMENT.value
                 assert stored["resultsPublished"] is True
+                # On the revision the allocation it judged stood at (T316).
+                assert stored["assignmentObject"]["publishedRevision"] == 1
                 assert first in (None, "publish")
 
 

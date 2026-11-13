@@ -1056,6 +1056,20 @@ def stored_assignment(
     return document
 
 
+def made_from_now(doc: dict) -> dict:
+    """What a run made now on the market ``doc`` would record (``made_from.fingerprint``): its
+    rules, its plan, its approved applications as the applications fake holds them, and its
+    review. A ``stored_assignment("run", ...)`` made from it reads as current until one changes."""
+    import assignment.made_from as MadeFrom
+    from essential_fields import effective_essential_options_for_market
+    from market_documents import market_from_document
+
+    market = market_from_document(doc)
+    vendors, _incomplete = MadeFrom.approved_solver_vendors(
+        market.id, effective_essential_options_for_market(market))
+    return MadeFrom.fingerprint(market.setup_object, vendors, market.phase_history)
+
+
 def assignment_object(*args, **kwargs) -> AssignmentObject:
     """``stored_assignment``'s twin as the model, for ``client_market``; refuses what it refuses."""
     from assignment.utils import convert_keys_to_snake_case

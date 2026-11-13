@@ -29,11 +29,6 @@ def _seat(email, table_code):
             "section": "Main Hall", "tier": "Gold", "location": "Main Hall", "handPlaced": False}
 
 
-def _allocated(*seats):
-    """An assignment as stored after one run: the seats given, at revision 1."""
-    return {"vendorAssignments": list(seats), "assignmentStatistics": None, "revision": 1}
-
-
 def _applied(applications, market, *emails):
     for email in emails:
         applications.insert_one(Application(
@@ -53,10 +48,11 @@ def _assignment_left_as(real_db, market, assignment):
 
 class TestAllocateTables:
     def test_is_refused_when_results_were_published_before_its_allocation_landed(
-            self, signed_in, market_in, interleave, monkeypatch, real_db, market_records):
+            self, signed_in, market_in, allocated, interleave, monkeypatch, real_db,
+            market_records):
         client = signed_in(ORGANIZER)
-        assignment = _allocated(_seat(SEATED, FIRST))
-        market = market_in(MarketPhase.ASSIGNMENT, intakeMode="form", assignmentObject=assignment)
+        market = market_in(MarketPhase.ASSIGNMENT, intakeMode="form")
+        assignment = allocated(market, [_seat(SEATED, FIRST)])
         monkeypatch.setattr("api.placements.solver_vendors_for", lambda _market: [a_solver_vendor(
             "app-2", email=OTHER, available_dates=frozenset({DATE}),
             accepted_tiers_by_date={DATE: frozenset({"Gold"})})])
@@ -77,10 +73,11 @@ class TestAllocateTables:
 
 class TestAHandPlacement:
     def test_is_refused_when_the_market_was_archived_before_it_landed(
-            self, signed_in, market_in, interleave, applications, real_db, market_records):
+            self, signed_in, market_in, allocated, interleave, applications, real_db,
+            market_records):
         client = signed_in(ORGANIZER)
-        assignment = _allocated(_seat(SEATED, FIRST))
-        market = market_in(MarketPhase.MARKET_DAYS, assignmentObject=assignment)
+        market = market_in(MarketPhase.MARKET_DAYS)
+        assignment = allocated(market, [_seat(SEATED, FIRST)])
         _applied(applications, market, SEATED, OTHER)
         interleave("api.placements._applicant_address", _move(market, MarketPhase.ARCHIVED))
 
@@ -96,10 +93,11 @@ class TestAHandPlacement:
 
 class TestAFree:
     def test_is_refused_when_the_market_was_archived_before_it_landed(
-            self, signed_in, market_in, interleave, applications, real_db, market_records):
+            self, signed_in, market_in, allocated, interleave, applications, real_db,
+            market_records):
         client = signed_in(ORGANIZER)
-        assignment = _allocated(_seat(SEATED, FIRST))
-        market = market_in(MarketPhase.MARKET_DAYS, assignmentObject=assignment)
+        market = market_in(MarketPhase.MARKET_DAYS)
+        assignment = allocated(market, [_seat(SEATED, FIRST)])
         _applied(applications, market, SEATED)
         interleave("api.payments.keep_freed_line", _move(market, MarketPhase.ARCHIVED))
 
@@ -115,10 +113,11 @@ class TestAFree:
 
 class TestASwap:
     def test_is_refused_when_the_market_was_archived_before_it_landed(
-            self, signed_in, market_in, interleave, applications, real_db, market_records):
+            self, signed_in, market_in, allocated, interleave, applications, real_db,
+            market_records):
         client = signed_in(ORGANIZER)
-        assignment = _allocated(_seat(SEATED, FIRST), _seat(OTHER, SECOND))
-        market = market_in(MarketPhase.MARKET_DAYS, assignmentObject=assignment)
+        market = market_in(MarketPhase.MARKET_DAYS)
+        assignment = allocated(market, [_seat(SEATED, FIRST), _seat(OTHER, SECOND)])
         _applied(applications, market, SEATED, OTHER)
         interleave("api.placements._applicant_address", _move(market, MarketPhase.ARCHIVED))
 

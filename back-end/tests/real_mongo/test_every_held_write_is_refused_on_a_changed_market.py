@@ -46,11 +46,10 @@ def _allocated(email):
 
 class TestPublishResults:
     def test_is_refused_when_another_allocation_was_stored_after_it_judged_the_one_it_read(
-            self, signed_in, market_in, interleave, real_db, market_records):
+            self, signed_in, market_in, allocated, interleave, real_db, market_records):
         client = signed_in(ORGANIZER)
-        market = market_in(MarketPhase.ASSIGNMENT, intakeMode="form", assignmentObject={
-            "vendorAssignments": [_allocated("vendor-1@example.com")],
-            "assignmentStatistics": None, "revision": 1})
+        market = market_in(MarketPhase.ASSIGNMENT, intakeMode="form")
+        allocated(market, [_allocated("vendor-1@example.com")])
         rerun = [VendorAssignmentResult(
             email="vendor-2@example.com", date="2026-12-05", table_code="A1",
             table_choice="Full Table", section="Main Hall", tier="Gold", location="Hall")]
