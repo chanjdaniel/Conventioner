@@ -31,6 +31,7 @@ sources:
   - T263
   - T270
   - T201
+  - T315
 ---
 
 # Payments, and what a vendor owes
@@ -187,6 +188,7 @@ Every amount, on screen and in the file, reads to the cent, pinned on both sides
 
 The front end words the account in [`front-end/src/utils/payments.ts`](../../../front-end/src/utils/payments.ts) ("Owes $27.00", "Paid in full", "Paid $15.00 more than owed", "Nothing owed"; on a market with no prices a payment by someone owing nothing reads "Paid $35.00"), tones its chip with `balanceChip` for the tab and the Payments page alike, and shows it in [`VendorPaymentTab.vue`](../../../front-end/src/components/VendorPaymentTab.vue).
 A payment, a refund and an edit go through [`RecordPaymentDialog.vue`](../../../front-end/src/components/RecordPaymentDialog.vue), an amount owed through [`ChangeOwedDialog.vue`](../../../front-end/src/components/ChangeOwedDialog.vue), which says the change before "Set amount owed", and "Use the calculated price" and a removal through a confirmation; each line's and each entry's actions sit behind a "..." menu ([`RowMenu.vue`](../../../front-end/src/components/RowMenu.vue)), offered on its row's answer.
+The tab teleports the three dialogs to the body, so each opens centred on the window over the drawer, which stays behind it, inert, and Escape closes the dialog alone ([dialogs](../conventions/dialogs.md#the-rules)).
 Both dialogs' amount fields are amount fields as [an amount reads to the cent](../../business/rules/an-amount-reads-to-the-cent.md#an-amount-field) says, through `useAmountField` in [`front-end/src/utils/useAmountField.ts`](../../../front-end/src/utils/useAmountField.ts): left, "$35.00" in the account's currency (`currencyOf`, Canadian dollars where the market sets no prices), focused, "35.00"; an edit opens on the entry's amount and an amount owed on the line's, "$0.00" where none is set.
 
 ## How it is tested
@@ -199,7 +201,7 @@ Both dialogs' amount fields are amount fields as [an amount reads to the cent](.
 - `back-end/tests/test_one_record_for_a_vendors_day.py`: the boot builds the owed index and refuses on duplicates, naming them without an address, and the check before a release reads `amounts_owed` beside `attendance`.
 - `back-end/tests/test_the_exports_money_columns.py`: `accounts` answers each vendor as `vendor_account` does, `balance_state` sorts five vendors into owing, paid in full, paid more and none, a market with no prices offers no payment state and ignores a payment filter where nobody owes, and offers and applies them where an amount was set by hand or a refund went beyond what was paid, `money_text` writes every offered currency as the screen does, and `money_cell` writes no amount a spreadsheet reads as a formula.
 - `front-end/src/__tests__/payments.test.ts`, `vendorPaymentTab.test.ts` and `placementDialog.test.ts` (the question, unticked); `aPaymentIsRecordedOncePerPress.test.ts`: the same key on a second press after a lost answer, for a payment and a refund, a new key on a new opening, none on an edit, and a 409's account shown behind the dialog, its refusal kept; `paymentAmountFields.test.ts`: each dialog's amount field focused, typed, left, refocused, refused and left, cleared, and an edit's or an amount owed's fill.
-- `front-end/e2e/the-payment-tab.spec.ts`: two Gold full days owe $70, $35 reads "Owes $35.00", $35 more "Paid in full", a freed day keeps its line; "35" typed reads "$35.00" once left and "35.00" focused again, "3x" keeps its error; a Viewer reads the tab with no "Record payment".
+- `front-end/e2e/the-payment-tab.spec.ts`: two Gold full days owe $70, $35 reads "Owes $35.00", $35 more "Paid in full", a freed day keeps its line; "35" typed reads "$35.00" once left and "35.00" focused again, "3x" keeps its error; Record payment, Change owed and a removal's confirmation each centred across the window at 390 and 1440, Record payment's and Change owed's tops held 48px down and the confirmation centred down, the drawer inert behind each, and Escape closing it alone with focus back on what opened it; a Viewer reads the tab with no "Record payment".
   `changing-owed-and-paid.spec.ts`: an Admin sets a $35 line to $0 and back, the field opening on "35.00" and reading "$0.00" once left; frees a paid $15 seat ticked, reads "Paid $15.00 more than owed", records a $15 refund and reads "Paid in full", and finds each change in the drawer's History with who and when; unticked, the line stays $15 owed.
   An Editor freeing the owed seat is asked nothing, its page never reads the account (`mayTake(ChangeOwed)` in `ResultView.vue`), and the line stays $15 owed.
   `exporting-a-payment-reminder.spec.ts` checks the export's "Owes" against the Payments page's "Owes" list too.

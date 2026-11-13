@@ -186,8 +186,8 @@ cd front-end
 npm run test:unit
 ```
 
-Tests cover the API client (it sends credentials and attaches no request interceptor, so no
-identity can be smuggled onto a request) and
+Tests cover the API client (it sends credentials, attaches no request interceptor and adds no
+request transformer but the size refusal, so no identity can be smuggled onto a request) and
 `parseMarketFromApi()` (`market.test.ts`), which keeps everything the server sends about a
 market - the phase, the application form, the intake mode, the form lock and every key of the
 plan, `floorplans` included - since every screen reads the parsed market and the plan's autosave

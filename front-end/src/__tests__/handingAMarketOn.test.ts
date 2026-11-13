@@ -1,8 +1,8 @@
 /**
- * A market's Owner hands the market on from Manage market (T283).
+ * A market's Owner transfers its ownership from Manage market (T283, T315).
  *
- * "Hand this market on" stands for whoever the table lets take its row, the Owner alone by its fixed
- * default, between "Rename market" and "Delete market". Its "Hand on" opens a destructive dialog
+ * "Transfer ownership" stands for whoever the table lets take its row, the Owner alone by its fixed
+ * default, between "Rename market" and "Delete market". Its button opens a destructive dialog
  * whose picker offers everyone with access but the Owner, found by address, and says what the other
  * person gains and what the Owner keeps once one is chosen. Confirmed, it sends one request, closes,
  * re-reads the market, so the section goes and Users with access shows both new roles, and puts
@@ -88,8 +88,9 @@ const allByTestId = (id: string) => [
 const MARKET_CHANGED =
   'This market changed while you were working on it, so your change was not saved. ' +
   'Reload to see the latest, then make your change again.';
-const ONLY_THE_OWNER = "Only the market's owner may hand this market on to someone else.";
-const NO_ACCESS = 'You can hand this market only to someone who has access to it.';
+const ONLY_THE_OWNER =
+  "Only the market's owner may transfer this market's ownership to someone else.";
+const NO_ACCESS = 'You can transfer ownership only to someone who has access to this market.';
 const text = (id: string) => byTestId(id)?.textContent?.replace(/\s+/g, ' ').trim();
 
 function refusing(status: number, data: Record<string, string>): AxiosError {
@@ -152,13 +153,13 @@ describe('handing a market on', () => {
     const wrapper = await open();
 
     const headings = [...document.body.querySelectorAll('h3')].map((h) => h.textContent?.trim());
-    const at = headings.indexOf('Hand this market on');
+    const at = headings.indexOf('Transfer ownership');
     expect(headings[at - 1]).toBe('Rename market');
     expect(headings[at + 1]).toBe('Delete market');
     expect(text('manage-market-hand-on-line')).toBe(
       'Make someone with access its Owner. You stay on it as an Admin.',
     );
-    expect(text('manage-market-hand-on-button')).toBe('Hand on');
+    expect(text('manage-market-hand-on-button')).toBe('Transfer ownership');
     expect(byTestId('manage-market-hand-on-button')!.className).toContain('btn--secondary');
     wrapper.unmount();
   });
@@ -200,11 +201,11 @@ describe('handing a market on', () => {
     await openTheDialog();
 
     expect(byTestId('hand-on-market-window')!.getAttribute('aria-label')).toBe(
-      'Hand Spring Market on',
+      'Transfer ownership of Spring Market',
     );
     const label = document.body.querySelector(`label[for="${field().id}"]`);
     expect(label?.textContent?.trim()).toBe('New owner');
-    expect(submit().textContent?.trim()).toBe('Hand on');
+    expect(submit().textContent?.trim()).toBe('Transfer ownership');
     expect(submit().className).toContain('btn--destructive');
     expect(submit().disabled).toBe(true);
     expect(byTestId('hand-on-market-consequence')).toBeNull();
@@ -313,6 +314,21 @@ describe('handing a market on', () => {
     expect(text('hand-on-market-consequence')).toContain('admin@example.com becomes its Owner');
     expect(submit().disabled).toBe(false);
     expect(api.get.mock.calls.length).toBe(reads);
+    wrapper.unmount();
+  });
+
+  it('says ownership was not transferred when a refusal carries no sentence', async () => {
+    const wrapper = await open();
+    await openTheDialog();
+    await choose('admin@example.com');
+    api.post.mockRejectedValue(refusing(400, {}));
+
+    submit().click();
+    await flushPromises();
+
+    expect(byTestId('hand-on-market-window')!.textContent).toContain(
+      'Ownership was not transferred.',
+    );
     wrapper.unmount();
   });
 

@@ -99,6 +99,22 @@ function at(path: (seed: TheScreensSeed) => string, ready: string, ...then: [str
   };
 }
 
+/**
+ * The form tab paints the copy the market holds while it reads the server's, under "Loading the
+ * application form...": a moment nobody stays on, so a state on a form step waits for the read.
+ */
+const formRead = (page: Page) =>
+  expect(page.getByTestId('form-builder-loading')).toBeHidden({ timeout: 15000 });
+
+/** `at` on a form step, once the form's own read has answered. */
+function formAt(...args: Parameters<typeof at>) {
+  const open = at(...args);
+  return async (page: Page, seed: TheScreensSeed) => {
+    await open(page, seed);
+    await formRead(page);
+  };
+}
+
 /** Markets, in a browser that remembers `id` as the market it opened last (E21/F02/S05). */
 async function openRemembering(page: Page, id: string, ready: string) {
   await page.goto('/markets');
@@ -135,6 +151,7 @@ function landedFromAFile(market: keyof TheScreensSeed) {
     );
     await page.reload();
     await visible(page, 'drafted-from');
+    await formRead(page);
   };
 }
 
@@ -626,7 +643,7 @@ export const SCREENS: Screen[] = [
     name: 'a draft, its form',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('draft', 'form'), 'form-steps'),
+    open: formAt(setup('draft', 'form'), 'form-steps'),
   },
   {
     name: 'a draft, its applications',
@@ -793,7 +810,7 @@ export const SCREENS: Screen[] = [
     name: 'applications open, the form locked',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('open', 'form'), 'form-steps'),
+    open: formAt(setup('open', 'form'), 'form-steps'),
   },
   {
     name: 'not taking applications',
@@ -1513,7 +1530,10 @@ export const SCREENS: Screen[] = [
     name: `market days, the form, ${step}`,
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('big', 'form'), 'form-steps', [`form-step-${step}`, `form-step-body-${step}`]),
+    open: formAt(setup('big', 'form'), 'form-steps', [
+      `form-step-${step}`,
+      `form-step-body-${step}`,
+    ]),
   })),
   {
     name: 'market days, the applications',

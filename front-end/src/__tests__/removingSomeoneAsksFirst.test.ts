@@ -395,7 +395,7 @@ describe('Manage organization asks before it removes', () => {
 
   it('keeps any other refusal, a 400, in the confirmation with Remove enabled again', async () => {
     api.delete.mockRejectedValue(
-      refusing(400, 'Cannot remove organization owner. Transfer ownership first.'),
+      refusing(400, "They own this organization, so they can't be removed from it."),
     );
     const wrapper = mountDialog();
     await flushPromises();
@@ -406,7 +406,7 @@ describe('Manage organization asks before it removes', () => {
     await flushPromises();
 
     expect(byTestId('manage-org-remove-error')?.textContent?.trim()).toBe(
-      'Cannot remove organization owner. Transfer ownership first.',
+      "They own this organization, so they can't be removed from it.",
     );
     expect(byTestId('manage-org-member-email')).not.toBeNull();
     const submit = byTestId('manage-org-remove-submit-button')!;
@@ -611,7 +611,7 @@ describe('Manage market asks before it removes', () => {
 
   it('keeps any other refusal, a 400, in the confirmation with Remove enabled again', async () => {
     api.delete.mockRejectedValue(
-      refusing(400, 'Cannot remove the only owner. Transfer ownership first.'),
+      refusing(400, "The market's only Owner can't be removed. Transfer ownership first."),
     );
     const wrapper = await open([person()]);
 
@@ -621,7 +621,7 @@ describe('Manage market asks before it removes', () => {
     await flushPromises();
 
     expect(byTestId('manage-market-remove-error')?.textContent?.trim()).toBe(
-      'Cannot remove the only owner. Transfer ownership first.',
+      "The market's only Owner can't be removed. Transfer ownership first.",
     );
     expect(document.body.textContent).toContain(EMAIL);
     const submit = byTestId('manage-market-remove-submit-button')!;

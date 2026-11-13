@@ -104,7 +104,7 @@ def test_an_organization_member_still_only_reads():
 
 @pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN])
 def test_an_organization_admin_is_not_the_market_owner(who):
-    """Deleting the market and handing over its ownership stay with the one person who owns it."""
+    """Deleting the market and transferring its ownership stay with the one person who owns it."""
     assert not PermissionsApi.user_has_permission(
         who, market(), MarketRole.OWNER, organization()
     )

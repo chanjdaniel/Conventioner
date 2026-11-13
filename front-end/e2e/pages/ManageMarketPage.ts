@@ -40,7 +40,7 @@ export class ManageMarketPage {
   readonly renameInput: Locator;
   readonly renameSaveButton: Locator;
   readonly deleteButton: Locator;
-  /** "Hand this market on" (T283): the section, its line or the line saying nobody else has access,
+  /** "Transfer ownership" (T283): the section, its line or the line saying nobody else has access,
    *  its button, and the dialog it opens with its picker. */
   readonly handOnSection: Locator;
   readonly handOnLine: Locator;

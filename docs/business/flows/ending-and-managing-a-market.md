@@ -47,16 +47,17 @@ sources:
   - T274
   - T273
   - T283
+  - T315
 ---
 
 # Ending and managing a market
 
-**Who:** the market's Admin or owner archives it and manages who has access; only the owner deletes it, hands it on and changes who may do what; everyone who may read the market opens Manage market and reads it ([what each role may do](../rules/what-each-role-may-do.md)).
-**Where they start:** the phase rail, to archive; the Markets list's "Manage", to manage, set who may do what, read the history, rename, hand on or delete ([finding a market](finding-a-market.md#c2-the-markets-list)).
+**Who:** the market's Admin or owner archives it and manages who has access; only the owner deletes it, transfers its ownership and changes who may do what; everyone who may read the market opens Manage market and reads it ([what each role may do](../rules/what-each-role-may-do.md)).
+**Where they start:** the phase rail, to archive; the Markets list's "Manage", to manage, set who may do what, read the history, rename, transfer ownership or delete ([finding a market](finding-a-market.md#c2-the-markets-list)).
 **Serves:** [The door on market day](../intents/the-door-on-market-day.md) and [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 A market ends by being archived, after its market days or before it ever runs, or it is deleted outright.
-Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds, in order, its people ("Users with access"), who may do what, its history ("History", [reading the market's history](reading-the-markets-history.md)), its organization, its name, handing it on and its deletion.
+Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds, in order, its people ("Users with access"), who may do what, its history ("History", [reading the market's history](reading-the-markets-history.md)), its organization, its name, transferring its ownership and its deletion.
 It opens from `/markets`, which fits a phone (T142), so on a phone it opens inside the window like every [dialog](../../implementation/conventions/dialogs.md), and its history's before-and-after table wraps its cells within the dialog's width rather than widening it.
 Only its body scrolls, so its title and close stay in view however long the people and the history run.
 On a phone each person under "Users with access" puts their address on a line of its own, with their role and Remove beneath it, so a long address is not squeezed into a narrow column; a market role the organization's makes add nothing is said on a line of its own beneath those, with its Remove beneath that line at the start, where every other row's Remove sits.
@@ -146,7 +147,7 @@ Covered by:
 - [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge)
 - `manageMarketMeetsAChangedMarket.test.ts` (a role's add, change and take refused over a changed market)
 - [`people-at-scale-market.spec.ts`](../../../front-end/e2e/people-at-scale-market.spec.ts) (the list at 154 people: a page at a time, finding one person, the place kept, someone just added; on a phone at 390 and 320)
-- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390)
+- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390; at 390 the address in Remove's and a role change's title broken only before its "@" or a dot)
 - `the-manage-market-dialog-holds-together.spec.ts`
 - `tier2.spec.ts` ("add user, change role, and remove user from market")
 
@@ -157,7 +158,7 @@ Covered by:
 1. "Permissions", after "Users with access", is a heading, the line "Who may do what on this market." with "Every row is at its built-in default." or how many rows differ from the built-in defaults, and "Show", which opens the rows in a dialog of their own over Manage market, so reading them never grows it (T217).
 2. The dialog, "Permissions", is at most 80% of the window at a desk, and the window less the gutter on a phone or in a short window; its title stays as its rows and changes scroll, and it lists every row of [the market's table](../../implementation/modules/market-actions.md#a-markets-own-rows) under its group, in the table's order: its label, where its role came from ("Built-in default", "Copied from the organization" for a row its organization's default set ([B8](organizations.md#b8-set-the-default-permissions-for-new-markets)), or "Changed on this market by <address>, <when>", from the row's newest change), and its role as "Viewer and above", "Editor and above", "Admin and above" or "Owner only".
    A group's title sits nearer its own rows than the group above, at a desk and on a phone (T211), and Manage organization's default permissions read the same.
-3. For the owner each row that is not fixed is a dropdown of those four, named by the row's label, whose arrow keys open its list rather than step it, since each step would be a change to confirm; a fixed row ("Read the market...", "Give and take Admin roles", "Hand the market on", "Delete the market", "Change this table") states its role with "Always" and no control.
+3. For the owner each row that is not fixed is a dropdown of those four, named by the row's label, whose arrow keys open its list rather than step it, since each step would be a change to confirm; a fixed row ("Read the market...", "Give and take Admin roles", "Transfer ownership", "Delete the market", "Change this table") states its role with "Always" and no control.
    "Give and take Editor and Viewer roles" says beside it that at "Viewer and above" any Viewer can make themself an Editor, since one row asks for both the role given and the role taken.
 4. Choosing a role asks first, in words naming who may after it and who loses or gains it ("Let only Admins and the owner check vendors in at this market?", "Editors lose this."), and for that row lowered to Viewer adds "A Viewer could then make themself an Editor."; "Change" saves that row alone, Cancel puts the dropdown back, and a refusal is said in the confirmation.
    A change, a reset or a copy over a table that changed since Manage market read it, or a market that moved to another phase, is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers) in its confirmation, and the market is read again, so the rows behind it are the ones stored (T274).
@@ -199,22 +200,23 @@ Covered by:
 - `manageMarketMeetsAChangedMarket.test.ts` (a rename refused over a market that left draft)
 - `public-address.spec.ts`
 
-## L4a. Hand the market on
+## L4a. Transfer ownership
 
 **Status:** Works (T283; driven by `handing-a-market-on.spec.ts` at 1440 and on a phone at 390).
 
-1. "Hand this market on", after "Rename market" and before "Delete market", is the owner's alone, the fixed row "Hand the market on" ([what each role may do](../rules/what-each-role-may-do.md)), in every phase, archived included, since an archived market still needs someone who can delete it.
-   It says "Make someone with access its Owner. You stay on it as an Admin." and offers "Hand on"; with nobody but the owner under "Users with access" it says "Nobody else has access to this market yet. Add someone under Users with access first." and offers nothing.
-2. "Hand on" opens "Hand <market> on", a destructive dialog that opens on Cancel, since the owner cannot take it back themselves ([`HandOnMarketDialog.vue`](../../../front-end/src/components/HandOnMarketDialog.vue)).
+1. "Transfer ownership", after "Rename market" and before "Delete market", is the owner's alone, the fixed row "Transfer ownership" ([what each role may do](../rules/what-each-role-may-do.md)), in every phase, archived included, since an archived market still needs someone who can delete it.
+   It says "Make someone with access its Owner. You stay on it as an Admin." and offers "Transfer ownership"; with nobody but the owner under "Users with access" it says "Nobody else has access to this market yet. Add someone under Users with access first." and offers nothing.
+2. Its button opens "Transfer ownership of <market>", a destructive dialog that opens on Cancel, since the owner cannot take it back themselves ([`HandOnMarketDialog.vue`](../../../front-end/src/components/HandOnMarketDialog.vue)).
    Its picker, "New owner", offers everyone under "Users with access" but the owner, each address with the role that counts beside it ("Admin", "Viewer, through <organization>"), found by any part of the address, at most 50 drawn at a time.
-3. Once someone is chosen it says "<address> becomes its Owner: only they can delete it, give and take Admin roles and change who may do what. You stay on it as an Admin, and cannot take it back yourself."; "Hand on" waits for a choice, and nothing closes the dialog while the request is in flight.
-4. "Hand on" makes that person the Owner and the owner an Admin in one write (`POST /markets/:id/hand-on`), and [the market's history](../../implementation/data/history.md) records it: "<owner> handed the market on to <address>, and stays on it as an Admin".
+3. Once someone is chosen it says "<address> becomes its Owner: only they can delete it, give and take Admin roles and change who may do what. You stay on it as an Admin, and cannot take it back yourself."; its "Transfer ownership" waits for a choice, and nothing closes the dialog while the request is in flight.
+4. "Transfer ownership" makes that person the Owner and the owner an Admin in one write (`POST /markets/:id/hand-on`), and [the market's history](../../implementation/data/history.md) records it: "<owner> transferred ownership of the market to <address>, and stays on it as an Admin", entries recorded before T315 included.
    The dialog closes, the market is re-read, so the section and "Delete market" go and "Users with access" shows both new roles, the market open in the store is re-read when it is this one, and focus goes to "Users with access".
 5. A refusal stays in the dialog with the choice, and choosing someone else lets it go.
-   Someone who no longer has access is refused "You can hand this market only to someone who has access to it.", and the market behind it is re-read, so they are offered no more and the field waits for another choice.
-   A hand-on over a market whose owner or the person chosen changed role meanwhile, a second hand-on from another tab among them, is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers), the market behind it re-read.
+   A refusal that carries no sentence of its own reads "Ownership was not transferred.".
+   Someone who no longer has access is refused "You can transfer ownership only to someone who has access to this market.", and the market behind it is re-read, so they are offered no more and the field waits for another choice.
+   A transfer over a market whose owner or the person chosen changed role meanwhile, a second transfer from another tab among them, is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers), the market behind it re-read.
 
-The new Owner, signing in, finds "Delete market" and "Hand this market on" theirs.
+The new Owner, signing in, finds "Delete market" and "Transfer ownership" theirs.
 Covered by:
 
 - [`handing-a-market-on.spec.ts`](../../../front-end/e2e/handing-a-market-on.spec.ts) (the section, the dialog's words and picker, the write, where focus goes, the History's sentence and the new Owner's Manage market, at 1440 and on a phone at 390)
@@ -233,7 +235,7 @@ Covered by:
 
 ## The rules it obeys
 
-- [An archived market is read-only](../rules/an-archived-market-is-read-only.md): roles, handing it on and deletion are not changes.
+- [An archived market is read-only](../rules/an-archived-market-is-read-only.md): roles, transferring its ownership and deletion are not changes.
 - [An archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md).
 - [What each role may do](../rules/what-each-role-may-do.md).
 - [When an organization may be deleted](../rules/when-an-organization-may-be-deleted.md): the other way a market goes.

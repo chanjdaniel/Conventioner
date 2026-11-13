@@ -6,6 +6,7 @@ import { loginViaApi } from './helpers/seeds';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { uniqueMarketName } from './helpers/uniqueName';
 import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
+import { expectWholeAddress } from './helpers/addressBreaks';
 
 /**
  * Removing someone asks first, and says what they lose (E38/F15/S01).
@@ -271,6 +272,42 @@ test.describe('Removing someone asks first, on a phone', () => {
     await expectInside(manage.removeConfirmButton, 'Remove');
     await manage.removeCancelButton.click();
     await expect(manage.removeConfirm).toHaveCount(0);
+  });
+
+  /*
+   * Each title names an address wider than a phone's line, so it breaks: before its "@" or a dot,
+   * never just after a hyphen, which read "e2e-remove-asks-" and "member@example.com" as two words
+   * (T315). As the phone draws each title, then in a line narrower than the address.
+   */
+  test("each confirmation's title keeps the address whole at its hyphens", async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { orgId, marketName } = await seed(request);
+    const titleOf = (window: Locator) => window.getByRole('heading', { level: 2 });
+
+    const orgs = await openManageOrganization(page, orgId);
+    await memberRow(page, MEMBER).getByTestId('manage-org-remove-member-button').click();
+    await expect(orgs.removeConsequence).toBeVisible();
+    await expectWholeAddress(titleOf(orgs.removeConfirm), MEMBER);
+    await expectWholeAddress(titleOf(orgs.removeConfirm), MEMBER, true);
+    await orgs.removeCancelButton.click();
+    await expect(orgs.removeConfirm).toHaveCount(0);
+
+    const manage = await openManageMarket(page, marketName);
+    await person(page, OUTSIDER).getByTestId('manage-market-remove-user-button').click();
+    await expect(manage.removeConsequence).toBeVisible();
+    await expectWholeAddress(titleOf(manage.removeConfirm), OUTSIDER);
+    await expectWholeAddress(titleOf(manage.removeConfirm), OUTSIDER, true);
+    await manage.removeCancelButton.click();
+    await expect(manage.removeConfirm).toHaveCount(0);
+
+    await person(page, OUTSIDER).getByTestId('manage-market-role-select').selectOption('editor');
+    await expect(manage.roleChangeConfirm).toBeVisible();
+    await expectWholeAddress(titleOf(manage.roleChangeConfirm), OUTSIDER);
+    await expectWholeAddress(titleOf(manage.roleChangeConfirm), OUTSIDER, true);
+    await manage.roleChangeCancelButton.click();
+    await expect(manage.roleChangeConfirm).toHaveCount(0);
   });
 });
 

@@ -6,7 +6,7 @@ import { ref } from 'vue';
 import CsvImportView from '@/views/CsvImportView.vue';
 import StartFromCsvView from '@/views/StartFromCsvView.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
-import { NOT_A_CSV_EXPORT, readCsvFile } from '@/utils/csvFile';
+import { IMPORT_FILE_TOO_LARGE, NOT_A_CSV_EXPORT, readCsvFile as readWith } from '@/utils/csvFile';
 import type { Proposal, ProposedColumn } from '@/utils/csvProposal';
 import { answersRefusing } from './support/servedAnswers';
 
@@ -44,6 +44,9 @@ vi.mock('@/utils/openMarket', () => ({
 function fileOf(content: BlobPart, name = 'responses.csv'): File {
   return new File([content], name, { type: 'text/csv' });
 }
+
+/** Read `file` as the import does; a file too large is `aResponsesFileTooLargeToSend.test.ts`'s. */
+const readCsvFile = (file: File) => readWith(file, IMPORT_FILE_TOO_LARGE);
 
 /** An invented binary: a few format magic bytes, then every byte value once. */
 function generatedBinary(): Uint8Array<ArrayBuffer> {

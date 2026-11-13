@@ -22,6 +22,7 @@ sources:
   - E47/F02/S01
   - T263
   - T283
+  - T315
 ---
 
 # Accounts
@@ -190,7 +191,8 @@ Covered by:
 **Status:** No screen (`POST /delete-user` exists; nothing in the front end calls it).
 
 A person deletes only their own account.
-While they own an organization or a market, it is refused and the refusal names each, so every organization and every market keeps an owner whose account exists: they transfer the organization, and hand the market on or delete it, first ([handing a market on](ending-and-managing-a-market.md#l4a-hand-the-market-on)).
+While they own an organization or a market, it is refused and the refusal names each, so every organization and every market keeps an owner whose account exists: they transfer the organization's ownership, and transfer the market's ownership or delete it, first ([transferring a market's ownership](ending-and-managing-a-market.md#l4a-transfer-ownership)).
+The market's sentence reads "Transfer or delete <market names> before deleting this account.".
 A deleted account leaves every organization it was an admin or a member of; a role it held below Owner on a market stays in that market's roles.
 How the request reads and answers is in [deleting an account](../../implementation/data/users-and-email.md#deleting-an-account).
 

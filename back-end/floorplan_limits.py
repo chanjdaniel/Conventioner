@@ -39,8 +39,8 @@ MAX_SECTIONS = 200
 MAX_TEXT_LENGTH = 200
 MAX_MAGNITUDE = 10_000_000
 #: Vercel's functions refuse a request body over 4.5 MB, multipart overhead included, before Flask
-#: sees it (https://vercel.com/docs/functions/limitations), so an uploaded file is held under that,
-#: and the request around it may carry the form's own bytes beyond the file's.
+#: sees it (``host_limits.MAX_REQUEST_BODY_BYTES``, the back end's own limit too), so an uploaded file
+#: is held under that, and the request around it may carry the form's own bytes beyond the file's.
 MAX_UPLOAD_BYTES = 4_000_000
 UPLOAD_FORM_ALLOWANCE_BYTES = 64_000
 MAX_PDF_PAGES = 20

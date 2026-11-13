@@ -50,7 +50,9 @@ export const readers: HistoryReaders = {
       const { actor, text } = sentence(entry, context);
       return [
         actor,
-        text(`handed the market on to ${str(entry.subject.email)}, and stays on it as an Admin`),
+        text(
+          `transferred ownership of the market to ${str(entry.subject.email)}, and stays on it as an Admin`,
+        ),
       ];
     },
   },

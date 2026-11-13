@@ -32,7 +32,7 @@ import {
   type RowChoice,
 } from '@/utils/csvProposal';
 import { IntakeMode } from '@/assets/types/datatypes';
-import { readCsvFile } from '@/utils/csvFile';
+import { START_FILE_TOO_LARGE, readCsvFile } from '@/utils/csvFile';
 import { draftedFromState } from '@/utils/draftedFrom';
 import { marketPath } from '@/utils/market';
 import { useOpenMarket } from '@/utils/openMarket';
@@ -100,9 +100,12 @@ const planCeiling = computed(
 const columnCount = computed(() => proposal.value?.columns.length ?? 0);
 
 async function acceptFile(file: File) {
-  // The import's own reader: a file that is not a CSV export stops here, on the upload step.
+  // The import's own reader: a file that is not a CSV export, or is too large to send, stops here,
+  // on the upload step.
   readingFile.value = true;
-  const read = await readCsvFile(file).finally(() => (readingFile.value = false));
+  const read = await readCsvFile(file, START_FILE_TOO_LARGE).finally(
+    () => (readingFile.value = false),
+  );
   if ('error' in read) {
     error.value = read.error;
     return;
