@@ -1,0 +1,148 @@
+name: Promote
+
+# `main` moves only through this workflow (docs/adr/0026-main-moves-only-through-promote.md):
+# Daniel starts it by hand, from `dev`, with the full sha of the `dev` commit to promote, in the
+# Actions tab (Promote, Run workflow) or with
+# `gh workflow run promote.yml --ref dev -f commit=<sha>`. A check-only run
+# (`-f check-only=true`) makes every check and mints the App's token, but moves nothing.
+#
+# scripts/promote_check.py refuses unless the commit's Test run on a push to `dev` passed, the
+# commit is on `dev`, and `main` is its ancestor; docs/RELEASING.md says how a promotion proves
+# itself. Then `main` is fast-forwarded as a GitHub App, the only actor `main`'s rulesets let push
+# to it. The App's push starts the Test and release-please workflows on `main`, which a push with
+# this run's own token would not.
+#
+# The App's private key is a secret of the `promote` environment, whose deployment branches are
+# `dev` alone, so a run from a branch with an edited copy of this workflow never reaches it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "The full 40-character sha of the dev commit to promote"
+        required: true
+        type: string
+      check-only:
+        description: "Make every check and mint the App's token, but move nothing"
+        type: boolean
+        default: false
+
+permissions: {}
+
+# One promotion at a time; never cancel one part-way.
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: promote
+    # Only `dev` holds the commits to promote, and only a run from `dev` may enter the environment.
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    environment: promote
+    permissions:
+      contents: read # the checkout, and the compares the check reads
+      actions: read # the check reads the Test runs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # HAS_APP_PRIVATE_KEY is `true` or `false`, never the key itself.
+      - name: Refuse to run half-configured
+        env:
+          PROMOTE_APP_CLIENT_ID: ${{ vars.PROMOTE_APP_CLIENT_ID }}
+          HAS_APP_PRIVATE_KEY: ${{ secrets.PROMOTE_APP_PRIVATE_KEY != '' }}
+        run: |
+          missing=false
+          if [ -z "$PROMOTE_APP_CLIENT_ID" ]; then
+            echo "::error::PROMOTE_APP_CLIENT_ID is not set in the promote environment"; missing=true
+          fi
+          if [ "$HAS_APP_PRIVATE_KEY" != true ]; then
+            echo "::error::PROMOTE_APP_PRIVATE_KEY is not set in the promote environment"; missing=true
+          fi
+          if [ "$missing" = true ]; then exit 1; fi
+
+      # Read-only, with this run's own token, before the App's token exists.
+      - name: The commit may be promoted
+        env:
+          COMMIT: ${{ inputs.commit }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/promote_check.py --commit "$COMMIT"
+
+      # A one-hour token that may write this repository's contents and nothing else. The action
+      # revokes it when the job ends.
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          client-id: ${{ vars.PROMOTE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PROMOTE_APP_PRIVATE_KEY }}
+          repositories: Conventioner
+          permission-contents: write
+
+      # The only step that holds the App's token. `force=false` makes GitHub refuse anything but a
+      # fast-forward, so a `main` that moved since the check is refused, never rewritten. `main` is
+      # read back whatever the move answered, since a move whose answer was lost may still have
+      # taken; the summary reads what it found. gh prints GitHub's answer with no newline before its
+      # own `gh: <message> (HTTP <status>)` line, so that line is found unanchored.
+      - name: Fast-forward main
+        id: fast-forward
+        if: ${{ !inputs.check-only }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          commit="${COMMIT,,}"
+          answer="$RUNNER_TEMP/move.log"
+          moved=true
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" -f sha="$commit" -F force=false >"$answer" 2>&1 || moved=false
+          now=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha) || now=""
+          echo "main=$now" >>"$GITHUB_OUTPUT"
+          if [ "$now" = "$commit" ]; then
+            echo "main is now $commit."
+            exit 0
+          fi
+          refusal=$(grep -oE 'gh: .* \(HTTP [0-9]{3}\)$' "$answer" | tail -n 1) || refusal=""
+          if [ "$moved" = false ]; then cat "$answer"; fi
+          if [ "$moved" = false ] && grep -qi 'not a fast.forward' "$answer"; then
+            echo "::error::main moved since the check, so nothing was promoted. Run Promote again."
+          elif [ "$moved" = false ] && [ -n "$refusal" ]; then
+            echo "::error::GitHub refused to move main ($refusal), so nothing was promoted."
+          elif [ -z "$now" ]; then
+            echo "::error::main could not be read back after the move, so it may be at $commit or where it was."
+          else
+            echo "::error::main is at $now after the move, not $commit."
+          fi
+          exit 1
+
+      # The input is printed only once the check has proven it a full sha.
+      - name: Say what happened
+        if: always()
+        env:
+          COMMIT: ${{ inputs.commit }}
+          CHECK_ONLY: ${{ inputs.check-only }}
+          TOKEN_MINTED: ${{ steps.app.outcome }}
+          MOVE: ${{ steps.fast-forward.outcome }}
+          MAIN_NOW: ${{ steps.fast-forward.outputs.main }}
+        run: |
+          commit="${COMMIT,,}"
+          {
+            if [ "$MOVE" = success ]; then
+              echo "### main is now \`$commit\`"
+              echo "The Test workflow runs on main now. Once it has passed, deploy with \`gh workflow run deploy.yml --ref main\` (Actions, Deploy, Run workflow, from \`main\`)."
+            elif [ "$MOVE" = failure ] || [ "$MOVE" = cancelled ]; then
+              echo "### Promote failed while moving main"
+              if [ -n "$MAIN_NOW" ]; then
+                echo "main is at \`$MAIN_NOW\`, read back after the move. The failed step's log says why."
+              else
+                echo "main could not be read back after the move, so it may be at \`$commit\` or where it was. Look with \`gh api repos/$GITHUB_REPOSITORY/git/ref/heads/main --jq .object.sha\`."
+              fi
+            elif [ "$CHECK_ONLY" = true ] && [ "$TOKEN_MINTED" = success ]; then
+              echo "### Checked only"
+              echo "Checked only: $commit may be promoted, and the App's token was minted; main did not move."
+            else
+              echo "### Promote refused"
+              echo "main did not move. The failed step's log says why."
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"

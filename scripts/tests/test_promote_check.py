@@ -1,11 +1,16 @@
-"""The Promote workflow's check (T317), against a stub GitHub API.
+"""The Promote workflow and its check (T317).
 
-Each test runs the script's command line as the workflow does and reads what the workflow reads:
-its exit code and its lines. The stub answers each API path with a scripted sequence, as
-test_deploy_proof.py's does, and records every request, so a test can say what was asked and how
-often.
+The check's tests run the script's command line as the workflow does, against a stub GitHub API,
+and read what the workflow reads: its exit code and its lines. The stub answers each API path with
+a scripted sequence, as test_deploy_proof.py's does, and records every request, so a test can say
+what was asked and how often.
+
+The workflow's tests read .github/workflows/promote.yml as text, and run its steps' shell as the
+runner runs it (`bash -e`) with a fake `gh` on PATH.
 """
 import json
+import os
+import re
 import subprocess
 import sys
 import threading
@@ -451,3 +456,468 @@ def test_it_needs_a_commit(stub, env):
     assert code == 2
     assert "--commit" in output
     assert stub.requests == []
+
+
+# The Promote workflow, read as text: the job that runs this file has no YAML library.
+
+WORKFLOW = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "promote.yml"
+
+ORDER = [
+    "actions/checkout",
+    "Refuse to run half-configured",
+    "The commit may be promoted",
+    "actions/create-github-app-token",
+    "Fast-forward main",
+    "Say what happened",
+]
+
+APP_TOKEN = "${{ steps.app.outputs.token }}"
+PINNED = re.compile(r"^[\w.-]+/[\w.-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$")
+
+
+def mapping(lines, indent):
+    """The `key: value` pairs written at exactly `indent` spaces."""
+    pairs = {}
+    for line in lines:
+        if line.startswith(" " * indent) and not line[indent:].startswith((" ", "#", "- ")) and ":" in line:
+            key, _, value = line[indent:].partition(":")
+            pairs[key] = value.split(" # ")[0].strip()
+    return pairs
+
+
+def block(lines, start, indent):
+    """The lines after `start` indented deeper than `indent`, up to the first one that is not."""
+    out = []
+    for line in lines[start + 1:]:
+        if line.strip() and len(line) - len(line.lstrip()) <= indent:
+            break
+        out.append(line)
+    return out
+
+
+def at(lines, text):
+    return lines.index(text)
+
+
+def workflow():
+    lines = WORKFLOW.read_text().splitlines()
+    job = block(lines, at(lines, "  promote:"), 2)
+    steps_at = at(job, "    steps:")
+    starts = [i for i, line in enumerate(job) if line.startswith("      - ")]
+    steps = []
+    for n, start in enumerate(starts):
+        end = starts[n + 1] if n + 1 < len(starts) else len(job)
+        body = ["        " + job[start][8:]] + job[start + 1:end]
+        keys = mapping(body, 8)
+        step = {"name": keys.get("name"), "id": keys.get("id"), "if": keys.get("if"), "uses": keys.get("uses"),
+                "env": {}, "with": {}, "run": "", "text": "\n".join(body)}
+        step["title"] = keys["uses"].split("@")[0] if "uses" in keys else step["name"]
+        for i, line in enumerate(body):
+            if line == "        env:":
+                step["env"] = mapping(block(body, i, 8), 10)
+            if line == "        with:":
+                step["with"] = mapping(block(body, i, 8), 10)
+            if line.startswith("        run:"):
+                inline = line[len("        run:"):].strip()
+                if inline == "|":
+                    step["run"] = "\n".join(l[10:] for l in block(body, i, 8)).strip() + "\n"
+                else:
+                    step["run"] = inline + "\n"
+        steps.append(step)
+    on = block(lines, at(lines, "on:"), 0)
+    inputs = block(on, at(on, "    inputs:"), 4)
+    return {
+        "lines": lines,
+        "top": mapping(lines, 0),
+        "on": mapping(on, 2),
+        "inputs": {name: mapping(block(inputs, at(inputs, f"      {name}:"), 6), 8) for name in mapping(inputs, 6)},
+        "concurrency": mapping(block(lines, at(lines, "concurrency:"), 0), 2),
+        "job": mapping(job[:steps_at], 4),
+        "job_permissions": mapping(block(job, at(job, "    permissions:"), 4), 6),
+        "steps": steps,
+    }
+
+
+def step_named(title):
+    return next(step for step in workflow()["steps"] if step["title"] == title)
+
+
+def test_promote_starts_only_by_hand_with_a_commit_and_a_check_only_switch():
+    flow = workflow()
+
+    assert flow["top"]["name"] == "Promote"
+    assert flow["on"] == {"workflow_dispatch": ""}
+    assert flow["inputs"] == {
+        "commit": {
+            "description": '"The full 40-character sha of the dev commit to promote"',
+            "required": "true",
+            "type": "string",
+        },
+        "check-only": {
+            "description": "\"Make every check and mint the App's token, but move nothing\"",
+            "type": "boolean",
+            "default": "false",
+        },
+    }
+
+
+def test_the_run_s_own_token_may_read_the_code_and_the_test_runs_and_nothing_more():
+    flow = workflow()
+
+    assert flow["top"]["permissions"] == "{}"
+    assert flow["job_permissions"] == {"contents": "read", "actions": "read"}
+    assert "env" not in flow["top"]
+
+
+def test_one_promotion_runs_at_a_time_and_is_never_cancelled_part_way():
+    assert workflow()["concurrency"] == {"group": "promote", "cancel-in-progress": "false"}
+
+
+def test_the_job_runs_only_from_dev_in_the_promote_environment():
+    job = workflow()["job"]
+
+    assert job["if"] == "github.ref == 'refs/heads/dev'"
+    assert job["environment"] == "promote"
+    assert "env" not in job
+
+
+def test_promote_runs_its_steps_in_order():
+    assert [step["title"] for step in workflow()["steps"]] == ORDER
+
+
+def test_every_action_is_pinned_by_its_full_sha_with_its_version_beside_it():
+    used = [line.strip()[len("- uses: "):] for line in workflow()["lines"] if line.strip().startswith("- uses: ")]
+
+    assert len(used) == 2
+    for uses in used:
+        assert PINNED.match(uses), uses
+    assert any(uses.startswith("actions/create-github-app-token@") and " # v3." in uses for uses in used)
+
+
+def test_the_checkout_keeps_no_credentials():
+    assert step_named("actions/checkout")["with"] == {"persist-credentials": "false"}
+
+
+def test_the_check_runs_the_script_on_the_commit_given_with_the_runs_own_token():
+    step = step_named("The commit may be promoted")
+
+    assert step["run"] == 'python3 scripts/promote_check.py --commit "$COMMIT"\n'
+    assert step["env"] == {"COMMIT": "${{ inputs.commit }}", "GITHUB_TOKEN": "${{ github.token }}"}
+    assert step["if"] is None
+
+
+def test_the_app_s_token_asks_only_to_write_this_repository_s_contents():
+    step = step_named("actions/create-github-app-token")
+
+    assert step["id"] == "app"
+    assert step["if"] is None
+    assert step["with"] == {
+        "client-id": "${{ vars.PROMOTE_APP_CLIENT_ID }}",
+        "private-key": "${{ secrets.PROMOTE_APP_PRIVATE_KEY }}",
+        "repositories": "Conventioner",
+        "permission-contents": "write",
+    }
+
+
+def test_only_the_fast_forward_holds_the_app_s_token():
+    flow = workflow()
+    holders = [step["title"] for step in flow["steps"] if "steps.app.outputs.token" in step["text"]]
+
+    assert holders == ["Fast-forward main"]
+    assert step_named("Fast-forward main")["env"]["GH_TOKEN"] == APP_TOKEN
+    assert sum("steps.app.outputs.token" in line for line in flow["lines"]) == 1
+
+
+def test_only_the_token_step_holds_the_private_key():
+    flow = workflow()
+    holders = [step["title"] for step in flow["steps"] if "secrets.PROMOTE_APP_PRIVATE_KEY" in step["text"]]
+
+    assert holders == ["Refuse to run half-configured", "actions/create-github-app-token"]
+    assert step_named("Refuse to run half-configured")["env"]["HAS_APP_PRIVATE_KEY"] == (
+        "${{ secrets.PROMOTE_APP_PRIVATE_KEY != '' }}"
+    )
+
+
+def test_the_fast_forward_never_forces_and_is_skipped_on_a_check_only_run():
+    step = step_named("Fast-forward main")
+
+    assert step["id"] == "fast-forward"
+    assert step["if"] == "${{ !inputs.check-only }}"
+    assert "--method PATCH" in step["run"]
+    assert "-F force=false" in step["run"]
+    assert "force=true" not in step["run"]
+    assert step["env"] == {"GH_TOKEN": APP_TOKEN, "COMMIT": "${{ inputs.commit }}"}
+
+
+def test_the_summary_is_written_whatever_happened():
+    step = step_named("Say what happened")
+
+    assert step["if"] == "always()"
+    assert step["env"] == {
+        "COMMIT": "${{ inputs.commit }}",
+        "CHECK_ONLY": "${{ inputs.check-only }}",
+        "TOKEN_MINTED": "${{ steps.app.outcome }}",
+        "MOVE": "${{ steps.fast-forward.outcome }}",
+        "MAIN_NOW": "${{ steps.fast-forward.outputs.main }}",
+    }
+
+
+def test_no_run_script_holds_an_expression():
+    for step in workflow()["steps"]:
+        assert "${{" not in step["run"], step["title"]
+
+
+# The workflow's own shell, run as the runner runs it (`bash -e`), with a fake gh.
+
+FAKE_GH = """#!/bin/sh
+printf '%s\\037' "$@" >> "$FAKE_CALLS_LOG"
+printf '\\n' >> "$FAKE_CALLS_LOG"
+printf 'GH_TOKEN=%s\\n' "$GH_TOKEN" >> "$FAKE_CALLS_LOG"
+if [ "$1 $2 $3" = "api --method PATCH" ]; then
+  printf '%s' "$FAKE_PATCH_STDOUT"
+  printf '%s' "$FAKE_PATCH_STDERR" >&2
+  exit "${FAKE_PATCH_EXIT:-0}"
+fi
+if [ -n "$FAKE_READ_FAILS" ]; then
+  echo '{"message":"Server Error","status":"500"}'
+  echo 'gh: Server Error (HTTP 500)' >&2
+  exit 1
+fi
+printf '%s\\n' "$FAKE_MAIN"
+"""
+
+NOT_A_FAST_FORWARD = (
+    '{"message":"Update is not a fast forward",'
+    '"documentation_url":"https://docs.github.com/rest/git/refs#update-a-reference","status":"422"}'
+)
+RULE_VIOLATION = (
+    '{"message":"Repository rule violations found\\n\\nRequired status check \\"e2e\\" is expected.\\n\\n",'
+    '"documentation_url":"https://docs.github.com/rest/git/refs#update-a-reference","status":"422"}'
+)
+APP_SECRET = "ghs_app-token-not-for-logs"
+MOVED_LINE = "::error::main moved since the check, so nothing was promoted. Run Promote again."
+
+
+def run_step(tmp_path, step, **extra):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    fake = bin_dir / "gh"
+    fake.write_text(FAKE_GH)
+    fake.chmod(0o755)
+    script = tmp_path / "step.sh"
+    script.write_text(step["run"])
+    outputs = tmp_path / "outputs"
+    outputs.write_text("")
+    summary = tmp_path / "summary"
+    summary.write_text("")
+    runner_temp = tmp_path / "runner-temp"
+    runner_temp.mkdir(exist_ok=True)
+    env = {
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+        "HOME": str(tmp_path),
+        "FAKE_CALLS_LOG": str(tmp_path / "calls.log"),
+        "GITHUB_REPOSITORY": "owner/repo",
+        "GITHUB_OUTPUT": str(outputs),
+        "GITHUB_STEP_SUMMARY": str(summary),
+        "RUNNER_TEMP": str(runner_temp),
+        **extra,
+    }
+    result = subprocess.run(["bash", "-e", str(script)], env=env, capture_output=True, text=True, timeout=30)
+    return result.returncode, result.stdout + result.stderr, outputs.read_text(), summary.read_text()
+
+
+def gh_calls(tmp_path):
+    log = tmp_path / "calls.log"
+    calls = []
+    for line in (log.read_text() if log.exists() else "").splitlines():
+        if line.startswith("GH_TOKEN="):
+            calls[-1]["token"] = line[len("GH_TOKEN="):]
+        else:
+            calls.append({"args": line.split("\x1f")[:-1]})
+    return calls
+
+
+def fast_forward(tmp_path, commit=SHA, **fakes):
+    return run_step(tmp_path, step_named("Fast-forward main"), GH_TOKEN=APP_SECRET, COMMIT=commit, **fakes)
+
+
+def test_the_fast_forward_moves_main_to_the_commit_and_reads_it_back(tmp_path):
+    code, output, outputs, _ = fast_forward(tmp_path, FAKE_MAIN=SHA)
+
+    assert code == 0
+    assert errors(output) == []
+    assert outputs == f"main={SHA}\n"
+    calls = gh_calls(tmp_path)
+    assert [call["args"] for call in calls] == [
+        ["api", "--method", "PATCH", "repos/owner/repo/git/refs/heads/main", "-f", f"sha={SHA}", "-F", "force=false"],
+        ["api", "repos/owner/repo/git/ref/heads/main", "--jq", ".object.sha"],
+    ]
+    assert all(call["token"] == APP_SECRET for call in calls)
+    assert APP_SECRET not in output
+
+
+def test_an_upper_case_commit_is_sent_lower_case(tmp_path):
+    code, _, outputs, _ = fast_forward(tmp_path, SHA.upper(), FAKE_MAIN=SHA)
+
+    assert code == 0
+    assert gh_calls(tmp_path)[0]["args"][5] == f"sha={SHA}"
+    assert outputs == f"main={SHA}\n"
+
+
+def test_a_main_that_moved_since_the_check_is_refused_not_rewritten(tmp_path):
+    code, output, outputs, _ = fast_forward(
+        tmp_path,
+        FAKE_MAIN=OLD,
+        FAKE_PATCH_EXIT="1",
+        FAKE_PATCH_STDOUT=NOT_A_FAST_FORWARD,
+        FAKE_PATCH_STDERR="gh: Update is not a fast forward (HTTP 422)\n",
+    )
+
+    assert code == 1
+    assert errors(output) == [MOVED_LINE]
+    assert outputs == f"main={OLD}\n"
+
+
+def test_another_refusal_is_named_and_main_is_said_not_to_have_moved(tmp_path):
+    code, output, outputs, _ = fast_forward(
+        tmp_path,
+        FAKE_MAIN=OLD,
+        FAKE_PATCH_EXIT="1",
+        FAKE_PATCH_STDOUT=RULE_VIOLATION,
+        FAKE_PATCH_STDERR="gh: Repository rule violations found (HTTP 422)\n",
+    )
+
+    assert code == 1
+    assert errors(output) == [
+        "::error::GitHub refused to move main (gh: Repository rule violations found (HTTP 422)), so nothing was promoted."
+    ]
+    assert "Required status check" in output
+    assert outputs == f"main={OLD}\n"
+
+
+def test_a_read_back_of_another_sha_fails(tmp_path):
+    code, output, outputs, _ = fast_forward(tmp_path, FAKE_MAIN=OLD)
+
+    assert code == 1
+    assert errors(output) == [f"::error::main is at {OLD} after the move, not {SHA}."]
+    assert outputs == f"main={OLD}\n"
+
+
+def test_a_read_back_that_fails_fails_and_says_main_is_unknown(tmp_path):
+    code, output, outputs, _ = fast_forward(tmp_path, FAKE_READ_FAILS="1")
+
+    assert code == 1
+    assert errors(output) == [
+        f"::error::main could not be read back after the move, so it may be at {SHA} or where it was."
+    ]
+    assert outputs == "main=\n"
+
+
+def test_a_move_github_took_although_its_answer_was_lost_is_a_promotion(tmp_path):
+    code, output, outputs, _ = fast_forward(
+        tmp_path, FAKE_MAIN=SHA, FAKE_PATCH_EXIT="1", FAKE_PATCH_STDERR="gh: Post: net/http: timeout\n"
+    )
+
+    assert code == 0
+    assert errors(output) == []
+    assert outputs == f"main={SHA}\n"
+
+
+def half_configured(tmp_path, **env):
+    return run_step(tmp_path, step_named("Refuse to run half-configured"), **env)
+
+
+def test_a_configured_run_goes_on(tmp_path):
+    code, output, _, _ = half_configured(tmp_path, PROMOTE_APP_CLIENT_ID="Iv23liClientId", HAS_APP_PRIVATE_KEY="true")
+
+    assert code == 0
+    assert errors(output) == []
+
+
+def test_each_missing_setting_is_its_own_error(tmp_path):
+    code, output, _, _ = half_configured(tmp_path, PROMOTE_APP_CLIENT_ID="", HAS_APP_PRIVATE_KEY="false")
+
+    assert code == 1
+    assert errors(output) == [
+        "::error::PROMOTE_APP_CLIENT_ID is not set in the promote environment",
+        "::error::PROMOTE_APP_PRIVATE_KEY is not set in the promote environment",
+    ]
+
+
+@pytest.mark.parametrize(
+    "client_id,has_key,missing",
+    [("", "true", "PROMOTE_APP_CLIENT_ID"), ("Iv23liClientId", "false", "PROMOTE_APP_PRIVATE_KEY")],
+)
+def test_one_missing_setting_refuses(tmp_path, client_id, has_key, missing):
+    code, output, _, _ = half_configured(tmp_path, PROMOTE_APP_CLIENT_ID=client_id, HAS_APP_PRIVATE_KEY=has_key)
+
+    assert code == 1
+    assert errors(output) == [f"::error::{missing} is not set in the promote environment"]
+
+
+def test_the_half_configured_check_reads_the_variable_and_whether_the_secret_is_set():
+    step = step_named("Refuse to run half-configured")
+
+    assert step["env"] == {
+        "PROMOTE_APP_CLIENT_ID": "${{ vars.PROMOTE_APP_CLIENT_ID }}",
+        "HAS_APP_PRIVATE_KEY": "${{ secrets.PROMOTE_APP_PRIVATE_KEY != '' }}",
+    }
+
+
+def summary(tmp_path, commit=SHA, check_only="false", token="success", move="success", main_now=SHA):
+    code, output, _, written = run_step(
+        tmp_path,
+        step_named("Say what happened"),
+        COMMIT=commit,
+        CHECK_ONLY=check_only,
+        TOKEN_MINTED=token,
+        MOVE=move,
+        MAIN_NOW=main_now,
+    )
+    assert code == 0, output
+    return written.splitlines()
+
+
+def test_a_promotion_s_summary_says_what_main_is_and_what_comes_next(tmp_path):
+    assert summary(tmp_path) == [
+        f"### main is now `{SHA}`",
+        "The Test workflow runs on main now. "
+        "Once it has passed, deploy with `gh workflow run deploy.yml --ref main` (Actions, Deploy, Run workflow, from `main`).",
+    ]
+
+
+def test_a_check_only_run_s_summary_says_main_did_not_move(tmp_path):
+    assert summary(tmp_path, SHA.upper(), check_only="true", move="skipped", main_now="") == [
+        "### Checked only",
+        f"Checked only: {SHA} may be promoted, and the App's token was minted; main did not move.",
+    ]
+
+
+def test_a_check_only_run_whose_token_failed_is_a_refusal(tmp_path):
+    assert summary(tmp_path, check_only="true", token="failure", move="skipped", main_now="") == [
+        "### Promote refused",
+        "main did not move. The failed step's log says why.",
+    ]
+
+
+@pytest.mark.parametrize("token", ["skipped", "failure"])
+def test_a_refusal_s_summary_says_main_did_not_move_and_never_repeats_the_input(tmp_path, token):
+    lines = summary(tmp_path, commit="main`<b>not a sha</b>", token=token, move="skipped", main_now="")
+
+    assert lines == ["### Promote refused", "main did not move. The failed step's log says why."]
+
+
+@pytest.mark.parametrize("move", ["failure", "cancelled"])
+def test_a_failed_move_s_summary_names_what_main_was_read_back_as(tmp_path, move):
+    assert summary(tmp_path, move=move, main_now=OLD) == [
+        "### Promote failed while moving main",
+        f"main is at `{OLD}`, read back after the move. The failed step's log says why.",
+    ]
+
+
+def test_a_failed_move_whose_read_back_failed_says_how_to_look(tmp_path):
+    assert summary(tmp_path, move="failure", main_now="") == [
+        "### Promote failed while moving main",
+        f"main could not be read back after the move, so it may be at `{SHA}` or where it was. "
+        "Look with `gh api repos/owner/repo/git/ref/heads/main --jq .object.sha`.",
+    ]
