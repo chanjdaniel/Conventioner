@@ -10,7 +10,7 @@ describes:
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
   - front-end/src/utils/blockerLink.ts
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -32,6 +32,7 @@ sources:
   - T263
   - T274
   - T257
+  - T315
 ---
 
 # The guards and the phase move
@@ -74,7 +75,8 @@ A guard that sets a `resolution_link` sets the `resolution_action` its remedy ta
 | Decide what reviewers read first                                                                              | `form?step=review`     | `change-form`         |
 | Decide the automatic rejections                                                                               | `form?step=review`     | `change-form`         |
 
-"Open the layout" is the one link that names which of a market's pages of a kind it leads to: the layout of the location whose tables are in no section, never the market's bare `layout`, which redirects to its first location's.
+"Open the layout" is the one link that names which of a market's pages of a kind it leads to: the layout of the location whose tables are in no section (`LayoutTablesHaveSectionsGuard`), or of the location holding a section of a tier without tables (`EveryTierHasTablesGuard`), never the market's bare `layout`, which redirects to its first location's.
+A laid-out location's sections count its layout's tables, and Market Setup shows their counts read-only, so when the plan's first tier without tables has a section there, `EveryTierHasTablesGuard` says that tier alone, naming its first such section and its location, and leads to that layout (T315); otherwise its Market Setup line, "Give every tier tables", names only the tiers with no section in a laid-out location, the others said once those are fixed; and a market with no tables at all whose sections lie in one is sent to the first such section's layout too.
 A link without an action, or an action without a link, is refused at construction.
 That the action is a row of the table is held by `TestEveryRemedyNamesTheActionItTakes` in [`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py), not at construction, so a renamed row fails the build rather than answering the organizer with a 500.
 
