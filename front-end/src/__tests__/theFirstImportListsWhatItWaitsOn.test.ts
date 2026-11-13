@@ -192,6 +192,26 @@ describe("the first import's refusal", () => {
     expect(shown.findAll('li')).toHaveLength(0);
   });
 
+  it("heads an archived market's refusal by its phase, for its Owner as for anyone (T315)", async () => {
+    // The server serves the archived sentence as every changing action's refusal, the Owner's own
+    // import among them, so the role heading would blame a role that is not the reason.
+    const archived =
+      'This market is archived. An archived market is the record of what happened, so nothing in it can be changed.';
+    const wrapper = await openImport(
+      market([], {
+        phase: MarketPhase.Archived,
+        actionRefusals: Object.fromEntries(
+          Object.values(MarketAction).map((action) => [action, archived]),
+        ),
+      }),
+    );
+
+    const shown = refusal(wrapper);
+    expect(shown.get('h2').text()).toBe('An archived market takes no imports');
+    expect(shown.get('.import-help').text()).toBe(archived);
+    expect(shown.text()).not.toContain('not yours to do');
+  });
+
   it('stays the one sentence past Review', async () => {
     const wrapper = await openImport(market([], { phase: MarketPhase.Assignment }));
 

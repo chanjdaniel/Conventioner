@@ -215,6 +215,20 @@ const refused = computed(
 );
 
 /**
+ * The refusal's heading, its reason in a few words. An archived market is said by its phase before
+ * the role refusal: the served refusals put the archived sentence before every changing row's own,
+ * the Owner's import among them, so the role heading would blame a role that is not the reason (T315).
+ */
+const refusalHeading = computed(() => {
+  if (marketPhase.value === MarketPhase.Archived) return 'An archived market takes no imports';
+  if (roleRefusal.value) return 'Importing into this market is not yours to do';
+  if (takesNoImport(market.value)) return "Vendors apply on this market's page";
+  return firstImport.value
+    ? 'This market is not ready for its first import'
+    : 'This market is not taking applications right now';
+});
+
+/**
  * Leave the wizard for the market it belongs to. Nothing is written until the final confirm, so on
  * Map columns and Preview the move asks first, through the route guard below.
  */
@@ -1024,17 +1038,7 @@ watch(marketId, () => {
 
       <!-- Not taking applications: say so instead of offering a file picker. -->
       <section v-if="refused" class="import-panel" data-testid="import-wrong-phase">
-        <h2>
-          {{
-            roleRefusal
-              ? 'Importing into this market is not yours to do'
-              : takesNoImport(market)
-                ? "Vendors apply on this market's page"
-                : firstImport
-                  ? 'This market is not ready for its first import'
-                  : 'This market is not taking applications right now'
-          }}
-        </h2>
+        <h2>{{ refusalHeading }}</h2>
         <BlockerPanel
           v-if="market && firstImportWaitsOn.length"
           :blockers="firstImportWaitsOn"
