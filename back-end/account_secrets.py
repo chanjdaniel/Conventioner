@@ -22,11 +22,12 @@ passes, and read the time from ``now()``, which tests move.
 
 The kinds, and how each lives (``KINDS``):
 
-| Kind | Mailed as | Life | ``next_allowed_at`` once mailed | Tries |
-| --- | --- | --- | --- | --- |
-| ``code`` | 6 digits (``generate_otp``) | 5 minutes | ``expires_at`` + 1 hour | 5 |
-| ``reset`` | ``token_urlsafe(24)`` (``generate_reset_token``) | 1 hour | ``expires_at`` + 1 hour | not counted |
-| ``verify`` | ``token_urlsafe(24)`` (``generate_verification_token``) | 1 hour | the moment it was mailed: no wait | not counted |
+- ``code``: mailed as 6 digits (``generate_otp``), lives 5 minutes, ``next_allowed_at`` once
+  mailed is ``expires_at`` + 1 hour, and 5 tries.
+- ``reset``: mailed as ``token_urlsafe(24)`` (``generate_reset_token``), lives 1 hour,
+  ``next_allowed_at`` once mailed is ``expires_at`` + 1 hour, and tries are not counted.
+- ``verify``: mailed as ``token_urlsafe(24)`` (``generate_verification_token``), lives 1 hour,
+  ``next_allowed_at`` once mailed is the moment it was mailed (no wait), and tries are not counted.
 
 A password reset by the mailed link (``use_reset_link``) is one write that sets the password, uses
 the link, ends the code and the verification link, marks the address verified and replaces the
