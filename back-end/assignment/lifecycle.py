@@ -112,6 +112,13 @@ def _agrees(state: AssignmentState, assignment_object: AssignmentObject) -> bool
     return not has_rows and not has_made_from
 
 
+def stored_state_agrees(assignment_object: AssignmentObject) -> bool:
+    """Whether the assignment stores a state that agrees with its stored rows and ``madeFrom``:
+    the state ``state_of`` trusts, and the one the migration leaves as it is."""
+    stored = assignment_object.state
+    return stored is not None and _agrees(stored, assignment_object)
+
+
 def state_of(assignment_object: AssignmentObject, market_id: str) -> AssignmentState:
     """The state the assignment is in: the stored one when it agrees with the stored rows and
     ``madeFrom``, else the one ``derived_state`` gives.
@@ -122,7 +129,7 @@ def state_of(assignment_object: AssignmentObject, market_id: str) -> AssignmentS
     derived: the migration repairs it. Never raises, since a market read must not fail on it.
     """
     stored = assignment_object.state
-    if stored is not None and _agrees(stored, assignment_object):
+    if stored_state_agrees(assignment_object):
         return stored
     derived = derived_state(assignment_object).state
     if stored is not None:

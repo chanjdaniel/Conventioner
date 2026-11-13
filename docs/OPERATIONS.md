@@ -14,6 +14,7 @@ describes:
   - back-end/api/attendance.py#ensure_attendance_indexes
   - back-end/payments.py#ensure_payment_indexes
   - back-end/migrations/check_vendor_day_duplicates.py
+  - back-end/migrations/migrate_assignment_state.py
 verified: 2026-11-11
 sources:
   - E32/F03/S03
@@ -27,6 +28,7 @@ sources:
   - T255
   - T270
   - T307
+  - T316
 ---
 
 # Operations
@@ -193,6 +195,9 @@ Until it runs, that release reads each market as the script would leave it and i
 The release carrying T283 keeps an organization's people in one map: once it is deployed, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_organization_people.py --dry-run` ([`migrate_organization_people.py`](../back-end/migrations/migrate_organization_people.py)), then without `--dry-run`.
 The dry run is the read-only count of how many organizations do not parse on the release before (an owner also an admin or a member), and it writes nothing.
 It prints each organization's id and name; only its counts go into the team's records, never a name or an id.
+The release carrying T316 stores each market's assignment state, and Publish results the revision it stood on: once it is deployed, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_assignment_state.py --dry-run` ([`migrate_assignment_state.py`](../back-end/migrations/migrate_assignment_state.py)), which names each market it would change by id and what it would set, and counts them, then without `--dry-run`, and again after any roll-forward past a rollback.
+Until it runs, that release reads each market's state off its rows by the same rule, so nothing refuses to boot and nothing a market shows changes.
+A market that changed between the script's read and its write on three tries is listed as skipped, and running it again sets it.
 
 ### When the back end refuses to boot
 
