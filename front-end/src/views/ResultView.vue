@@ -719,6 +719,7 @@ function swapSeats(withEmail: string): void {
       :busy="placementBusy"
       :errorMessage="placementError"
       :deduction="deduction"
+      :resultsOut="resultsAreOut(market?.allocation)"
       @place="placeVendor"
       @free="freeSeat"
       @swap="swapSeats"

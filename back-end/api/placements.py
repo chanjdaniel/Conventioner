@@ -354,7 +354,8 @@ def write_placement(
 
     Lifecycle.store(market, Lifecycle.Event.PLACE, kept,
                     assignment_date=market.assignment_object.assignment_date)
-    History.record_placed(market_id, requesting_user, placement, left)
+    History.record_placed(market_id, requesting_user, placement, left,
+                          after_results=Lifecycle.results_published(market))
     PaymentsApi.seated_again(market_id, [(placement.email, placement.date)],
                              [(left.email, left.date)] if left else [], requesting_user)
 
@@ -428,7 +429,8 @@ def remove_placement(
             raise
         for placement in freed:
             History.record_freed(
-                market_id, requesting_user, email, date, placement.table_code
+                market_id, requesting_user, email, date, placement.table_code,
+                after_results=Lifecycle.results_published(market),
             )
         kept_line.record_deduction()
     elif deduct_owed:
@@ -506,6 +508,7 @@ def swap_placements(
         date,
         placements[held[first_email]],
         placements[held[second_email]],
+        after_results=Lifecycle.results_published(market),
     )
 
     # Both days were held, so a freed record on either is one a stopped free left, and goes.

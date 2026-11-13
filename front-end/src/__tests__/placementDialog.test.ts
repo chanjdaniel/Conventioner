@@ -756,3 +756,50 @@ describe('moving someone seated elsewhere into an empty seat (T208)', () => {
     expect(wrapper.find('[data-testid="placement-dialog-seated-elsewhere"]').exists()).toBe(false);
   });
 });
+
+/**
+ * After results are published, a vendor's page already tells them where they sit, so a change
+ * here changes what it says, and nothing is sent to them (T316).
+ */
+describe('a change after results are published', () => {
+  const note = (wrapper: Dialog) => wrapper.find('[data-testid="placement-dialog-results-out"]');
+  const occupied = {
+    mode: 'occupied',
+    seat: HALF_TABLE_LEFT,
+    occupantEmail: 'nadia@ember.test',
+  };
+
+  it('says what the occupant’s vendor page tells them, and that nothing is sent', () => {
+    const wrapper = dialog({ ...occupied, resultsOut: true });
+
+    expect(note(wrapper).text()).toBe(
+      "Results are published, so Nadia Ember (nadia@ember.test)'s vendor page tells them they " +
+        'have Front 1, left half on Saturday, August 1, 2026. Freeing, moving or swapping them ' +
+        'changes what it says, and nothing is sent to them.',
+    );
+  });
+
+  it('keeps saying it whichever change is chosen', async () => {
+    const wrapper = dialog({ ...occupied, resultsOut: true });
+    await wrapper.get('[data-testid="placement-dialog-action-swap"]').setValue(true);
+
+    expect(note(wrapper).exists()).toBe(true);
+  });
+
+  it('says whoever is assigned to an empty seat reads it at once, and nothing is sent', () => {
+    const wrapper = dialog({ resultsOut: true });
+
+    expect(note(wrapper).text()).toBe(
+      'Results are published, so whoever you assign here reads this table on their vendor page ' +
+        'at once, and nothing is sent to them.',
+    );
+  });
+
+  it.each([
+    ['filling a seat', {}],
+    ['a seat somebody holds', occupied],
+  ])('says nothing of it before results, %s', (_name, props) => {
+    expect(note(dialog(props)).exists()).toBe(false);
+    expect(note(dialog({ ...props, resultsOut: false })).exists()).toBe(false);
+  });
+});
