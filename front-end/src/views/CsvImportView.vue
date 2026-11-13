@@ -25,7 +25,7 @@ import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate, oneLine } from '@/utils/utils';
 import { firstImportBlockers, importRefusal, takesNoImport } from '@/utils/importPhase';
 import BlockerPanel from '@/components/BlockerPanel.vue';
-import { readCsvFile } from '@/utils/csvFile';
+import { IMPORT_FILE_TOO_LARGE, readCsvFile } from '@/utils/csvFile';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ChoiceField from '@/components/ChoiceField.vue';
 import type { PickerGroup, PickerOption } from '@/components/SearchPicker.vue';
@@ -664,11 +664,11 @@ const mapsToCount = computed(() => targets.value.length + 2);
  * Take one file, whichever way it arrived.
  *
  * A file picked and a file dragged land here alike; anything that is not a CSV, by its name or by
- * what it holds, is refused here rather than parsed into a wall of nonsense columns, and the
- * upload step stays for another file (`readCsvFile`).
+ * what it holds, is refused here rather than parsed into a wall of nonsense columns, as is a file
+ * too large to send, and the upload step stays for another file (`readCsvFile`).
  */
 async function acceptFile(file: File) {
-  const read = await readCsvFile(file);
+  const read = await readCsvFile(file, IMPORT_FILE_TOO_LARGE);
   if ('error' in read) {
     error.value = read.error;
     return;

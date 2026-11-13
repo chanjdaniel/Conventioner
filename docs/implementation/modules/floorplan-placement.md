@@ -68,6 +68,7 @@ sources:
   - T274
   - T257
   - T282
+  - T315
 ---
 
 # A location's layout
@@ -336,7 +337,7 @@ The settled-setup refusal stays on save alone, and past draft only for a save th
 
 **An image belongs to the market it was uploaded for.**
 `POST /floorplans/upload` ([`back-end/api/floorplans.py`](../../../back-end/api/floorplans.py)) takes a `market_id` form field beside the file, needs an editor of that market on a market that is not archived, and checks it before it reads the file.
-**An upload is held to production's limits** (T257): Vercel's functions refuse a request body over 4.5 MB, multipart overhead included, before Flask sees it ([Vercel's function limits](https://vercel.com/docs/functions/limitations)), so a request whose `Content-Length` passes `MAX_UPLOAD_BYTES` (4,000,000) and the form's 64,000-byte allowance is refused 413 "This file is larger than 4 MB." before its body is read, ahead of the market check, and a file over `MAX_UPLOAD_BYTES` by its own length once read.
+**An upload is held to production's limits** (T257): Vercel's functions refuse a request body over 4.5 MB, multipart overhead included, before Flask sees it ([Vercel's function limits](https://vercel.com/docs/functions/limitations), and the back end's own `MAX_CONTENT_LENGTH` since T315: [the host's limits](../../OPERATIONS.md#the-hosts-limits)), so a request whose `Content-Length` passes `MAX_UPLOAD_BYTES` (4,000,000) and the form's 64,000-byte allowance is refused 413 "This file is larger than 4 MB." before its body is read, ahead of the market check, and a file over `MAX_UPLOAD_BYTES` by its own length once read.
 A PDF of more than `MAX_PDF_PAGES` (20) pages is refused 400 "This PDF has more than 20 pages. Send the page with the plan on it." before any page is drawn, and one PDFium cannot open, or of which no page draws or encodes (a page PDFium fails to draw is skipped, as one that will not encode is), 400 "<file name> could not be read as a PDF.": the converter raises (`UnreadablePdf`, `TooManyPages`) where it used to answer an empty list, which the route read as a 500.
 [`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three 404 "Image not found", the image's read and its delete alike, and no route treats an unowned image as anyone's.
 Past that the delete answers as its market does (403 with the row's sentence, or the archived refusal), while the read answers every refusal 404, as above.

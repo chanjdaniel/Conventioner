@@ -125,6 +125,23 @@ describe('what a failed request says', () => {
     ).toBe('Only an Editor may do this.');
   });
 
+  it("names a 413 with no sentence, the host's or a proxy's, as too large to carry", async () => {
+    const { getApiErrorMessage } = await import('@/utils/api');
+
+    for (const data of ['Request Entity Too Large', '<html>', undefined]) {
+      expect(
+        getApiErrorMessage(await failure(413, data), 'The import could not be completed.'),
+      ).toBe('This was larger than the 4.5 MB one request can carry.');
+    }
+  });
+
+  it("keeps a 413's own sentence, as the floorplan upload words it", async () => {
+    const { getApiErrorMessage } = await import('@/utils/api');
+
+    const own = 'This file is larger than 4 MB.';
+    expect(getApiErrorMessage(await failure(413, { error: own }), 'x')).toBe(own);
+  });
+
   it("says the screen's fallback for a 4xx with no sentence", async () => {
     const { getApiErrorMessage } = await import('@/utils/api');
 

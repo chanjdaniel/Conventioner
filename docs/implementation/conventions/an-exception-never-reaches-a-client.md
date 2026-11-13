@@ -3,6 +3,8 @@ layer: implementation
 kind: convention
 describes:
   - back-end/client_errors.py
+  - back-end/host_limits.py
+  - back-end/tests/test_the_hosts_request_limit.py
   - back-end/utils/request_body.py#json_object
   - back-end/tests/test_an_exception_never_reaches_a_client.py
   - back-end/app.py#get_assigned_market
@@ -192,13 +194,14 @@ Its own types are client errors too:
 What stays a builtin is a bug if it escapes: the room with neither walls nor a size (the route refuses that first), `normalized_submitted_at`'s refusal (every caller catches it), and the applications API's verdict without a giver, its index error and its upsert that keeps losing a race.
 `BrokenAllocationError`, the solver's own check of an allocation it produced ([the assignment solver](../modules/assignment-solver.md#sharp-edges)), stays a `RuntimeError` and answers the generic 500 from the run and the preview; its message names application ids, never an address.
 
-## The two handlers
+## The handlers
 
-`install_error_answers(app)`, called once in [`back-end/app.py`](../../../back-end/app.py) right after the public endpoint defenses are configured, registers both on the app, so every blueprint is covered too.
+`install_error_answers(app)`, called once in [`back-end/app.py`](../../../back-end/app.py) right after the public endpoint defenses are configured, registers each on the app, so every blueprint is covered too.
 
 - A `ClientError` is answered `jsonify(error.body())` with `error.status`, and is not logged: it is an answer, not a failure.
+- A body over `MAX_CONTENT_LENGTH`, the host's 4.5 MB (`MAX_REQUEST_BODY_BYTES` in [`back-end/host_limits.py`](../../../back-end/host_limits.py)), raises Werkzeug's `RequestEntityTooLarge` where the route first reads it, and is answered `{"error": REQUEST_TOO_LARGE}`, "This is larger than the 4.5 MB one request can carry.", 413, in place of Werkzeug's HTML page; production's host refuses such a body before Flask sees it ([the host's limits](../../OPERATIONS.md#the-hosts-limits)), so this is what a local stack answers in its place.
 - Any other `Exception` is logged once with `logger.error`, with no `exc_info`, and answered `{"error": "Internal server error"}`, 500.
-  A Werkzeug `HTTPException` is an `Exception` too, so this handler returns one unchanged: Flask's 404 and 405, an `abort()`, the 413 of an oversized upload and Flask-Login's 401 answer as Flask writes them.
+  A Werkzeug `HTTPException` is an `Exception` too, so this handler returns one unchanged: Flask's 404 and 405, an `abort()` and Flask-Login's 401 answer as Flask writes them.
 - The handler is on `Exception`, not `InternalServerError`, because under `TESTING` or debug Flask propagates an unhandled exception instead of calling a 500 handler; registered on `Exception`, the suite exercises it the way production runs it.
 
 **The log line** names the method, `request.endpoint`, and the view argument `market_id`, `market_slug` or `org_id` when the route has one, then the traceback as `traceback_without_messages(error)` writes it.
@@ -278,6 +281,7 @@ Before that it refuses a database the environment does not name, or the primary 
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.
+- [`test_the_hosts_request_limit.py`](../../../back-end/tests/test_the_hosts_request_limit.py) holds `MAX_CONTENT_LENGTH` to the host's 4,500,000 bytes, sends each import route a body one byte over it and finds 413 with the sentence and the file never inspected, and sends the inspect a body at it and finds it read.
 - [`test_captcha.py`](../../../back-end/tests/test_captcha.py) meets each of reCAPTCHA's three failures and finds one log record, the exception's by its type alone, nothing of the caller, the secret or a library's message in the log, and nothing printed.
 - [`test_account_emails_log_no_address.py`](../../../back-end/tests/test_account_emails_log_no_address.py) sends each of the five mails with email disabled, accepted, answered with no message id and refused by an error whose message holds the address, and finds the address, the error's text and the provider's response body in no log record.
 - CodeQL's `py/stack-trace-exposure` is the automated backstop: it is in the default suite GitHub's default setup runs on every pull request and weekly on `dev` ([CI and the gate](../testing/ci-and-the-gate.md#codeql)), and it flags a route that catches an exception and answers its text.
@@ -297,6 +301,7 @@ Each kind of failure reads one way, chosen in one place, `getApiErrorMessage(err
 | Another 5xx with no sentence of the back end's (a proxy's 502 or 504)                      | The same                                                      |
 | Another 5xx with a sentence (Discord's `DiscordNotSetUp` 503 and `DiscordUnavailable` 502) | That sentence                                                 |
 | A 401 with no sentence (Flask-Login's)                                                     | "Your session has ended. Sign in again."                      |
+| A 413 with no sentence (the host's or a proxy's, over 4.5 MB)                              | "This was larger than the 4.5 MB one request can carry."      |
 | Any other refusal, a 401 with a sentence included (the applicant's code check)             | Its `error`, else its `message`                               |
 | A refusal with neither, or a failure that is not a request's                               | The screen's fallback                                         |
 

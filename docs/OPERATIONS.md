@@ -14,6 +14,7 @@ describes:
   - back-end/api/attendance.py#ensure_attendance_indexes
   - back-end/payments.py#ensure_payment_indexes
   - back-end/migrations/check_vendor_day_duplicates.py
+  - back-end/host_limits.py
 verified: 2026-11-11
 sources:
   - E32/F03/S03
@@ -26,6 +27,7 @@ sources:
   - T263
   - T255
   - T270
+  - T315
 ---
 
 # Operations
@@ -337,6 +339,23 @@ Turned on 2026-11-10:
 | GitHub                             | failed workflow runs only                                                                                | email, and GitHub Mobile push                         |
 | Atlas, project `conventioner-prod` | Data Size above 4 GB (the Flex cluster's cap is 5 GB), and connections above 80% of the configured limit | email                                                 |
 | Atlas, the organization            | "Credit card is about to expire"                                                                         | email                                                 |
+
+## The host's limits
+
+Vercel's functions hold every request to limits of their own ([Vercel's function limits](https://vercel.com/docs/functions/limitations)), whatever the back end allows:
+
+- A request body over 4.5 MB is refused 413 `FUNCTION_PAYLOAD_TOO_LARGE` before Flask sees it.
+- A response body over 4.5 MB fails too, unless it is streamed.
+- An invocation is stopped at 300 seconds, the Hobby plan's default and maximum, and answers 504 `FUNCTION_INVOCATION_TIMEOUT`.
+
+What the product holds under them:
+
+- The back end's own `MAX_CONTENT_LENGTH` is the host's 4.5 MB, read as 4,500,000 bytes ([`back-end/host_limits.py`](../back-end/host_limits.py)), so a local stack refuses what production refuses; a larger body is answered 413 "This is larger than the 4.5 MB one request can carry." ([an exception never reaches a client](implementation/conventions/an-exception-never-reaches-a-client.md#the-handlers)).
+- A floorplan upload's file is held to 4 MB (`floorplan_limits.MAX_UPLOAD_BYTES`), refused 413 by the upload route itself ([the layout](implementation/modules/floorplan-placement.md)).
+- A responses file for the import or the start from a CSV is held to 4 MB as the request carries it, its JSON escapes counted, and refused in the browser before it is sent ([the CSV import](implementation/modules/csv-import.md), [starting from a Google Form](business/flows/starting-from-a-google-form.md)).
+
+What it does not hold: the applications list is read whole, so its response passes 4.5 MB somewhere between about 1,800 and 3,000 applications, by how long their answers are, and from then on every read of the list fails, stopping the review (T244 Q33).
+It held at 359 applications in that run; paging the list on the server is the structural work that would move the wall.
 
 ## Incidents
 

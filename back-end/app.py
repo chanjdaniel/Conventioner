@@ -19,6 +19,7 @@ import api.discord_connection as DiscordConnectionApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
+import host_limits as HostLimits
 import typesafe_client as TypeSafe
 import market_stats as MarketStats
 import api.attendance as AttendanceApi
@@ -448,7 +449,8 @@ configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
 install_error_answers(app)
 install_security_headers(app)
 
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload limit
+# The host's own limit, so a local stack refuses what production refuses (host_limits.py).
+app.config["MAX_CONTENT_LENGTH"] = HostLimits.MAX_REQUEST_BODY_BYTES
 
 bcrypt = Bcrypt(app)
 

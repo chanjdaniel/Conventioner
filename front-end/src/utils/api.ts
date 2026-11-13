@@ -17,6 +17,7 @@ export const api = axios.create({
 export const OFFLINE_MESSAGE = 'You seem to be offline. Check the connection and try again.';
 export const SERVER_FAULT_MESSAGE = 'Something went wrong on our side. Try again in a moment.';
 export const SESSION_ENDED_MESSAGE = 'Your session has ended. Sign in again.';
+export const REQUEST_TOO_LARGE_MESSAGE = 'This was larger than the 4.5 MB one request can carry.';
 
 /** The sentence a refusal carries, when the server wrote one. */
 function sentenceOf(data: unknown): string | null {
@@ -37,6 +38,8 @@ function sentenceOf(data: unknown): string | null {
  *   what is wrong in Conventioner's words), else the server's fault too (a proxy's 502 or 504).
  * - A 401 with no sentence of its own (Flask-Login's): the session has ended. The response
  *   interceptor below also takes the organizer to sign in again.
+ * - A 413 with no sentence of its own (the host's or a proxy's, which refuse a body over 4.5 MB
+ *   before the back end sees it): the request was too large to carry, so trying again cannot help.
  * - Any other refusal: its own sentence, a 401's included (the applicant's code check words its
  *   own), else `fallback`, which a screen words as what did not happen ("The verdict was not
  *   saved.").
@@ -62,6 +65,7 @@ export function answerMessage(
   if (sentence) return sentence;
   if (response.status >= 500) return SERVER_FAULT_MESSAGE;
   if (response.status === 401) return SESSION_ENDED_MESSAGE;
+  if (response.status === 413) return REQUEST_TOO_LARGE_MESSAGE;
   return fallback;
 }
 
