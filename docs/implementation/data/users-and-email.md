@@ -107,7 +107,7 @@ A login id that matches no account loads no one, with no fallback to loading by 
 **For one release a sign-in made before sign-ins were kept on the server still signs in**, so the deploy signs nobody out.
 Its id is `<login id>.<s|r>.<seconds since the epoch>`, the kind saying whether "Remember me" was ticked and the time when the account signed in, in the session or in the old `remember_token` cookie; a secret holds no `.`, so the two shapes cannot be confused (`is_legacy_sign_in`).
 The user loader reads it as before, refusing one as old as its kind's length and an id of any other shape, the bare login id that came before it among them.
-Flask-Login asks `a_legacy_remembered_account` in `app.py` once the session and the new cookie have loaded no one: it reads a legacy id from `remember_token` (`legacy_remembered_account`) and restores it into the session, which is held to the browser as the new cookie's restore is.
+Flask-Login asks `a_legacy_remembered_account` in `app.py` once the session has loaded no one and the browser holds no new remember cookie: it reads a legacy id from `remember_token` (`legacy_remembered_account`) and restores it into the session, which is held to the browser as the new cookie's restore is.
 A legacy sign-in has no document, so a replaced login id is what ends it: a reset does.
 Every answer that signs in or out deletes a `remember_token` the browser sent (`forget_the_legacy_remember_cookie`, after Flask-Login's `user_logged_in` and `user_logged_out`), so it cannot bring a sign-in back; a refused sign-in leaves it.
 

@@ -214,6 +214,7 @@ The browser cannot change what it carries either way: the session is signed into
 `REMEMBERED_SIGN_IN_LIFETIME`, 30 days, is one with it: the remember cookie also expires then (`REMEMBER_COOKIE_DURATION`), and use does not extend it (`REMEMBER_COOKIE_REFRESH_EACH_REQUEST` is off).
 Each sign-in's document holds its `expires_at`, and the user loader recalls only a document whose `expires_at` is ahead, so a sign-in ends when it was made to whatever a browser kept: a browser that restores its tabs restores a session cookie too.
 A sign-in without "Remember me" clears a remember cookie the browser held, and ends its sign-in on the server.
+A session is written only when a request changed it (`SESSION_REFRESH_EACH_REQUEST` is off): flask-session's store on disk otherwise writes every request's session back as that request read it, so a read in flight while the browser signed in again wrote back the sign-in the new one had ended, and signed the browser out.
 
 **For one release, the sign-ins made before they were kept on the server still sign in**, so the deploy signs nobody out: a session holding a sign-in id, `<login id>.<s|r>.<seconds>`, and the old cookie `remember_token` holding one, read by `a_legacy_remembered_account` in [`app.py`](../../../back-end/app.py).
 Each ends as before, at its length counted from its time, or when the login id it names is replaced; every sign-in and sign-out deletes the old cookie (`forget_the_legacy_remember_cookie`).

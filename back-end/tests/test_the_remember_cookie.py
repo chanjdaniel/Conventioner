@@ -550,6 +550,33 @@ def test_an_unread_answer_to_one_odd_request_does_not_end_the_sign_in_on_disk(
     assert [_signed_in(browser) for _ in range(2)] == [True, True]
 
 
+@pytest.mark.parametrize("remember", [False, True])
+def test_a_read_in_flight_across_a_sign_in_on_disk_keeps_the_new_sign_in(
+    users, on_disk, monkeypatch, remember
+):
+    # The page's reads are still in flight when the same browser signs in again, as a page loading
+    # under a second sign-in does: the read loaded the session before the sign-in and answers after
+    # it, and must not write the ended sign-in back over the new one.
+    browser = app_module.app.test_client()
+    _sign_in(browser, remember=remember)
+    same_browser = _copied(browser)
+    loads = UsersApi.signed_in_account
+    signed_in_meanwhile = []
+
+    def a_sign_in_lands_meanwhile(sign_in):
+        account = loads(sign_in)
+        if not signed_in_meanwhile:
+            signed_in_meanwhile.append(_sign_in(same_browser, remember=remember))
+        return account
+
+    monkeypatch.setattr(UsersApi, "signed_in_account", a_sign_in_lands_meanwhile)
+    assert browser.get("/check-session").status_code == 200
+    monkeypatch.setattr(UsersApi, "signed_in_account", loads)
+
+    assert signed_in_meanwhile, "the sign-in never landed inside the read"
+    assert [_signed_in(same_browser) for _ in range(2)] == [True, True]
+
+
 def test_a_permanent_session_from_another_browser_is_refused_too(client, users):
     # Flask-Login only marks a permanent session not fresh under "strong"; this app refuses it like
     # any other, though no sign-in makes one permanent.

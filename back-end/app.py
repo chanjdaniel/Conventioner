@@ -446,6 +446,11 @@ app = Flask(__name__)
 # and `RefusingLoginManager` deletes it with the attributes it was set with.
 app.config["SESSION_PERMANENT"] = False
 app.config["PERMANENT_SESSION_LIFETIME"] = UsersApi.SIGN_IN_LIFETIME
+# A session is written only when a request changed it. flask-session's store on disk otherwise
+# writes every request's session back as that request read it, so a read in flight while the
+# browser signed in again wrote back the sign-in the new one had ended, and signed the browser out.
+# The cookie store writes an unchanged session only when it is permanent, which none is.
+app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 app.config["REMEMBER_COOKIE_NAME"] = UsersApi.REMEMBER_COOKIE
 app.config["REMEMBER_COOKIE_PATH"] = "/"
 app.config["REMEMBER_COOKIE_DURATION"] = UsersApi.REMEMBERED_SIGN_IN_LIFETIME
@@ -540,8 +545,8 @@ def a_legacy_remembered_account(_request: Any) -> Any:
     """The account a legacy `remember_token` cookie names, read for one release (ADR 0027).
 
     The remember cookie of a sign-in made before sign-ins were kept on the server: Flask-Login asks
-    here once the session and the remember cookie have loaded no one. Restored into the session as
-    Flask-Login's own restore does, and held to the browser by
+    here once the session has loaded no one and the browser holds no new remember cookie. Restored
+    into the session as Flask-Login's own restore does, and held to the browser by
     `hold_a_restored_session_to_its_browser`; a replaced login id ends it, and a sign-in or sign-out
     deletes the cookie (`forget_the_legacy_remember_cookie`).
     """
