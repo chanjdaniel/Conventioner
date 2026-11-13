@@ -106,6 +106,7 @@ The container name comes from `helpers/containerNames.ts` (`E2E_MONGO_CONTAINER`
 
 **A market that opens applications needs a complete plan with dates still to come** (E31/F01/S01), since [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md) and leaving draft needs it.
 [`helpers/seeds.ts`](../../../front-end/e2e/helpers/seeds.ts) exports `completePlan()` (a date, a location, a Gold tier with five tables in one section) and `SEED_MARKET_DATE`, a date in 2099 every seeded vendor can attend; a plan whose date differs from the vendors' silently assigns nobody.
+The door takes no check-in on a day that has not begun, so a spec that checks a vendor in at the door seeds on `calendarToday()` ([checking a vendor in](e2e-seeds.md#checking-a-vendor-in)).
 A spec that picks dates on the calendar uses `upcomingSaturday()` ([`helpers/upcoming.ts`](../../../front-end/e2e/helpers/upcoming.ts)), dates a couple of months ahead of whenever it runs, since the calendar steps a month at a time.
 
 **A plan cannot change after draft, so a spec seeds the room it wants**: `seedAssignedMarket({ tables })` for a smaller one.
