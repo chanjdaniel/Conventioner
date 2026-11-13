@@ -298,12 +298,35 @@ describe('the tables are drawn before a run only where a run may happen', () => 
  * may happen there, and the server's phase refusal sends the organizer to "the Assignments page",
  * which is where they are. The page says what holds instead, and draws the tables to whoever may
  * assign, since a seat is still given there by hand, as after results with every seat freed.
+ * That a seat is given by hand, not by a run, is the server's word: the going-live blocker it
+ * serves, whose remedy is Assign tables on this page; the page never reads it off the phase.
  */
 describe('Assignments in a market left in Offers with nothing stored', () => {
   const SETTLED =
     'The table allocation for this market is settled. Change a single assignment on the ' +
     'Assignments page instead of allocating tables again.';
-  const OFFERS = market({ phase: MarketPhase.Offers, assignRefusalReason: SETTLED });
+  const NOBODY_SEATED_SETTLED =
+    "Nobody has a table, so this market's vendor page could not tell anyone where to stand. " +
+    'The table allocation for this market is settled, so tables are not allocated again: assign ' +
+    'each one by hand.';
+  /** The going-live blocker the server serves where a run is refused and nobody is seated. */
+  const byHand = (resolutionLink: string) => ({
+    [MarketPhase.MarketDays]: [
+      {
+        id: 'assignment_computed',
+        passed: false,
+        message: NOBODY_SEATED_SETTLED,
+        resolutionLink,
+        resolutionLabel: resolutionLink === 'assignments' ? 'Assign tables' : 'Allocate tables',
+        resolutionAction: MarketAction.Assign,
+      },
+    ],
+  });
+  const OFFERS = market({
+    phase: MarketPhase.Offers,
+    assignRefusalReason: SETTLED,
+    transitionBlockers: byHand('assignments'),
+  });
   const MAY_NOT = { ...OFFERS, actionRefusals: answersRefusing(MarketAction.Assign) } as Market;
 
   async function mountSummary(shown: Market) {
@@ -354,6 +377,22 @@ describe('Assignments in a market left in Offers with nothing stored', () => {
   it('draws the tables to whoever may assign, and none to someone who may not', async () => {
     expect((await mountPage(OFFERS)).findComponent(ResultFilterBar).exists()).toBe(true);
     expect((await mountPage(MAY_NOT)).findComponent(ResultFilterBar).exists()).toBe(false);
+  });
+
+  it("reads the server's remedy for going live, never the phase", async () => {
+    const byARun = market({
+      phase: MarketPhase.Offers,
+      assignRefusalReason: SETTLED,
+      transitionBlockers: byHand('settings'),
+    });
+    const unserved = market({ phase: MarketPhase.Offers, assignRefusalReason: SETTLED });
+
+    for (const shown of [byARun, unserved]) {
+      expect((await mountSummary(shown)).find('[data-testid="result-empty"]').text()).not.toContain(
+        'Nobody has a table',
+      );
+      expect((await mountPage(shown)).findComponent(ResultFilterBar).exists()).toBe(false);
+    }
   });
 
   it("leaves Vendors and Payments the server's sentence, which points at Assignments", () => {

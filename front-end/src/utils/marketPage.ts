@@ -74,15 +74,21 @@ export function resultsAreOut(allocation: Allocation | null | undefined): boolea
 
 /**
  * Why no run may happen on a market though a seat is still given by hand on Assignments, or null
- * (T316): its results are published, or it was left in Offers, which nothing sets any more. There,
- * with every seat empty, Assignments says so in its own words and draws the tables to whoever may
- * assign, since the server's refusal points at Assignments itself.
+ * (T316): its results are published, or its table allocation is otherwise settled (a market left
+ * in Offers, which nothing sets any more). There, with every seat empty, Assignments says so in its
+ * own words and draws the tables to whoever may assign, since the server's refusal points at
+ * Assignments itself.
+ * Settled is the server's word, never the phase's: going live waits on `assignment_computed`, and
+ * its remedy is Assign tables on this page, not Allocate tables on Settings.
  */
 export function settledBy(
-  market: Pick<Market, 'allocation' | 'phase'>,
-): 'results' | 'offers' | null {
+  market: Pick<Market, 'allocation' | 'transitionBlockers'>,
+): 'results' | 'settled' | null {
   if (resultsAreOut(market.allocation)) return 'results';
-  return market.phase === MarketPhase.Offers ? 'offers' : null;
+  const unallocated = market.transitionBlockers?.[MarketPhase.MarketDays]?.find(
+    (blocker) => blocker.id === 'assignment_computed',
+  );
+  return unallocated?.resolutionLink === 'assignments' ? 'settled' : null;
 }
 
 /** The pages under each tab, in the order its page row shows them. */

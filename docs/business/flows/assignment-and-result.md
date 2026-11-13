@@ -67,6 +67,7 @@ Allocating tables again asks nothing: every hand assignment is kept as a pin, th
 Before the first run Assignments, Vendors and Payments say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the server refuses a run, why, in its words (`assignRefusalReason`); where a run can still happen the tables are drawn below it, so a seat can be given first.
 Once results are published and every seat has been freed, Assignments says instead "Nobody has a table. Results are published, so tables are not allocated again: assign each one below by hand." and draws the tables for whoever may assign (without the last clause, and no tables, for anyone else).
 A market left in Offers with nothing stored reads the same with "The table allocation for this market is settled, so tables are not allocated again" in place of the results' clause (`marketPage.ts#settledBy`, T316), since the server's refusal there points at Assignments itself.
+That the allocation is settled is the server's word, not the phase's: the page reads it off the served going-live blocker, `assignment_computed`, whose remedy there is "Assign tables" on Assignments rather than "Allocate tables" on Settings.
 
 How the solver assigns vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
 
