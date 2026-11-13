@@ -264,6 +264,52 @@ class TestAMarketsOwnDeleteRacingItsOrganizations:
         _nothing_left_of([draft, archived], real_db, applications, market_records)
 
 
+class TestAWriteMeetingADecidedDeletion:
+    """An organization's deletion that has written its trail takes back nothing, though its
+    organization and its markets are still there while it sweeps."""
+
+    def test_a_write_landing_after_its_market_was_swept_is_taken_back(
+            self, organization, monkeypatch, real_db, applications, market_records):
+        import market_deletion as MarketDeletion
+
+        client, (draft, archived) = organization
+        met = []
+
+        def lands():
+            _keep_records(draft, applications, market_records)
+            with pytest.raises(MarketDeletion.MarketGoneUnderWrite):
+                MarketDeletion.kept_only_while_live(MarketsApi.markets_collection, draft["id"])
+            met.append(True)
+
+        _before_call(monkeypatch, "api.organizations.markets_collection.delete_one", 1, lands)
+
+        response = client.delete(f"/organizations/{ORG}")
+
+        assert response.status_code == 200, response.get_json()
+        assert met == [True]
+        _nothing_left_of([draft, archived], real_db, applications, market_records)
+
+    def test_a_markets_own_delete_leaves_no_entry_once_the_trail_is_written(
+            self, organization, monkeypatch, interleave, real_db, market_records):
+        """The organization's deletion writes its trail and sweeps its markets, then stops before
+        its history goes; the market's Delete then writes its entry into that history."""
+        client, (draft, _archived) = organization
+
+        def organization_deletion_stops_before_its_history():
+            _cut(monkeypatch, "history.delete_for_organization")
+            with pytest.raises(Cut):
+                OrgsApi.delete_organization(ORG, OWNER)
+            assert len(_trail(real_db)) == 1
+
+        interleave("history.record_for_organization",
+                   organization_deletion_stops_before_its_history)
+
+        client.delete(f"/markets/{draft['id']}")
+
+        assert "deleting" in real_db["organizations"].find_one({"id": ORG})
+        assert list(market_records.history.find({"organization_id": ORG})) == []
+
+
 class TestAMarketsOwnDeleteCutAndRetried:
     @pytest.mark.parametrize("target", [
         "api.applications.delete_applications_for_market",

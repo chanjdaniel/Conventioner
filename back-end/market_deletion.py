@@ -64,7 +64,9 @@ def delete_records(market_id: str) -> None:
 def delete_market_and_records(markets_collection: Any, market_id: str) -> Any:
     """Delete a market's records, then the market. Returns the market's ``DeleteResult``.
 
-    Its caller has set the tombstone first, so nothing writes a record between the two."""
+    Its caller has set the tombstone first, so no request reading the market from then on writes
+    beside it; one that read it live before can still land a record between the two, and
+    ``kept_only_while_live``, after that request's last write, takes it back."""
     delete_records(market_id)
     return markets_collection.delete_one({"id": market_id})
 
