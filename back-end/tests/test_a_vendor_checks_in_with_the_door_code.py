@@ -52,7 +52,7 @@ def world(monkeypatch, market_records):
         monkeypatch.setattr(module, "markets_collection", markets)
     monkeypatch.setattr(AttendanceApi, "attendance_collection", attendance)
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_k: {"markets": markets})
-    monkeypatch.setattr(VendorCheckIn, "today", lambda: date.fromisoformat(TODAY))
+    monkeypatch.setattr(AttendanceApi, "today", lambda: date.fromisoformat(TODAY))
 
     def market(phase=MarketPhase.MARKET_DAYS, intake_mode="form", reached=None, **overrides):
         record = [{"phase": p, "enteredAt": "2099-05-01T00:00:00+00:00", "by": "o@x"}
@@ -151,15 +151,15 @@ class TestACheckInRacingAnother:
     """
 
     def test_the_one_that_loses_lands_on_the_winners_record(self, client, world, monkeypatch):
-        the_upsert = world.attendance.update_one
+        the_upsert = world.attendance.find_one_and_update
 
         def an_organizer_taps_first(*_args, **_kwargs):
             # The organizer's tap inserts between this check-in's read and its insert.
-            monkeypatch.setattr(world.attendance, "update_one", the_upsert)
+            monkeypatch.setattr(world.attendance, "find_one_and_update", the_upsert)
             AttendanceApi.record_attendance(MARKET, VENDOR, TODAY, "door@example.com")
             raise DuplicateKeyError("E11000 duplicate key error")
 
-        monkeypatch.setattr(world.attendance, "update_one", an_organizer_taps_first)
+        monkeypatch.setattr(world.attendance, "find_one_and_update", an_organizer_taps_first)
 
         response = check_in(client)
 
@@ -174,7 +174,7 @@ class TestACheckInRacingAnother:
         def refused(*_args, **_kwargs):
             raise DuplicateKeyError("E11000 duplicate key error")
 
-        monkeypatch.setattr(world.attendance, "update_one", refused)
+        monkeypatch.setattr(world.attendance, "find_one_and_update", refused)
 
         with pytest.raises(DuplicateKeyError):
             AttendanceApi.record_attendance(MARKET, VENDOR, TODAY)
@@ -377,7 +377,7 @@ class TestUndoIsBoundedAsCheckInIs:
 
     def test_not_a_past_days(self, client, world, monkeypatch):
         check_in(client)
-        monkeypatch.setattr(VendorCheckIn, "today", lambda: date.fromisoformat("2099-08-03"))
+        monkeypatch.setattr(AttendanceApi, "today", lambda: date.fromisoformat("2099-08-03"))
 
         response = undo(client)
 

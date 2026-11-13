@@ -24,6 +24,11 @@ export const REREAD_MS = 15_000;
  * The roster stays fresh by itself (T318): a vendor who scans themselves in, or a second
  * organizer's check-in, shows within `REREAD_MS` with no tap, and at once when the tab comes back
  * into view or the browser comes back online.
+ *
+ * Each row says where its vendor stands (T318), as the server serves it: expected, here, here at
+ * another table than the one they hold now, or here with no table that day, listed under the
+ * day's seats so a free never hides an arrival. The tally and the toggles count seats only, as the
+ * Stats tab does. Check in is offered on today and past days, never on a day to come.
  */
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -49,14 +54,25 @@ import { calendarToday } from '@/utils/marketGuide';
 import { useOpenMarket } from '@/utils/openMarket';
 import { signedInEmail } from '@/utils/signedIn';
 
+/**
+ * Where a vendor stands at the door on a date: a seat and no check-in (`expected`), a check-in made
+ * at the seat they hold (`here`), one made at another table (`here_elsewhere`), or a check-in and no
+ * seat that day (`here_without_seat`).
+ */
+type RosterState = 'expected' | 'here' | 'here_elsewhere' | 'here_without_seat';
+
 interface RosterRow {
   date: string;
   vendorEmail: string;
   vendorName: string;
-  tableCode: string;
-  tableChoice: string;
-  section: string;
-  location: string;
+  /** The seat held that day; null on a `here_without_seat` row. */
+  tableCode: string | null;
+  tableChoice: string | null;
+  section: string | null;
+  location: string | null;
+  state: RosterState;
+  /** The table the check-in was made at, or null with none. */
+  checkedInTableCode: string | null;
   checkedInAt: string | null;
   checkedInBy: string | null;
   /** How a vendor checked themselves in: `door_code`, on their vendor page (ADR 0022). */
@@ -125,8 +141,13 @@ const canCheckIn = computed(
 const offersTheDoorCode = computed(() => offersDoorCode(market.value));
 const showingDoorCode = ref(false);
 
+function hasSeat(row: RosterRow): boolean {
+  return row.state !== 'here_without_seat';
+}
+
+/** A date's seats, and those checked in: a vendor here with no table that day is not counted. */
 function tally(date: string) {
-  const day = roster.value.filter((row) => row.date === date);
+  const day = roster.value.filter((row) => row.date === date && hasSeat(row));
   return { expected: day.length, here: day.filter((row) => row.checkedInAt).length };
 }
 
@@ -143,25 +164,62 @@ const dayIsOver = computed(
 );
 const notHere = computed(() => (dayIsOver.value ? 'Did not come' : 'Not yet'));
 
-const shown = computed(() => {
-  const term = search.value.trim();
+/** Check in is offered on today and past days: a mis-tapped day to come is not an arrival. */
+const checkInOpen = computed(() => !!selectedDate.value && selectedDate.value <= calendarToday());
+
+const shownToday = computed(() => {
+  const term = search.value.trim().toLowerCase();
   return roster.value.filter((row) => {
     if (row.date !== selectedDate.value) return false;
     if (show.value === 'not-yet' && row.checkedInAt) return false;
     if (show.value === 'here' && !row.checkedInAt) return false;
     if (!term) return true;
-    if (row.tableCode.toLowerCase().includes(term.toLowerCase())) return true;
+    if ((row.tableCode ?? '').toLowerCase().includes(term)) return true;
     return vendorMatches(term, row.vendorEmail, names.value);
   });
 });
+const shown = computed(() => shownToday.value.filter(hasSeat));
+/** Checked in on the chosen date with no table that day, under the seats, by the same filters. */
+const shownWithoutSeat = computed(() => shownToday.value.filter((row) => !hasSeat(row)));
+const withoutSeatToday = computed(
+  () => roster.value.filter((row) => row.date === selectedDate.value && !hasSeat(row)).length,
+);
+
+/** The seats, then who is here with none, under a heading of its own. */
+const lists = computed(() =>
+  [
+    { key: 'seated', heading: '', rows: shown.value },
+    {
+      key: 'unseated',
+      heading: `Checked in, with no table on this date (${withoutSeatToday.value})`,
+      rows: shownWithoutSeat.value,
+    },
+  ].filter((list) => list.rows.length > 0),
+);
 
 function status(row: RosterRow): string {
   if (!row.checkedInAt) return notHere.value;
   const at = getTimestampTime(row.checkedInAt);
+  const arrived = arrival(row, at);
+  // Here, but at a table they no longer hold: say which, so they are sent to their new one.
+  if (row.state === 'here_elsewhere') return `${arrived}, at table ${row.checkedInTableCode}`;
+  return arrived;
+}
+
+function arrival(row: RosterRow, at: string): string {
   // The vendor's own, with the door code they scanned or typed at the entrance.
   if (row.checkedInVia === 'door_code') return `Scanned in at ${at}`;
   if (!row.checkedInBy) return at;
   return `${at} by ${row.checkedInBy.toLowerCase() === signedInAs.value ? 'you' : row.checkedInBy}`;
+}
+
+/** Here at the seat they hold reads positive; anything else asks the door's attention. */
+function statusTone(row: RosterRow): string {
+  return row.state === 'here' ? 'chip--positive' : 'chip--attention';
+}
+
+function whereTheySit(row: RosterRow): string {
+  return row.tableCode ? `Table ${tableInWords(row.tableCode, row.tableChoice ?? '')}` : 'No table';
 }
 
 function rowKey(row: RosterRow): string {
@@ -282,7 +340,8 @@ function holdBusy(key: string, busy: boolean): void {
 /**
  * The row shows the server's answer at once, and a re-read follows: a slow re-read never leaves
  * the organizer wondering whether it worked. The answer counts as newer than every read in flight,
- * so none of them, asked before it, undoes it.
+ * so none of them, asked before it, undoes it. A check-in is here at the seat the row holds; an
+ * undo leaves a seat expected, and a row with no seat has nothing left to show.
  */
 async function write(row: RosterRow, method: 'post' | 'delete') {
   const key = rowKey(row);
@@ -292,17 +351,36 @@ async function write(row: RosterRow, method: 'post' | 'delete') {
   const url = `/markets/${encodeURIComponent(forMarket)}/attendance`;
   const body = { vendorEmail: row.vendorEmail, date: row.date };
   try {
-    let arrived: Pick<RosterRow, 'checkedInAt' | 'checkedInBy' | 'checkedInVia'>;
+    let arrived: Pick<
+      RosterRow,
+      'state' | 'checkedInTableCode' | 'checkedInAt' | 'checkedInBy' | 'checkedInVia'
+    >;
     if (method === 'post') {
       const { data } = await api.post<{ checkedInAt: string }>(url, body);
-      arrived = { checkedInAt: data.checkedInAt, checkedInBy: signedInEmail(), checkedInVia: null };
+      arrived = {
+        state: 'here',
+        checkedInTableCode: row.tableCode,
+        checkedInAt: data.checkedInAt,
+        checkedInBy: signedInEmail(),
+        checkedInVia: null,
+      };
     } else {
       await api.delete(url, { data: body });
-      arrived = { checkedInAt: null, checkedInBy: null, checkedInVia: null };
+      arrived = {
+        state: 'expected',
+        checkedInTableCode: null,
+        checkedInAt: null,
+        checkedInBy: null,
+        checkedInVia: null,
+      };
     }
     if (forMarket !== marketId.value) return;
     asked += 1;
-    roster.value = roster.value.map((one) => (rowKey(one) === key ? { ...one, ...arrived } : one));
+    roster.value = roster.value.flatMap((one) => {
+      if (rowKey(one) !== key) return [one];
+      if (!hasSeat(one) && method === 'delete') return [];
+      return [{ ...one, ...arrived }];
+    });
     void read();
   } catch (err: unknown) {
     errorMessage.value = getApiErrorMessage(
@@ -423,73 +501,80 @@ watch(marketId, openMarket, { immediate: true });
           />
         </div>
 
-        <p v-if="today.expected === 0" class="door-note">Nobody is assigned on this date.</p>
-        <p v-else-if="shown.length === 0" class="door-note">Nobody here matches.</p>
-        <ul v-else class="door-list">
-          <li
-            v-for="row in shown"
-            :key="rowKey(row)"
-            class="door-row"
-            :class="{ 'door-row--read': !canCheckIn }"
-            data-testid="attendance-row"
-            :data-vendor="row.vendorEmail"
-          >
-            <VendorNameButton
-              class="door-who"
-              :email="row.vendorEmail"
-              :names="names"
-              testid="attendance-vendor"
-              @open="drawer.open(row.vendorEmail)"
-            />
-            <!-- Where they sit and whether they came, one line under the vendor's on a phone, so
-                 neither widens the column the action stands in (E38/F15/S04). -->
-            <span class="door-place">
-              <span class="door-table"
-                >Table {{ tableInWords(row.tableCode, row.tableChoice) }}</span
-              >
-              <span
-                class="chip door-status"
-                :class="row.checkedInAt ? 'chip--positive' : 'chip--attention'"
-                data-testid="attendance-row-status"
-                >{{ status(row) }}</span
-              >
-            </span>
-            <span v-if="canCheckIn" class="door-action">
-              <button
-                v-if="!row.checkedInAt"
-                type="button"
-                class="btn btn--primary btn--compact"
-                :disabled="busyRows.has(rowKey(row))"
-                :aria-label="`Check in ${whoFor(row)}`"
-                data-testid="attendance-check-in"
-                @click="write(row, 'post')"
-              >
-                Check in
-              </button>
-              <button
-                v-else
-                type="button"
-                class="btn btn--secondary btn--compact"
-                :disabled="busyRows.has(rowKey(row))"
-                :aria-label="`Undo ${whoFor(row)}'s check-in`"
-                data-testid="attendance-undo"
-                @click="write(row, 'delete')"
-              >
-                Undo
-              </button>
-            </span>
-            <VendorNotes
-              class="door-notes"
-              :marketId="marketId"
-              :email="row.vendorEmail"
-              :entry="entryFor(row.vendorEmail)"
-              :canWrite="canWriteNotes"
-              onlyWhenNoted
-              :testid="`attendance-notes-${row.vendorEmail}`"
-              @changed="loadNotes"
-            />
-          </li>
-        </ul>
+        <p v-if="today.expected === 0 && withoutSeatToday === 0" class="door-note">
+          Nobody is assigned on this date.
+        </p>
+        <p v-else-if="lists.length === 0" class="door-note">Nobody here matches.</p>
+        <template v-for="list in lists" :key="list.key">
+          <h3 v-if="list.heading" class="door-heading" data-testid="attendance-unseated-heading">
+            {{ list.heading }}
+          </h3>
+          <ul class="door-list" :data-testid="`attendance-list-${list.key}`">
+            <li
+              v-for="row in list.rows"
+              :key="rowKey(row)"
+              class="door-row"
+              :class="{ 'door-row--read': !canCheckIn }"
+              data-testid="attendance-row"
+              :data-vendor="row.vendorEmail"
+            >
+              <VendorNameButton
+                class="door-who"
+                :email="row.vendorEmail"
+                :names="names"
+                testid="attendance-vendor"
+                @open="drawer.open(row.vendorEmail)"
+              />
+              <!-- Where they sit and whether they came, one line under the vendor's on a phone, so
+                   neither widens the column the action stands in (E38/F15/S04). -->
+              <span class="door-place">
+                <span class="door-table" data-testid="attendance-row-table">{{
+                  whereTheySit(row)
+                }}</span>
+                <span
+                  class="chip door-status"
+                  :class="statusTone(row)"
+                  data-testid="attendance-row-status"
+                  >{{ status(row) }}</span
+                >
+              </span>
+              <span v-if="canCheckIn" class="door-action">
+                <button
+                  v-if="!row.checkedInAt && checkInOpen"
+                  type="button"
+                  class="btn btn--primary btn--compact"
+                  :disabled="busyRows.has(rowKey(row))"
+                  :aria-label="`Check in ${whoFor(row)}`"
+                  data-testid="attendance-check-in"
+                  @click="write(row, 'post')"
+                >
+                  Check in
+                </button>
+                <button
+                  v-else-if="row.checkedInAt"
+                  type="button"
+                  class="btn btn--secondary btn--compact"
+                  :disabled="busyRows.has(rowKey(row))"
+                  :aria-label="`Undo ${whoFor(row)}'s check-in`"
+                  data-testid="attendance-undo"
+                  @click="write(row, 'delete')"
+                >
+                  Undo
+                </button>
+              </span>
+              <VendorNotes
+                class="door-notes"
+                :marketId="marketId"
+                :email="row.vendorEmail"
+                :entry="entryFor(row.vendorEmail)"
+                :canWrite="canWriteNotes"
+                onlyWhenNoted
+                :testid="`attendance-notes-${row.vendorEmail}`"
+                @changed="loadNotes"
+              />
+            </li>
+          </ul>
+        </template>
       </template>
     </div>
     <VendorDrawer
@@ -584,6 +669,12 @@ watch(marketId, openMarket, { immediate: true });
 .door-search {
   flex: 1 1 240px;
   min-width: 0;
+}
+
+.door-heading {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+  font-weight: 600;
 }
 
 .door-list {

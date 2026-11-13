@@ -12,6 +12,8 @@ export class AttendanceStatusPage {
   readonly search: Locator;
   /** The frame's line saying why the person looking may change nothing, above the door (T15). */
   readonly readOnly: Locator;
+  /** "Checked in, with no table on this date (n)", over the rows of vendors here with no seat (T318). */
+  readonly unseatedHeading: Locator;
   /** Every row's Check in and Undo, offered only to whoever may check vendors in. */
   readonly checkIns: Locator;
   readonly undos: Locator;
@@ -44,6 +46,7 @@ export class AttendanceStatusPage {
     this.summary = page.getByTestId('attendance-summary');
     this.rows = page.getByTestId('attendance-row');
     this.search = page.getByTestId('attendance-search');
+    this.unseatedHeading = page.getByTestId('attendance-unseated-heading');
     this.readOnly = page.getByTestId('market-read-only');
     this.checkIns = page.getByTestId('attendance-check-in');
     this.undos = page.getByTestId('attendance-undo');
@@ -85,9 +88,17 @@ export class AttendanceStatusPage {
     return this.page.locator(`[data-testid="attendance-row"][data-vendor="${vendorEmail}"]`);
   }
 
-  /** "Not yet" ("Did not come" once the day is over), or when they checked in and who made it. */
+  /**
+   * "Not yet" ("Did not come" once the day is over), or when they checked in and who made it, and,
+   * for a check-in made at another table than the one they hold now, which (T318).
+   */
   status(vendorEmail: string): Locator {
     return this.row(vendorEmail).getByTestId('attendance-row-status');
+  }
+
+  /** Where a vendor sits on the date shown, "Table ..." or "No table" (T318). */
+  table(vendorEmail: string): Locator {
+    return this.row(vendorEmail).getByTestId('attendance-row-table');
   }
 
   /** A vendor's name on their row, which opens their drawer (E35/F01/S02). */

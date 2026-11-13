@@ -57,10 +57,12 @@ interface Row {
   date: string;
   vendorEmail: string;
   vendorName: string;
-  tableCode: string;
-  tableChoice: string;
-  section: string;
-  location: string;
+  tableCode: string | null;
+  tableChoice: string | null;
+  section: string | null;
+  location: string | null;
+  state: 'expected' | 'here' | 'here_elsewhere' | 'here_without_seat';
+  checkedInTableCode: string | null;
   checkedInAt: string | null;
   checkedInBy: string | null;
   checkedInVia: string | null;
@@ -75,11 +77,27 @@ function row(email: string, tableCode: string, arrived: Partial<Row> = {}): Row 
     tableChoice: 'Full Table',
     section: 'Main Hall',
     location: 'Main Hall',
+    state: arrived.checkedInAt ? 'here' : 'expected',
+    checkedInTableCode: arrived.checkedInAt ? tableCode : null,
     checkedInAt: null,
     checkedInBy: null,
     checkedInVia: null,
     ...arrived,
   };
+}
+
+/** A vendor checked in on `TODAY` at `madeAt`, who holds no table that day (T318). */
+function seatless(email: string, madeAt: string): Row {
+  return row(email, '', {
+    tableCode: null,
+    tableChoice: null,
+    section: null,
+    location: null,
+    state: 'here_without_seat',
+    checkedInTableCode: madeAt,
+    checkedInAt: ARRIVED,
+    checkedInVia: 'door_code',
+  });
 }
 
 /** The roster as the server serves it, nobody in yet unless a test says. */
@@ -90,6 +108,12 @@ function roster(...arrived: { email: string; via?: string }[]) {
       ? row(email, table, { checkedInAt: ARRIVED, checkedInVia: here.get(email) ?? null })
       : row(email, table);
   return { data: { dates: [TODAY], roster: [answer(ANA, 'A1'), answer(BEN, 'A2')] } };
+}
+
+/** The calendar day `days` from `TODAY`, as the roster dates them. */
+function dayFromToday(days: number): string {
+  const [year, month, day] = TODAY.split('-').map(Number) as [number, number, number];
+  return calendarToday(new Date(year, month - 1, day + days));
 }
 
 const ROSTER_URL = '/markets/market-1/attendance';
@@ -161,6 +185,7 @@ enableAutoUnmount(afterEach);
 
 beforeEach(() => {
   vi.resetAllMocks();
+  route.query = {};
   visibility = 'visible';
   Object.defineProperty(document, 'visibilityState', {
     configurable: true,
@@ -415,5 +440,187 @@ describe('when it was read', () => {
     await wrapper.get('[data-testid="attendance-refresh"]').trigger('click');
     await flushPromises();
     expect(rosterReads()).toBe(before + 1);
+  });
+});
+
+describe('where each vendor stands (T318)', () => {
+  const CY = 'cy@example.com';
+
+  function chip(wrapper: VueWrapper, email: string) {
+    return wrapper
+      .get(`[data-testid="attendance-row"][data-vendor="${email}"]`)
+      .get('[data-testid="attendance-row-status"]');
+  }
+
+  function table(wrapper: VueWrapper, email: string): string {
+    return wrapper
+      .get(`[data-testid="attendance-row"][data-vendor="${email}"]`)
+      .get('[data-testid="attendance-row-table"]')
+      .text();
+  }
+
+  it('a vendor here at another table than the one they hold says where, in attention', async () => {
+    serveRoster(() =>
+      Promise.resolve({
+        data: {
+          dates: [TODAY],
+          roster: [
+            row(ANA, 'A1', {
+              state: 'here_elsewhere',
+              checkedInTableCode: 'A7',
+              checkedInAt: ARRIVED,
+              checkedInVia: 'door_code',
+            }),
+            row(BEN, 'A2', { checkedInAt: ARRIVED }),
+          ],
+        },
+      }),
+    );
+    const wrapper = await open();
+
+    expect(chip(wrapper, ANA).text()).toMatch(/^Scanned in at .+, at table A7$/);
+    expect(chip(wrapper, ANA).classes()).toContain('chip--attention');
+    expect(table(wrapper, ANA)).toBe('Table A1, a whole table');
+    expect(chip(wrapper, BEN).classes()).toContain('chip--positive');
+    expect(wrapper.get('[data-testid="attendance-summary"]').text()).toBe('2 of 2 checked in');
+  });
+
+  it('a vendor here with no table that day is listed under the seated rows, counted apart', async () => {
+    serveRoster(() =>
+      Promise.resolve({
+        data: { dates: [TODAY], roster: [row(ANA, 'A1'), row(BEN, 'A2'), seatless(CY, 'A3')] },
+      }),
+    );
+    const wrapper = await open();
+
+    const vendors = wrapper
+      .findAll('[data-testid="attendance-row"]')
+      .map((r) => r.attributes('data-vendor'));
+    expect(vendors).toEqual([ANA, BEN, CY]);
+    const heading = wrapper.get('[data-testid="attendance-unseated-heading"]');
+    expect(heading.text()).toBe('Checked in, with no table on this date (1)');
+    expect(table(wrapper, CY)).toBe('No table');
+    expect(chip(wrapper, CY).text()).toMatch(/^Scanned in at /);
+    expect(chip(wrapper, CY).classes()).toContain('chip--attention');
+    expect(
+      wrapper
+        .find(`[data-testid="attendance-row"][data-vendor="${CY}"] [data-testid="attendance-undo"]`)
+        .exists(),
+    ).toBe(true);
+    // The tally and the toggles count the day's seats only.
+    expect(wrapper.get('[data-testid="attendance-summary"]').text()).toBe('0 of 2 checked in');
+    expect(wrapper.get('[data-testid="attendance-show-all"]').text()).toBe('All 2');
+    expect(wrapper.get('[data-testid="attendance-show-not-yet"]').text()).toBe('Not yet 2');
+    expect(wrapper.get('[data-testid="attendance-show-here"]').text()).toBe('Checked in 0');
+
+    await wrapper.get('[data-testid="attendance-show-not-yet"]').trigger('click');
+    expect(wrapper.find(`[data-testid="attendance-row"][data-vendor="${CY}"]`).exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('[data-testid="attendance-unseated-heading"]').exists()).toBe(false);
+
+    await wrapper.get('[data-testid="attendance-show-here"]').trigger('click');
+    expect(wrapper.find(`[data-testid="attendance-row"][data-vendor="${CY}"]`).exists()).toBe(true);
+    expect(wrapper.find(`[data-testid="attendance-row"][data-vendor="${ANA}"]`).exists()).toBe(
+      false,
+    );
+  });
+
+  it('a day with no seats still lists who checked in without one', async () => {
+    serveRoster(() => Promise.resolve({ data: { dates: [TODAY], roster: [seatless(CY, 'A3')] } }));
+    const wrapper = await open();
+
+    expect(wrapper.text()).not.toContain('Nobody is assigned on this date.');
+    expect(wrapper.find(`[data-testid="attendance-row"][data-vendor="${CY}"]`).exists()).toBe(true);
+  });
+
+  it("undoing a check-in with no table takes the row away on the server's answer", async () => {
+    serveRoster(() =>
+      Promise.resolve({ data: { dates: [TODAY], roster: [row(ANA, 'A1'), seatless(CY, 'A3')] } }),
+    );
+    const wrapper = await open();
+    serveRoster(() => new Promise(() => {}));
+    api.delete.mockResolvedValue({ data: { message: 'Check-in undone' } });
+
+    await wrapper
+      .get(`[data-testid="attendance-row"][data-vendor="${CY}"] [data-testid="attendance-undo"]`)
+      .trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find(`[data-testid="attendance-row"][data-vendor="${CY}"]`).exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('[data-testid="attendance-unseated-heading"]').exists()).toBe(false);
+  });
+
+  it("a check-in reads as here at the vendor's table on the server's answer", async () => {
+    serveRoster(() =>
+      Promise.resolve({
+        data: {
+          dates: [TODAY],
+          roster: [
+            row(ANA, 'A1', {
+              state: 'here_elsewhere',
+              checkedInTableCode: 'A7',
+              checkedInAt: ARRIVED,
+            }),
+          ],
+        },
+      }),
+    );
+    const wrapper = await open();
+    serveRoster(() => new Promise(() => {}));
+    api.delete.mockResolvedValue({ data: { message: 'Check-in undone' } });
+    api.post.mockResolvedValue({ data: { message: 'Checked in', checkedInAt: ARRIVED } });
+
+    await wrapper
+      .get(`[data-testid="attendance-row"][data-vendor="${ANA}"] [data-testid="attendance-undo"]`)
+      .trigger('click');
+    await flushPromises();
+    expect(chip(wrapper, ANA).text()).toBe('Not yet');
+    await checkIn(wrapper, ANA).trigger('click');
+    await flushPromises();
+
+    expect(chip(wrapper, ANA).text()).toMatch(/ by you$/);
+    expect(chip(wrapper, ANA).classes()).toContain('chip--positive');
+  });
+
+  it.each([
+    ['today', 0, true],
+    ['a past day', -1, true],
+    ['a day to come', 1, false],
+  ])('on %s, offers Check in: %s', async (_name, days, offered) => {
+    const day = dayFromToday(days);
+    route.query = { date: day };
+    serveRoster(() =>
+      Promise.resolve({
+        data: {
+          dates: [dayFromToday(-1), TODAY, dayFromToday(1)],
+          roster: [{ ...row(ANA, 'A1'), date: day }],
+        },
+      }),
+    );
+    const wrapper = await open();
+
+    expect(wrapper.find('[data-testid="attendance-check-in"]').exists()).toBe(offered);
+    expect(wrapper.find(`[data-testid="attendance-row"][data-vendor="${ANA}"]`).exists()).toBe(
+      true,
+    );
+  });
+
+  it('offers Undo on a day to come, wherever there is a check-in', async () => {
+    const day = dayFromToday(1);
+    route.query = { date: day };
+    serveRoster(() =>
+      Promise.resolve({
+        data: {
+          dates: [TODAY, day],
+          roster: [{ ...row(ANA, 'A1', { checkedInAt: ARRIVED }), date: day }],
+        },
+      }),
+    );
+    const wrapper = await open();
+
+    expect(wrapper.find('[data-testid="attendance-undo"]').exists()).toBe(true);
   });
 });

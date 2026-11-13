@@ -1,8 +1,7 @@
-from types import SimpleNamespace
-
 import pytest
 
 import api.attendance as AttendanceApi
+from conftest import FakeApplicationsCollection
 from datatypes import MarketPhase
 from market_documents import market_by_slug, market_name_slug
 
@@ -10,40 +9,6 @@ from market_documents import market_by_slug, market_name_slug
 def running_market_at(slug):
     """The public slug lookup, asked for a market in its days."""
     return market_by_slug(AttendanceApi.markets_collection, slug, (MarketPhase.MARKET_DAYS,))
-
-
-class FakeAttendanceCollection:
-    def __init__(self):
-        self.docs = []
-        self.last_filter = None
-        self.last_update = None
-        self.upsert_called = False
-
-    def find(self, query, projection=None):
-        out = []
-        for d in self.docs:
-            if all(d.get(k) == v for k, v in query.items()):
-                out.append(d)
-        return iter(out)
-
-    def update_one(self, filter_query, update, upsert=False):
-        self.last_filter = filter_query
-        self.last_update = update
-        self.upsert_called = upsert
-        set_doc = update.get("$set", {})
-        for d in self.docs:
-            if all(d.get(k) == v for k, v in filter_query.items()):
-                d.update(set_doc)
-                return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
-        self.docs.append(dict(set_doc))
-        return SimpleNamespace(matched_count=0, modified_count=0, upserted_id="x")
-
-    def delete_one(self, filter_query):
-        for index, d in enumerate(self.docs):
-            if all(d.get(k) == v for k, v in filter_query.items()):
-                self.docs.pop(index)
-                return SimpleNamespace(deleted_count=1)
-        return SimpleNamespace(deleted_count=0)
 
 
 def _market_with_assignment():
@@ -54,6 +19,7 @@ def _market_with_assignment():
         "roles": {"user-123": "owner"},
         "modificationList": [],
         "isDraft": False,
+        "phase": "market_days",
         "assignmentObject": {
             "assignmentDate": "",
             "vendorAssignments": [
@@ -82,45 +48,46 @@ def test_record_attendance_validates_input(monkeypatch):
 
 
 def test_record_attendance_404_when_market_missing(monkeypatch):
-    monkeypatch.setattr(AttendanceApi.markets_collection, "find_one", lambda q: None)
+    monkeypatch.setattr(AttendanceApi.markets_collection, "find_one", lambda *_a: None)
     result, status = AttendanceApi.record_attendance("missing", "v@example.com", "2026-05-01")
     assert status == 404
     assert result["error"] == "Market not found"
 
 
 def test_record_attendance_404_when_no_assignment_for_vendor_on_date(monkeypatch):
-    monkeypatch.setattr(AttendanceApi.markets_collection, "find_one", lambda q: _market_with_assignment())
+    monkeypatch.setattr(AttendanceApi.markets_collection, "find_one", lambda *_a: _market_with_assignment())
     result, status = AttendanceApi.record_attendance("market-123", "other@example.com", "2026-05-01")
     assert status == 404
     assert "No assignment" in result["error"]
 
 
 def test_record_attendance_upserts_with_timestamp(monkeypatch):
-    fake_coll = FakeAttendanceCollection()
-    monkeypatch.setattr(AttendanceApi.markets_collection, "find_one", lambda q: _market_with_assignment())
+    fake_coll = FakeApplicationsCollection()
+    monkeypatch.setattr(AttendanceApi.markets_collection, "find_one", lambda *_a: _market_with_assignment())
     monkeypatch.setattr(AttendanceApi, "attendance_collection", fake_coll)
 
     result, status = AttendanceApi.record_attendance("market-123", "Vendor@Example.com", "2026-05-01")
     assert status == 200
     assert result["message"] == "Checked in"
     assert "checkedInAt" in result and result["checkedInAt"]
-    assert fake_coll.upsert_called is True
-    assert fake_coll.last_filter == {
+    [stored] = fake_coll.documents
+    assert {key: stored[key] for key in ("market_id", "vendor_email", "date")} == {
         "market_id": "market-123",
         "vendor_email": "vendor@example.com",
         "date": "2026-05-01",
     }
-    set_doc = fake_coll.last_update["$set"]
-    assert set_doc["checked_in_at"] == result["checkedInAt"]
+    assert stored["checked_in_at"] == result["checkedInAt"]
+    assert stored["table_code"] == "A1"
 
     result2, status2 = AttendanceApi.record_attendance("market-123", "vendor@example.com", "2026-05-01")
     assert status2 == 200
-    assert len(fake_coll.docs) == 1
+    assert len(fake_coll.documents) == 1
+    assert fake_coll.documents[0]["checked_in_at"] == result2["checkedInAt"]
 
 
 def test_get_attendance_for_market_returns_camel_case_records(monkeypatch):
-    fake_coll = FakeAttendanceCollection()
-    fake_coll.docs.extend([
+    fake_coll = FakeApplicationsCollection()
+    fake_coll.documents.extend([
         {"market_id": "m1", "vendor_email": "a@example.com", "date": "2026-05-01", "checked_in_at": "2026-05-01T09:00:00"},
         {"market_id": "m1", "vendor_email": "b@example.com", "date": "2026-05-01", "checked_in_at": "2026-05-01T09:10:00"},
         {"market_id": "m2", "vendor_email": "c@example.com", "date": "2026-05-01", "checked_in_at": "2026-05-01T09:20:00"},
@@ -398,9 +365,12 @@ class TestUndoingACheckInOnTheWrongDay:
     """A two-day market offered an identical button per date and no way back from a mis-tap."""
 
     def _collection(self, monkeypatch, docs):
-        collection = FakeAttendanceCollection()
-        collection.docs = list(docs)
+        collection = FakeApplicationsCollection()
+        collection.documents.extend(docs)
         monkeypatch.setattr(AttendanceApi, "attendance_collection", collection)
+        # The undo reads the market's phase, before it deletes and after.
+        monkeypatch.setattr(AttendanceApi.markets_collection, "find_one",
+                            lambda *_a: _market_with_assignment())
         return collection
 
     def test_removes_the_record_for_that_vendor_on_that_day(self, monkeypatch):
@@ -415,7 +385,7 @@ class TestUndoingACheckInOnTheWrongDay:
 
         assert status == 200
         assert result["message"] == "Check-in undone"
-        assert [d["date"] for d in collection.docs] == ["2026-05-02"]
+        assert [d["date"] for d in collection.documents] == ["2026-05-02"]
 
     def test_says_so_when_there_was_no_check_in_to_undo(self, monkeypatch):
         self._collection(monkeypatch, [])

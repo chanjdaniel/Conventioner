@@ -16,6 +16,7 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import {
   publishResults,
+  recordCheckIns,
   SEED_MARKET_DATE,
   seedMarketWithVendors,
   seedPublishedMarketWithAssignments,
@@ -194,10 +195,7 @@ async function aMarketAtTheDoor(request: APIRequestContext): Promise<string> {
   askWhatTheySell(marketId);
   await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
   await call(request, 'post', `/markets/${marketId}/transition`, { toPhase: 'market_days' });
-  await call(request, 'post', `/markets/${marketId}/attendance`, {
-    vendorEmail: PAID,
-    date: SEED_MARKET_DATE,
-  });
+  recordCheckIns(marketId, [{ vendorEmail: PAID, date: SEED_MARKET_DATE }], TEST_USER.email);
   return marketId;
 }
 

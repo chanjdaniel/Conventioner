@@ -576,7 +576,7 @@ def _door(organizer: bool, undo: bool):
         if organizer:
             return send(f"/markets/{MARKET}/attendance", json={"vendorEmail": VENDOR, "date": DATE})
         # The vendor's own, on their vendor page: signed in, with the door code (ADR 0022).
-        world.patch(VendorCheckIn, "today", lambda: date.fromisoformat(DATE))
+        world.patch(AttendanceApi, "today", lambda: date.fromisoformat(DATE))
         return send("/public/markets/test-market/vendor/check-in",
                     json={"date": DATE, "doorCode": DOOR_CODE},
                     headers={"Authorization":

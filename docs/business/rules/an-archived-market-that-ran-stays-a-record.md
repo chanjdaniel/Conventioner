@@ -4,6 +4,7 @@ kind: rule
 describes:
   - back-end/api/attendance.py#ended_after_it_ran
   - back-end/api/attendance.py#market_has_ended
+  - back-end/api/attendance.py#_closed_since
   - front-end/src/components/vendorPage/VendorCheckIn.vue
   - front-end/e2e/an-archive-keeps-its-vendor-page.spec.ts
 verified: 2026-11-04
@@ -13,6 +14,7 @@ sources:
   - E03/F03
   - bug/9
   - T202
+  - T318
 ---
 
 # An archived market that ran stays a record
@@ -36,6 +38,7 @@ Both doors that delete one say so before it is done: deleting its organization n
 
 - `ended_after_it_ran` in [`back-end/api/attendance.py`](../../../back-end/api/attendance.py) marks the vendor page's read `ended`: archived (`market_has_ended`), and its phase record says it ran.
   A vendor's check-in there answers 409, "This market has ended, so check-in is closed." ([attendance and the door](../../implementation/modules/attendance-and-door.md)).
+- A check-in or its undo sent as the market is archived changes nothing either: each reads the phase again after its write and takes the write back on a market no longer in its days, so the record of who came is the one the archive closed ([attendance and the door](../../implementation/modules/attendance-and-door.md#sharp-edges), T318).
 - [`VendorCheckIn.vue`](../../../front-end/src/components/vendorPage/VendorCheckIn.vue) shows the record, "Where you sat": each seat, and "Checked in at <time>" or "Not checked in".
 - The record is read-only like the rest of an archived market ([an archived market is read-only](an-archived-market-is-read-only.md)).
 - A market the old build published reads as archived until it is migrated, so it reads as a record that ran only once someone has checked in there ([the market document](../../implementation/data/market-document.md#parsing-a-stored-market)).

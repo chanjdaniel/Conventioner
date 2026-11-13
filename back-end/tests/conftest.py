@@ -1169,6 +1169,12 @@ class FakeApplicationsCollection:
         self._remove([] if doc is None else [doc])
         return SimpleNamespace(deleted_count=0 if doc is None else 1)
 
+    def find_one_and_delete(self, query, projection=None):
+        """The document deleted, projected, as a copy; None when nothing matched."""
+        doc = self._first(query)
+        self._remove([] if doc is None else [doc])
+        return None if doc is None else mongo_project(copy.deepcopy(doc), projection)
+
     def delete_many(self, query):
         doomed = self._matching(query)
         self._remove(doomed)
