@@ -147,7 +147,8 @@ A check-only run (`-f check-only=true`, or the box in the Actions tab) makes eve
    Any error reading GitHub refuses at once, with no retry: "Could not read `<what>` from GitHub (`<status or error type>`), so nothing was promoted."
    On a pass it prints one line: "`<short>` may be promoted: Test passed on dev (`<url>`), and main (`<main short>`) is `<n>` commits behind it."
 
-3. **The App's token** is minted by `actions/create-github-app-token` from the variable and the secret: an installation token that lasts an hour and may write this repository's contents and nothing else, revoked when the job ends.
+3. **The App's token** is minted by `actions/create-github-app-token` from the variable and the secret: an installation token that lasts an hour and may write this repository's contents and workflow files and nothing else, revoked when the job ends.
+   It asks for workflow files because GitHub refuses an App's move of `main` that changes a file under `.github/workflows/` without that permission, so the App holds Workflows read and write beside Contents.
 4. **"Fast-forward main"**, skipped on a check-only run, is the only step that holds the App's token.
    It moves `main` to the commit with `force=false`, so GitHub refuses anything but a fast-forward: a `main` that moved since the check is refused, never rewritten ("main moved since the check, so nothing was promoted. Run Promote again.").
    Any other refusal is named with GitHub's own message ("GitHub refused to move main (`<message>`), so nothing was promoted.").
@@ -210,6 +211,7 @@ Check, in this order:
 
 - **When nothing unreleased waits on `dev`:** merge the `fix:` PR to `dev`, [promote it](#how-a-promotion-proves-itself) as soon as its `dev` push is green, and run the Deploy workflow once its `main` run is green.
 - **When `dev` holds unreleased work:** branch `hotfix/<slug>` from `main`, PR it to `main`, run the Deploy workflow once it is merged and green, and merge `main` back into `dev` so the next promotion is still a fast-forward; that PR into `dev` needs the agent team's review to set `agent-review` ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
+  Merge the hotfix PR only once its `knowledge-graph` check is green too, although `main` does not require it: the PR merging `main` back into `dev` does, and its head branch is `main`, so drift that reached `main` holds that merge until another PR into `main`, or a merge back from a branch of its own, fixes it.
 - **Weigh a migration in a hotfix.**
   A migration is forward-only, so it makes the release behind it impossible to roll back to.
 
