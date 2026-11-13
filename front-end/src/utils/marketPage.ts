@@ -14,7 +14,7 @@
  * bar and the rail beneath it say the same thing about where the market is. This replaced
  * `marketSurface.ts`, whose four surfaces could not name the assignment, Vendors or Attendance.
  */
-import { type Market } from '@/assets/types/datatypes';
+import { type Allocation, type Market } from '@/assets/types/datatypes';
 
 export type MarketPage =
   | 'setup'
@@ -65,6 +65,11 @@ export function hasAssignment(
   market: Pick<Market, 'assignmentObject'> | null | undefined,
 ): boolean {
   return (market?.assignmentObject?.vendorAssignments?.length ?? 0) > 0;
+}
+
+/** Whether applicants have been told whether they have a table, as the served allocation reads. */
+export function resultsAreOut(allocation: Allocation | null | undefined): boolean {
+  return allocation === 'published' || allocation === 'changed_since_published';
 }
 
 /** The pages under each tab, in the order its page row shows them. */

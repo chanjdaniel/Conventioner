@@ -63,6 +63,7 @@ Assignments fits a phone, since the vendor drawer's "Change assignment" at the d
 Allocating tables lands on Assignments.
 Allocating tables again asks nothing: every hand assignment is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-allocate-tables-again-keeping-hand-assignments)), and in Assignment nothing has yet been sent to anyone.
 Before the first run Assignments, Vendors and Payments say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the server refuses a run, why, in its words (`assignRefusalReason`); where a run can still happen the tables are drawn below it, so a seat can be given first.
+Once results are published and every seat has been freed, Assignments says instead "Nobody has a table. Results are published, so tables are not allocated again: assign each one below by hand." and draws the tables for whoever may assign (without the last clause, and no tables, for anyone else).
 
 How the solver assigns vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
 

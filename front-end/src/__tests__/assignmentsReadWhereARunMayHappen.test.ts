@@ -16,6 +16,7 @@ import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import ResultSummary from '@/components/ResultSummary.vue';
 import ResultView from '@/views/ResultView.vue';
 import { MarketPhase, type Allocation, type Market } from '@/assets/types/datatypes';
+import { MarketAction } from '@/utils/marketActions';
 import type { MarketTableRow } from '@/utils/resultFilters';
 import { answersRefusing } from './support/servedAnswers';
 
@@ -132,14 +133,14 @@ describe('the pin-before-run line is offered only where a run may happen', () =>
     expect(wrapper.get('[data-testid="result-pin-before-run"]').text()).toBe(PIN_LINE);
   });
 
-  it('is not offered after results are published, in the assignment phase', async () => {
-    const wrapper = await mountSummary(
-      market({ allocation: 'published', assignRefusalReason: PUBLISHED }),
-    );
+  it.each<Allocation>(['published', 'changed_since_published'])(
+    'is not offered after results are published (%s), in the assignment phase',
+    async (allocation) => {
+      const wrapper = await mountSummary(market({ allocation, assignRefusalReason: PUBLISHED }));
 
-    expect(wrapper.get('[data-testid="result-empty"]').text()).toContain(PUBLISHED);
-    expect(wrapper.find('[data-testid="result-pin-before-run"]').exists()).toBe(false);
-  });
+      expect(wrapper.find('[data-testid="result-pin-before-run"]').exists()).toBe(false);
+    },
+  );
 
   it('is not offered where the server refuses the run for its phase', async () => {
     const wrapper = await mountSummary(
@@ -147,6 +148,66 @@ describe('the pin-before-run line is offered only where a run may happen', () =>
     );
 
     expect(wrapper.find('[data-testid="result-pin-before-run"]').exists()).toBe(false);
+  });
+});
+
+/*
+ * Every seat freed after results are published (the coordinator's answer to ticket 05's question):
+ * the server's refusal sends the organizer to "the Assignments page", which is where they are, and
+ * "Set the rules" offers rules that are settled. The page says what holds, and that a seat is
+ * still given here, by hand, to whoever may.
+ */
+describe('Assignments after results are published, with every seat freed', () => {
+  const FREED = market({ allocation: 'changed_since_published', assignRefusalReason: PUBLISHED });
+
+  async function mountSummary(shown: Market) {
+    const wrapper = mount(ResultSummary, {
+      props: { market: shown },
+      shallow: true,
+      global: { stubs: { NothingAssigned: false, RouterLink: { template: '<a><slot /></a>' } } },
+    });
+    await flushPromises();
+    return wrapper;
+  }
+
+  it('says nobody has a table, and to assign below, never to go to the page it is on', async () => {
+    const line = (await mountSummary(FREED)).get('[data-testid="result-empty"]');
+
+    expect(line.text()).toBe(
+      'Nobody has a table. Results are published, so tables are not allocated again: assign each one below by hand.',
+    );
+    expect(line.text()).not.toContain('Assignments page');
+    expect(line.find('a').exists()).toBe(false);
+  });
+
+  it('reads the same with a published allocation stored before T316 and no row', async () => {
+    const line = (
+      await mountSummary(market({ allocation: 'published', assignRefusalReason: PUBLISHED }))
+    ).get('[data-testid="result-empty"]');
+
+    expect(line.text()).toContain('assign each one below by hand.');
+  });
+
+  it('offers nothing to assign to someone who may not', async () => {
+    const line = (
+      await mountSummary({
+        ...FREED,
+        actionRefusals: answersRefusing(MarketAction.Assign),
+      } as Market)
+    ).get('[data-testid="result-empty"]');
+
+    expect(line.text()).toBe(
+      'Nobody has a table. Results are published, so tables are not allocated again.',
+    );
+  });
+
+  it("leaves Vendors and Payments the server's sentence, which points here", () => {
+    const note = mount(NothingAssigned, {
+      props: { market: FREED, testid: 'vendors-empty' },
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    });
+
+    expect(note.text()).toBe(`Nothing assigned yet. ${PUBLISHED} Set the rules.`);
   });
 });
 
@@ -175,13 +236,36 @@ describe('the tables are drawn before a run only where a run may happen', () => 
     expect(wrapper.findComponent(ResultFilterBar).exists()).toBe(true);
   });
 
-  it('draws none after results are published with nothing stored, in the assignment phase', async () => {
+  it('draws none where the server refuses the run for its phase, with nothing stored', async () => {
     const wrapper = await mountPage(
-      market({ allocation: 'published', assignRefusalReason: PUBLISHED }),
+      market({ phase: MarketPhase.Draft, allocation: 'none', assignRefusalReason: DRAFT }),
     );
 
     expect(wrapper.findComponent(ResultFilterBar).exists()).toBe(false);
     expect(wrapper.text()).not.toContain('No tables found');
+  });
+
+  // Every seat freed after results are published: a seat is still given here by hand (story 9),
+  // as the phase rule drew them before T316 (the coordinator's answer to ticket 05's question).
+  it.each<Allocation>(['published', 'changed_since_published'])(
+    'draws them after results are published (%s) with every seat freed, to give one by hand',
+    async (allocation) => {
+      const wrapper = await mountPage(market({ allocation, assignRefusalReason: PUBLISHED }));
+
+      expect(wrapper.findComponent(ResultFilterBar).exists()).toBe(true);
+    },
+  );
+
+  it('draws none after results are published with every seat freed, to someone who may not assign', async () => {
+    const wrapper = await mountPage(
+      market({
+        allocation: 'changed_since_published',
+        assignRefusalReason: PUBLISHED,
+        actionRefusals: answersRefusing(MarketAction.Assign),
+      }),
+    );
+
+    expect(wrapper.findComponent(ResultFilterBar).exists()).toBe(false);
   });
 
   it('draws them once rows are stored, whatever the refusal', async () => {

@@ -21,7 +21,7 @@ import { downloadErrorMessage, saveCsv } from '@/utils/download';
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { marketPath } from '@/utils/market';
 import { outOfDateLine } from '@/utils/assignmentOutOfDate';
-import { hasAssignment } from '@/utils/marketPage';
+import { hasAssignment, resultsAreOut } from '@/utils/marketPage';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { satisfactionPercent } from '@/utils/satisfactionPercent';
 import { useResultFilters } from '@/utils/useResultFilters';
@@ -34,6 +34,13 @@ const outOfDate = computed(() =>
 );
 /** A run may happen now, by the server's word (T316): it serves no refusal. */
 const mayRun = computed(() => !props.market.assignRefusalReason);
+/**
+ * Every seat freed after results are published (T316): the server's refusal points at this very
+ * page and at rules that are settled, so the page says what holds here instead, and that a seat is
+ * still given below, by hand, to whoever may.
+ */
+const freedAfterResults = computed(() => !assigned.value && resultsAreOut(props.market.allocation));
+const mayAssign = computed(() => mayTake(props.market, MarketAction.Assign));
 
 const statistics = ref<AssignmentStatistics | null>(null);
 
@@ -175,6 +182,11 @@ async function downloadCsv(): Promise<void> {
           satisfaction
         </span>
       </template>
+      <p v-else-if="freedAfterResults" class="note" data-testid="result-empty">
+        Nobody has a table. Results are published, so tables are not allocated again{{
+          mayAssign ? ': assign each one below by hand.' : '.'
+        }}
+      </p>
       <NothingAssigned v-else :market="market" testid="result-empty">
         <!-- Where a run can happen the tables are drawn below, for pinning before it (E11/F02/S01). -->
         <span v-if="mayRun" data-testid="result-pin-before-run">

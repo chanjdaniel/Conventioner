@@ -21,7 +21,13 @@ import {
 } from '@/assets/types/datatypes';
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { phaseLabel, phaseSpine, transitionDirection, VALID_TRANSITIONS } from '@/utils/phase';
-import { TAB_PAGES, type MarketFlow, type MarketPage, type MarketTab } from '@/utils/marketPage';
+import {
+  TAB_PAGES,
+  resultsAreOut,
+  type MarketFlow,
+  type MarketPage,
+  type MarketTab,
+} from '@/utils/marketPage';
 
 /** Absent means CSV, as the server reads it: the applicant surface fails closed. */
 export function intakeModeOf(market: Pick<Market, 'intakeMode'> | null | undefined): IntakeMode {
@@ -420,11 +426,6 @@ function rowFor(phase: string, standing: Standing): GuideRow {
 /** Where the table allocation stands; a read that did not carry it reads as nothing allocated. */
 function allocationOf(allocation: Allocation | null | undefined): Allocation {
   return allocation ?? 'none';
-}
-
-/** Whether applicants have been told whether they have a table, as the allocation reads. */
-function resultsAreOut(allocation: Allocation): boolean {
-  return allocation === 'published' || allocation === 'changed_since_published';
 }
 
 /**
