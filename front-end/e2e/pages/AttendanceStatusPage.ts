@@ -21,6 +21,11 @@ export class AttendanceStatusPage {
   readonly updated: Locator;
   readonly refresh: Locator;
   readonly refreshError: Locator;
+  /** "Print roster", the note asking for it before a day, and the sheet it prints (T318). */
+  readonly print: Locator;
+  readonly printNote: Locator;
+  readonly printSheet: Locator;
+  readonly printRows: Locator;
   /** "Door code", offered in Market Days to whoever may check vendors in (ADR 0022). */
   readonly doorCodeButton: Locator;
   /** The door code's full-screen view, and what it shows. */
@@ -53,6 +58,10 @@ export class AttendanceStatusPage {
     this.updated = page.getByTestId('attendance-updated');
     this.refresh = page.getByTestId('attendance-refresh');
     this.refreshError = page.getByTestId('attendance-refresh-error');
+    this.print = page.getByTestId('attendance-print');
+    this.printNote = page.getByTestId('attendance-print-note');
+    this.printSheet = page.getByTestId('attendance-print-sheet');
+    this.printRows = page.getByTestId('attendance-print-row');
     this.doorCodeButton = page.getByTestId('attendance-door-code');
     this.doorCode = page.getByTestId('door-code');
     this.doorCodeScroller = page.getByTestId('door-code-scroll');

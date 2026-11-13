@@ -152,7 +152,9 @@ for (const size of SIZES) {
       await expect(door.row(NOT_YET)).toBeVisible({ timeout: 15000 });
 
       await expect(door.readOnly).toHaveCount(0);
-      await expect(page.getByTestId('phase-rail-next')).toHaveText('Check vendors in at the door.');
+      await expect(page.getByTestId('phase-rail-next')).toHaveText(
+        "Print each day's roster, then check vendors in at the door.",
+      );
 
       const checkIn = door.row(NOT_YET).getByTestId('attendance-check-in');
       const undo = door.row(HERE).getByTestId('attendance-undo');

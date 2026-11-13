@@ -42,7 +42,9 @@ for (const [timezoneId, over] of [
         await expect(archive).toBeVisible();
         await expect(next).toContainText('The market has run');
       } else {
-        await expect(next).toHaveText('Check vendors in at the door.');
+        await expect(next).toHaveText(
+          "Print each day's roster, then check vendors in at the door.",
+        );
         await expect(archive).toHaveCount(0);
       }
     });

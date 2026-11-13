@@ -19,6 +19,7 @@ sources:
   - E38/F15/S04
   - T207
   - T260
+  - T318
 ---
 
 # The market guide
@@ -36,6 +37,7 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
 - **The page a tab opens** (`pageForTab`): the one carrying the dot when the tab holds it, else its first.
 - **The rail's sentence** (`nextStep`): one sentence naming the one next step, linking to where it is done.
   When the server would refuse that step, the sentence is its first blocker from `transitionBlockers` instead, for someone who may take the blocker's remedy, except before an assignment is run, when running it is the step.
+  In Market Days, until every date has passed, it is "Print each day's roster, then check vendors in at the door." (T318): paper is the door's fallback when the venue's network fails, so the rail asks for it before the day, as Attendance does ([attendance and the door](attendance-and-door.md)).
 - **The first thing in a move's way** (`firstInTheWay`), which the sentence and the rail's main button read: the first blocker served, except that the form comes before Review setup (T260).
   The plan gives the form its essential questions, so the server's form guard passes before the organizer has drafted from their Google Form or added a question of their own, and Review setup's decision was offered first, with nothing of theirs to decide on.
   While the form is not drafted, with none of the organizer's own questions (`applicationForm.fields` empty or absent) and no start from a Google Form's responses run (`exampleColumns` absent, since the start keeps it, an empty list when every column of the organizer's own was left out), and `review_highlights_decided` or `rejection_rules_decided` is the first blocker, the step is the form, with the open decision after it: on a Google Form market, for someone who may take the start (`import-applications`) while the server does not refuse it (`csvStartRefusal`), "Draft from your Google Form" to `start-from-csv`, "Your form asks only the essential questions so far. Draft the rest from your Google Form's responses, then decide what reviewers read first on Review setup."; otherwise "Add your questions" to `form?step=questions` on the `change-form` row, "... Add any of your own on Your questions, then ...".

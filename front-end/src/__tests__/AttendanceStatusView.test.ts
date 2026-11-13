@@ -19,7 +19,7 @@ import { reactive, ref } from 'vue';
 import AttendanceStatusView, { REREAD_MS } from '@/views/AttendanceStatusView.vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import { calendarToday } from '@/utils/marketGuide';
-import { answersRefusing } from './support/servedAnswers';
+import { answersRefusing, VIEWER_ANSWERS } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 
@@ -32,7 +32,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
   return { ...actual, api };
 });
 vi.mock('@/utils/openMarket', () => ({
-  useOpenMarket: () => ({ market: ref(MARKET), status: ref('loaded'), refresh: vi.fn() }),
+  useOpenMarket: () => ({ market: ref(marketNow), status: ref('loaded'), refresh: vi.fn() }),
 }));
 vi.mock('@/utils/vendorDetails', () => ({
   useVendorDetails: () => ({ loaded: { value: false }, load: vi.fn() }),
@@ -52,6 +52,8 @@ const MARKET = {
   phase: MarketPhase.MarketDays,
   actionRefusals: answersRefusing(),
 } as unknown as Market;
+/** The market the page opens, `MARKET` unless a test says. */
+let marketNow: Market = MARKET;
 
 interface Row {
   date: string;
@@ -186,6 +188,7 @@ enableAutoUnmount(afterEach);
 beforeEach(() => {
   vi.resetAllMocks();
   route.query = {};
+  marketNow = MARKET;
   visibility = 'visible';
   Object.defineProperty(document, 'visibilityState', {
     configurable: true,
@@ -622,5 +625,80 @@ describe('where each vendor stands (T318)', () => {
     const wrapper = await open();
 
     expect(wrapper.find('[data-testid="attendance-undo"]').exists()).toBe(true);
+  });
+});
+
+/*
+ * A paper roster is the door's only fallback when the venue's network or the back end fails, and
+ * nothing prompted the organizer to keep one (T318).
+ */
+describe('printing the roster (T318)', () => {
+  const NOTE =
+    "If the venue's network fails, a printed roster still works. Print this day's roster before the doors open.";
+
+  function onDay(days: number) {
+    const day = dayFromToday(days);
+    route.query = { date: day };
+    serveRoster(() =>
+      Promise.resolve({
+        data: {
+          dates: [dayFromToday(-1), TODAY, dayFromToday(1)],
+          roster: [{ ...row(ANA, 'A1'), date: day }],
+        },
+      }),
+    );
+  }
+
+  it('Print roster stands in the top row, before Door code, and prints', async () => {
+    // happy-dom has no `window.print`.
+    const print = vi.fn();
+    Object.defineProperty(window, 'print', { configurable: true, value: print });
+    const wrapper = await open();
+
+    const top = wrapper.get('.door-top');
+    const testids = top.findAll('[data-testid]').map((el) => el.attributes('data-testid'));
+    expect(testids).toContain('attendance-print');
+    expect(testids.indexOf('attendance-print')).toBeLessThan(
+      testids.indexOf('attendance-door-code'),
+    );
+    expect(wrapper.get('[data-testid="attendance-print"]').text()).toBe('Print roster');
+
+    await wrapper.get('[data-testid="attendance-print"]').trigger('click');
+    expect(print).toHaveBeenCalledTimes(1);
+    Reflect.deleteProperty(window, 'print');
+  });
+
+  it.each([
+    ['a Viewer', { ...MARKET, actionRefusals: VIEWER_ANSWERS }],
+    ['an archived market', { ...MARKET, phase: MarketPhase.Archived }],
+  ])('is offered to %s too', async (_name, market) => {
+    marketNow = market as Market;
+    const wrapper = await open();
+    expect(wrapper.find('[data-testid="attendance-print"]').exists()).toBe(true);
+  });
+
+  it('is not offered before the market has dates', async () => {
+    serveRoster(() => Promise.resolve({ data: { dates: [], roster: [] } }));
+    const wrapper = await open();
+    expect(wrapper.find('[data-testid="attendance-print"]').exists()).toBe(false);
+  });
+
+  it.each([
+    ['today', 0, true],
+    ['a day to come', 1, true],
+    ['a past day', -1, false],
+  ])('the note to print shows on %s: %s', async (_name, days, shown) => {
+    onDay(days);
+    const wrapper = await open();
+    const note = wrapper.find('[data-testid="attendance-print-note"]');
+    expect(note.exists()).toBe(shown);
+    if (shown) expect(note.text()).toBe(NOTE);
+  });
+
+  it('the note never shows on an archived market', async () => {
+    marketNow = { ...MARKET, phase: MarketPhase.Archived } as Market;
+    onDay(0);
+    const wrapper = await open();
+    expect(wrapper.find('[data-testid="attendance-print-note"]').exists()).toBe(false);
   });
 });

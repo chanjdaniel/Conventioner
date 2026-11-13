@@ -236,7 +236,7 @@ describe('the next step', () => {
 
   it('sends market days to the door, and to archiving once the last date has passed', () => {
     expect(nextStep(market(MarketPhase.MarketDays), TODAY)).toMatchObject({
-      text: 'Check vendors in at the door.',
+      text: "Print each day's roster, then check vendors in at the door.",
       page: 'attendance',
     });
     expect(nextStep(market(MarketPhase.MarketDays), '2099-06-01').text).toMatch(/Archive it/);
@@ -574,7 +574,7 @@ describe('what the rail tells someone the step is not theirs', () => {
   it('says the step to whoever may take it, an Editor at the door and a chosen Viewer in review', () => {
     expect(
       nextStep(market(MarketPhase.MarketDays, { actionRefusals: EDITOR_ANSWERS }), TODAY).text,
-    ).toBe('Check vendors in at the door.');
+    ).toBe("Print each day's roster, then check vendors in at the door.");
     const chosen = market(MarketPhase.Applications, {
       actionRefusals: { ...VIEWER_ANSWERS, [MarketAction.GiveVerdicts]: null },
     });

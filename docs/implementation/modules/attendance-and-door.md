@@ -16,6 +16,7 @@ describes:
   - front-end/src/views/AttendanceStatusView.vue
   - front-end/src/components/ListFreshness.vue
   - front-end/src/components/DoorCodeScreen.vue
+  - front-end/src/components/DoorRosterPrint.vue
   - front-end/src/utils/doorCode.ts
   - front-end/src/utils/qrDrawing.ts
   - front-end/src/components/vendorPage/VendorCheckIn.vue
@@ -147,10 +148,20 @@ It was read on load and after the organizer's own tap, so a vendor who scanned t
 Attendance reads its roster again every 15 seconds while the page is in view (`REREAD_MS`), and at once when the tab comes back into view or the browser comes back online; hidden, it reads nothing, and the clock never asks for a read while one is out.
 Every read takes a number from one counter as it is asked, and its answer lands only if nothing newer was asked or landed since, so two reads answering out of order never show a vendor just checked in as not here; a dropped answer changes nothing on screen, its error included.
 A check-in or its undo shows on its row from the server's answer at once (`checkedInAt` from the answer, `checkedInBy` the signed-in address and `state` `here` at the row's own table, or all three cleared and `state` `expected`; an undone row with no seat goes), counts as newer than every read in flight, and a re-read follows; each row is held busy only while its own write is out, so taps on several rows all go through.
-The top row ends with [`ListFreshness`](../../../front-end/src/components/ListFreshness.vue) (`attendance-updated`, `attendance-refresh`) before Door code: when the roster was last read, ageing on screen, and Refresh.
+The top row ends with [`ListFreshness`](../../../front-end/src/components/ListFreshness.vue) (`attendance-updated`, `attendance-refresh`) before Print roster and Door code: when the roster was last read, ageing on screen, and Refresh.
 A re-read or a Refresh that fails keeps the rows and says "Could not update. The roster is as it was last read." on a line under the top row, until a read lands: between Refresh and Door code it pushed Door code onto a line of its own on a phone; a first read that fails is still the page that could not be read, with Try again.
 There is no offline copy and no queue of taps.
 `AttendanceStatusView.test.ts` holds each of these, and [`the-door-stays-fresh.spec.ts`](../../../front-end/e2e/the-door-stays-fresh.spec.ts) a vendor's own check-in showing on the open roster once `page.clock` runs 15 seconds, and a re-read that fails.
+
+**The roster prints whole, and the door is asked to print it** (T318).
+Paper is the door's only fallback when the venue's network or the back end fails, and nothing prompted the organizer to keep one.
+"Print roster" (`attendance-print`) stands in the top row after Refresh, before Door code where that is offered, for anyone who reads Attendance whenever the market has dates, in every phase the page opens in, and calls `window.print()`.
+[`DoorRosterPrint.vue`](../../../front-end/src/components/DoorRosterPrint.vue), rendered by Attendance and hidden on screen, is what prints: the market's name, the chosen date in words, "<N> vendors" (the date's seats, as its tally counts them), "Printed <date> at <time>" (stamped again on the window's `beforeprint`, so a print from the browser's menu is current too), then a table of every row of the date in the roster's order, by table: Table, Vendor (the name, and the address under it; the address alone when there is no name) and Here (the row's status when checked in, else an empty box to tick); the date's `here_without_seat` rows print in a second table under "Checked in, with no table on this date (<n>)".
+It takes the date's rows from the roster itself, not the rows on screen, so the Show toggle and the search never leave a vendor off the paper; notes are not printed.
+It is teleported to `body`, beside the app, and its print rules sit in its scoped block, as the door code's do (below); only the rule hiding the app is global, and it holds only while the door code's screen is not open, so that screen's poster still prints alone.
+In Market Days, on a chosen date that is today or later on the viewer's calendar, a `.note` over the day's tally asks for it (`attendance-print-note`): "If the venue's network fails, a printed roster still works. Print this day's roster before the doors open."; on a past date or an archived market there is nothing left to print for.
+[The rail](market-guide.md) asks too: "Print each day's roster, then check vendors in at the door."
+`aRosterPrintsWhole.test.ts` holds the sheet with a filter and a search on, `AttendanceStatusView.test.ts` the button and when the note shows, and [`the-roster-prints.spec.ts`](../../../front-end/e2e/the-roster-prints.spec.ts) the sheet under print emulation at 1440: the app hidden, every vendor of the day with a filter on, nothing past the page's width, and a Letter and an A4 PDF whose first page opens on the market's name (read by `e2e/helpers/pdfText.ts`).
 
 **The page words each roster state** (T318).
 `here` reads as it always has, in a positive chip; `here_elsewhere` reads "<status>, at table <checkedInTableCode>" in an attention chip, so the organizer sends the vendor to their new table; `here_without_seat` rows are listed after the date's seated rows under "Checked in, with no table on this date (<n>)" (`attendance-unseated-heading`), their table "No table", their chip the status in attention, with Undo for whoever may check in.

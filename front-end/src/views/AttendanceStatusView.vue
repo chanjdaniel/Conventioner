@@ -29,6 +29,10 @@ export const REREAD_MS = 15_000;
  * another table than the one they hold now, or here with no table that day, listed under the
  * day's seats so a free never hides an arrival. The tally and the toggles count seats only, as the
  * Stats tab does. Check in is offered on today and past days, never on a day to come.
+ *
+ * A paper roster is the door's fallback when the venue's network or the back end fails (T318):
+ * "Print roster" prints every vendor of the chosen date by table, whatever the filters on screen
+ * say (`DoorRosterPrint`), and in Market Days a note asks for it on each day still to be run.
  */
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -46,6 +50,7 @@ import VendorNotes from '@/components/VendorNotes.vue';
 import ListFreshness from '@/components/ListFreshness.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import DoorCodeScreen from '@/components/DoorCodeScreen.vue';
+import DoorRosterPrint, { type PrintedRow } from '@/components/DoorRosterPrint.vue';
 import { offersDoorCode } from '@/utils/doorCode';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
@@ -184,18 +189,51 @@ const shownWithoutSeat = computed(() => shownToday.value.filter((row) => !hasSea
 const withoutSeatToday = computed(
   () => roster.value.filter((row) => row.date === selectedDate.value && !hasSeat(row)).length,
 );
+const unseatedHeading = computed(
+  () => `Checked in, with no table on this date (${withoutSeatToday.value})`,
+);
 
 /** The seats, then who is here with none, under a heading of its own. */
 const lists = computed(() =>
   [
     { key: 'seated', heading: '', rows: shown.value },
-    {
-      key: 'unseated',
-      heading: `Checked in, with no table on this date (${withoutSeatToday.value})`,
-      rows: shownWithoutSeat.value,
-    },
+    { key: 'unseated', heading: unseatedHeading.value, rows: shownWithoutSeat.value },
   ].filter((list) => list.rows.length > 0),
 );
+
+/**
+ * The chosen date's every row for the printed roster, whatever the Show toggle and the search say:
+ * paper with a filter on would leave the door without the vendors it hid.
+ */
+function printedRow(row: RosterRow): PrintedRow {
+  return {
+    key: rowKey(row),
+    email: row.vendorEmail,
+    name: row.vendorName,
+    table: whereTheySit(row),
+    here: row.checkedInAt ? status(row) : null,
+  };
+}
+const printedDay = computed(() => roster.value.filter((row) => row.date === selectedDate.value));
+const printedSeated = computed(() => printedDay.value.filter(hasSeat).map(printedRow));
+const printedUnseated = computed(() =>
+  printedDay.value.filter((row) => !hasSeat(row)).map(printedRow),
+);
+
+/**
+ * Asks for a printed roster in Market Days on each day still to be run: on a day that has passed,
+ * or a market archived, paper is too late.
+ */
+const asksForPaper = computed(
+  () =>
+    market.value?.phase === MarketPhase.MarketDays &&
+    !!selectedDate.value &&
+    selectedDate.value >= calendarToday(),
+);
+
+function printRoster(): void {
+  window.print();
+}
 
 function status(row: RosterRow): string {
   if (!row.checkedInAt) return notHere.value;
@@ -434,8 +472,8 @@ watch(marketId, openMarket, { immediate: true });
               <span class="door-date-count">{{ tally(date).here }}/{{ tally(date).expected }}</span>
             </button>
           </nav>
-          <!-- When the roster was read, and the door code: together at the row's end, or the end of
-               a line of their own when the dates fill theirs. -->
+          <!-- When the roster was read, then Print roster and the door code: together at the row's
+               end, or the end of a line of their own when the dates fill theirs. -->
           <div class="door-tools">
             <ListFreshness
               class="door-freshness"
@@ -445,17 +483,32 @@ watch(marketId, openMarket, { immediate: true });
               :failed="refreshError"
               @refresh="refresh"
             />
-            <button
-              v-if="offersTheDoorCode"
-              type="button"
-              class="btn btn--secondary btn--compact door-code-open"
-              data-testid="attendance-door-code"
-              @click="showingDoorCode = true"
-            >
-              Door code
-            </button>
+            <span class="door-papers">
+              <button
+                type="button"
+                class="btn btn--secondary btn--compact"
+                data-testid="attendance-print"
+                @click="printRoster"
+              >
+                Print roster
+              </button>
+              <button
+                v-if="offersTheDoorCode"
+                type="button"
+                class="btn btn--secondary btn--compact"
+                data-testid="attendance-door-code"
+                @click="showingDoorCode = true"
+              >
+                Door code
+              </button>
+            </span>
           </div>
         </div>
+
+        <p v-if="asksForPaper" class="note" data-testid="attendance-print-note">
+          If the venue's network fails, a printed roster still works. Print this day's roster before
+          the doors open.
+        </p>
 
         <div class="door-bar">
           <h2 class="door-summary" data-testid="attendance-summary">
@@ -586,6 +639,15 @@ watch(marketId, openMarket, { immediate: true });
       @update:tab="drawer.setTab"
       @notesChanged="loadNotes"
     />
+    <DoorRosterPrint
+      v-if="dates.length && market"
+      :marketName="market.name"
+      :date="selectedDate"
+      :expected="today.expected"
+      :seated="printedSeated"
+      :unseated="printedUnseated"
+      :unseatedHeading="unseatedHeading"
+    />
     <DoorCodeScreen
       v-if="showingDoorCode && market"
       :marketId="marketId"
@@ -623,8 +685,8 @@ watch(marketId, openMarket, { immediate: true });
 }
 
 /* The time, Refresh and a failed read's line are the group's own items, so that line goes under
-   the row, whole, rather than between Refresh and Door code, where on a phone it pushed Door code
-   onto a line of its own. */
+   the row, whole, rather than between Refresh and the buttons after it, where on a phone it pushed
+   Door code onto a line of its own. */
 .door-freshness {
   display: contents;
 }
@@ -635,7 +697,11 @@ watch(marketId, openMarket, { immediate: true });
   text-align: end;
 }
 
-.door-code-open {
+/* Print roster and Door code, a step apart from Refresh, which belongs to the time before it. They
+   wrap as one: on a phone Door code went to a line alone under Print roster. */
+.door-papers {
+  display: flex;
+  gap: var(--space-2);
   margin-inline-start: var(--space-2);
 }
 
