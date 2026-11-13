@@ -39,7 +39,8 @@ already ``sending`` (``issue_with_a_new_account``). An operator verifies an acco
 For one release the fields an account held its secrets in before this module (``otp``,
 ``otp_expires``, ``otp_attempts``; ``password_reset_token``, ``password_reset_token_expires``;
 ``verification_token``, ``verification_token_expires``) are still read: ``_upgrade`` turns them
-into the records once, before any change reads the account, and the follow-up named in ``docs/implementation/data/users-and-email.md`` deletes it whole.
+into the records once, before any change reads the account, and the follow-up named in
+``docs/implementation/data/users-and-email.md`` deletes it whole.
 """
 import hashlib
 import math
@@ -192,6 +193,7 @@ CODE = Kind(
     legacy_fields=("otp", "otp_expires", "otp_attempts"),
     from_legacy=_code_from_legacy,
 )
+
 
 def _reset_from_legacy(account: dict) -> Optional[dict]:
     """The reset link the legacy fields hold: a stored token is a live link, its wait running from

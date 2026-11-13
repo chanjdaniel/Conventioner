@@ -277,7 +277,7 @@ A link opened is found, for the release, by `password_reset_token` or `verificat
 
 No writer writes them: a sign-up and `create_account.py` store none, and only the old migration that first added them, `migrations/add_email_verification.py`, names them, setting each an account lacks to null (`otp_attempts` to 0), which reads as no record.
 [`back-end/tests/test_the_old_sign_in_fields_are_read_for_one_release.py`](../../../back-end/tests/test_the_old_sign_in_fields_are_read_for_one_release.py) holds each shape.
-The follow-up `T311-followup: retire the old sign-in fields and cookie` deletes `_upgrade`, its tests, the fields on `User` and the two old token fields' lookup indexes, no sooner than 30 days after this release reaches production, with a script, which Daniel runs, that unsets the fields.
+The follow-up `T311-followup: retire the old sign-in fields and cookie` deletes `_upgrade`, its tests, the fields on `User` and the two old token fields' lookup indexes, and the reading of the legacy sign-in id and the `remember_token` cookie (`is_legacy_sign_in`, `_legacy_account` and `_LIFETIMES`, `legacy_remembered_account`, `a_legacy_remembered_account` and `forget_the_legacy_remember_cookie`), no sooner than 30 days after this release reaches production, with a script, which Daniel runs, that unsets the fields.
 
 ## Lookups
 

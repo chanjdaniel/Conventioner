@@ -72,7 +72,7 @@ The server is `REAL_MONGODB_URI`, a full connection string.
   Binding fails the test when a handle on another client, or an object of a class a test file defines, is still in a back-end module.
   Every binding is a `monkeypatch.setattr`, so each attribute is its import-time value again after the test.
 - The package's conftest names the four suite-wide autouse fakes again (`applications`, `market_records`, `sign_in_attempts`, `organizer_sessions`), so pytest resolves them to the nearer definitions, which hand back the bound real collections.
-  Since every test uses those three, every test in the package runs on its own bound database.
+  Since every test uses those four, every test in the package runs on its own bound database.
 
 ## The fixtures
 
