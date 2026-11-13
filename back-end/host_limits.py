@@ -14,4 +14,4 @@ fields. The host's limits, and the one this bound does not hold, are in docs/OPE
 
 MAX_REQUEST_BODY_BYTES = 4_500_000
 
-REQUEST_TOO_LARGE = "This is larger than the 4.5 MB one request can carry."
+REQUEST_TOO_LARGE = "This was larger than the 4.5 MB one request can carry."

@@ -93,7 +93,7 @@ def test_a_body_over_the_limit_is_refused_with_a_sentence(client, inspected, pat
 
     assert response.status_code == 413
     assert response.get_json() == {
-        "error": "This is larger than the 4.5 MB one request can carry.",
+        "error": "This was larger than the 4.5 MB one request can carry.",
     }
     assert response.get_json() == {"error": host_limits.REQUEST_TOO_LARGE}
     assert inspected == []

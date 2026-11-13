@@ -374,7 +374,7 @@ Vercel's functions hold every request to limits of their own ([Vercel's function
 
 What the product holds under them:
 
-- The back end's own `MAX_CONTENT_LENGTH` is the host's 4.5 MB, read as 4,500,000 bytes ([`back-end/host_limits.py`](../back-end/host_limits.py)), so a local stack refuses what production refuses; a larger body is answered 413 "This is larger than the 4.5 MB one request can carry." ([an exception never reaches a client](implementation/conventions/an-exception-never-reaches-a-client.md#the-handlers)).
+- The back end's own `MAX_CONTENT_LENGTH` is the host's 4.5 MB, read as 4,500,000 bytes ([`back-end/host_limits.py`](../back-end/host_limits.py)), so a local stack refuses what production refuses; a larger body is answered 413 "This was larger than the 4.5 MB one request can carry." ([an exception never reaches a client](implementation/conventions/an-exception-never-reaches-a-client.md#the-handlers)).
 - The app's API client refuses any request body over 4.5 MB before it is sent, "This was larger than the 4.5 MB one request can carry.", so the host's own 413 is never met ([what the organizer reads](implementation/conventions/an-exception-never-reaches-a-client.md#what-the-organizer-reads)).
 - A floorplan upload's file is held to 4 MB (`floorplan_limits.MAX_UPLOAD_BYTES`), refused 413 by the upload route itself ([the layout](implementation/modules/floorplan-placement.md)).
 - A responses file for the import or the start from a CSV is held to 4 MB as the request carries it, its JSON escapes counted, and refused in the browser before it is sent ([the CSV import](implementation/modules/csv-import.md), [starting from a Google Form](business/flows/starting-from-a-google-form.md)).

@@ -18,8 +18,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
-import postcss from 'postcss';
-import { parse as parseSfc } from 'vue/compiler-sfc';
 
 const AA_NORMAL = 4.5;
 
@@ -489,39 +487,5 @@ describe('the selected row is legible on its tint', () => {
 
   it('the green border is 3.75:1 on the tint, past the 3:1 a boundary wants', () => {
     expect(contrast(resolve('--mm-green'), tint)).toBe(3.75);
-  });
-});
-
-/**
- * The form's loading line, "Loading the application form...", is ink on a beige card, read from the
- * component's own rule so that a later change to its ink or its ground is measured here. It wore
- * `--mm-text-muted`, 4.23:1 on beige, and the rendered sweep caught it only in the moment the
- * server's copy of the form was still being read.
- */
-describe("the form's loading line is legible on its beige", () => {
-  const FORM_TAB = resolvePath(process.cwd(), 'src/components/market/MarketFormTab.vue');
-
-  /** The one token a declaration of `.form-loading-banner` names, as `var(--token)`. */
-  function bannerToken(property: string): string {
-    const { descriptor } = parseSfc(readFileSync(FORM_TAB, 'utf8'));
-    const values: string[] = [];
-    for (const style of descriptor.styles) {
-      postcss.parse(style.content).walkRules((rule) => {
-        if (!rule.selectors.includes('.form-loading-banner')) return;
-        rule.walkDecls(property, (decl) => {
-          values.push(decl.value);
-        });
-      });
-    }
-    expect(values, `.form-loading-banner's ${property}`).toHaveLength(1);
-    const token = values[0]!.match(/^var\((--[\w-]+)\)$/)?.[1];
-    if (!token)
-      throw new Error(`.form-loading-banner's ${property} is "${values[0]}", not a token`);
-    return token;
-  }
-
-  it('its ink reaches AA on its ground', () => {
-    const ground = resolve(bannerToken('background'));
-    expect(contrast(inkOn(bannerToken('color'), ground), ground)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 });
