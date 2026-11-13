@@ -1,10 +1,12 @@
 """A write is taken only from the app's own origins, or from a client that is not a browser.
 
 CORS decides which origins may read a response; it does not stop a request from being sent, and a
-plain form post goes without a preflight. The session cookie is ``SameSite=None``, so the browser
-attaches it to such a post. The request-origin check refuses a state-changing request whose browser
-reports it came from an origin outside the CORS list, before the route runs, and lets every request
-from the app, and every request from a client that sends neither header, through.
+plain form post goes without a preflight. The browser attaches the session cookie
+(``SameSite=Lax``) to such a post from any page on the API's site, and a vendor's remember cookie
+(``SameSite=None``) to one from any page. The request-origin check refuses a state-changing
+request whose browser reports it came from an origin outside the CORS list, before the route runs,
+and lets every request from the app, and every request from a client that sends neither header,
+through.
 """
 import io
 from types import SimpleNamespace

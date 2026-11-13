@@ -457,19 +457,22 @@ app.config["REMEMBER_COOKIE_DURATION"] = UsersApi.REMEMBERED_SIGN_IN_LIFETIME
 app.config["REMEMBER_COOKIE_REFRESH_EACH_REQUEST"] = False
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-# Not configurable, for the session cookie, the remember-me cookie and a vendor's remember cookie
-# alike: a SameSite=None cookie is one the browser attaches to cross-site requests, and browsers
-# only accept such a cookie when it is also Secure - so an environment variable that could turn
-# this off would not "allow plain HTTP", it would ship a cookie the browser drops, or sends in the
-# clear where it does not. Loopback counts as a secure context, so local dev is unaffected. The
-# remember-me cookie is HttpOnly by Flask-Login's default. A vendor's remember cookie,
-# `__Host-vendor_remember_<market id>` (`remembered_sign_ins`, ADR 0022), is set by that module from
-# the three VENDOR_REMEMBER_COOKIE_ keys below, HttpOnly so no script on the vendor page reads it;
-# its prefix makes a browser refuse it without Secure.
+# None of it is configurable. The session cookie and the remember cookie are SameSite=Lax, so a
+# browser sends them only on a request from this site, or on a top-level GET navigation to the API
+# from another site. Lax holds because every front end that signs in is on the API's site:
+# `conventioner.io` and `api.conventioner.io` are one site (a site ignores the subdomain and the
+# port), and the local and E2E stacks are one origin, the front end reaching the API through its
+# `/api` proxy. A front end on another site cannot sign in: a browser keeps neither cookie from its
+# answers. Both are Secure, which loopback satisfies as a secure context, so local dev is
+# unaffected; the remember cookie is HttpOnly by Flask-Login's default. A vendor's remember cookie,
+# `__Host-vendor_remember_<market id>` (`remembered_sign_ins`, ADR 0022), stays SameSite=None, which
+# a browser takes only on a Secure cookie; that module sets it from the three
+# VENDOR_REMEMBER_COOKIE_ keys below, HttpOnly so no script on the vendor page reads it, and its
+# prefix makes a browser refuse it without Secure.
 app.config["SESSION_COOKIE_SECURE"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["REMEMBER_COOKIE_SECURE"] = True
-app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
+app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
 app.config["VENDOR_REMEMBER_COOKIE_SECURE"] = True
 app.config["VENDOR_REMEMBER_COOKIE_SAMESITE"] = "None"
 app.config["VENDOR_REMEMBER_COOKIE_HTTPONLY"] = True

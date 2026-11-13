@@ -7,9 +7,9 @@ cookie, ``__Host-organizer_remember``, which signs the account back in once the 
 it expires 30 days after signing in, use does not extend it, and the server ends the sign-in then
 too, whatever the browser kept.
 
-The app and the API are on different hosts, so both cookies are ``SameSite=None``, which a browser
-accepts only on a ``Secure`` cookie, and both are ``HttpOnly`` so that no script on the page reads
-them. The remember cookie's ``__Host-`` prefix holds it to the API's host: a browser takes it, or
+The app and the API are on two hosts of one site, so both cookies are ``SameSite=Lax``: the browser
+sends them on the app's requests to the API and keeps neither from another site's. Both are
+``Secure`` and ``HttpOnly``, so that no script on the page reads them. The remember cookie's ``__Host-`` prefix holds it to the API's host: a browser takes it, or
 its deletion, only with ``Secure``, ``Path=/`` and no ``Domain``.
 
 Every sign-in is kept on the server (``organizer_sessions``): both cookies carry a random secret,
@@ -252,12 +252,31 @@ def _hash(secret):
 
 # The cookies' settings.
 
+@pytest.mark.parametrize("sign_in", [_sign_in_remembered, _sign_in_with_the_code_remembered],
+                         ids=["password", "code"])
 @pytest.mark.parametrize("cookie", [REMEMBER_COOKIE, "session"])
-def test_signing_in_sets_the_cookie_secure_samesite_none_and_httponly(client, users, cookie):
-    attributes = _set_cookie(_sign_in_remembered(client), cookie)
+def test_signing_in_sets_the_cookie_secure_samesite_lax_and_httponly(
+    client, users, cookie, sign_in
+):
+    attributes = _set_cookie(sign_in(client), cookie)
 
     assert "secure" in attributes
-    assert "samesite=none" in attributes
+    assert "samesite=lax" in attributes
+    assert "httponly" in attributes
+
+
+@pytest.mark.parametrize("answer", [
+    lambda client: (_sign_in_remembered(client), _sign_out(client))[1],
+    lambda client: (_sign_in_remembered(client), _sign_out_everywhere(client))[1],
+    lambda client: _unticked_after_remembered(client),
+], ids=["sign-out", "sign-out-everywhere", "an-unticked-sign-in"])
+def test_deleting_the_remember_cookie_names_the_same_attributes(client, users, answer):
+    response = answer(client)
+
+    assert _deletes(response, REMEMBER_COOKIE)
+    attributes = _set_cookie(response, REMEMBER_COOKIE)
+    assert "secure" in attributes
+    assert "samesite=lax" in attributes
     assert "httponly" in attributes
 
 

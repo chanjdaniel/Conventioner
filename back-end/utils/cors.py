@@ -1,12 +1,12 @@
 """Which browser origins this deployment lets spend an organizer's session cookie.
 
 CORS with ``supports_credentials=True`` is what decides who may make a request that *carries the
-organizer's session*, and this product's session cookie is ``SameSite=None``, so the browser attaches
-it to cross-site XHR. Configured with no origin list, flask-cors reflects whatever ``Origin`` the
-caller sent back in ``Access-Control-Allow-Origin`` and pairs it with
-``Access-Control-Allow-Credentials: true`` - which is every website on the internet reading and
-writing the organizer API, including the applications collection, as whichever organizer happens to
-be visiting it.
+organizer's session*. The browser attaches the organizer's cookies, ``SameSite=Lax``, to XHR from
+any page on the API's site, and a vendor's remember cookie, ``SameSite=None``, to cross-site XHR
+too. Configured with no origin list, flask-cors reflects whatever ``Origin`` the caller sent back
+in ``Access-Control-Allow-Origin`` and pairs it with ``Access-Control-Allow-Credentials: true`` -
+which is every page those cookies ride from reading and writing the API, including the
+applications collection, as whoever is signed in.
 
 So the origin list is configuration, not a default, and there is no wildcard: a credentialed wildcard
 is not a permissive setting, it is the absence of the control. ``CORS_ALLOWED_ORIGINS`` is the
@@ -64,10 +64,9 @@ def allowed_origins() -> List[AllowedOrigin]:
     if "*" in entries:
         raise CorsConfigError(
             f"{CORS_ALLOWED_ORIGINS_VAR} contains `*`. This API is served with credentials, and a "
-            f"credentialed wildcard means any website an organizer visits can read and write the "
-            f"organizer API - markets, vendors, applications - using their live session cookie, "
-            f"which is `SameSite=None` and therefore rides along on cross-site requests. List the "
-            f"origins that may do that, in full (`https://app.example.com`), or set "
+            f"credentialed wildcard means every page the browser sends this API's cookies from "
+            f"can read and write the API - markets, vendors, applications - as whoever is signed "
+            f"in. List the origins that may do that, in full (`https://app.example.com`), or set "
             f"{INSECURE_LOCAL_DEV_VAR}=true to allow loopback origins on a development machine."
         )
 
@@ -96,8 +95,8 @@ def allowed_origins() -> List[AllowedOrigin]:
         f"{CORS_ALLOWED_ORIGINS_VAR} is not set. It is the comma-separated list of browser origins "
         f"allowed to make credentialed requests to this API (for example "
         f"`https://app.example.com`). Without it there is nothing to check an `Origin` against, and "
-        f"a policy that allows every origin while carrying the organizer's `SameSite=None` session "
-        f"cookie lets any website an organizer visits read and write the organizer API as them. "
+        f"a policy that allows every origin while carrying the API's cookies lets every page the "
+        f"browser sends them from read and write the API as whoever is signed in. "
         f"There is deliberately no default and no wildcard. Set {CORS_ALLOWED_ORIGINS_VAR}, or set "
         f"{INSECURE_LOCAL_DEV_VAR}=true if this really is a local development machine."
     )
