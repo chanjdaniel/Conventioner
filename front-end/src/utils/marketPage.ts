@@ -14,7 +14,7 @@
  * bar and the rail beneath it say the same thing about where the market is. This replaced
  * `marketSurface.ts`, whose four surfaces could not name the assignment, Vendors or Attendance.
  */
-import { type Allocation, type Market } from '@/assets/types/datatypes';
+import { MarketPhase, type Allocation, type Market } from '@/assets/types/datatypes';
 
 export type MarketPage =
   | 'setup'
@@ -70,6 +70,19 @@ export function hasAssignment(
 /** Whether applicants have been told whether they have a table, as the served allocation reads. */
 export function resultsAreOut(allocation: Allocation | null | undefined): boolean {
   return allocation === 'published' || allocation === 'changed_since_published';
+}
+
+/**
+ * Why no run may happen on a market though a seat is still given by hand on Assignments, or null
+ * (T316): its results are published, or it was left in Offers, which nothing sets any more. There,
+ * with every seat empty, Assignments says so in its own words and draws the tables to whoever may
+ * assign, since the server's refusal points at Assignments itself.
+ */
+export function settledBy(
+  market: Pick<Market, 'allocation' | 'phase'>,
+): 'results' | 'offers' | null {
+  if (resultsAreOut(market.allocation)) return 'results';
+  return market.phase === MarketPhase.Offers ? 'offers' : null;
 }
 
 /** The pages under each tab, in the order its page row shows them. */

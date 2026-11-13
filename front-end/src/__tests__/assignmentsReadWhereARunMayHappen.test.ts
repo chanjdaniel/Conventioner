@@ -292,3 +292,76 @@ describe('the tables are drawn before a run only where a run may happen', () => 
     expect(wrapper.findComponent(ResultFilterBar).exists()).toBe(true);
   });
 });
+
+/*
+ * A market left in Offers with nothing stored (T316 ticket 06, the coordinator's addition): no run
+ * may happen there, and the server's phase refusal sends the organizer to "the Assignments page",
+ * which is where they are. The page says what holds instead, and draws the tables to whoever may
+ * assign, since a seat is still given there by hand, as after results with every seat freed.
+ */
+describe('Assignments in a market left in Offers with nothing stored', () => {
+  const SETTLED =
+    'The table allocation for this market is settled. Change a single assignment on the ' +
+    'Assignments page instead of allocating tables again.';
+  const OFFERS = market({ phase: MarketPhase.Offers, assignRefusalReason: SETTLED });
+  const MAY_NOT = { ...OFFERS, actionRefusals: answersRefusing(MarketAction.Assign) } as Market;
+
+  async function mountSummary(shown: Market) {
+    const wrapper = mount(ResultSummary, {
+      props: { market: shown },
+      shallow: true,
+      global: { stubs: { NothingAssigned: false, RouterLink: { template: '<a><slot /></a>' } } },
+    });
+    await flushPromises();
+    return wrapper;
+  }
+
+  async function mountPage(shown: Market) {
+    opened.market = ref(shown);
+    const wrapper = mount(ResultView, {
+      global: {
+        stubs: {
+          MarketFrame: { template: '<div><slot /></div>' },
+          ResultSummary: true,
+          ResultFilterBar: true,
+          VendorDrawer: true,
+          PlacementDialog: true,
+          ResultSeat: true,
+        },
+      },
+    });
+    await flushPromises();
+    return wrapper;
+  }
+
+  it('says nobody has a table, and to assign below, never to go to the page it is on', async () => {
+    const line = (await mountSummary(OFFERS)).get('[data-testid="result-empty"]');
+
+    expect(line.text()).toBe(
+      'Nobody has a table. The table allocation for this market is settled, so tables are not allocated again: assign each one below by hand.',
+    );
+    expect(line.find('a').exists()).toBe(false);
+  });
+
+  it('offers nothing to assign to someone who may not', async () => {
+    const line = (await mountSummary(MAY_NOT)).get('[data-testid="result-empty"]');
+
+    expect(line.text()).toBe(
+      'Nobody has a table. The table allocation for this market is settled, so tables are not allocated again.',
+    );
+  });
+
+  it('draws the tables to whoever may assign, and none to someone who may not', async () => {
+    expect((await mountPage(OFFERS)).findComponent(ResultFilterBar).exists()).toBe(true);
+    expect((await mountPage(MAY_NOT)).findComponent(ResultFilterBar).exists()).toBe(false);
+  });
+
+  it("leaves Vendors and Payments the server's sentence, which points at Assignments", () => {
+    const note = mount(NothingAssigned, {
+      props: { market: OFFERS, testid: 'vendors-empty' },
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    });
+
+    expect(note.text()).toBe(`Nothing assigned yet. ${SETTLED} Set the rules.`);
+  });
+});
