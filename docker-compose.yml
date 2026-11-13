@@ -53,7 +53,8 @@ services:
       - ALLOW_INSECURE_LOCAL_DEV=true
       # Left empty on purpose: there is no fallback signing key anywhere in this repo, because a
       # committed one is a published one. Unset, the escape hatch above signs with a random key for
-      # the life of the container - so a restart logs you out. Set SECRET_KEY to keep sessions.
+      # the life of the server process - so a restart, or a reload after a code change, logs you
+      # out. Set SECRET_KEY to keep sessions.
       - SECRET_KEY=${SECRET_KEY:-}
       # Left empty on purpose: unset, the escape hatch above allows loopback origins on any port,
       # which is what the dev server and the e2e stack need (the Vite port moves per worktree).
