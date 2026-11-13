@@ -30,6 +30,7 @@ from datatypes import (
 )
 from market_documents import market_from_document
 import market_write as MarketWrite
+from migrate_assignment_state import what_to_set
 
 NONE, PINNED, RUN = AssignmentState.NONE, AssignmentState.PINNED, AssignmentState.RUN
 PLACE, FREE, RUN_EVENT = Lifecycle.Event.PLACE, Lifecycle.Event.FREE, Lifecycle.Event.RUN
@@ -443,6 +444,44 @@ def test_a_write_repairs_a_state_a_rolled_back_release_left(markets):
         "email": "ben@example.com", "date": DAY, "table_code": "Hall A 2",
         "table_choice": "Full Table"}, "user-1")
     assert stored(markets)["state"] == "pinned"
+
+
+def swap_the_two(markets):
+    PlacementsApi.swap_placements("market-123", DAY, "ana@example.com", "ben@example.com",
+                                  "user-1")
+
+
+def move_the_two(markets):
+    for email, table in (("ana@example.com", "Hall A 3"), ("ben@example.com", "Hall A 1")):
+        PlacementsApi.write_placement("market-123", {
+            "email": email, "date": DAY, "table_code": table, "table_choice": "Full Table"},
+            "user-1")
+
+
+@pytest.mark.parametrize("edit", [swap_the_two, move_the_two], ids=["a swap", "two moves"])
+def test_a_hand_edit_of_an_allocation_from_before_the_state_keeps_it_a_run(markets, caplog, edit):
+    """An allocation stored before T316 (unflagged rows, no state, no ``madeFrom``), edited by hand
+    before the migration reaches it: the write stores ``run`` with the legacy marker, so once
+    every row is hand-placed it still reads as the allocation it is, not as pins only, and the
+    migration afterwards has nothing to set."""
+    markets.doc = stored_market(
+        MarketPhase.ASSIGNMENT, setupObject=PLAN, phaseHistory=history(*REVIEWED_ONCE),
+        assignmentObject={"vendorAssignments": [
+            row(hand_placed=False), row("ben@example.com", "Hall A 2", hand_placed=False)]})
+
+    with caplog.at_level(logging.WARNING, logger=Lifecycle.__name__):
+        edit(markets)
+        assignment = stored(markets)
+        market = market_from_document(markets.doc)
+        standing = Lifecycle.allocation(market)
+        refusal = Lifecycle.publish_refusal(market)
+
+    assert all(r["handPlaced"] for r in assignment["vendorAssignments"])
+    assert (assignment["state"], assignment["madeFrom"]) == ("run", Lifecycle.LEGACY_MADE_FROM)
+    assert standing is A.CURRENT
+    assert refusal is None
+    assert not caplog.records
+    assert what_to_set(markets.doc) == {}
 
 
 # --- store --------------------------------------------------------------------------------------

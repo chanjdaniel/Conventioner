@@ -182,7 +182,9 @@ def store(
     The revision is read from the stored document, which a run's solver does not touch.
 
     ``made_from`` is what a run read (E22/F03/S01), and only a run passes it: a hand placement is
-    an edit to the result, not an input, so it leaves the fingerprint alone. A run also holds
+    an edit to the result, not an input, so it leaves the fingerprint alone, except that an edit of
+    an allocation stored with no ``madeFrom`` (before runs recorded one) writes
+    ``LEGACY_MADE_FROM``, as the migration would, so ``run`` always has one. A run also holds
     ``resultsPublished`` as read, so an allocation never lands after Publish results told
     applicants the one before it.
 
@@ -207,6 +209,11 @@ def store(
     if made_from is not None:
         written["assignmentObject.madeFrom"] = made_from
         holds.append(market_doc_key("results_published"))
+    elif state is AssignmentState.RUN and not market.assignment_object.made_from:
+        # An allocation from before runs recorded what they were made from, edited before the
+        # migration reached it: it keeps the legacy marker, since a hand edit can leave every row
+        # hand-placed, and those rows alone would read as pins only.
+        written["assignmentObject.madeFrom"] = LEGACY_MADE_FROM
     assignment_key = market_doc_key("assignment_object")
     # An assignment written before the count existed has none, and one a market was created with
     # holds 0: ``write_market`` matches either for 0 or None.

@@ -121,6 +121,7 @@ A rule change after results is refused (400, the rules lock), so "published" sta
 
 - `store(market, event, rows, *, assignment_date, made_from=None)`: the one write of the rows, from [placements](placements.md)' four doors.
   It sets the rows, `assignmentDate`, a null `assignmentStatistics` and `state` from `next_state` of `state_of`, so a write also repairs a state a rolled-back release left, and on a run `madeFrom`.
+  A hand edit of an allocation stored with no `madeFrom` (from before runs recorded one) writes `LEGACY_MADE_FROM`, as the migration would: a swap or two moves can leave every row hand-placed, and with no `madeFrom` those rows would read as pins only.
   It goes through [the market write](market-write.md), holding the assignment `revision` as read and counting it, and on a run `resultsPublished` too.
   A run with no `made_from`, or anything else with one, is a `RuntimeError` before anything is written, since only code calls it.
 - `publish_refusal(market)`, why Publish results waits, in this order: results out ("Results are already published."); outside `assignment`; `none` ("Allocate tables first: results tell each applicant whether they have a table."); `pinned` ("Only tables assigned by hand are stored. Allocate tables first: allocating keeps them and assigns every other approved vendor, so each applicant is told whether they have a table."); `stale` (out of date); a `current` run with no row ("Nobody has a table in this allocation, ..."); else None.
