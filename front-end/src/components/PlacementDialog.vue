@@ -277,9 +277,9 @@ const resultsOutNote = computed(() => {
   }
   const seat = tableInWords(props.tableCode, props.seat ?? FULL_TABLE);
   return (
-    `Results are published, so ${label(props.occupantEmail)}'s vendor page tells them they have ` +
-    `${seat} on ${props.dateLabel}. Freeing, moving or swapping them changes what it says, and ` +
-    'nothing is sent to them.'
+    `Results are published, so the vendor page of ${label(props.occupantEmail)} tells them they ` +
+    `have ${seat} on ${props.dateLabel}. Freeing, moving or swapping them changes what it says, ` +
+    'and nothing is sent to them.'
   );
 });
 

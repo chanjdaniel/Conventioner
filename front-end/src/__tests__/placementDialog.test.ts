@@ -773,9 +773,9 @@ describe('a change after results are published', () => {
     const wrapper = dialog({ ...occupied, resultsOut: true });
 
     expect(note(wrapper).text()).toBe(
-      "Results are published, so Nadia Ember (nadia@ember.test)'s vendor page tells them they " +
-        'have Front 1, left half on Saturday, August 1, 2026. Freeing, moving or swapping them ' +
-        'changes what it says, and nothing is sent to them.',
+      'Results are published, so the vendor page of Nadia Ember (nadia@ember.test) tells them ' +
+        'they have Front 1, left half on Saturday, August 1, 2026. Freeing, moving or swapping ' +
+        'them changes what it says, and nothing is sent to them.',
     );
   });
 
