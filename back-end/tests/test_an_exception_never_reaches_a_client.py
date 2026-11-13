@@ -22,6 +22,8 @@ from conftest import (
     FakeOrganizations,
     FakeSlugMarketsCollection,
     install_organizations,
+    mongo_matches,
+    mongo_project,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
     stored_market,
@@ -186,8 +188,8 @@ class FakeOrganizationMarkets:
     def __init__(self, *docs):
         self.docs = list(docs)
 
-    def find(self, query):
-        return iter([dict(d) for d in self.docs if all(d.get(k) == v for k, v in query.items())])
+    def find(self, query, projection=None):
+        return iter([mongo_project(dict(d), projection) for d in self.docs if mongo_matches(d, query)])
 
 
 @pytest.fixture

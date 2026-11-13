@@ -44,6 +44,7 @@ from datatypes import (
 )
 from db_config import get_database
 from market_documents import market_doc_field, market_doc_key, market_from_document
+from tombstone import live
 from utils.email_address import normalized_email
 
 logger = logging.getLogger(__name__)
@@ -150,7 +151,7 @@ def choose(
     # A market never given a team has had no team write, so no change of it can be unfinished.
     if (_addresses(in_deal_order(reviewers)) == _addresses(team_of(market).reviewers)
             and (market.review_team is None
-                 or _unfinished_choice(markets_collection.find_one({"id": market.id})) is None)):
+                 or _unfinished_choice(markets_collection.find_one(live({"id": market.id}))) is None)):
         return Chosen(team_of(market), 0)
     deal = str(uuid.uuid4())
     if not _hold(market.id, deal, waits=CHOICE_WAITS):
@@ -174,7 +175,7 @@ def _choose_holding(
     A change writes the team, marked unfinished, and records it; finishing one (the same set over
     a marked team) writes neither. Both then deal the pool from turn 0, record the deal, and end in
     the last write, the turn with the mark taken away."""
-    stored = markets_collection.find_one({"id": market.id}) or {}
+    stored = markets_collection.find_one(live({"id": market.id})) or {}
     before = _team_of_document(stored)
     unfinished = _unfinished_choice(stored)
     chosen = in_deal_order(reviewers)
@@ -245,7 +246,7 @@ def _finish(market_id: str, deal: str, turn: int) -> None:
 def _write_holding(market_id: str, deal: str, update: Dict[str, Any]) -> None:
     """A change's write to the market under its lease; refused with ``ConflictError`` when another
     deal holds the market now, as one does once this one's lease lapsed."""
-    written = markets_collection.update_one({"id": market_id, _DEALING_BY: deal}, update)
+    written = markets_collection.update_one(live({"id": market_id, _DEALING_BY: deal}), update)
     if written.matched_count == 0:
         raise ConflictError(DEALING_BUSY)
 
@@ -340,7 +341,7 @@ def _deal_arriving(market: Market, organization: Optional[Organization], deal: s
     reviewer the turn names, the turn moving on by one for each dealt, written once at the end.
     One decided meanwhile is let go with its verdict; with nobody able, every one is let go
     undealt. Records one entry per write they arrived by, under its action and actor."""
-    stored = markets_collection.find_one({"id": market.id}) or {}
+    stored = markets_collection.find_one(live({"id": market.id})) or {}
     team = _team_of_document(stored)
     # The roles and the table as they stand now, read with the turn: someone whose role was taken,
     # or whose role the table no longer lets be chosen, is skipped.
@@ -355,7 +356,7 @@ def _deal_arriving(market: Market, organization: Optional[Organization], deal: s
             dealt.append((doc, to))
             turn += 1
     if dealt and markets_collection.update_one(
-            {"id": market.id, _DEALING_BY: deal}, {"$set": {_TURN: turn}}).matched_count == 0:
+            live({"id": market.id, _DEALING_BY: deal}), {"$set": {_TURN: turn}}).matched_count == 0:
         # Its lease lapsed and another deal holds the market: the applications are dealt, and the
         # next deal reads a turn that has not moved on, so one turn of fairness is lost.
         logger.warning(
@@ -387,12 +388,12 @@ def _hold(market_id: str, deal: str, waits: int = 0) -> bool:
     deal's stands, trying again ``waits`` times a short pause apart. A market that never had a team
     is given an empty one first, so the lease has somewhere to stand."""
     markets_collection.update_one(
-        {"id": market_id, market_doc_key("review_team"): {"$in": [None]}},
+        live({"id": market_id, market_doc_key("review_team"): {"$in": [None]}}),
         {"$set": {market_doc_key("review_team"): {"reviewers": [], "turn": 0}}})
     for attempt in range(waits + 1):
         now = datetime.now(timezone.utc)
         held = markets_collection.update_one(
-            {"id": market_id, "$nor": [{_DEALING_UNTIL: {"$gt": now.isoformat()}}]},
+            live({"id": market_id, "$nor": [{_DEALING_UNTIL: {"$gt": now.isoformat()}}]}),
             {"$set": {_DEALING: {"by": deal, "until": (now + DEALING_LEASE).isoformat()}}})
         if held.matched_count > 0:
             return True

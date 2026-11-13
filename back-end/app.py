@@ -61,6 +61,8 @@ from market_documents import (
 import db_config
 import pymongo
 from lookup_indexes import ensure_lookup_indexes
+import market_deletion as MarketDeletion
+from tombstone import live
 from unique_indexes import UniqueIndexError
 import json
 import os
@@ -2062,7 +2064,7 @@ def _importing_market_document(market_id: str, requesting_user: str):
     if archived:
         return None, {"error": archived}, 403
 
-    market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
+    market_doc = MarketsApi.markets_collection.find_one(live({"id": market_id}))
     if not market_doc:
         return None, {"error": "Market not found"}, 404
     return ImportingMarket(market_doc, context.organization), None, 200
@@ -2209,6 +2211,9 @@ def import_applications(market_id: str) -> Response:
         if context is not None and context.market is not None:
             ReviewTeam.deal_arrivals(
                 context.market, authenticated_email(), Actions.IMPORT_APPLICATIONS)
+        # After the import's last write: a deletion that began after the import read the market
+        # has swept, or will sweep, every row written, or this takes them back as a 404.
+        MarketDeletion.kept_only_while_live(MarketsApi.markets_collection, market_id)
     return jsonify(result), status_code
 
 
@@ -2288,7 +2293,9 @@ def get_market_attendance(market_id: str) -> Response:
     if refused:
         return jsonify({"error": refused}), 403
 
-    market_doc = AttendanceApi.markets_collection.find_one({"id": market_id})
+    market_doc = AttendanceApi.markets_collection.find_one(live({"id": market_id}))
+    if not market_doc:
+        return jsonify({"error": "Market not found"}), 404
     return jsonify(AttendanceApi.attendance_roster(market_doc)), 200
 
 

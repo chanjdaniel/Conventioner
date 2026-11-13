@@ -21,6 +21,7 @@ from bson import ObjectId
 from datatypes import OrganizationRole, organization_people_of
 from db_config import get_database
 import history as History
+from tombstone import live
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def _organization_refusal(org_id: str, user: dict):
     Otherwise the JSON body and status to answer: 404 for an organization nobody has, 403 for one
     the user is not in.
     """
-    org = organizations_collection.find_one({"id": org_id})
+    org = organizations_collection.find_one(live({"id": org_id}))
     if not org:
         return {"error": "Organization not found"}, 404
     if user.get("id") not in organization_people_of(org):
@@ -152,7 +153,7 @@ def _check_ownership(template_doc: dict, requesting_user) -> bool:
 
     org_id = template_doc.get("organizationId")
     if isinstance(org_id, str) and org_id:
-        org = organizations_collection.find_one({"id": org_id})
+        org = organizations_collection.find_one(live({"id": org_id}))
         place = organization_people_of(org).get(requesting_user.get("id")) if org else None
         if place == OrganizationRole.OWNER:
             return True

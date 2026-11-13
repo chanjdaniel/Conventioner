@@ -12,9 +12,10 @@ This module owns the ``deletion_trail`` collection and is its only writer. Entri
 everything they describe, by construction: there is nothing left to delete them with.
 """
 import logging
-import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
+
+from pymongo.errors import DuplicateKeyError
 
 from db_config import get_database
 
@@ -29,19 +30,22 @@ ORGANIZATION_DELETED = "organization_deleted"
 
 
 def record_organization_deletion(
-    organization: Dict[str, Any], markets: List[Dict[str, Any]], actor_email: str
+    organization: Dict[str, Any], markets: List[Dict[str, Any]], actor_email: str, trail_id: str,
 ) -> str:
-    """Record an organization's deletion and everything it took with it.
+    """Record an organization's deletion and everything it took with it, once.
 
     The markets are recorded as they were DESCRIBED at the moment of deletion, not as ids: an id
     that points at nothing is not a record of what was destroyed, and the whole point of this entry
     is that the thing it names is gone.
 
     A failure here must not leave an organization half-deleted, so the caller writes the trail
-    BEFORE it deletes anything and this raises rather than swallowing.
+    BEFORE it deletes anything and this raises rather than swallowing. The entry's id is the
+    deletion's trail id (its ``_id`` too, so the server refuses a second), and a retry of a
+    deletion cut after this keeps the entry written first, describing the markets as they stood
+    before any went.
     """
     entry = {
-        "id": str(uuid.uuid4()),
+        "id": trail_id,
         "kind": ORGANIZATION_DELETED,
         "at": datetime.now(timezone.utc).isoformat(),
         "actor_email": actor_email,
@@ -49,7 +53,10 @@ def record_organization_deletion(
         "organization_name": organization.get("name"),
         "markets": markets,
     }
-    deletion_trail_collection.insert_one(dict(entry))
+    try:
+        deletion_trail_collection.insert_one({"_id": trail_id, **entry})
+    except DuplicateKeyError:
+        return trail_id
     logger.info(
         "Organization %s (%s) deleted by %s, taking %d market(s)",
         organization.get("name"),
@@ -57,7 +64,12 @@ def record_organization_deletion(
         actor_email,
         len(markets),
     )
-    return entry["id"]
+    return trail_id
+
+
+def is_recorded(trail_id: str) -> bool:
+    """Whether a deletion's entry is written: once it is, the deletion has decided what it takes."""
+    return deletion_trail_collection.find_one({"_id": trail_id}, {"_id": 1}) is not None
 
 
 def entries_for_organization(org_id: str) -> List[Dict[str, Any]]:

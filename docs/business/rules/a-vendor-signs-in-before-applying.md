@@ -10,7 +10,7 @@ describes:
   - back-end/api/applicant_auth.py#_send_code_email
   - back-end/api/applicants.py#save_applicant_application
   - back-end/sign_in_limits.py
-verified: 2026-11-10
+verified: 2026-11-13
 sources:
   - E26/F07/S01
   - E32/F03/S02

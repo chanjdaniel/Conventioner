@@ -27,6 +27,7 @@ sources:
   - T263
   - T255
   - T270
+  - T307
 ---
 
 # Operations
@@ -279,6 +280,29 @@ The collection holds organizers' sign-ins ([ADR 0027](adr/0027-an-organizers-sig
 
 **"Refusing to start: ... are not as a deployment needs them"**, naming variables.
 A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)), remove each local-development switch it names ([a deployed host refuses local switches](RELEASING.md#a-deployed-host-refuses-local-switches)), and redeploy.
+
+### A deletion that was cut
+
+A market or an organization is deleted in steps, after a tombstone that makes it read as absent ([the tombstone](implementation/modules/market-deletion.md#the-tombstone)).
+A deletion cut at a step (a timeout, a failed write) is finished by the same Delete sent again, and its dialog keeps Delete pressable after a failure.
+Once that dialog is closed, the target has left every list and its dialog can no longer read it, so the target and its vendors' records stay in the database, absent to everyone, until an operator finishes the deletion.
+Find each such target in `mongosh`:
+
+```js
+db.organizations.find({ deleting: { $exists: true } }, { _id: 0, id: 1, deleting: 1 });
+db.markets.find({ deleting: { $exists: true } }, { _id: 0, id: 1, organizationId: 1, deleting: 1 });
+```
+
+Finish each by running the deletion its route runs, from `back-end/` with the URI on the command line, as the person its `deleting.by` names.
+An organization comes first, since its deletion finishes its markets; then each market left, whose organization carries no tombstone.
+
+```bash
+MONGODB_URI='<production URI>' .venv/bin/python -c 'import sys, api.organizations as O; O.delete_organization(*sys.argv[1:])' '<organization id>' '<its deleting.by>'
+MONGODB_URI='<production URI>' .venv/bin/python -c 'import sys, api.markets as M; M.delete_market(*sys.argv[1:])' '<market id>' '<its deleting.by>'
+```
+
+Each resumes from the tombstone, writes the organization's deletion trail entry, or a market's `delete-market` entry in its organization's history, once, and leaves nothing of its target behind.
+Never delete such a document by hand: its records would stay behind, with nothing left to reach them.
 
 ### Scripts never to run against production
 

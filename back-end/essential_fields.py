@@ -45,6 +45,7 @@ from assignment.utils import (
 )
 from datatypes import EssentialFormOptions, Market
 from market_documents import market_doc_field, market_doc_key
+from tombstone import live
 
 # Custom builder fields may never use this prefix: the essential answers live beside the custom
 # answers in ``Application.form_data``, and a custom field that shadowed one would corrupt what
@@ -531,11 +532,11 @@ def freeze_essential_options(
     form_key = market_doc_key("application_form")
     snapshot_key = f"{form_key}.{snake_to_camel('essential_options')}"
     markets_collection.update_one(
-        {
+        live({
             "id": market_id,
             form_key: {"$type": "object"},
             snapshot_key: None,
-        },
+        }),
         {"$set": {snapshot_key: essential_options_payload(options)}},
     )
 
@@ -555,7 +556,7 @@ def freeze_and_effective_essential_options(
     form_key = market_doc_key("application_form")
     setup_key = market_doc_key("setup_object")
     market_doc = markets_collection.find_one(
-        {"id": market_id}, {form_key: 1, setup_key: 1},
+        live({"id": market_id}), {form_key: 1, setup_key: 1},
     )
     return effective_essential_options(market_doc or {})
 

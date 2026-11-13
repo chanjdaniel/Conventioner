@@ -16,11 +16,13 @@ describes:
   - back-end/tests/conftest.py#FakeMarketsCollection
   - back-end/tests/conftest.py#FakeSlugMarketsCollection
   - back-end/db_config.py#uri_targets
+  - scripts/real-mongo-test.sh
 verified: 2026-11-13
 sources:
   - T244
   - T274
   - T283
+  - T309
   - T311
 ---
 
@@ -46,7 +48,12 @@ The server is `REAL_MONGODB_URI`, a full connection string.
 - **CI**: the `backend` job runs a `mongo:7` service ([the MongoDB version](#the-mongodb-version)), its port 27017 published on the runner as 27117, with a `mongosh` ping as its health check and no credentials, and sets `REAL_MONGODB_URI=mongodb://127.0.0.1:27117/?serverSelectionTimeoutMS=5000` and `REAL_MONGODB_REQUIRED=true` for the job ([CI and the gate](ci-and-the-gate.md#ci)).
   The job keeps its name, so the required check is unchanged.
 - **`scripts/nm-test.sh`**: runs the ordinary suite with the variable unset, so the package skips there and runs in CI; the gate runs no suite.
-- **Locally**: run it against a worktree stack's MongoDB, which listens on `127.0.0.1:$TH_MONGO_PORT` with the stack's fixed development credentials.
+- **Locally, or for any one-off run**: run [`scripts/real-mongo-test.sh`](../../../scripts/real-mongo-test.sh), from anywhere in the checkout.
+  It starts the compose file's `mongodb` image as CI's service runs it (no credentials, 64000 open files, the cache sized as a worktree stack sizes it), published on a loopback port Docker picks, so two runs never race for a port; waits for a `mongosh` ping; and runs pytest from `back-end/` with `REAL_MONGODB_URI` naming that port and `REAL_MONGODB_REQUIRED=true`.
+  Its arguments are pytest's, in place of `tests/real_mongo`, and its Python is `PYTHON_CMD` (default `python3`); its status is pytest's.
+  The server keeps no volume: the image declares `/data/db` and `/data/configdb` as volumes, and the script mounts tmpfs on both and starts the container with `--rm`, where a server started by hand with `docker run` and removed with `docker rm -f` left both as anonymous volumes, about 0.3 GB a run with no label saying whose.
+  It is removed by the script's `EXIT` trap, and after a `SIGKILL`, which runs no trap, by a guard in a process group of its own, waiting on a pipe only the script holds open; the container carries the team's labels from `TEAM_*`, as a worktree stack does, which say whose it is to a person reading `docker ps` and remove nothing.
+- **Against a worktree stack**: run it against the stack's MongoDB, which listens on `127.0.0.1:$TH_MONGO_PORT` with the stack's fixed development credentials.
   Start the stack with `scripts/th-compose.sh up -d` (a team worker's with `team-stack up`), read the port from `scripts/th-compose.sh ports`, then, from `back-end/`:
 
   ```bash
@@ -142,7 +149,8 @@ Each test's name says what it proves.
 
 The writes that hold what they read beyond these races are run the same way, each in its own file named for what it proves: [`test_the_market_write.py`](../../../back-end/tests/real_mongo/test_the_market_write.py) (what `write_market` holds and answers), [`test_a_judged_write_lands_only_on_the_market_it_judged.py`](../../../back-end/tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py), [`test_every_held_write_is_refused_on_a_changed_market.py`](../../../back-end/tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py), [`test_roles_written_per_person.py`](../../../back-end/tests/real_mongo/test_roles_written_per_person.py), [`test_an_assignment_write_holds_the_market_it_read.py`](../../../back-end/tests/real_mongo/test_an_assignment_write_holds_the_market_it_read.py), [`test_the_form_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_form_holds_its_revision.py) and [`test_the_plan_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_plan_holds_its_revision.py).
 What each one holds is [the market write](../modules/market-write.md).
-An organizer's sign-in secrets are run the same way in [`test_the_sign_in_secret_races.py`](../../../back-end/tests/real_mongo/test_the_sign_in_secret_races.py): five code requests at once mail one code, five right codes at once sign in once, and five uses of one reset link at once reset once ([the sign-in secrets](../data/users-and-email.md#the-sign-in-secrets)).
+An organizer's sign-in secrets are run the same way in [`test_the_sign_in_secret_races.py`](../../../back-end/tests/real_mongo/test_the_sign_in_secret_races.py): five code requests at once mail one code, five right codes at once sign in once, five uses of one reset link at once reset once, and five uses of one verification link at once verify once ([the sign-in secrets](../data/users-and-email.md#the-sign-in-secrets)).
+[`real_mongo/test_a_deletion_leaves_a_tombstone.py`](../../../back-end/tests/real_mongo/test_a_deletion_leaves_a_tombstone.py) cuts a market's and an organization's deletion at each step, a step's function or a collection method raising once, and sends the same request again, and lands a deletion, or its tombstone, between an applicant's save, an import or a market's creation and its read, by `interleave` ([market deletion](../modules/market-deletion.md#the-tombstone)).
 
 The lease tests set `review_team`'s clock rather than wait for a lease to run out.
 [`real_mongo/test_a_persons_organizations_on_the_server.py`](../../../back-end/tests/real_mongo/test_a_persons_organizations_on_the_server.py) runs `organization_people.of_person` over the organizations [`test_a_persons_organizations_in_either_shape.py`](../../../back-end/tests/test_a_persons_organizations_in_either_shape.py) finds through the fakes, those with a people map and those stored before it, and asks the server's plan for it over the boot's indexes: an index scan, never a collection scan ([one map of people](../data/organization-document.md#one-map-of-people)).
@@ -184,7 +192,7 @@ After each, the organization parses with one owner, and its lists are an exact m
 CI's service and the local stack's `mongodb` service ([`docker-compose.yml`](../../../docker-compose.yml)) run `mongo:7`, while production's Atlas cluster runs 8.0 ([`OPERATIONS.md`](../../OPERATIONS.md)).
 mongod 8.0 refuses to start on Linux kernel 6.19 and newer (MongoDB SERVER-121912), and GitHub's `ubuntu-latest` and `ubuntu-24.04` runners both boot one now, so the move to 8.0 waits for MongoDB's fix.
 A local stack on 8.0 fails the same way on a machine with kernel 6.19 or newer, its `mongodb` container never becoming healthy.
-The move changes three lines: the compose file's `image`, the `backend` job's service `image` in [`test.yml`](../../../.github/workflows/test.yml), and the image [`test_compose_overlay.py`](../../../scripts/tests/test_compose_overlay.py) expects among the primary stack's, which the required `knowledge-graph` job checks.
+The move changes three lines: the compose file's `image` (which `scripts/real-mongo-test.sh` reads, so it follows), the `backend` job's service `image` in [`test.yml`](../../../.github/workflows/test.yml), and the image [`test_compose_overlay.py`](../../../scripts/tests/test_compose_overlay.py) expects among the primary stack's, which the required `knowledge-graph` job checks.
 The docs naming the version follow it: [`STARTUP.md`](../../STARTUP.md), [`TECH_STACK.md`](../../TECH_STACK.md), [`TESTING.md`](../../TESTING.md), [CI and the gate](ci-and-the-gate.md) and this node, found with `git grep -n 'mongo:7'`.
 The tables hold on both versions: on 2026-11-10 the whole back-end suite, every case of every table included, passed on a worktree stack on 8.0.34 and again on 7.0.45.
 
@@ -193,6 +201,6 @@ The other way does not hold: a volume 8.0 makes has feature compatibility versio
 So once the move lands, a branch cut before it still names `mongo:7`, and its stack on a slot whose volume 8.0 made restarts its `mongodb` over and over.
 Merge `dev` into that branch, or, when the stack's data can go, bring the stack down with its volume (`scripts/th-compose.sh down -v`) so 7 makes a new one.
 
-Both allow `mongod` 64000 open files, the number MongoDB asks for, where Docker's default soft limit is 1024.
+Both, and the script's server, allow `mongod` 64000 open files, the number MongoDB asks for, where Docker's default soft limit is 1024.
 WiredTiger keeps a dropped collection's files open until its next checkpoint, a minute apart, and each test using `boot_indexes` makes 13 collections and about 40 indexes, a file each, so at 1024 the second of two back-to-back runs of the applicant side's two files above took `mongod` down with "Too many open files".
 A stack started before the limit was set takes it when it is next brought up, which recreates its `mongodb` container.

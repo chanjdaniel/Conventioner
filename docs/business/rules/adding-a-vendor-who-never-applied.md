@@ -8,7 +8,7 @@ describes:
   - back-end/api/markets.py#count_added_vendors
   - back-end/assignment/vendor_input.py#approved_solver_vendors
   - front-end/src/components/AddVendorDialog.vue
-verified: 2026-11-10
+verified: 2026-11-13
 sources:
   - wayfinding/rejection-visibility/02
   - E36/F03/S01

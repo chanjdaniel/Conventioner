@@ -4,7 +4,6 @@ kind: data
 describes:
   - back-end/utils/email_address.py
   - back-end/datatypes.py#User
-  - back-end/account_secrets.py
   - back-end/api/users.py#ensure_user_indexes
   - back-end/api/users.py#AuthUser
   - back-end/api/users.py#register_user_with_captcha
@@ -13,18 +12,10 @@ describes:
   - back-end/api/users.py#request_otp
   - back-end/api/users.py#request_password_reset
   - back-end/api/users.py#resend_verification_email
-  - back-end/api/users.py#verify_email
   - back-end/api/users.py#_Bounds
   - back-end/api/users.py#_password_matches
   - back-end/api/users.py#get_user_by_login_id
   - back-end/api/users.py#signed_in_account
-  - back-end/api/users.py#legacy_remembered_account
-  - back-end/api/users.py#end_this_browsers_sign_ins
-  - back-end/api/users.py#logout
-  - back-end/organizer_sessions.py
-  - back-end/app.py#verify_organizer_session_indexes
-  - back-end/app.py#a_legacy_remembered_account
-  - back-end/app.py#forget_the_legacy_remember_cookie
   - back-end/api/users.py#get_users_by_ids
   - back-end/api/users.py#_sign_in
   - back-end/api/users.py#reset_password
@@ -32,12 +23,21 @@ describes:
   - back-end/app.py#verify_user_indexes
   - back-end/utils/email.py#send_account_exists_email
   - back-end/migrations/migrate_user_emails.py
-  - back-end/create_account.py#verify_account
   - back-end/tests/test_the_remember_cookie.py
   - back-end/tests/test_the_organizer_sign_in_is_bounded.py
   - back-end/tests/test_one_account_per_address.py
   - back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py
   - back-end/tests/test_delete_user_authorization.py
+  - back-end/account_secrets.py
+  - back-end/api/users.py#verify_email
+  - back-end/api/users.py#legacy_remembered_account
+  - back-end/api/users.py#end_this_browsers_sign_ins
+  - back-end/api/users.py#logout
+  - back-end/organizer_sessions.py
+  - back-end/app.py#verify_organizer_session_indexes
+  - back-end/app.py#a_legacy_remembered_account
+  - back-end/app.py#forget_the_legacy_remember_cookie
+  - back-end/create_account.py#verify_account
   - back-end/tests/test_the_sign_in_secret_machine.py
   - back-end/tests/test_the_old_sign_in_fields_are_read_for_one_release.py
   - back-end/tests/test_a_stored_account_holds_no_secret_in_clear.py

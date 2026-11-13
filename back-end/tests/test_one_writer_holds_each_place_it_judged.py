@@ -50,6 +50,7 @@ from organization_people import (
     OrganizationChanged,
     next_people,
 )
+from tombstone import DELETING
 
 ORG = "org-1"
 OWNER = SimpleNamespace(id="user-owner", email="owner@example.com")
@@ -496,8 +497,12 @@ def test_a_transfer_the_table_refuses_says_why_and_writes_nothing(
 
 
 def the_write(stored):
-    [write] = stored.writes
-    return write
+    """The one write, its filter without the live hold every write to an organization keeps
+    (``tombstone.live``), which this asserts is there."""
+    [(query, update)] = stored.writes
+    held = dict(query)
+    assert held.pop(DELETING) == {"$exists": False}, "the write must hold the organization live"
+    return held, update
 
 
 HELD_UNFOLDED = {"id": ORG, "people": {"$exists": False}, "owner": OWNER.id,

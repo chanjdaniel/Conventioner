@@ -1199,6 +1199,7 @@ def market_records(monkeypatch):
         return None
     import api.applicant_auth as ApplicantAuth
     import api.attendance as AttendanceApi
+    import deletion_trail as DeletionTrail
     import history as History
     import payments as Payments
     import remembered_sign_ins as RememberedSignIns
@@ -1211,6 +1212,8 @@ def market_records(monkeypatch):
         history=FakeApplicationsCollection(), notes=FakeApplicationsCollection(),
         placement_history=FakeApplicationsCollection(), payments=FakeApplicationsCollection(),
         amounts_owed=FakeApplicationsCollection(), images=FakeGridFS(),
+        # Not a market's record but what outlives one: an organization's deletion asks it first.
+        trail=FakeApplicationsCollection(),
     )
     # The boot builds these three's unique indexes (T270), so a test that runs app.py afresh
     # builds against them: none stands yet.
@@ -1225,6 +1228,7 @@ def market_records(monkeypatch):
     monkeypatch.setattr(RememberedSignIns, "remembered_collection", fakes.remembered)
     monkeypatch.setattr(History, "history_collection", fakes.history)
     monkeypatch.setattr(History, "legacy_placement_collection", fakes.placement_history)
+    monkeypatch.setattr(DeletionTrail, "deletion_trail_collection", fakes.trail)
     return fakes
 
 class FakeAttemptsCollection:

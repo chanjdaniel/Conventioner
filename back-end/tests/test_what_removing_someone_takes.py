@@ -89,8 +89,9 @@ def test_it_serves_how_many_markets_it_holds_and_who_keeps_some(world):
     # Only its admins and members, and only those who hold one; never the owner, who cannot be
     # removed, and never anyone outside it.
     assert listed["marketsWithOwnRole"] == {ADMIN: 1, EDITOR_MEMBER: 2}
-    # One read of its markets, on the indexed field, fetching only their roles.
-    assert markets.queries == [({"organizationId": ORG_ID}, {"roles": 1})]
+    # One read of its live markets, on the indexed field, fetching only their roles.
+    assert markets.queries == [({"organizationId": ORG_ID, "deleting": {"$exists": False}},
+                                {"roles": 1})]
 
 
 def test_an_organization_with_no_markets(world):
