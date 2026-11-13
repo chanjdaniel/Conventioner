@@ -20,6 +20,7 @@ from datatypes import (
 )
 from db_config import get_database
 from market_documents import market_doc_field, market_doc_filter, market_doc_key
+from tombstone import DELETING, live, new_tombstone, tombstone_of
 import deletion_trail as DeletionTrail
 import history as History
 import market_deletion as MarketDeletion
@@ -73,8 +74,8 @@ def create_organization(owner_email: str, name: str) -> str:
 
 
 def get_organization(org_id: str) -> Optional[Dict[str, Any]]:
-    """Get an organization by id."""
-    org = organizations_collection.find_one({"id": org_id})
+    """Get an organization by id, or None when there is none or it is being deleted."""
+    org = organizations_collection.find_one(live({"id": org_id}))
     if org:
         org['_id'] = str(org['_id'])
     return org
@@ -89,7 +90,7 @@ def _what_removing_takes(org: Dict[str, Any]) -> Dict[str, Any]:
     organization leaves those roles, and so those markets.
     """
     documents = list(markets_collection.find(
-        market_doc_filter("organization_id", org["id"]), {market_doc_key("roles"): 1}
+        live(market_doc_filter("organization_id", org["id"])), {market_doc_key("roles"): 1}
     ))
     held = Counter(
         user_id for document in documents for user_id in (market_doc_field(document, "roles") or {})
@@ -117,7 +118,7 @@ def organization_documents_of(user_id: str) -> List[Dict[str, Any]]:
     The Markets list reads these alone: it needs an organization's id, name, people and rows, never
     the people's addresses or what removing them takes, which ``get_organizations_for_user`` adds.
     """
-    orgs = list(organizations_collection.find(OrganizationPeople.of_person(user_id)))
+    orgs = list(organizations_collection.find(live(OrganizationPeople.of_person(user_id))))
     for org in orgs:
         org['_id'] = str(org['_id'])
     return orgs
@@ -179,7 +180,7 @@ def update_organization(org_id: str, requesting_user_email: str, name: str) -> U
     The name is the one field an owner edits: its owner, admins, members and markets change only
     through their own endpoints, which keep each user's ``organizations`` in step with them.
     """
-    org = organizations_collection.find_one({"id": org_id})
+    org = organizations_collection.find_one(live({"id": org_id}))
     if not org:
         raise NotFoundError("Organization not found")
     
@@ -190,9 +191,11 @@ def update_organization(org_id: str, requesting_user_email: str, name: str) -> U
         raise ForbiddenError("Only organization owner can update organization")
     
     result = organizations_collection.update_one(
-        {"id": org_id},
+        live({"id": org_id}),
         {"$set": {"name": name}}
     )
+    if result.matched_count == 0:
+        raise NotFoundError("Organization not found")
     History.record_for_organization(
         org_id, requesting_user_email, History.CHANGE_ORGANIZATION, kind=History.RENAMED,
         detail=lambda: History.changes({"name": org.get("name")}, {"name": name}),
@@ -214,7 +217,7 @@ def _role_in(org: Dict[str, Any], user_id: str) -> Optional[str]:
 def _readable(org_id: str, requesting_user_email: str) -> Dict[str, Any]:
     """The organization, when the person asking is its owner, one of its admins or one of its
     members: 404 for one nobody has, 403 for one they are not in, as its other routes answer."""
-    org = organizations_collection.find_one({"id": org_id})
+    org = organizations_collection.find_one(live({"id": org_id}))
     if not org:
         raise NotFoundError("Organization not found")
     requesting_user = UsersApi.get_user(requesting_user_email)
@@ -280,7 +283,7 @@ NO_SUCH_DEFAULT_ROW = "The default table has no such row."
 def _default_to_change(org_id: str, requesting_user_email: str) -> Dict[str, Any]:
     """The organization whose default its owner or one of its admins is changing, or the refusal:
     404 for one nobody has, 403 for anyone else, its members included."""
-    org = organizations_collection.find_one({"id": org_id})
+    org = organizations_collection.find_one(live({"id": org_id}))
     if not org:
         raise NotFoundError("Organization not found")
     requesting_user = UsersApi.get_user(requesting_user_email)
@@ -331,7 +334,8 @@ def set_default_permission(
     write = ({f"{DEFAULT_PERMISSIONS}.{row.id}": {"role": role}}
              if isinstance(stored, dict) or DEFAULT_PERMISSIONS not in org
              else {DEFAULT_PERMISSIONS: {row.id: {"role": role}}})
-    organizations_collection.update_one({"id": org_id}, {"$set": write})
+    if organizations_collection.update_one(live({"id": org_id}), {"$set": write}).matched_count == 0:
+        raise NotFoundError("Organization not found")
     after = {"role": role, "source": Actions.FROM_ORGANIZATION}
     _record_default(org_id, requesting_user_email, History.PERMISSION_SET, {"action": row.id},
                     {"before": before, "after": after})
@@ -350,8 +354,10 @@ def reset_default_permission(
     rows = Actions.organization_rows(stored)
     if row.id not in rows:
         return Actions.default_table(stored)
-    organizations_collection.update_one(
-        {"id": org_id}, {"$unset": {f"{DEFAULT_PERMISSIONS}.{row.id}": ""}})
+    if organizations_collection.update_one(
+            live({"id": org_id}),
+            {"$unset": {f"{DEFAULT_PERMISSIONS}.{row.id}": ""}}).matched_count == 0:
+        raise NotFoundError("Organization not found")
     _record_default(org_id, requesting_user_email, History.PERMISSION_RESET, {"action": row.id}, {
         "before": Actions.row_state(row, rows.get(row.id)), "after": Actions.row_state(row, None),
     })
@@ -370,9 +376,10 @@ def reset_default_permissions(org_id: str, requesting_user_email: str) -> List[D
     if not rows:
         return Actions.default_table(stored)
     held = [row for row in Actions.ACTIONS.values() if row.id in rows]
-    organizations_collection.update_one({"id": org_id}, {"$unset": {
+    if organizations_collection.update_one(live({"id": org_id}), {"$unset": {
         f"{DEFAULT_PERMISSIONS}.{row.id}": "" for row in held
-    }})
+    }}).matched_count == 0:
+        raise NotFoundError("Organization not found")
     _record_default(org_id, requesting_user_email, History.PERMISSION_TABLE_RESET, {}, {
         "before": {row.id: Actions.row_state(row, rows.get(row.id)) for row in held},
         "after": {row.id: Actions.row_state(row, None) for row in held},
@@ -446,19 +453,15 @@ def organization_deletion_preview(org_id: str, requesting_user_email: str) -> Di
     field on the organization because it counts placements across every market the organization
     holds, which no list of organizations should pay for.
     """
-    org = organizations_collection.find_one({"id": org_id})
+    org = organizations_collection.find_one(live({"id": org_id}))
     if not org:
         raise NotFoundError("Organization not found")
 
-    requesting_user = UsersApi.get_user(requesting_user_email)
-    if not requesting_user:
-        raise ForbiddenError("User not found")
-    if _role_in(org, requesting_user.id) != OrganizationRole.OWNER:
-        raise ForbiddenError("Only organization owner can delete organization")
+    _owner_asks(org, requesting_user_email, "Only organization owner can delete organization")
 
     summaries = [
         _market_summary(document)
-        for document in markets_collection.find(market_doc_filter("organization_id", org_id))
+        for document in markets_collection.find(live(market_doc_filter("organization_id", org_id)))
     ]
     blocking = [m for m in summaries if m["phase"] in BLOCKING_PHASES]
     doomed = [m for m in summaries if m["phase"] not in BLOCKING_PHASES]
@@ -502,21 +505,34 @@ def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult
     **No market is ever left belonging to nothing.** The update that set `organizationId` to null
     is gone outright rather than kept as a fallback: a fallback would preserve the exact state this
     exists to prevent.
-    """
-    preview = organization_deletion_preview(org_id, requesting_user_email)
-    if not preview["can_delete"]:
-        raise OrganizationHasLiveMarkets(preview["blocking_markets"])
 
+    The organization's tombstone goes first, then each of its markets', and only then is anything
+    destroyed (``tombstone``). A deletion cut at any step is resumed by the same request sent again:
+    the organization is read whatever its state, so the retry finds the tombstone and goes on with
+    its trail id, and the trail holds one entry, describing the markets as they stood.
+    """
     org = organizations_collection.find_one({"id": org_id})
+    if not org:
+        raise NotFoundError("Organization not found")
+    tombstone = tombstone_of(org)
+    if tombstone is None:
+        preview = organization_deletion_preview(org_id, requesting_user_email)
+        if not preview["can_delete"]:
+            raise OrganizationHasLiveMarkets(preview["blocking_markets"])
+        tombstone = _mark_deleting(org_id, new_tombstone(requesting_user_email))
+    else:
+        _owner_asks(org, requesting_user_email, "Only organization owner can delete organization")
+    trail_id = tombstone["trail_id"]
 
     # The trail is written BEFORE anything is destroyed, and is allowed to fail the whole
     # operation: an organization deleted with no record of what went with it is the thing this
-    # story added a trail for.
-    DeletionTrail.record_organization_deletion(
-        org, preview["markets_to_delete"], requesting_user_email
-    )
+    # story added a trail for. Written once: a retry that finds it has nothing left to decide.
+    if not DeletionTrail.is_recorded(trail_id):
+        taken = _take_its_markets(org_id, trail_id, tombstone)
+        DeletionTrail.record_organization_deletion(
+            org, taken, tombstone.get("by") or requesting_user_email, trail_id)
 
-    for market in preview["markets_to_delete"]:
+    for market in markets_collection.find(market_doc_filter("organization_id", org_id), {"id": 1}):
         MarketDeletion.delete_market_and_records(markets_collection, market["id"])
 
     # Its own history goes with it, as each market's goes with the market; the trail above is
@@ -529,6 +545,82 @@ def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult
     )
 
     return organizations_collection.delete_one({"id": org_id})
+
+
+def _owner_asks(org: Dict[str, Any], requesting_user_email: str, refusal: str) -> None:
+    """Refuse anyone but the organization's owner."""
+    requesting_user = UsersApi.get_user(requesting_user_email)
+    if not requesting_user:
+        raise ForbiddenError("User not found")
+    if _role_in(org, requesting_user.id) != OrganizationRole.OWNER:
+        raise ForbiddenError(refusal)
+
+
+def _mark_deleting(org_id: str, tombstone: Dict[str, Any]) -> Dict[str, Any]:
+    """Set the organization's tombstone by one write held on its being live; answers the tombstone
+    it carries now, this one or the one a deletion racing this set first."""
+    if organizations_collection.update_one(
+            live({"id": org_id}), {"$set": {DELETING: tombstone}}).matched_count:
+        return tombstone
+    found = tombstone_of(organizations_collection.find_one({"id": org_id}))
+    if found is None:
+        raise NotFoundError("Organization not found")
+    return found
+
+
+def _take_its_markets(
+    org_id: str, trail_id: str, tombstone: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Give each of the organization's live markets its tombstone, each by one write held on the
+    phase the preview judged deletable, then judge every market again as it now stands, and answer
+    them described for the trail.
+
+    A market that entered a blocking phase between the preview and its tombstone (a draft's first
+    import takes it into Review) is not taken: every tombstone of this deletion, the
+    organization's included, is taken away again and the deletion refused, naming it. A market
+    another deletion is taking (its own Delete) is not judged: it is going already. A live market
+    the judgment finds in a phase that keeps no deletion back was created into the organization
+    since its markets were read (a creation stores its market before it asks the organization to
+    list it), and is taken as the others were.
+    """
+    for document in markets_collection.find(live(market_doc_filter("organization_id", org_id))):
+        _taken(document, tombstone)
+
+    summaries, blocking = [], []
+    for found in markets_collection.find(market_doc_filter("organization_id", org_id)):
+        document = _taken(found, tombstone)
+        if document is None:
+            continue
+        summary = _market_summary(document)
+        summaries.append(summary)
+        held = tombstone_of(document)
+        if held is None or (held["trail_id"] == trail_id and summary["phase"] in BLOCKING_PHASES):
+            blocking.append(summary)
+    if blocking:
+        markets_collection.update_many(
+            {**market_doc_filter("organization_id", org_id), f"{DELETING}.trail_id": trail_id},
+            {"$unset": {DELETING: ""}})
+        organizations_collection.update_one(
+            {"id": org_id, f"{DELETING}.trail_id": trail_id}, {"$unset": {DELETING: ""}})
+        raise OrganizationHasLiveMarkets(blocking)
+    return summaries
+
+
+def _taken(
+    document: Optional[Dict[str, Any]], tombstone: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """The market ``document`` was read from, given ``tombstone`` while it is live in a phase that
+    keeps no deletion back, by one write held on that phase: answered as it stands after, with the
+    tombstone it carries, or None once it is gone. One whose phase moved under the write is read
+    again and judged as it then stands."""
+    while (document is not None and tombstone_of(document) is None
+           and _market_summary(document)["phase"] not in BLOCKING_PHASES):
+        held = MarketDeletion.mark_deleting(
+            markets_collection, document, tombstone, holding_phase=True)
+        if held is not None:
+            return {**document, DELETING: held}
+        document = markets_collection.find_one({"id": document["id"]})
+    return document
 
 
 def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> None:

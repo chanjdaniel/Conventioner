@@ -6,7 +6,7 @@ describes:
   - back-end/datatypes.py#people_from_lists
   - back-end/datatypes.py#organization_people_of
   - back-end/organization_people.py
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - T277
   - T283

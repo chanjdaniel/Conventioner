@@ -5,7 +5,7 @@ describes:
   - back-end/csv_import.py#APPLICANT_EMAIL_TARGET
   - back-end/csv_import.py#_EMAIL_ADDRESS
   - back-end/api/added_vendors.py#add_vendor
-verified: 2026-11-04
+verified: 2026-11-13
 sources:
   - E05
   - T202

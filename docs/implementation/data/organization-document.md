@@ -40,7 +40,7 @@ describes:
   - back-end/tests/test_a_roll_forward_rebuilds_the_people_from_the_lists.py
   - back-end/tests/test_a_persons_organizations_in_either_shape.py
   - back-end/api/organizations.py#change_org_place
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - E20/F04/S01
   - E21/F03/S01
@@ -82,6 +82,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `markets`             | the ids of its markets, added when a market is created and pulled when one is deleted                                                                     |
 | `theme`               | carried, never applied                                                                                                                                    |
 | `default_permissions` | the rows of the table it sets for the markets it will hold: row id to `{role}`, absent when it sets none ([its default table](#its-default-table))        |
+| `deleting`            | `{at, by, trail_id}` while its deletion runs, absent on a live organization ([the tombstone](../modules/market-deletion.md#the-tombstone))                |
 
 Every key is one word but `default_permissions`, which no other spelling of has ever been written, so the spelling question the market document has does not arise.
 Membership is recorded on both sides: each user's `organizations` lists the ids of the organizations they are in, kept in step by every membership write ([users and email](users-and-email.md)).
@@ -100,6 +101,7 @@ Transferring ownership hands the organization to one of its admins or members an
 The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
 Removing someone who is neither an admin nor a member, another organizer having removed them first, answers 404 "They are no longer in this organization." before any write, as does a removal whose write finds them gone under it; nothing is recorded, and Manage organization reads that 404 as done ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)); a market role taken twice answers alike ([roles on a market](#roles-on-a-market)).
 Deleting an organization is the owner's, deletes the drafts and archived markets it holds, and is refused while it holds a market mid-lifecycle ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md), through [market deletion](../modules/market-deletion.md)).
+**An organization being deleted reads as absent**: every read and write of it, the person's organizations, its pages, its rename, its default table and its people's writes included, passes its filter through `live` in [`back-end/tombstone.py`](../../../back-end/tombstone.py), so it leaves its people's lists and takes no change, and a write that matched nothing answers 404 "Organization not found"; its name stays taken until it is gone.
 What the owner and the admins do with these, screen by screen, is [the organizations flows](../../business/flows/organizations.md).
 
 ## One map of people

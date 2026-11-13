@@ -40,6 +40,15 @@ EXCEPTIONS: Dict[Tuple[str, str], str] = {
     ("market_deletion", "delete_market_and_records"): (
         "the market's deletion keeps no rule beyond the right to delete, and deletes the market "
         "and its records in its own order"),
+    ("market_deletion", "mark_deleting"): (
+        "a deletion's tombstone, held on the market being live and on its phase as read when an "
+        "organization's deletion judged it, a write of its own (market-deletion.md)"),
+    ("api.markets", "delete_market"): (
+        "the market's own Delete deletes the market last, after its tombstone and its records, "
+        "and keeps no rule beyond the right to delete"),
+    ("api.organizations", "_take_its_markets"): (
+        "an organization's deletion takes back its own tombstones from its markets when one of "
+        "them is under way, by its trail id"),
     ("review_team", "_write_holding"): (
         "the dealing lease (ADR 0020): a protocol of its own, each write held on the lease"),
     ("review_team", "_deal_arriving"): (

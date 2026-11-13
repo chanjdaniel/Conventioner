@@ -22,7 +22,7 @@ describes:
   - front-end/src/utils/fitsAPhone.ts
   - back-end/app.py#verify_attendance_indexes
   - front-end/e2e/one-record-for-a-vendors-day.spec.ts
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map

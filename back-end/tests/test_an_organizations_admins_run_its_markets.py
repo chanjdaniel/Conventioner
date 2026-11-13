@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import FakeMarketsCollection, stored_market
+from conftest import FakeMarketsCollection, mongo_matches, stored_market
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
@@ -117,11 +117,7 @@ class FakeMarkets:
 
     def find(self, query):
         self.reads += 1
-        (key, condition), = query.items()
-        if key.startswith("roles."):
-            uid = key.split(".", 1)[1]
-            return [doc for doc in self.docs if uid in doc.get("roles", {})]
-        return [doc for doc in self.docs if doc.get(key) in condition["$in"]]
+        return [doc for doc in self.docs if mongo_matches(doc, query)]
 
 
 @pytest.fixture

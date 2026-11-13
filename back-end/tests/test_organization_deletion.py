@@ -16,7 +16,10 @@ import pytest
 
 import api.organizations as OrgsApi
 import deletion_trail as DeletionTrail
-from client_errors import ForbiddenError
+from client_errors import ForbiddenError, NotFoundError
+from conftest import (
+    FakeOrganizations, _update_first, mongo_matches, mongo_project, mongo_update,
+)
 from datatypes import MarketPhase
 
 OWNER_ID = "user-1"
@@ -58,17 +61,36 @@ def _market(market_id, phase, name=None, placements=0, reached=None, intake_mode
 
 
 class Markets:
+    """The organization's markets, filtered and written as MongoDB does; ``writes`` keeps every
+    update it was sent."""
+
     def __init__(self, docs):
         self.docs = docs
+        self.writes = []
 
-    def find(self, query):
-        return iter(
-            [dict(doc) for doc in self.docs if all(doc.get(k) == v for k, v in query.items())]
-        )
+    def find(self, query, projection=None):
+        return iter([mongo_project(dict(doc), projection)
+                     for doc in self.docs if mongo_matches(doc, query)])
+
+    def find_one(self, query, projection=None):
+        return next(self.find(query, projection), None)
+
+    def update_one(self, query, update):
+        self.writes.append(update)
+        return _update_first(self.docs, query, update)
+
+    def update_many(self, query, update):
+        self.writes.append(update)
+        matched = 0
+        for index, doc in enumerate(self.docs):
+            if mongo_matches(doc, query):
+                self.docs[index] = mongo_update(doc, update)
+                matched += 1
+        return SimpleNamespace(matched_count=matched)
 
     def delete_one(self, query):
         for index, doc in enumerate(self.docs):
-            if all(doc.get(k) == v for k, v in query.items()):
+            if mongo_matches(doc, query):
                 self.docs.pop(index)
                 return SimpleNamespace(deleted_count=1)
         return SimpleNamespace(deleted_count=0)
@@ -81,18 +103,8 @@ def org(monkeypatch):
     def install(*docs):
         markets = Markets(list(docs))
         monkeypatch.setattr(OrgsApi, "markets_collection", markets)
-        monkeypatch.setattr(
-            OrgsApi.organizations_collection,
-            "find_one",
-            lambda _q: {"id": ORG_ID, "name": "Ember Markets", "owner": OWNER_ID},
-            raising=False,
-        )
-        monkeypatch.setattr(
-            OrgsApi.organizations_collection,
-            "delete_one",
-            lambda _q: SimpleNamespace(deleted_count=1),
-            raising=False,
-        )
+        monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations(
+            {"id": ORG_ID, "name": "Ember Markets", "owner": OWNER_ID}))
         monkeypatch.setattr(
             OrgsApi.users_collection, "update_many", lambda *_a, **_k: None, raising=False
         )
@@ -104,9 +116,12 @@ def org(monkeypatch):
         monkeypatch.setattr(
             OrgsApi.DeletionTrail,
             "record_organization_deletion",
-            lambda organization, doomed, actor: trail.append((organization, doomed, actor))
-            or "trail-1",
+            lambda organization, doomed, actor, trail_id: trail.append(
+                (organization, doomed, actor, trail_id)) or trail_id,
         )
+        monkeypatch.setattr(
+            OrgsApi.DeletionTrail, "is_recorded",
+            lambda trail_id: any(entry[3] == trail_id for entry in trail))
         return markets, trail
 
     return install
@@ -177,11 +192,11 @@ class TestWhatGoesWithIt:
         is asserted: a deletable market leaves the collection, and nothing is written at all.
         """
         markets, _ = org(_market("m-1", MarketPhase.DRAFT))
-        assert not hasattr(markets, "update_many"), "the fake offers no way to orphan a market"
 
         OrgsApi.delete_organization(ORG_ID, OWNER_EMAIL)
 
         assert markets.docs == []
+        assert [write for write in markets.writes if "organizationId" in str(write)] == []
 
     def test_removing_the_organization_from_each_member_is_unchanged(self, org, monkeypatch):
         org(_market("m-1", MarketPhase.DRAFT))
@@ -280,7 +295,7 @@ class TestTheTrail:
 
         OrgsApi.delete_organization(ORG_ID, OWNER_EMAIL)
 
-        organization, doomed, actor = trail[0]
+        organization, doomed, actor, _trail_id = trail[0]
         assert organization["name"] == "Ember Markets"
         assert actor == OWNER_EMAIL
         assert [m["name"] for m in doomed] == ["Winter Market"]
@@ -319,7 +334,7 @@ class TestTheTrail:
             DeletionTrail.record_organization_deletion(
                 {"id": ORG_ID, "name": "Ember Markets"},
                 [{"id": "m-1", "name": "Winter Market", "placements": 9}],
-                OWNER_EMAIL,
+                OWNER_EMAIL, "trail-1",
             )
         finally:
             DeletionTrail.deletion_trail_collection = original
@@ -379,3 +394,91 @@ class TestAMarketsRecordsGoWithIt:
         MarketsApi.delete_market("m-1", OWNER_EMAIL)
 
         assert self._left(applications, market_records) == ["elsewhere"]
+
+
+class TestARecordWrittenAsItsMarketIsDeleted:
+    """A request that read its market live and wrote after the deletion swept: what it wrote is
+    taken back once its last write is in (``market_deletion.kept_only_while_live``)."""
+
+    def test_is_taken_back_when_the_market_is_being_deleted(self, applications, market_records):
+        from conftest import FakeMarketsCollection, stored_market
+
+        markets = FakeMarketsCollection(stored_market(id="m-1", deleting={
+            "at": "2026-11-13T00:00:00+00:00", "by": OWNER_EMAIL, "trail_id": "trail-1"}))
+        TestAMarketsRecordsGoWithIt._plant(applications, market_records, "m-1")
+        TestAMarketsRecordsGoWithIt._plant(applications, market_records, "elsewhere")
+
+        with pytest.raises(OrgsApi.MarketDeletion.MarketGoneUnderWrite):
+            OrgsApi.MarketDeletion.kept_only_while_live(markets, "m-1")
+
+        assert TestAMarketsRecordsGoWithIt._left(applications, market_records) == ["elsewhere"]
+
+    def test_is_kept_while_the_market_is_live(self, applications, market_records):
+        from conftest import FakeMarketsCollection, stored_market
+
+        markets = FakeMarketsCollection(stored_market(id="m-1"))
+        TestAMarketsRecordsGoWithIt._plant(applications, market_records, "m-1")
+
+        OrgsApi.MarketDeletion.kept_only_while_live(markets, "m-1")
+
+        assert TestAMarketsRecordsGoWithIt._left(applications, market_records) == ["m-1"]
+
+
+class TestACutDeletionResumesFromItsTombstone:
+    """The real-MongoDB suite cuts every step (``real_mongo/test_a_deletion_leaves_a_tombstone``);
+    these run the same rules over the fakes, so the gate's hermetic run holds them too."""
+
+    def test_a_retry_after_a_cut_writes_one_trail_entry_naming_every_market(
+            self, org, monkeypatch):
+        markets, trail = org(_market("m-1", MarketPhase.DRAFT), _market("m-2", MarketPhase.ARCHIVED))
+        real = OrgsApi.MarketDeletion.delete_market_and_records
+        calls = []
+
+        def cut_at_the_second(collection, market_id):
+            calls.append(market_id)
+            if len(calls) == 2:
+                raise RuntimeError("the process stopped here")
+            return real(collection, market_id)
+
+        monkeypatch.setattr(OrgsApi.MarketDeletion, "delete_market_and_records", cut_at_the_second)
+        with pytest.raises(RuntimeError):
+            OrgsApi.delete_organization(ORG_ID, OWNER_EMAIL)
+        assert [doc["id"] for doc in markets.docs] == ["m-2"]
+        assert markets.docs[0]["deleting"]["trail_id"] == trail[0][3]
+
+        OrgsApi.delete_organization(ORG_ID, OWNER_EMAIL)
+
+        [(_organization, doomed, _actor, _trail_id)] = trail
+        assert sorted(m["id"] for m in doomed) == ["m-1", "m-2"]
+        assert markets.docs == []
+        assert OrgsApi.organizations_collection.docs == []
+
+    def test_a_market_entering_review_after_the_preview_takes_every_tombstone_back(
+            self, org, monkeypatch):
+        markets, trail = org(_market("m-1", MarketPhase.DRAFT), _market("m-2", MarketPhase.ARCHIVED))
+        preview = OrgsApi.organization_deletion_preview
+
+        def then_it_enters_review(*args):
+            judged = preview(*args)
+            markets.docs[0]["phase"] = MarketPhase.APPLICATIONS.value
+            return judged
+
+        monkeypatch.setattr(OrgsApi, "organization_deletion_preview", then_it_enters_review)
+
+        with pytest.raises(OrgsApi.OrganizationHasLiveMarkets) as refusal:
+            OrgsApi.delete_organization(ORG_ID, OWNER_EMAIL)
+
+        assert [m["id"] for m in refusal.value.blocking] == ["m-1"]
+        assert sorted(doc["id"] for doc in markets.docs) == ["m-1", "m-2"]
+        assert [doc for doc in markets.docs if "deleting" in doc] == []
+        assert "deleting" not in OrgsApi.organizations_collection.doc
+        assert trail == []
+
+    def test_an_organization_being_deleted_reads_as_absent_to_its_preview(self, org):
+        org(_market("m-1", MarketPhase.DRAFT))
+        OrgsApi.organizations_collection.doc["deleting"] = {
+            "at": "2026-11-13T00:00:00+00:00", "by": OWNER_EMAIL, "trail_id": "trail-1"}
+
+        with pytest.raises(NotFoundError):
+            OrgsApi.organization_deletion_preview(ORG_ID, OWNER_EMAIL)
+        assert OrgsApi.get_organization(ORG_ID) is None

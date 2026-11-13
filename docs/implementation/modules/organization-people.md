@@ -13,7 +13,7 @@ describes:
   - front-end/src/__tests__/aChangeThatMetAnotherInAnOrganization.test.ts
   - front-end/src/__tests__/changingAPlaceAsksFirst.test.ts
   - front-end/e2e/an-organizations-people-change-place.spec.ts
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - T283
 ---

@@ -93,6 +93,27 @@ class TestAnEntry:
         assert history.docs == []
 
 
+class TestAnEntryWrittenOnceUnderItsId:
+    def test_it_is_stored_under_that_id_so_the_database_holds_it_once(self, history):
+        """``_id`` is unique in every collection, so two writes at once cannot both insert."""
+        History.record_for_organization("org-1", "dana@example.com", History.DELETE_MARKET,
+                                        detail={"before": {"name": "A"}, "after": {"name": None}},
+                                        entry_id="trail-1")
+
+        [entry] = history.docs
+        assert entry["_id"] == "trail-1"
+        assert entry["id"] == "trail-1"
+
+    def test_a_second_write_under_it_adds_none(self, history):
+        for _ in range(2):
+            History.record_for_organization("org-1", "dana@example.com", History.DELETE_MARKET,
+                                            detail={"before": {"name": "A"},
+                                                    "after": {"name": None}},
+                                            entry_id="trail-1")
+
+        assert [entry["id"] for entry in history.docs] == ["trail-1"]
+
+
 class TestAPlacementEntry:
     def test_it_is_an_assign_action_about_its_table_day(self, history):
         History.record_freed("m1", "dana@example.com", "ana@example.com", "2026-08-01", "A 1")

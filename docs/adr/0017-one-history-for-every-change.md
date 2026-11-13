@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/history.py
   - back-end/migrations/migrate_placement_history.py
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - E40/F01/S01
   - E40/F02/S01
