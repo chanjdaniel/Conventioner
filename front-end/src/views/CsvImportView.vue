@@ -176,9 +176,13 @@ const enteredReview = ref(false);
  * the market into Review, so `firstImport` reads false by the done step, which redid nothing.
  */
 const importedFirst = ref(false);
-/** The page's heading: what this import is, or on the done step what it was. */
+/**
+ * The page's heading: what this import is, or on the done step what it was. An archived market
+ * offers no Redo import, so its refused page is named as a draft's refused first import is (T315).
+ */
 const heading = computed(() =>
-  (step.value === 'done' ? importedFirst.value : firstImport.value)
+  (step.value === 'done' ? importedFirst.value : firstImport.value) ||
+  marketPhase.value === MarketPhase.Archived
     ? 'Import responses'
     : 'Redo import',
 );

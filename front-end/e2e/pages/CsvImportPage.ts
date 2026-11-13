@@ -36,7 +36,7 @@ export class CsvImportPage {
 
   // Stage containers, used to assert which stage the flow is showing.
   readonly view: Locator;
-  /** The page's title: "Import responses" on a draft, "Redo import" after it. */
+  /** The page's title: "Import responses" on a draft and an archived market, "Redo import" between. */
   readonly heading: Locator;
   readonly upload: Locator;
   readonly map: Locator;

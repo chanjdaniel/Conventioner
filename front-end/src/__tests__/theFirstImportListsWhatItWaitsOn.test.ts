@@ -212,6 +212,30 @@ describe("the first import's refusal", () => {
     expect(shown.text()).not.toContain('not yours to do');
   });
 
+  it("names an archived market's page, never the Redo import it does not offer (T315)", async () => {
+    // Its first import is long past, but an archived market offers no redo either: the page is the
+    // import's, refused, as a draft's refused first import is.
+    const archived =
+      'This market is archived. An archived market is the record of what happened, so nothing in it can be changed.';
+    const wrapper = await openImport(
+      market([], {
+        phase: MarketPhase.Archived,
+        actionRefusals: Object.fromEntries(
+          Object.values(MarketAction).map((action) => [action, archived]),
+        ),
+      }),
+    );
+
+    expect(wrapper.get('h1').text()).toBe('Import responses');
+  });
+
+  it('heads a market taking applications Redo import, which it offers', async () => {
+    const wrapper = await openImport(market([], { phase: MarketPhase.Applications }));
+
+    expect(wrapper.find('[data-testid="import-wrong-phase"]').exists()).toBe(false);
+    expect(wrapper.get('h1').text()).toBe('Redo import');
+  });
+
   it('stays the one sentence past Review', async () => {
     const wrapper = await openImport(market([], { phase: MarketPhase.Assignment }));
 
