@@ -43,7 +43,8 @@ if [ $# -eq 0 ]; then
   set -- tests/real_mongo
 fi
 
-# After this the team's reaper may remove the server, should every removal below have failed.
+# The expires label's time. Like the other labels, it says whose the container is to whoever
+# reads `docker ps`, and removes nothing: the removals below are the only ones.
 EXPIRES="${TEAM_EXPIRES:-$("$PYTHON" -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) + d.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"))')}"
 
 # ── Removal ──────────────────────────────────────────────────────────────────
