@@ -7,8 +7,14 @@ the primary checkout's, so a gate run that seeded before exporting its own stack
 primary checkout's local database (2026-10-31). Now the default stack takes `--primary`, as
 `stack.ts` takes `CI`.
 
-The script is run for real, with stub `docker`, `curl` and `th-compose.sh` that log every call.
+It seeds only a stack that already runs, and never starts one: it used to bring a stopped stack up
+itself, outside whatever owned the slot's stacks, so a seed after a refused start left a stack
+nobody owned (2026-11-01, 2026-11-05).
+
+The script is run for real, with stub `docker`, `curl`, `sleep` and `th-compose.sh` that log every call.
 """
+
+import re
 
 import pytest
 from stacks import run_seed, slot_path
@@ -106,3 +112,40 @@ def test_primary_seeds_the_default_stack(tmp_path):
     assert "Could not extract user ID" in result.stdout, result.stdout + result.stderr
     assert resets(calls) == ["docker compose exec -T backend python /app/reset_database.py"]
     assert "curl -k -s -o /dev/null -w %{http_code} https://127.0.0.1:5001/" in calls
+
+
+def starts(calls):
+    """The `docker` and `th-compose.sh` calls that would start or create a container."""
+    verbs = re.compile(r"(^| )(up|start|restart|run|create)( |$)")
+    return [call for call in calls if not call.startswith("curl ") and verbs.search(call)]
+
+
+# Each way the script is told a stack: the slot it sits in, an exported identity, and --primary.
+TOLD = {
+    "slot": (lambda tmp_path: slot_path(tmp_path, 3), (), {}),
+    "explicit": (outside_a_slot, (), EXPLICIT),
+    "primary": (outside_a_slot, ("--primary",), {}),
+}
+
+
+@pytest.mark.parametrize("told", TOLD, ids=list(TOLD))
+def test_a_stack_that_is_not_running_is_refused_and_never_started(tmp_path, told):
+    # It used to bring the stack up itself, outside whatever owns the slot's stacks, so a seed run
+    # after a refused or forgotten start left an unowned stack behind.
+    checkout, args, variables = TOLD[told]
+    result, calls = run_seed(checkout(tmp_path), tmp_path, *args, STACK_STOPPED="1", **variables)
+
+    assert result.returncode != 0
+    assert starts(calls) == []
+    assert resets(calls) == []
+    assert "is not running" in result.stderr
+    assert "up -d" in result.stderr
+
+
+def test_a_back_end_that_never_answers_is_refused_before_the_reset(tmp_path):
+    result, calls = run_seed(slot_path(tmp_path, 3), tmp_path, BACKEND_SILENT="1")
+
+    assert result.returncode != 0
+    assert resets(calls) == []
+    assert "did not answer" in result.stderr
+    assert "https://127.0.0.1:5031/" in result.stderr

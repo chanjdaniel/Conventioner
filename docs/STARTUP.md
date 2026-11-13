@@ -5,7 +5,7 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-11-10
+verified: 2026-11-13
 sources:
   - T251
   - T263
@@ -133,7 +133,7 @@ Conventioner/
 │   ├── e2e/            # Playwright suite, page objects and seed helpers
 │   └── package.json
 ├── docs/               # This file, TESTING.md, RELEASING.md, ADRs
-├── scripts/            # seed_fixture.sh, th-compose.sh, nm-test.sh
+├── scripts/            # seed_fixture.sh, th-compose.sh, nm-test.sh, real-mongo-test.sh
 ├── .scratch/           # Local, ignored working folder; planning lives outside this repo (docs/agents/issue-tracker.md)
 ├── docker-compose.yml  # Docker Compose configuration
 └── AGENTS.md           # Project-intrinsic notes: sharp edges, conventions, invariants
@@ -224,7 +224,7 @@ docker run -d \
    The template boots as it stands - no keys to go and fetch, no accounts to sign up for.
    `app.py` loads `back-end/.env` on the first line it runs (`back-end/utils/env_file.py`), and anything already set in the environment wins over the file, so a variable you export by hand is never shadowed by it.
    The template works because it sets `ALLOW_INSECURE_LOCAL_DEV=true`, which is what lets a process start without the eight variables a deployment must set (`SECRET_KEY`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `FRONTEND_URL`, `FROM_EMAIL`, `SESSION_TYPE`, `TRUSTED_PROXY_HOPS`), and which names in the log everything it turns off.
-   Sessions are then signed with a random per-process key, so restarting the back end logs you out; set `SECRET_KEY` to a generated value if that gets annoying.
+   Sessions are then signed with a random per-process key, so restarting the back end logs you out, and so does a change to its code in the Docker stack, which reloads it; set `SECRET_KEY` to a generated value if that gets annoying.
    Never set `ALLOW_INSECURE_LOCAL_DEV` on a deployed environment, where the back end refuses to boot with it - see [RELEASING.md](./RELEASING.md#a-deployed-host-refuses-local-switches).
 6. Initialize the database:
    ```bash
@@ -309,7 +309,7 @@ The frontend will start on: **[http://127.0.0.1:5173](http://127.0.0.1:5173)** (
 ## Step 6: Testing the Application
 
 > **Automated test suites and a one-command seed fixture are documented in [TESTING.md](./TESTING.md).**
-> For a ready-to-use test environment (Docker stack + test users + test organization + seeded market), run `./scripts/seed_fixture.sh --primary` from the repository root (in a treehouse worktree, without `--primary`; the script refuses to guess which stack, see [TESTING.md](./TESTING.md#quick-start-seed-fixture)).
+> For a ready-to-use test environment (test users + test organization + seeded market on the running Docker stack, which it never starts), run `./scripts/seed_fixture.sh --primary` from the repository root (in a treehouse worktree, without `--primary`; the script refuses to guess which stack, see [TESTING.md](./TESTING.md#quick-start-seed-fixture)).
 
 ### Create a Test User
 
@@ -549,7 +549,7 @@ The `docker-compose.yml` defines four services:
    - Credentials: `admin:secret`
 2. **backend**: Flask API server
    - Port: `5001` (HTTPS with adhoc certificate; not 5000, [why](TESTING.md#testing-gotchas))
-   - The code is mounted from `back-end/`, but `flask run` starts without `--debug`, so a back-end change takes a container restart
+   - The code is mounted from `back-end/`, and `flask run --reload` restarts the server when a Python file changes; the restart signs everyone out, as any restart does, unless `SECRET_KEY` is set
    - Sessions persisted in a volume
 3. **frontend**: Vue 3 development server
    - Port: `5173`

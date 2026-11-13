@@ -246,8 +246,8 @@ def test_email_is_off_unless_the_caller_turns_it_on(worktree_and_env):
     assert on["services"]["backend"]["environment"]["DISABLE_EMAIL"] == "false"
 
 
-def test_the_primary_stack_publishes_its_fixed_ports_on_loopback():
-    # The base file alone is Daniel's primary stack and CI's stack.
+def primary_config():
+    """The base file alone, as Compose renders it: Daniel's primary stack and CI's."""
     result = subprocess.run(
         ["docker", "compose", "-f", str(REPO / "docker-compose.yml"), "config", "--format", "json"],
         env=clean_env(),
@@ -255,8 +255,11 @@ def test_the_primary_stack_publishes_its_fixed_ports_on_loopback():
         text=True,
     )
     assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
 
-    assert published(json.loads(result.stdout)) == {
+
+def test_the_primary_stack_publishes_its_fixed_ports_on_loopback():
+    assert published(primary_config()) == {
         "mongodb": [("127.0.0.1", "27017", 27017)],
         "backend": [("127.0.0.1", "5001", 5001)],
         "frontend": [("127.0.0.1", "5173", 5173)],
@@ -316,3 +319,19 @@ def test_the_primary_stack_names_its_own_images():
         "conventioner-frontend",
         "mongo-express:latest",
     }
+
+
+def test_the_back_end_reloads_on_a_change_to_its_code(worktree_and_env):
+    # back-end/ is bind-mounted, so without the reloader a stack left up serves the code it started
+    # on, and an E2E run after a back-end change passes or fails against the old routes.
+    worktree, env = worktree_and_env
+
+    for config in (render(worktree, **env), primary_config()):
+        assert config["services"]["backend"]["command"] == [
+            "flask",
+            "run",
+            "--reload",
+            "--host=0.0.0.0",
+            "--port=5001",
+            "--cert=adhoc",
+        ]
