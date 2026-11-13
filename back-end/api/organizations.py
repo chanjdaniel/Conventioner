@@ -648,6 +648,6 @@ def change_org_place(org_id: str, user_id: str, place: Any, requesting_user_emai
 
 
 def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_email: str) -> None:
-    """Hand the organization on to one of its admins or members, as its owner, who stays on it as
-    an admin: one write (``organization_people``)."""
+    """Transfer the organization's ownership to one of its admins or members, as its owner, who
+    stays on it as an admin: one write (``organization_people``)."""
     OrganizationPeople.transfer(org_id, current_owner_email, new_owner_email)

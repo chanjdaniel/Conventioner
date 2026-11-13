@@ -447,6 +447,7 @@ test.describe('a question of every answer the file gave', () => {
     await expect.poll(() => form.optionValues(at)).toEqual(all.slice(0, 20));
     await expectAccessible('a question of 129 options, folded');
     // No walk of the screens reaches a question this long, and the audit above leaves contrast out.
+    await expect(form.loading).toBeHidden();
     expect((await sweep(page)).failures, 'the fold has text below AA').toEqual([]);
 
     // Unfolded by the keys: the rows are in place, and Tab goes on from the first new one.

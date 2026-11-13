@@ -225,6 +225,12 @@ class EveryTierHasTablesGuard:
     an applicant can choose and nobody can be placed at; the walk met it in review as a blocker
     listing every applicant waiting on it (``NoAskedForTierWithoutTablesGuard``). Said here, in
     draft, it is about the plan and names the tier.
+
+    A laid-out location's sections count its layout's tables, so Market Setup shows their counts
+    read-only and the fix is that layout (T315): when the plan's first tier without tables has a
+    section there, that tier is said alone and leads to that location's layout, as
+    ``LayoutTablesHaveSectionsGuard`` names one layout at a time; otherwise Market Setup's line
+    names only the tiers whose fix is there, and the others are said once those are fixed.
     """
 
     id: str = "every_tier_has_tables"
@@ -232,8 +238,20 @@ class EveryTierHasTablesGuard:
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
         setup = market.setup_object
-        sections = [s for s in (setup.sections if setup else []) if s.count > 0]
+        planned = setup.sections if setup else []
+        laid_out = {
+            floorplan.location_id for floorplan in (Layout.laid_out(setup) if setup else [])}
+        # A plan's sections in a laid-out location, in its order: their counts are the layout's.
+        on_a_layout = [s for s in planned if s.location is not None and s.location.id in laid_out]
+        sections = [s for s in planned if s.count > 0]
         if not sections:
+            if on_a_layout:
+                first = on_a_layout[0]
+                return self._to_the_layout(
+                    first,
+                    "This market has no tables yet. Put tables in its sections on the "
+                    f"{self._location_of(setup, first)} layout.",
+                )
             return PreconditionResult(
                 id=self.id, passed=False,
                 resolution_link="setup", resolution_label="Add tables",
@@ -244,18 +262,48 @@ class EveryTierHasTablesGuard:
         bare = [
             t.name for t in (setup.tiers if setup else []) if t.name and t.name not in with_tables
         ]
-        if bare:
-            return PreconditionResult(
-                id=self.id, passed=False,
-                resolution_link="setup", resolution_label="Give every tier tables",
-                resolution_action="change-setup",
-                message=(
-                    f"{'Tier' if len(bare) == 1 else 'Tiers'} {', '.join(bare)} "
-                    f"{'has' if len(bare) == 1 else 'have'} no tables. Give each a section with "
-                    "tables on Market Setup, or remove it."
-                ),
+        if not bare:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        laid_out_of = {}
+        for section in on_a_layout:
+            if section.tier and section.tier.name:
+                laid_out_of.setdefault(section.tier.name, section)
+        if bare[0] in laid_out_of:
+            section = laid_out_of[bare[0]]
+            return self._to_the_layout(
+                section,
+                f"Tier {bare[0]} has no tables. Put tables in its section {section.name} on the "
+                f"{self._location_of(setup, section)} layout, or remove the tier on Market Setup.",
             )
-        return PreconditionResult(id=self.id, passed=True, message="")
+        # Never a tier whose fix is a layout: each of those is said once these are fixed.
+        typed = [name for name in bare if name not in laid_out_of]
+        return PreconditionResult(
+            id=self.id, passed=False,
+            resolution_link="setup", resolution_label="Give every tier tables",
+            resolution_action="change-setup",
+            message=(
+                f"{'Tier' if len(typed) == 1 else 'Tiers'} {', '.join(typed)} "
+                f"{'has' if len(typed) == 1 else 'have'} no tables. Give each a section with "
+                "tables on Market Setup, or remove it."
+            ),
+        )
+
+    @staticmethod
+    def _location_of(setup, section) -> str:
+        """A laid-out section's location as the plan names it now."""
+        return next(place.name for place in setup.locations if place.id == section.location.id)
+
+    def _to_the_layout(self, section, message: str) -> PreconditionResult:
+        """``message``, leading to the layout of the location ``section`` is in."""
+        return PreconditionResult(
+            id=self.id, passed=False,
+            # The location's own layout, never the market's bare `layout`, which redirects to its
+            # first location's: the panel cannot follow a hop.
+            resolution_link=f"layout/{quote(section.location.id, safe='')}",
+            resolution_label="Open the layout",
+            resolution_action="change-setup",
+            message=message,
+        )
 
 
 class LayoutTablesHaveSectionsGuard:

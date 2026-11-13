@@ -11,14 +11,15 @@ from conftest import complete_setup, review_setup_decided
 
 import guards
 from datatypes import (
-    ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions, FormField,
-    IntakeMode, Market, MarketDateObject, MarketPhase, MarketRole, PhaseEntry, RejectionRule,
-    SectionObject,
+    ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions,
+    FloorplanObject, FormField, IntakeMode, LocationObject, Market, MarketDateObject, MarketPhase,
+    MarketRole, PhaseEntry, RejectionRule, SectionObject,
     SetupObject, TierObject, VendorAssignmentResult,
 )
 from guards import (
     AllApplicationsReviewedGuard,
     AssignmentNotBeforeReviewGuard,
+    EveryTierHasTablesGuard,
     NoAskedForTierWithoutTablesGuard,
     NoOrphanedPinGuard,
     FormHasFieldsGuard,
@@ -1021,6 +1022,182 @@ class TestNoAskedForTierWithoutTablesGuard:
         )
 
         assert result.passed is True
+
+
+class TestEveryTierHasTablesGuard:
+    """A draft's tier without tables is sent where its tables come from (T315).
+
+    A laid-out location's sections count the layout's tables (``layout.derive_counts``), so Market
+    Setup shows such a section's count read-only: the fix for a tier whose section is there is its
+    layout, and the blocker says so and leads there, one laid-out tier at a time.
+    """
+
+    UPPER = LocationObject(id="loc-upper", name="Upper Hall")
+    LOWER = LocationObject(id="loc-lower", name="Lower Hall")
+    GOLD = TierObject(id=1, name="Gold")
+    SILVER = TierObject(id=2, name="Silver")
+    BRONZE = TierObject(id=3, name="Bronze")
+
+    def _market(self, tiers, sections, laid_out=("loc-upper",)):
+        return _make_market(setup_object=SetupObject(
+            priority=[],
+            market_dates=[MarketDateObject(date="2099-05-01")],
+            tiers=list(tiers),
+            locations=[self.UPPER, self.LOWER],
+            sections=list(sections),
+            assignment_options=AssignmentOptionObject(),
+            floorplans=[
+                FloorplanObject(id=f"fp-{location}", location_id=location)
+                for location in laid_out
+            ],
+        ))
+
+    def _section(self, name, tier, count, location):
+        return SectionObject(
+            id=f"sec-{name}", name=name, location=location, tier=tier, count=count)
+
+    def _evaluate(self, market):
+        return EveryTierHasTablesGuard().evaluate(market, None)
+
+    def test_a_bare_tier_in_a_laid_out_location_leads_to_that_layout(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.passed is False
+        assert result.message == (
+            "Tier Gold has no tables. Put tables in its section Gold row on the Upper Hall "
+            "layout, or remove the tier on Market Setup.")
+        assert result.resolution_link == "layout/loc-upper"
+        assert result.resolution_label == "Open the layout"
+        assert result.resolution_action == "change-setup"
+
+    def test_its_first_section_on_a_layout_is_the_one_named(self):
+        """A tier's typed section comes first in the plan; its laid-out one is the one named."""
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+            self._section("Gold aisle", self.GOLD, 0, self.UPPER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert "its section Gold row on the Upper Hall layout" in result.message
+        assert result.resolution_link == "layout/loc-upper"
+
+    def test_a_bare_tier_with_no_section_is_sent_to_market_setup(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message == (
+            "Tier Gold has no tables. Give each a section with tables on Market Setup, or "
+            "remove it.")
+        assert result.resolution_link == "setup"
+        assert result.resolution_label == "Give every tier tables"
+
+    def test_a_bare_tier_only_in_a_typed_location_is_sent_to_market_setup(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message.startswith("Tier Gold has no tables. Give each a section")
+        assert result.resolution_link == "setup"
+
+    def test_two_bare_tiers_whose_first_is_laid_out_name_only_it(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER, self.BRONZE), sections=(
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+            self._section("Silver corner", self.SILVER, 0, self.LOWER),
+            self._section("Bronze corner", self.BRONZE, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message.startswith("Tier Gold has no tables. Put tables in its section")
+        assert "Silver" not in result.message
+        assert result.resolution_link == "layout/loc-upper"
+
+    def test_two_bare_tiers_whose_second_is_laid_out_name_only_the_first_on_market_setup(self):
+        """The Market Setup line never names a tier whose fix is a layout; that one is said once
+        the first is fixed."""
+        market = self._market(tiers=(self.GOLD, self.SILVER, self.BRONZE), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Silver row", self.SILVER, 0, self.UPPER),
+            self._section("Bronze corner", self.BRONZE, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message == (
+            "Tier Gold has no tables. Give each a section with tables on Market Setup, or "
+            "remove it.")
+        assert result.resolution_link == "setup"
+        assert result.resolution_label == "Give every tier tables"
+
+    def test_bare_tiers_on_no_layout_are_all_named_on_market_setup(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER, self.BRONZE), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Silver row", self.SILVER, 0, self.UPPER),
+            self._section("Bronze corner", self.BRONZE, 4, self.LOWER),
+        ), laid_out=())
+
+        result = self._evaluate(market)
+
+        assert result.message.startswith("Tiers Gold, Silver have no tables.")
+        assert result.resolution_link == "setup"
+
+    def test_a_market_with_no_tables_on_a_laid_out_location_leads_to_that_layout(self):
+        market = self._market(tiers=(self.GOLD,), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message == (
+            "This market has no tables yet. Put tables in its sections on the Upper Hall layout.")
+        assert result.resolution_link == "layout/loc-upper"
+        assert result.resolution_label == "Open the layout"
+        assert result.resolution_action == "change-setup"
+
+    def test_a_market_with_no_tables_and_no_layout_is_sent_to_market_setup(self):
+        market = self._market(tiers=(self.GOLD,), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message == (
+            "This market has no tables yet. Add a section with tables on Market Setup.")
+        assert result.resolution_link == "setup"
+        assert result.resolution_label == "Add tables"
+
+    def test_a_floorplan_of_no_location_is_not_a_layout(self):
+        """A beta floorplan, of no location, leaves its section's count typed."""
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ), laid_out=())
+        market.setup_object.floorplans = [FloorplanObject(id="fp-beta", location_id=None)]
+
+        assert self._evaluate(market).resolution_link == "setup"
+
+    def test_every_tier_with_tables_passes(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold row", self.GOLD, 3, self.UPPER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        assert self._evaluate(market).passed is True
 
 
 class TestNoOrphanedPinGuard:

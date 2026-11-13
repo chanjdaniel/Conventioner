@@ -192,6 +192,62 @@ describe("the first import's refusal", () => {
     expect(shown.findAll('li')).toHaveLength(0);
   });
 
+  it("heads an archived market's refusal by its phase, for its Owner as for anyone (T315)", async () => {
+    // The server serves the archived sentence as every changing action's refusal, the Owner's own
+    // import among them, so the role heading would blame a role that is not the reason.
+    const archived =
+      'This market is archived. An archived market is the record of what happened, so nothing in it can be changed.';
+    const wrapper = await openImport(
+      market([], {
+        phase: MarketPhase.Archived,
+        actionRefusals: Object.fromEntries(
+          Object.values(MarketAction).map((action) => [action, archived]),
+        ),
+      }),
+    );
+
+    const shown = refusal(wrapper);
+    expect(shown.get('h2').text()).toBe('An archived market takes no imports');
+    expect(shown.get('.import-help').text()).toBe(archived);
+    expect(shown.text()).not.toContain('not yours to do');
+  });
+
+  it("names an archived market's page, never the Redo import it does not offer (T315)", async () => {
+    // Its first import is long past, but an archived market offers no redo either: the page is the
+    // import's, refused, as a draft's refused first import is.
+    const archived =
+      'This market is archived. An archived market is the record of what happened, so nothing in it can be changed.';
+    const wrapper = await openImport(
+      market([], {
+        phase: MarketPhase.Archived,
+        actionRefusals: Object.fromEntries(
+          Object.values(MarketAction).map((action) => [action, archived]),
+        ),
+      }),
+    );
+
+    expect(wrapper.get('h1').text()).toBe('Import responses');
+  });
+
+  it.each([MarketPhase.Assignment, MarketPhase.Offers, MarketPhase.MarketDays])(
+    'names the page of a market in %s "Import responses", never the Redo import it does not offer',
+    async (phase) => {
+      // Past review nothing more is imported, so the refused page is the import's, as an archived
+      // market's is: Redo import is the rail's in Review alone.
+      const wrapper = await openImport(market([], { phase }));
+
+      expect(wrapper.find('[data-testid="import-wrong-phase"]').exists()).toBe(true);
+      expect(wrapper.get('h1').text()).toBe('Import responses');
+    },
+  );
+
+  it('heads a market taking applications Redo import, which it offers', async () => {
+    const wrapper = await openImport(market([], { phase: MarketPhase.Applications }));
+
+    expect(wrapper.find('[data-testid="import-wrong-phase"]').exists()).toBe(false);
+    expect(wrapper.get('h1').text()).toBe('Redo import');
+  });
+
   it('stays the one sentence past Review', async () => {
     const wrapper = await openImport(market([], { phase: MarketPhase.Assignment }));
 

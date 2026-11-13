@@ -171,7 +171,7 @@ class TestTheOrganization:
 
         assert response.status_code == 400
         assert response.get_json() == {
-            "error": "Cannot remove organization owner. Transfer ownership first."}
+            "error": "They own this organization, so they can't be removed from it."}
 
     def test_an_admin_removing_an_admin_is_still_forbidden(self, organization, history):
         organization.doc["admins"].append(GONE.id)
@@ -235,7 +235,7 @@ class TestTheMarket:
 
         assert response.status_code == 400
         assert response.get_json() == {
-            "error": "Cannot remove the only owner. Transfer ownership first."}
+            "error": "The market's only Owner can't be removed. Transfer ownership first."}
 
     def test_a_viewer_is_still_forbidden_to_take_a_role(self, market, history):
         response = signed_in_as(VIEWER).delete(f"/markets/{MARKET_ID}/roles/{EDITOR.id}")

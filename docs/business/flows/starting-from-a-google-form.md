@@ -26,6 +26,7 @@ sources:
   - T205
   - T213
   - T223
+  - T315
 ---
 
 # Starting from a Google Form's responses
@@ -73,6 +74,7 @@ Past Draft, Market Setup is settled and offers no start; the flow's own address 
    The help above it says how to export the file ("In Google Sheets, open the form's responses and choose File, Download, Comma-separated values."), that Conventioner reads the columns and answers to propose the market's dates, tiers and questions, that no one is imported, with the way on by the stored intake (": vendors apply on the market's page once applications open." or ": once the market is ready, you import the responses with Import responses, the next step at the top of the market's pages."), and "Nothing is written until you confirm, and the file is not kept."
    The way on names the phase rail's next step, never the Applications tab, which offers no import (E38/F04/S03).
    A file that is not a CSV export stays on Upload with "This file does not look like a CSV export. Download the responses again from Google Forms as .csv.", as at the import (E38/F15/S02).
+   A file too large to send, past the 4 MB one request carries once its line breaks and quotes are escaped, stays on Upload with "This file is too large to send: one upload carries at most 4 MB. Start from a copy with fewer rows, keeping the header row.", and nothing is sent ([the host's limits](../../OPERATIONS.md#the-hosts-limits), [the CSV import](../../implementation/modules/csv-import.md#sharp-edges)).
    Only when a TypeSafe key is configured does the step add that column headings, and a description of the shape of their answers, are sent to TypeSafe, and that individual vendors' answers never leave Conventioner.
 2. "Reading your columns…" shows while the proposal is made; there is no background job, and TypeSafe that has not answered in 5 seconds leaves the rules' answer, the row saying "Couldn't reach TypeSafe".
 3. If the form's dates have no year, "Which year are these dates in?" opens on the year the stated weekdays fit and checks weekdays against the year typed ("Monday, November 17 is a Monday in 2025."), warning "…, so check the year." when they do not fit; "Use this year".

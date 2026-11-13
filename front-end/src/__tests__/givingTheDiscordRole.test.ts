@@ -142,6 +142,8 @@ async function mounted(served: Market) {
         ScrollBox: false,
         // What holds a `scroll="body"` dialog's title and body; a stub would drop them.
         Unwrapped: false,
+        // What draws a dialog's title; a stub would leave it blank.
+        EmailAddress: false,
         DiscordRoleReport: false,
         VendorIdentity: false,
       },

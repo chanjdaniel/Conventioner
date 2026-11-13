@@ -9,7 +9,7 @@ to the ``assign`` action. What is state stays where it is - an application's ver
 must outlive what it describes and this history is deleted with its market.
 
 **An organization's own changes are recorded here too** (E40/F02/S01): its people, its name,
-ownership handed on, a market created in it or deleted, and its floorplan templates, each an entry keyed by ``organization_id`` in
+ownership transferred, a market created in it or deleted, and its floorplan templates, each an entry keyed by ``organization_id`` in
 place of ``market_id``, read in Manage organization and deleted with the organization; and every
 change to its default rows (E39/F02/S01).
 
@@ -137,8 +137,8 @@ PERMISSION_RESET = "permission_reset"
 PERMISSION_TABLE_RESET = "permission_table_reset"
 #: A market's table replaced by its organization's default as it is now (E39/F02/S01).
 PERMISSION_TABLE_COPIED = "permission_table_copied"
-#: The market handed on by its Owner to someone with access, who becomes its Owner while the old
-#: Owner stays on it as an Admin (T283).
+#: The market's ownership transferred by its Owner to someone with access, who becomes its Owner
+#: while the old Owner stays on it as an Admin (T283).
 HANDED_ON = "handed_on"
 
 # The organization's own: its verbs and its template kinds are with its changes, below.

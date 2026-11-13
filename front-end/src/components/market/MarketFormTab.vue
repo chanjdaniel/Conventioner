@@ -793,10 +793,11 @@ watch(formLocked, (locked, wasLocked) => {
   cursor: pointer;
   font-size: var(--text-xs);
 }
+/* The beige card's own muted ink: `--mm-text-muted` is 4.23:1 on beige, below AA (T315). */
 .form-loading-banner {
   font-size: var(--text-xs);
   line-height: 1.4;
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
   background: var(--mm-beige);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);

@@ -30,6 +30,11 @@ export class ApplicationFormPage {
   /** The one-click "Discord username" question (E46/F01/S02). */
   readonly addDiscordButton: Locator;
   readonly lockBanner: Locator;
+  /**
+   * "Loading the application form...", shown while the server's copy is read over the one the
+   * market already holds. A sweep waits for it to go, or it measures a page nobody stays on.
+   */
+  readonly loading: Locator;
   readonly loadError: Locator;
 
   // Save row
@@ -73,6 +78,7 @@ export class ApplicationFormPage {
     this.addFromFile = new ChoiceField(page, 'form-builder-add-from-file');
     this.addDiscordButton = page.getByTestId('form-builder-add-discord-button');
     this.lockBanner = page.getByTestId('form-builder-lock-banner');
+    this.loading = page.getByTestId('form-builder-loading');
     this.loadError = page.getByTestId('form-builder-load-error');
 
     this.saveButton = page.getByTestId('form-builder-save-button');
