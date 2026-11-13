@@ -99,8 +99,8 @@ class Project:
     path: str
     # Whether an answer reporting the commit says the build is up (the back end's `status`).
     serving: Callable[[dict], bool]
-    # Each entry is a header and the names that may stand for it; the first is the one a refusal names.
-    headers: Tuple[Tuple[str, ...], ...]
+    # The headers the page's answer must carry, by their lower-case names.
+    headers: Tuple[str, ...]
     # The path whose answer must hold the app, and whose headers are checked; None checks the commit's answer.
     page: Optional[str] = None
     # What the commit's answer must say of itself: each failure as a sentence after the host.
@@ -133,20 +133,20 @@ PROJECTS = {
         name="back end",
         path="/healthz",
         serving=lambda data: data.get("status") == "ok",
-        headers=(("x-content-type-options",), ("referrer-policy",)),
+        headers=("x-content-type-options", "referrer-policy"),
         says=deployed_with_the_hatch_off,
     ),
-    # The headers front-end/vercel.json declares; the policy may be report-only or enforcing.
+    # The headers front-end/vercel.json declares.
     "frontend": Project(
         name="front end",
         path="/version.json",
         serving=lambda data: True,
         headers=(
-            ("content-security-policy", "content-security-policy-report-only"),
-            ("x-content-type-options",),
-            ("referrer-policy",),
-            ("x-frame-options",),
-            ("strict-transport-security",),
+            "content-security-policy",
+            "x-content-type-options",
+            "referrer-policy",
+            "x-frame-options",
+            "strict-transport-security",
         ),
         page="/markets",
     ),
@@ -303,9 +303,9 @@ def check(project: Project, address: str, host: str, answer: Answer, fetch) -> L
             failures.append(f"{host} serves no app at {project.page} ({answer.said})")
         if answer.status is None:
             return failures
-    for names in project.headers:
-        if not any(name in answer.headers for name in names):
-            failures.append(f"{host} sends no {names[0]}")
+    for name in project.headers:
+        if name not in answer.headers:
+            failures.append(f"{host} sends no {name}")
     return failures
 
 

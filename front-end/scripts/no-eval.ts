@@ -2,11 +2,11 @@
  * No string is evaluated as script (T84): fails when any JavaScript file of a build calls `eval` or
  * the `Function` constructor.
  *
- * The Content-Security-Policy in `vercel.json` has no `'unsafe-eval'`, so such a call is refused
- * once the policy is enforcing, and reported while it is report-only. It has no reporting endpoint,
- * so a report in production reaches nobody: this is where a new one is caught, at build time. The
- * first one found was vuedraggable's UMD build, whose bundled core-js looks up the global object
- * with `Function('return this')()`; `vite.config.ts` resolves vuedraggable to its ES source instead.
+ * The Content-Security-Policy in `vercel.json` has no `'unsafe-eval'`, so the browser refuses such
+ * a call. It has no reporting endpoint, so a refusal in production shows only in the console of the
+ * tab it broke: this is where a new one is caught, at build time. The first one found was
+ * vuedraggable's UMD build, whose bundled core-js looks up the global object with
+ * `Function('return this')()`; `vite.config.ts` resolves vuedraggable to its ES source instead.
  *
  * Run it after `vite build`: `npm run build-only && npm run no-eval`. CI does, in the required
  * `frontend-lint-and-types` job, and so does `scripts/nm-test.sh`.

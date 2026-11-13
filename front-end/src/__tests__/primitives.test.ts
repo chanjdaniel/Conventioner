@@ -203,8 +203,8 @@ describe('the primitives exist and own what tokens cannot', () => {
 
   it("draws a select's chevron itself, from a file, and leaves room for it", () => {
     // Daniel's F06: the browser's arrow sat about 5px from the right edge with the text about 17px
-    // from the left. A `data:` image would be refused by `img-src 'self' blob:` once the policy
-    // enforces, so it is a file from `public/`, whose absolute URL Vite leaves alone.
+    // from the left. A `data:` image would be refused by the policy's `img-src 'self' blob:`, so it
+    // is a file from `public/`, whose absolute URL Vite leaves alone.
     expect(declaration(PRIMITIVES, '.field--select', 'appearance')).toBe('none');
     expect(declaration(PRIMITIVES, '.field--select', 'padding-right')).toBe(
       'calc(var(--space-3) + var(--space-3) + var(--space-3))',
