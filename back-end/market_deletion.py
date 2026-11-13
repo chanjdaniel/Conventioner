@@ -17,13 +17,14 @@ from typing import Any, Dict, Mapping, Optional
 import api.applicant_auth as ApplicantAuth
 import api.applications as ApplicationsApi
 import api.attendance as AttendanceApi
+import deletion_trail as DeletionTrail
 import history as History
 import payments as Payments
 import remembered_sign_ins as RememberedSignIns
 import services.gridfs_service as GridfsService
 import vendor_notes as VendorNotes
 from client_errors import NotFoundError
-from market_documents import market_doc_key
+from market_documents import market_doc_field, market_doc_key
 from tombstone import DELETING, live, tombstone_of
 
 
@@ -78,15 +79,66 @@ class MarketGoneUnderWrite(NotFoundError):
 
 def kept_only_while_live(markets_collection: Any, market_id: str) -> None:
     """Called after a request has written records beside a market (an application, its answers,
-    their history): raises ``MarketGoneUnderWrite`` when the market is being deleted or gone, having
-    deleted its records again.
+    their history): raises ``MarketGoneUnderWrite`` when the market is gone or a deletion now
+    certain is taking it, having deleted its records again.
 
     A deletion sets its tombstone before it deletes any record, so a request that read the market
     live before the tombstone can write after the deletion swept: this read, after the request's
     last write, settles it. Seeing the market live, it came before the tombstone, so the sweep comes
-    after every write here; seeing it deleting or gone, the records the sweep may have missed are
-    deleted here, since a market being deleted keeps none."""
-    if markets_collection.find_one(live({"id": market_id}), {"_id": 1}) is not None:
+    after every write here; seeing it gone or certainly going, the records the sweep may have missed
+    are deleted here, since a market being deleted keeps none. A tombstone its organization's
+    deletion may still take back (``deletion_decided``) leaves them: that deletion sweeps only
+    after its trail is written, after this read, and a refused one leaves the market live with
+    every record it has."""
+    if not deletion_decided(markets_collection, market_id):
         return
     delete_records(market_id)
     raise MarketGoneUnderWrite()
+
+
+def deletion_decided(markets_collection: Any, market_id: str) -> bool:
+    """Whether the market is gone, or carries the tombstone of a deletion nothing takes back: its
+    own Delete's, or its organization's once that deletion has written its trail.
+
+    An organization's deletion judges its markets again after giving them its tombstone, and takes
+    every tombstone back when one is under way; until its trail is written, its markets may live
+    on. The organization is read after the market, and the market again after it, since that
+    deletion takes a market's tombstone back before the organization's: a market still carrying a
+    tombstone its organization does not is going by its own Delete."""
+    document = markets_collection.find_one({"id": market_id})
+    while document is not None:
+        held = tombstone_of(document)
+        if held is None:
+            return False
+        if DeletionTrail.is_recorded(held["trail_id"]):
+            return True
+        organization_id = market_doc_field(document, "organization_id")
+        if organization_id and _carries(_organization(organization_id), held):
+            return False
+        again = markets_collection.find_one({"id": market_id})
+        if _carries(again, held):
+            return True
+        document = again
+    return True
+
+
+def organization_taken(organization_id: str) -> bool:
+    """Whether the organization is gone, or its deletion has written its trail: from then on it
+    deletes the organization's history, and takes back no tombstone."""
+    organization = _organization(organization_id)
+    if organization is None:
+        return True
+    held = tombstone_of(organization)
+    return held is not None and DeletionTrail.is_recorded(held["trail_id"])
+
+
+def _organization(organization_id: str) -> Optional[Dict[str, Any]]:
+    import api.organizations as OrgsApi  # it deletes markets through this module
+
+    return OrgsApi.organizations_collection.find_one({"id": organization_id})
+
+
+def _carries(document: Optional[Mapping[str, Any]], tombstone: Mapping[str, Any]) -> bool:
+    """Whether ``document`` carries the tombstone of the deletion ``tombstone`` is of."""
+    held = tombstone_of(document)
+    return held is not None and held.get("trail_id") == tombstone.get("trail_id")

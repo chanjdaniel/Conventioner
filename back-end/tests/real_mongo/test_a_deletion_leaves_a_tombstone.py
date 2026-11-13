@@ -6,6 +6,7 @@ A cut is the step raising once, as a process killed there would leave things; th
 same request sent again. A racing write is ``interleave``: the deletion lands between the write's
 read of the market and its write.
 """
+import copy
 import uuid
 
 import pytest
@@ -13,6 +14,7 @@ import pytest
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import history as History
+from conftest import COMPLETE_PLAN, stored_market
 from datatypes import MarketPhase
 from market_documents import MARKETS_COLLECTION
 from real_mongo import harness
@@ -47,6 +49,16 @@ def _cut(monkeypatch, target, on_call=1):
     """Make ``target``'s ``on_call``-th call raise ``Cut`` once, as a process stopped there would;
     every other call runs it as it is. A target ending in a collection's method cuts that method of
     the module's handle."""
+    def cut():
+        raise Cut(target)
+
+    return _before_call(monkeypatch, target, on_call, cut)
+
+
+def _before_call(monkeypatch, target, on_call, then):
+    """Run ``then()`` once, just before ``target``'s ``on_call``-th call; every call then runs as it
+    is, unless ``then`` raises. A target ending in a collection's method names that method of the
+    module's handle."""
     module, _, method = target.rpartition(".")
     if module.endswith("_collection"):
         owner, attribute = harness._resolve(module)
@@ -60,7 +72,7 @@ def _cut(monkeypatch, target, on_call=1):
     def wrapper(*args, **kwargs):
         calls.append(True)
         if len(calls) == on_call:
-            raise Cut(target)
+            then()
         return original(*args, **kwargs)
 
     if module.endswith("_collection"):
@@ -167,6 +179,90 @@ class TestADraftEnteringReviewAfterThePreview:
         assert "deleting" not in real_db["organizations"].find_one({"id": ORG})
         assert _trail(real_db) == []
 
+    def test_a_write_landing_on_another_of_its_markets_meanwhile_keeps_that_markets_records(
+            self, organization, monkeypatch, real_db, applications, market_records):
+        """The deletion gives the first draft its tombstone, a write beside that draft ends then,
+        and the second draft enters review before its own: refused, the deletion takes the first
+        draft's tombstone back, and the draft lives on with every record it had."""
+        import market_deletion as MarketDeletion
+
+        client, (kept, _archived) = organization
+        moving = market_in_organization(real_db, MarketPhase.DRAFT, intakeMode="form")
+        original = MarketDeletion.mark_deleting
+        landed = []
+
+        def mark_deleting(collection, document, tombstone, **kwargs):
+            held = original(collection, document, tombstone, **kwargs)
+            if document["id"] == kept["id"] and not landed:
+                landed.append(True)
+                try:
+                    MarketDeletion.kept_only_while_live(MarketsApi.markets_collection, kept["id"])
+                except MarketDeletion.MarketGoneUnderWrite:
+                    landed.append("taken back")
+                as_read = real_db[MARKETS_COLLECTION].find_one({"id": moving["id"]})
+                MarketsApi.apply_phase_transition(as_read, MarketPhase.APPLICATIONS.value, by=OWNER)
+            return held
+
+        monkeypatch.setattr(MarketDeletion, "mark_deleting", mark_deleting)
+
+        response = client.delete(f"/organizations/{ORG}")
+
+        assert response.status_code == 409, response.get_json()
+        assert [m["id"] for m in response.get_json()["blockingMarkets"]] == [moving["id"]]
+        stored = real_db[MARKETS_COLLECTION].find_one({"id": kept["id"]})
+        assert stored is not None and "deleting" not in stored
+        assert len(list(applications.find({"market_id": kept["id"]}))) == 1
+        assert len(list(market_records.history.find({"market_id": kept["id"]}))) == 1
+        assert _trail(real_db) == []
+        assert landed == [True], "the write beside the draft was taken back"
+
+
+def market_in_organization(real_db, phase, **overrides):
+    """A further market of the organization, stored in ``phase`` and listed in its markets."""
+    document = stored_market(phase, **{
+        "id": str(uuid.uuid4()), "name": f"Test Market {uuid.uuid4().hex[:12]}",
+        "roles": {}, "setupObject": copy.deepcopy(COMPLETE_PLAN), "organizationId": ORG,
+        "phaseHistory": _history(phase), **overrides})
+    real_db[MARKETS_COLLECTION].insert_one(document)
+    real_db["organizations"].update_one({"id": ORG}, {"$addToSet": {"markets": document["id"]}})
+    return document
+
+
+class TestAMarketCreatedWhileItsOrganizationIsJudged:
+    def test_is_taken_with_it_rather_than_named_as_blocking(
+            self, organization, monkeypatch, real_db, applications, market_records):
+        """A creation stores its market before it asks the organization, held live, to list it, so
+        a draft can appear between the deletion's tombstones and its second judgment."""
+        client, markets = organization
+        created = []
+        _before_call(monkeypatch, "api.organizations.markets_collection.find", 3,
+                     lambda: created.append(market_in_organization(real_db, MarketPhase.DRAFT)))
+
+        response = client.delete(f"/organizations/{ORG}")
+
+        assert response.status_code == 200, response.get_json()
+        [entry] = _trail(real_db)
+        assert sorted(m["id"] for m in entry["markets"]) == sorted(
+            m["id"] for m in markets + created)
+        _nothing_left_of(markets + created, real_db, applications, market_records)
+        assert real_db["organizations"].find_one({"id": ORG}) is None
+
+
+class TestAMarketsOwnDeleteRacingItsOrganizations:
+    def test_leaves_no_entry_in_the_history_of_the_organization_gone(
+            self, organization, interleave, real_db, applications, market_records):
+        """The market's Delete reads its organization live, then the organization's deletion runs
+        whole while the market's records are being swept."""
+        client, (draft, archived) = organization
+        interleave("history.delete_for_market",
+                   lambda: OrgsApi.delete_organization(ORG, OWNER))
+
+        client.delete(f"/markets/{draft['id']}")
+
+        assert real_db["organizations"].find_one({"id": ORG}) is None
+        assert list(market_records.history.find({"organization_id": ORG})) == []
+        _nothing_left_of([draft, archived], real_db, applications, market_records)
+
 
 class TestAMarketsOwnDeleteCutAndRetried:
     @pytest.mark.parametrize("target", [
@@ -213,6 +309,67 @@ class TestAWriteRacingTheDeletion:
             {**VALID_ANSWERS, "business_name": "Fixture Stall"})
 
         assert status == 404, body
+        _nothing_left_of([market], real_db, applications, market_records)
+
+    @pytest.mark.parametrize("after", [
+        "rejection_rules.judge",
+        "history.record_applicant",
+        "review_team.deal_arrivals",
+    ], ids=["the rules", "its history entry", "the deal"])
+    def test_an_applicants_save_meeting_the_deletion_after_its_writes_is_taken_back(
+            self, signed_in, market_in, interleave, real_db, applications, market_records, after):
+        import api.applicants as ApplicantsApi
+
+        signed_in(OWNER)
+        market = _applicant_market(market_in)
+        interleave(after, lambda: MarketsApi.delete_market(market["id"], OWNER))
+
+        body, status = ApplicantsApi.save_applicant_application(
+            market["slug"], {"market_id": market["id"], "email": APPLICANT},
+            {**VALID_ANSWERS, "business_name": "Fixture Stall"})
+
+        assert status == 404, body
+        _nothing_left_of([market], real_db, applications, market_records)
+
+    def test_an_applicants_refused_save_meeting_the_deletion_answers_as_absent(
+            self, signed_in, market_in, monkeypatch, real_db, applications, market_records):
+        """Another save froze a different offering, which refuses these answers, and the market
+        went meanwhile: the refusal is the deletion's 404, with nothing left."""
+        import api.applicants as ApplicantsApi
+        import essential_fields as EssentialFields
+        from datatypes import EssentialFormOptions
+
+        signed_in(OWNER)
+        market = _applicant_market(market_in)
+        original = EssentialFields.freeze_and_effective_essential_options
+
+        def froze_another(*args, **kwargs):
+            original(*args, **kwargs)
+            MarketsApi.delete_market(market["id"], OWNER)
+            return EssentialFormOptions(dates=["2099-01-01"])
+
+        monkeypatch.setattr(EssentialFields, "freeze_and_effective_essential_options", froze_another)
+
+        body, status = ApplicantsApi.save_applicant_application(
+            market["slug"], {"market_id": market["id"], "email": APPLICANT},
+            {**VALID_ANSWERS, "business_name": "Fixture Stall"})
+
+        assert status == 404, body
+        _nothing_left_of([market], real_db, applications, market_records)
+
+    def test_an_added_vendor_is_refused_and_leaves_no_application(
+            self, signed_in, market_in, interleave, real_db, applications, market_records):
+        client = signed_in(OWNER)
+        market = market_in(MarketPhase.ASSIGNMENT,
+                           phaseHistory=_history(MarketPhase.DRAFT, MarketPhase.APPLICATIONS,
+                                                 MarketPhase.ASSIGNMENT))
+        interleave("api.applications.find_or_create_application",
+                   lambda: MarketsApi.delete_market(market["id"], OWNER))
+
+        response = client.post(f"/markets/{market['id']}/vendors",
+                               json={"name": "Fixture Added", "email": APPLICANT})
+
+        assert response.status_code == 404, response.get_json()
         _nothing_left_of([market], real_db, applications, market_records)
 
     def test_an_import_is_refused_and_leaves_no_application(

@@ -414,8 +414,9 @@ def _stored_placements(market_doc: Dict[str, Any]) -> List[VendorAssignmentResul
 def _gone_under_the_save(
     markets_collection: Any, market_id: str,
 ) -> Optional[Tuple[Dict[str, Any], int]]:
-    """The 404 a save answers when its market began its deletion under it, having taken back what
-    it wrote (``market_deletion.kept_only_while_live``); None while the market is live."""
+    """The 404 a save answers when its market is gone or certainly going under it, having taken
+    back what it wrote (``market_deletion.kept_only_while_live``); None while the market is live,
+    or carries a tombstone its organization's deletion may still take back."""
     try:
         MarketDeletion.kept_only_while_live(markets_collection, market_id)
     except MarketDeletion.MarketGoneUnderWrite:

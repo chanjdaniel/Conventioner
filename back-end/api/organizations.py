@@ -578,15 +578,19 @@ def _take_its_markets(
     A market that entered a blocking phase between the preview and its tombstone (a draft's first
     import takes it into Review) is not taken: every tombstone of this deletion, the
     organization's included, is taken away again and the deletion refused, naming it. A market
-    another deletion is taking (its own Delete) is not judged: it is going already.
+    another deletion is taking (its own Delete) is not judged: it is going already. A live market
+    the judgment finds in a phase that keeps no deletion back was created into the organization
+    since its markets were read (a creation stores its market before it asks the organization to
+    list it), and is taken as the others were.
     """
     for document in markets_collection.find(live(market_doc_filter("organization_id", org_id))):
-        if _market_summary(document)["phase"] not in BLOCKING_PHASES:
-            MarketDeletion.mark_deleting(
-                markets_collection, document, tombstone, holding_phase=True)
+        _taken(document, tombstone)
 
     summaries, blocking = [], []
-    for document in markets_collection.find(market_doc_filter("organization_id", org_id)):
+    for found in markets_collection.find(market_doc_filter("organization_id", org_id)):
+        document = _taken(found, tombstone)
+        if document is None:
+            continue
         summary = _market_summary(document)
         summaries.append(summary)
         held = tombstone_of(document)
@@ -600,6 +604,23 @@ def _take_its_markets(
             {"id": org_id, f"{DELETING}.trail_id": trail_id}, {"$unset": {DELETING: ""}})
         raise OrganizationHasLiveMarkets(blocking)
     return summaries
+
+
+def _taken(
+    document: Optional[Dict[str, Any]], tombstone: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """The market ``document`` was read from, given ``tombstone`` while it is live in a phase that
+    keeps no deletion back, by one write held on that phase: answered as it stands after, with the
+    tombstone it carries, or None once it is gone. One whose phase moved under the write is read
+    again and judged as it then stands."""
+    while (document is not None and tombstone_of(document) is None
+           and _market_summary(document)["phase"] not in BLOCKING_PHASES):
+        held = MarketDeletion.mark_deleting(
+            markets_collection, document, tombstone, holding_phase=True)
+        if held is not None:
+            return {**document, DELETING: held}
+        document = markets_collection.find_one({"id": document["id"]})
+    return document
 
 
 def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> None:

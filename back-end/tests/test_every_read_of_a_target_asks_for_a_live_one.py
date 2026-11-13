@@ -37,6 +37,12 @@ _THE_DELETION = "the deletion reads and writes its target whatever its state, to
 EXCEPTIONS: Dict[Tuple[str, str], str] = {
     ("market_deletion", "mark_deleting"): _THE_DELETION,
     ("market_deletion", "delete_market_and_records"): _THE_DELETION,
+    ("market_deletion", "deletion_decided"): (
+        "a write beside a market asks whether the market's deletion is decided, which only a read "
+        "of its tombstone, and of its organization's, answers"),
+    ("market_deletion", "_organization"): (
+        "a write beside a market, or a market's own Delete, asks whether its organization's "
+        "deletion is decided, which only a read of a tombstoned organization answers"),
     ("api.markets", "delete_market"): _THE_DELETION,
     ("api.markets", "_organization_is_deleting"): (
         "the market's own Delete asks whether its organization's deletion owns the market, which "
@@ -44,6 +50,7 @@ EXCEPTIONS: Dict[Tuple[str, str], str] = {
     ("api.organizations", "delete_organization"): _THE_DELETION,
     ("api.organizations", "_mark_deleting"): _THE_DELETION,
     ("api.organizations", "_take_its_markets"): _THE_DELETION,
+    ("api.organizations", "_taken"): _THE_DELETION,
     ("market_write", "write_market"): (
         "the refused write reads the market again whatever its state, to answer a market being "
         "deleted as absent and any other as changed"),

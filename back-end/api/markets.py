@@ -2704,6 +2704,10 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
             detail=lambda: History.changes({"name": market.name}, {"name": None}),
             entry_id=tombstone["trail_id"],
         )
+        # Its organization's deletion may have taken the market meanwhile, and the organization's
+        # history with it: the entry just written would outlive them, so it goes as theirs did.
+        if MarketDeletion.organization_taken(market.organization_id):
+            History.delete_for_organization(market.organization_id)
     return markets_collection.delete_one({"id": market_id})
 
 
