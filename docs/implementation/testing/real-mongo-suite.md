@@ -23,6 +23,7 @@ sources:
   - T274
   - T283
   - T309
+  - T315
 ---
 
 # The real-MongoDB suite
@@ -172,15 +173,15 @@ A free's write also holds the amount by hand it read, a field beyond the index, 
 
 ## An organization's people
 
-Each change to a person's place in an organization is one write conditional on the places it judged, and handing the organization on is one write filtered on the giver being owner ([the organization's people](../modules/organization-people.md#every-write-holds-what-it-judged)).
+Each change to a person's place in an organization is one write conditional on the places it judged, and transferring the organization's ownership is one write filtered on the giver being owner ([the organization's people](../modules/organization-people.md#every-write-holds-what-it-judged)).
 [`real_mongo/test_an_organizations_people_on_the_server.py`](../../../back-end/tests/real_mongo/test_an_organizations_people_on_the_server.py) runs each losing branch on real threads, over an organization with a people map and over one stored before it.
 Each thread judges on its own read, through `organization_people.next_people` wrapped to meet the other thread once it has judged, so the writes meet on the server after both reads.
 
-| Guarantee                                                                     | Tests                                                                                                                                                                                                                                  |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| An add member judged before that person is handed the organization is refused | the admin's `add_member` judges; the owner then adds that person as an admin and hands them the organization; the add answers `OrganizationChanged`, and the new owner is not in `members`                                             |
-| Two transfers by the owner land one                                           | two `transfer` calls from one read, to an admin and to a member: one lands, the other answers `OrganizationChanged`, and the old owner is an admin                                                                                     |
-| A transfer to an admin keeps the mirror beside an add admin                   | a `transfer` to an admin and an `add_admin` from one read, each writing first in turn: the second answers `OrganizationChanged`, so an admin added is never dropped from `admins`, which the transfer sets whole from the list as read |
+| Guarantee                                                                                | Tests                                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An add member judged before that person is given the organization's ownership is refused | the admin's `add_member` judges; the owner then adds that person as an admin and transfers ownership to them; the add answers `OrganizationChanged`, and the new owner is not in `members`                                             |
+| Two transfers by the owner land one                                                      | two `transfer` calls from one read, to an admin and to a member: one lands, the other answers `OrganizationChanged`, and the old owner is an admin                                                                                     |
+| A transfer to an admin keeps the mirror beside an add admin                              | a `transfer` to an admin and an `add_admin` from one read, each writing first in turn: the second answers `OrganizationChanged`, so an admin added is never dropped from `admins`, which the transfer sets whole from the list as read |
 
 After each, the organization parses with one owner, and its lists are an exact mirror of its map.
 

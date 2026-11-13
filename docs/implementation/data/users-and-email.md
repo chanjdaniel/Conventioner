@@ -43,6 +43,7 @@ sources:
   - T263
   - T273
   - T283
+  - T315
 ---
 
 # Users, and the one spelling of an address
@@ -199,9 +200,9 @@ The fix for each refusal is in [Operations](../../OPERATIONS.md#when-the-back-en
 
 ## Deleting an account
 
-A person deletes only their own account, and not while they own an organization or a market, so every organization and every market keeps an owner whose account exists: they transfer the organization, and hand the market on (`hand_on_market`, [the market's actions](../modules/market-actions.md#hand-the-market-on-hand-on-market)) or delete it, first.
+A person deletes only their own account, and not while they own an organization or a market, so every organization and every market keeps an owner whose account exists: they transfer the organization's ownership, and transfer the market's ownership (`hand_on_market`, [the market's actions](../modules/market-actions.md#transfer-ownership-hand-on-market)) or delete it, first.
 `delete_user` reads the organizations whose people name them `owner` and the markets whose `roles.<id>` is `"owner"` (projecting `id` and `name`, served by the `roles.$**` [lookup index](lookup-indexes.md)), and while either finds one it answers 409 and deletes nothing.
-The body's `msg` is one sentence for each, space-joined: "Transfer ownership of <organization names> before deleting this account." and "Hand on or delete <market names> before deleting this account.", the names comma-joined; `ownedOrganizations` and `ownedMarkets` list the names, each present only when it is not empty.
+The body's `msg` is one sentence for each, space-joined: "Transfer ownership of <organization names> before deleting this account." and "Transfer or delete <market names> before deleting this account." (`OWNS_MARKETS`), the names comma-joined; `ownedOrganizations` and `ownedMarkets` list the names, each present only when it is not empty.
 A role below Owner on a market is not ownership, and the deletion goes ahead ([what each role may do](../../business/rules/what-each-role-may-do.md#a-chosen-reviewer-and-where-a-role-comes-from)).
 [`test_delete_user_authorization.py`](../../../back-end/tests/test_delete_user_authorization.py) pins that only the session's own account is deleted, each refusal alone and both together, and an Admin, Editor or Viewer of a market deleted.
 Deleting it takes their place in every organization's people, the map and its `admins` and `members` mirror alike ([the organization's people](../modules/organization-people.md)); a role entry naming them on a market stays in that market's `roles`.

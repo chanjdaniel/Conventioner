@@ -11,16 +11,16 @@ either shape; nothing else spells that query. ``people_key`` is the one spelling
 in the map.
 
 It is also the only writer of a person's place: adding an admin or a member, the owner making an
-admin a member or a member an admin (``change_place``), removing someone, handing the organization
-on (``transfer``), and forgetting a deleted account. ``TABLE`` says what each change does to the
-target's place as read, ``AUTHORITY`` who may ask for it, and ``next_people`` answers the map a
-change leaves, or its refusal, without a database. Each change is then one conditional write
-(``_write``) that lands only on the places it judged: on an organization with a map, the
-requester's and the target's keys as read; on one stored before the map, its three lists as read,
-the write folding the map in. Handing it on is one such write too, filtered on the giver being
-owner, so no cut and no read finds an organization with two owners, none, or an owner in a list.
-Every write keeps ``owner``, ``admins`` and ``members`` an exact mirror of the map, for a rollback
-to the release before it. A write that meets a change answers 404
+admin a member or a member an admin (``change_place``), removing someone, transferring the
+organization's ownership (``transfer``), and forgetting a deleted account. ``TABLE`` says what
+each change does to the target's place as read, ``AUTHORITY`` who may ask for it, and
+``next_people`` answers the map a change leaves, or its refusal, without a database. Each change is
+then one conditional write (``_write``) that lands only on the places it judged: on an organization
+with a map, the requester's and the target's keys as read; on one stored before the map, its three
+lists as read, the write folding the map in. Transferring its ownership is one such write too,
+filtered on the giver being owner, so no cut and no read finds an organization with two owners,
+none, or an owner in a list. Every write keeps ``owner``, ``admins`` and ``members`` an exact
+mirror of the map, for a rollback to the release before it. A write that meets a change answers 404
 when the organization or the removed person is gone, else ``OrganizationChanged``, a 409; the person
 decides again on what is true, as for a market (ADR 0024), and nothing is retried here.
 """
@@ -53,10 +53,15 @@ ORGANIZATION_CHANGED = (
 )
 ALREADY_AN_ADMIN = "They are already an admin of this organization."
 ALREADY_A_MEMBER = "They are already a member of this organization."
-THE_OWNERS_PLACE = "The owner's place changes only when the organization is handed on."
+THE_OWNERS_PLACE = (
+    "The owner's place changes only when ownership of the organization is transferred.")
 NOT_A_PLACE = "A place is admin or member."
 ALREADY_OWNS_IT = "They already own this organization"
-HAND_IT_ONLY_TO_ITS_PEOPLE = "Hand the organization only to one of its admins or members."
+HAND_IT_ONLY_TO_ITS_PEOPLE = (
+    "Transfer ownership only to one of the organization's admins or members.")
+#: Said of removing the organization's owner. No screen transfers an organization's ownership yet
+#: (organizations flow B6), so the sentence names no fix.
+THE_OWNER_STAYS = "They own this organization, so they can't be removed from it."
 
 
 class OrganizationChanged(ConflictError):
@@ -111,7 +116,7 @@ class Event(str, Enum):
     REMOVE = "remove"
     CHANGE_TO_ADMIN = "change place to admin"
     CHANGE_TO_MEMBER = "change place to member"
-    TRANSFER = "transfer to them"  # the requester, its owner, hands it on and becomes an admin
+    TRANSFER = "transfer to them"  # the requester, its owner, transfers ownership, becomes an admin
     FORGET = "forget"  # their account deleted
 
 
@@ -179,8 +184,7 @@ TABLE: Dict[Tuple[Event, Optional[str]], Union[Move, Refusal, str]] = {
     (Event.REMOVE, MEMBER): Move(None),
     (Event.REMOVE, ADMIN): Move(None, only_by=frozenset({OWNER}),
                                 otherwise=Refusal(ForbiddenError, "Only owner can remove admins")),
-    (Event.REMOVE, OWNER): Refusal(
-        BadRequestError, "Cannot remove organization owner. Transfer ownership first."),
+    (Event.REMOVE, OWNER): Refusal(BadRequestError, THE_OWNER_STAYS),
 
     # A place set to the place held is a Move to it, which writes and records nothing.
     (Event.CHANGE_TO_ADMIN, None): Refusal(NotFoundError, NO_LONGER_IN_THE_ORGANIZATION),
@@ -193,7 +197,7 @@ TABLE: Dict[Tuple[Event, Optional[str]], Union[Move, Refusal, str]] = {
     (Event.CHANGE_TO_MEMBER, ADMIN): Move(MEMBER),
     (Event.CHANGE_TO_MEMBER, OWNER): Refusal(BadRequestError, THE_OWNERS_PLACE),
 
-    # Handed on to one of its people, who becomes its owner, the giver an admin.
+    # Ownership transferred to one of its people, who becomes its owner, the giver an admin.
     (Event.TRANSFER, None): Refusal(BadRequestError, HAND_IT_ONLY_TO_ITS_PEOPLE),
     (Event.TRANSFER, MEMBER): Move(OWNER, requester_to=ADMIN),
     (Event.TRANSFER, ADMIN): Move(OWNER, requester_to=ADMIN),
@@ -265,7 +269,8 @@ def _moved(user_id: str, before: Optional[str], after: Optional[str]) -> Dict[st
     The owner's place is the transfer's, never moved here."""
     key = people_key(user_id)
     if OWNER in (before, after):
-        raise RuntimeError("The owner's place moves only when the organization is handed on")
+        raise RuntimeError(
+            "The owner's place moves only when the organization's ownership is transferred")
     if after is None:
         return {"$unset": {key: ""}, "$pull": {"admins": user_id, "members": user_id}}
     update: Dict[str, Dict[str, Any]] = {"$set": {key: after},
@@ -304,9 +309,10 @@ def _write(org: Dict[str, Any], people: Dict[str, str], after: Dict[str, str],
     ``people``), landing only while the places it judged still hold. Answers whether it landed.
 
     With a map: the requester's and the target's keys as read are held, ``{"$exists": False}``
-    where they had none, and, handing it on to an admin, ``admins`` as read. Stored before the map:
-    ``people`` is held absent and the three lists equal to what was read, and the write sets the map
-    whole beside the lists as its mirror, so the first change to such an organization also folds it.
+    where they had none, and, transferring ownership to an admin, ``admins`` as read. Stored before
+    the map: ``people`` is held absent and the three lists equal to what was read, and the write sets
+    the map whole beside the lists as its mirror, so the first change to such an organization also
+    folds it.
     """
     if "people" in org:
         held = {people_key(user_id): people.get(user_id) or {"$exists": False}
@@ -475,9 +481,10 @@ def change_place(org_id: str, user_id: str, place: Any, requesting_user_email: s
 
 
 def transfer(org_id: str, requesting_user_email: str, new_owner_email: str) -> None:
-    """Hand the organization on to the account at ``new_owner_email``, one of its admins or
-    members: its owner's to do, who stays on it as an admin. Handing it to its own owner, to
-    someone outside it, or to an address with no account is refused before anything is written.
+    """Transfer the organization's ownership to the account at ``new_owner_email``, one of its
+    admins or members: its owner's to do, who stays on it as an admin. Transferring it to its own
+    owner, to someone outside it, or to an address with no account is refused before anything is
+    written.
 
     One write, filtered on the giver being owner and the new owner's place as read: an
     organization is never stored with two owners, none, or an owner in a list.
@@ -494,7 +501,7 @@ def transfer(org_id: str, requesting_user_email: str, new_owner_email: str) -> N
 
 
 def _record_transfer(org_id: str, requesting_user_email: str, giver: Any, taker: Any) -> None:
-    """The organization handed on, with its owner before and after."""
+    """The organization's ownership transferred, with its owner before and after."""
     import history as History  # Imported here, as in ``_record_role``.
 
     History.record_for_organization(

@@ -1,6 +1,6 @@
 """The organization's history (E40/F02/S01).
 
-An organization's own changes - its people, its name, ownership handed on, a market created in it,
+An organization's own changes - its people, its name, ownership transferred, a market created in it,
 and (E39/F02/S01) its default rows - are recorded in the one history every market change records
 into, keyed by the organization, and read in Manage organization by its owner, admins and members.
 Deleting the organization deletes its history; the deletion trail still records the deletion.
@@ -190,7 +190,7 @@ class TestWhatIsRecorded:
             OrgsApi.transfer_org_ownership(ORG, OWNER.email, OUTSIDER.email)
 
         assert refused.value.message == (
-            "Hand the organization only to one of its admins or members.")
+            "Transfer ownership only to one of the organization's admins or members.")
         assert org.doc["owner"] == OWNER.id and org.writes == []
         assert entries(history) == []
 
@@ -379,7 +379,7 @@ RECORDED = {
     ("POST", "/organizations/<org_id>/members"): "a member added",
     ("DELETE", "/organizations/<org_id>/users/<user_id>"): "a person removed",
     ("PUT", "/organizations/<org_id>/users/<user_id>"): "a person's place changed",
-    ("POST", "/organizations/<org_id>/transfer"): "ownership handed on",
+    ("POST", "/organizations/<org_id>/transfer"): "ownership transferred",
     # Sent in ``test_the_organizations_default.py`` (E39/F02/S01).
     ("PUT", "/organizations/<org_id>/default-permissions/<action_id>"): "a default row set",
     ("DELETE", "/organizations/<org_id>/default-permissions/<action_id>"): "a default row reset",

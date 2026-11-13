@@ -63,7 +63,10 @@ export const readers: HistoryReaders = {
   'transfer-organization/': {
     parts(entry, context) {
       const { actor, text } = sentence(entry, context);
-      return [actor, text(`handed the organization to ${str(entry.subject.email)}`)];
+      return [
+        actor,
+        text(`transferred ownership of the organization to ${str(entry.subject.email)}`),
+      ];
     },
   },
   'create-market/': {

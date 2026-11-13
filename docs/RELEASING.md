@@ -179,8 +179,8 @@ That is how `api.conventioner.io` served an April build until 2026-10-18 while e
 The Deploy workflow promotes explicitly, so its next run puts a project out of the rolled-back state by itself; a by-hand `vercel promote` is needed only when no deploy follows.
 A rollback cannot undo a migration, which is forward-only.
 **After a roll forward over a rollback past the release that keeps an organization's people as one map** ([ADR 0025](adr/0025-an-organizations-people-are-one-map.md)), run `migrate_organization_people.py --reconcile`, `--dry-run` first, as soon as that release is promoted again.
-The release before writes only an organization's three lists, so each map it left goes stale, and the map's release reads the map over the lists: until the reconcile has run, a person removed during the rollback keeps their roles through the organization, one added has none, and an organization handed on reads as its old owner's.
-The map's release also judges and writes every change on the stale map in that time, and the reconcile keeps what such a write left in the lists: an old owner can still hand the organization on, leaving its owner while rolled back with no place in it, and someone removed while rolled back can still remove a member.
+The release before writes only an organization's three lists, so each map it left goes stale, and the map's release reads the map over the lists: until the reconcile has run, a person removed during the rollback keeps their roles through the organization, one added has none, and an organization whose ownership was transferred reads as its old owner's.
+The map's release also judges and writes every change on the stale map in that time, and the reconcile keeps what such a write left in the lists: an old owner can still transfer the organization's ownership, leaving its owner while rolled back with no place in it, and someone removed while rolled back can still remove a member.
 So run the reconcile before any organizer changes an organization's people, the first thing done after the roll forward.
 
 ### Bootstrapping Note
