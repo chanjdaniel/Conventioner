@@ -290,7 +290,7 @@ class TestAWriteMeetingADecidedDeletion:
         _nothing_left_of([draft, archived], real_db, applications, market_records)
 
     def test_a_markets_own_delete_leaves_no_entry_once_the_trail_is_written(
-            self, organization, monkeypatch, interleave, real_db, market_records):
+            self, organization, monkeypatch, real_db, market_records):
         """The organization's deletion writes its trail and sweeps its markets, then stops before
         its history goes; the market's Delete then writes its entry into that history."""
         client, (draft, _archived) = organization
@@ -301,8 +301,8 @@ class TestAWriteMeetingADecidedDeletion:
                 OrgsApi.delete_organization(ORG, OWNER)
             assert len(_trail(real_db)) == 1
 
-        interleave("history.record_for_organization",
-                   organization_deletion_stops_before_its_history)
+        _before_call(monkeypatch, "history.record_for_organization", 1,
+                     organization_deletion_stops_before_its_history)
 
         client.delete(f"/markets/{draft['id']}")
 
