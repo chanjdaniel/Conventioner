@@ -9,11 +9,13 @@ The "expires" column is the clock passing a record's ``expires_at``, which write
 its cells is the move from an unexpired row to its expired row ("treated as none" for a secret
 being mailed, "treated as expired" for a live one), whose cells the other columns check.
 
-The "password reset" column is a reset by a live reset link, over every row of the code; for the
-reset link itself it is the "link used" column. Tries are not counted on a link, so it has no
-"wrong try" column: a link that is not the one stored is found by no hash.
+The "password reset" column is a reset by a live reset link, over every row of the code and of the
+verification link; for the reset link itself it is the "link used" column. Tries are not counted on
+a link, so it has no "wrong try" column: a link that is not the one stored is found by no hash.
 
-The verification link adds its rows here.
+The verification link has no wait: once mailed, its ``next_allowed_at`` is the moment it was mailed,
+so a new link may be asked for at once, while the last is live. Its rows have no wait ahead but a
+discarded one, which no event reaches but which the table still answers.
 """
 import copy
 from datetime import datetime, timedelta, timezone
@@ -25,7 +27,9 @@ from conftest import skip_without_real_dependencies
 skip_without_real_dependencies()
 
 import account_secrets
-from account_secrets import CODE, DISCARDED, LIVE, RESET, SENDING, USED, Issued, Link, Tried, Wait
+from account_secrets import (
+    CODE, DISCARDED, LIVE, RESET, SENDING, USED, VERIFY, Issued, Link, Tried, Wait,
+)
 from test_the_sign_in_secrets_hold_one_state import Users
 
 NOW = datetime(2026, 11, 13, 9, 0, 0, tzinfo=timezone.utc)
@@ -441,3 +445,231 @@ def test_of_two_uses_of_one_link_one_resets(clock):
     assert [account_secrets.use_reset_link(users, THE_LINK, password, LOGIN_ID)
             for password in ("fixture-first-hash", "fixture-second-hash")] == [True, False]
     assert users.docs[0]["password"] == "fixture-first-hash"
+
+
+# The verification link's rows.
+
+def _verify_record(state, expires_at, next_allowed_at):
+    return {"hash": account_secrets.hash_link(THE_LINK), "expires_at": expires_at,
+            "next_allowed_at": next_allowed_at, "tries": 0, "state": state}
+
+
+#: Every state the verification link's record can be in, by name; None is no record. A link mailed
+#: 30 minutes ago is live, unexpired, with its ``next_allowed_at`` passed when it was mailed.
+VERIFY_ROWS = {
+    "none": None,
+    "sending, unexpired": _verify_record(SENDING, NOW + 30 * MINUTE, None),
+    "sending, expired": _verify_record(SENDING, NOW - MINUTE, None),
+    "live, unexpired": _verify_record(LIVE, NOW + 30 * MINUTE, NOW - 30 * MINUTE),
+    "live, expired": _verify_record(LIVE, NOW - HOUR, NOW - 2 * HOUR),
+    "used": _verify_record(USED, NOW - MINUTE, None),
+    "discarded, wait ahead": _verify_record(DISCARDED, NOW - MINUTE, NOW + 59 * MINUTE),
+    "discarded, wait passed": _verify_record(DISCARDED, NOW - 2 * HOUR, NOW - HOUR),
+}
+
+
+def _verify_users(row, verified=False):
+    account = {"id": ACCOUNT_ID, "email": EMAIL, "email_verified": verified,
+               "password": "fixture-old-password-hash", "login_id": "fixture-old-login-id"}
+    if VERIFY_ROWS[row] is not None:
+        account["secrets"] = {"verify": copy.deepcopy(VERIFY_ROWS[row])}
+    return Users(account)
+
+
+def _verify(users):
+    return (users.docs[0].get("secrets") or {}).get("verify")
+
+
+VERIFY_ISSUE = {
+    "none": "issued",
+    "sending, unexpired": ("wait", 30 * 60),
+    "sending, expired": "issued",
+    "live, unexpired": "issued",
+    "live, expired": "issued",
+    "used": "issued",
+    "discarded, wait ahead": ("wait", 59 * 60),
+    "discarded, wait passed": "issued",
+}
+
+
+@pytest.mark.parametrize("row", list(VERIFY_ROWS), ids=list(VERIFY_ROWS))
+def test_issue_a_verification_link(clock, row):
+    users = _verify_users(row)
+    before = copy.deepcopy(_verify(users))
+
+    answer = account_secrets.issue(users, VERIFY, users.docs[0])
+
+    if VERIFY_ISSUE[row] == "issued":
+        assert isinstance(answer, Issued)
+        assert _verify(users) == {"hash": account_secrets.hash_link(answer.secret),
+                                  "expires_at": NOW + HOUR, "next_allowed_at": None, "tries": 0,
+                                  "state": SENDING}
+    else:
+        assert answer == Wait(seconds=VERIFY_ISSUE[row][1])
+        assert _verify(users) == before
+
+
+def test_no_verification_link_is_issued_to_a_verified_address(clock):
+    users = _verify_users("none", verified=True)
+
+    assert account_secrets.issue(users, VERIFY, users.docs[0]) is None
+    assert _verify(users) is None
+
+
+def test_a_new_account_is_stored_holding_its_link_being_mailed(clock):
+    issued, fields = account_secrets.issue_with_a_new_account(VERIFY, ACCOUNT_ID)
+    users = Users({"id": ACCOUNT_ID, "email": EMAIL, "email_verified": False, **fields})
+
+    assert (issued.account_id, issued.expires_at) == (ACCOUNT_ID, NOW + HOUR)
+    assert _verify(users) == {"hash": account_secrets.hash_link(issued.secret),
+                              "expires_at": NOW + HOUR, "next_allowed_at": None, "tries": 0,
+                              "state": SENDING}
+
+    account_secrets.accepted(users, VERIFY, issued)
+
+    assert _verify(users)["state"] == LIVE
+
+
+def test_accepted_makes_the_verification_link_live_with_no_wait(clock):
+    users = _verify_users("none")
+    issued = account_secrets.issue(users, VERIFY, users.docs[0])
+    clock["at"] = NOW + MINUTE
+
+    account_secrets.accepted(users, VERIFY, issued)
+
+    assert _verify(users) == {"hash": issued.hash, "expires_at": NOW + HOUR,
+                              "next_allowed_at": NOW + MINUTE, "tries": 0, "state": LIVE}
+    assert isinstance(account_secrets.issue(users, VERIFY, users.docs[0]), Issued)
+
+
+def test_refused_unsets_the_verification_link(clock):
+    users = _verify_users("live, unexpired")
+    issued = account_secrets.issue(users, VERIFY, users.docs[0])
+
+    account_secrets.refused(users, VERIFY, issued)
+
+    assert _verify(users) is None
+
+
+@pytest.mark.parametrize("answer", ["accepted", "refused"])
+def test_a_provider_answer_past_the_verification_links_life_writes_nothing(clock, answer):
+    users = _verify_users("none")
+    issued = account_secrets.issue(users, VERIFY, users.docs[0])
+    clock["at"] = NOW + HOUR + MINUTE
+    before = copy.deepcopy(_verify(users))
+
+    getattr(account_secrets, answer)(users, VERIFY, issued)
+
+    assert _verify(users) == before
+
+
+OTHER_VERIFY_ROWS = [row for row in VERIFY_ROWS if not row.startswith("sending")]
+
+
+@pytest.mark.parametrize("answer", ["accepted", "refused"])
+@pytest.mark.parametrize("row", OTHER_VERIFY_ROWS, ids=OTHER_VERIFY_ROWS)
+def test_a_provider_answer_for_a_verification_link_no_longer_held_writes_nothing(
+    clock, row, answer,
+):
+    users = _verify_users(row)
+    before = copy.deepcopy(users.docs)
+    elsewhere = Issued(account_id=ACCOUNT_ID, secret=THE_LINK,
+                       hash=account_secrets.hash_link(THE_LINK), expires_at=NOW + HOUR)
+
+    getattr(account_secrets, answer)(users, VERIFY, elsewhere)
+
+    assert users.docs == before
+
+
+# link used: the address verified, in one write, and only by a live link.
+
+VERIFY_USED = {
+    "none": Link.INVALID,
+    "sending, unexpired": Link.INVALID,
+    "sending, expired": Link.INVALID,
+    "live, unexpired": Link.LIVE,
+    "live, expired": Link.EXPIRED,
+    "used": Link.INVALID,
+    "discarded, wait ahead": Link.INVALID,
+    "discarded, wait passed": Link.INVALID,
+}
+
+
+@pytest.mark.parametrize("row", list(VERIFY_ROWS), ids=list(VERIFY_ROWS))
+def test_verification_link_used(clock, row):
+    users = _verify_users(row)
+    before = copy.deepcopy(users.docs)
+
+    found = account_secrets.find_link(users, VERIFY, THE_LINK)
+    already = account_secrets.use_verification_link(users, THE_LINK)
+
+    assert found is VERIFY_USED[row]
+    if found is Link.LIVE:
+        assert already is False
+        assert users.docs[0]["email_verified"] is True
+        assert _verify(users) == {**VERIFY_ROWS[row], "state": USED, "next_allowed_at": None}
+    else:
+        assert already is None
+        assert users.docs == before
+
+
+def test_a_verification_link_not_the_one_stored_is_invalid_and_verifies_nothing(clock):
+    users = _verify_users("live, unexpired")
+    before = copy.deepcopy(users.docs)
+
+    assert account_secrets.find_link(users, VERIFY, NOT_THE_LINK) is Link.INVALID
+    assert account_secrets.use_verification_link(users, NOT_THE_LINK) is None
+    assert users.docs == before
+
+
+def test_a_reset_link_is_not_a_verification_link(clock):
+    users = _link_users("live, unexpired", verified=False)
+    before = copy.deepcopy(users.docs)
+
+    assert account_secrets.find_link(users, VERIFY, THE_LINK) is Link.INVALID
+    assert account_secrets.use_verification_link(users, THE_LINK) is None
+    assert users.docs == before
+
+
+def test_of_two_uses_of_one_verification_link_one_uses_it(clock):
+    users = _verify_users("live, unexpired")
+
+    assert [account_secrets.use_verification_link(users, THE_LINK) for _ in range(2)] == [
+        False, None]
+
+
+def test_a_live_link_on_an_address_verified_meanwhile_is_used_and_says_so(clock):
+    users = _verify_users("live, unexpired", verified=True)
+
+    assert account_secrets.use_verification_link(users, THE_LINK) is True
+    assert _verify(users)["state"] == USED
+
+
+# password reset, over the verification link: a reset ends it, whatever state it is in.
+
+@pytest.mark.parametrize("row", list(VERIFY_ROWS), ids=list(VERIFY_ROWS))
+def test_a_password_reset_ends_the_verification_link(clock, row):
+    users = _with_a_live_link(_verify_users(row))
+
+    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is True
+
+    assert _verify(users) is None
+    assert users.docs[0]["email_verified"] is True
+
+
+# operator verify: the address verified by hand, its link ended, whatever state it is in.
+
+@pytest.mark.parametrize("row", list(VERIFY_ROWS), ids=list(VERIFY_ROWS))
+def test_verified_by_hand(clock, row):
+    users = _verify_users(row)
+
+    assert account_secrets.verify_by_hand(users, EMAIL) is True
+
+    assert _verify(users) is None
+    assert users.docs[0]["email_verified"] is True
+
+
+def test_verifying_by_hand_an_address_with_no_account_says_so(clock):
+    users = _verify_users("none")
+
+    assert account_secrets.verify_by_hand(users, "fixture-nobody@example.com") is False

@@ -64,9 +64,11 @@ class Users:
             return _update_first(self.docs, query, update)
 
     def insert_one(self, doc):
+        # The server gives every inserted document an ``_id``, which sign-up deletes it by.
+        stored = {"_id": f"oid-{doc.get('id')}", **copy.deepcopy(doc)}
         with self._lock:
-            self.docs.append(copy.deepcopy(doc))
-        return SimpleNamespace(inserted_id=doc.get("id"))
+            self.docs.append(stored)
+        return SimpleNamespace(inserted_id=stored["_id"])
 
     def delete_one(self, query):
         with self._lock:

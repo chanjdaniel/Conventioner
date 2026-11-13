@@ -39,7 +39,8 @@ The kinds, their life and their waits, and the table, are in [users, and the one
 
 - The sign-in code is the module's first kind, `secrets.code`: `/request-otp` issues it, `/login-otp` counts a try in the write that finds it, and the legacy `otp`, `otp_expires` and `otp_attempts` are upgraded on first read.
 - The reset link is its `reset` kind: `/request-password-reset` issues it, and `/reset-password` uses it in one write that also sets the password, verifies the address, ends the code and replaces the login id; the legacy `password_reset_token` and its expiry are upgraded on first read, and a link is found by that field too for the release.
-- The verification link still lives in its legacy fields, written by `api/users.py`, until it joins the module as its `verify` kind.
+- The verification link is its `verify` kind, with no wait: sign-up inserts the account holding it `sending`, `/resend-verification` issues a new one that replaces the last, `/verify-email` uses it in one write that verifies the address, and `create_account.py verify` ends it as it verifies the account; the legacy `verification_token` and its expiry are upgraded on first read, and a link is found by that field too for the release.
+- A resend the provider refused leaves no verification link, as a refused code or reset link leaves none: the route that put back the link mailed before is gone, and no back-end code outside the module writes a legacy field but the old migration that first added them (`migrations/add_email_verification.py`), which sets each an account lacks to null, read as no record.
 
 ## Consequences
 

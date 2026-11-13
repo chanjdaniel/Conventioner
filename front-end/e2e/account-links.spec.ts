@@ -3,7 +3,7 @@ import { deleteUser } from './helpers/deleteUser';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { marketSetupPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
-import { newAccountLink, plantAccountLink } from './helpers/accountSecrets';
+import { newAccountLink, plantAccountLink, storedAccountLinkHash } from './helpers/accountSecrets';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 
 /**
@@ -72,8 +72,10 @@ test.describe('Account links, opened signed out', () => {
     });
     expect(created.status(), await created.text()).toBe(201);
     try {
-      const token = userField(email, 'verification_token');
-      expect(token.length).toBeGreaterThanOrEqual(10);
+      // The sign-up made a link of its own, kept only as its hash; one the spec knows stands in.
+      expect(storedAccountLinkHash(email, 'verify')).toMatch(/^[0-9a-f]{64}$/);
+      const token = newAccountLink();
+      plantAccountLink(email, 'verify', token);
 
       await page.goto(`/verify-email?token=${encodeURIComponent(token)}`);
       await expect(page.getByTestId('email-verification-success-message')).toBeVisible();

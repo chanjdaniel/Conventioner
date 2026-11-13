@@ -41,28 +41,56 @@ export function plantSignInCode(
   );
 }
 
-/** How long a reset link lasts, and how long after it expires the next may be asked for. */
-const LINKS = { reset: { lifeMs: 60 * 60_000, waitMs: 60 * 60_000 } } as const;
+/**
+ * Each link's life, and when the next may be asked for once it is mailed: a reset link an hour
+ * after it expires, a verification link at once, its `next_allowed_at` the moment it was mailed.
+ */
+const LINKS = {
+  reset: {
+    lifeMs: 60 * 60_000,
+    nextAllowedAt: (_mailedAt: number, expiresAt: number) => expiresAt + 60 * 60_000,
+  },
+  verify: { lifeMs: 60 * 60_000, nextAllowedAt: (mailedAt: number) => mailedAt },
+} as const;
+
+/** A kind of link an account is mailed. */
+export type AccountLinkKind = keyof typeof LINKS;
 
 /** A link as the mail carries one: 24 random bytes, URL-safe, as `token_urlsafe(24)` makes it. */
 export function newAccountLink(): string {
   return crypto.randomBytes(24).toString('base64url');
 }
 
+/** What the back end keeps of a link: its hex SHA-256. */
+export function accountLinkHash(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 /**
  * Plant `token` as the account's mailed link of `kind`: live, kept as its SHA-256, its kind's life
- * to run, its wait running past that.
+ * to run, and its kind's wait.
  */
-export function plantAccountLink(email: string, kind: keyof typeof LINKS, token: string): void {
-  const { lifeMs, waitMs } = LINKS[kind];
-  const digest = crypto.createHash('sha256').update(token).digest('hex');
-  const expiresAt = Date.now() + lifeMs;
+export function plantAccountLink(email: string, kind: AccountLinkKind, token: string): void {
+  const { lifeMs, nextAllowedAt } = LINKS[kind];
+  const mailedAt = Date.now();
+  const expiresAt = mailedAt + lifeMs;
   mongoEval(
     `db.users.updateOne(${filterFor(email)}, { $set: { 'secrets.${kind}': {` +
-      ` hash: ${JSON.stringify(digest)},` +
+      ` hash: ${JSON.stringify(accountLinkHash(token))},` +
       ` expires_at: new Date(${expiresAt}),` +
-      ` next_allowed_at: new Date(${expiresAt + waitMs}),` +
+      ` next_allowed_at: new Date(${nextAllowedAt(mailedAt, expiresAt)}),` +
       ` tries: NumberInt(0), state: 'live' } } })`,
+  );
+}
+
+/**
+ * The hash the account keeps of its link of `kind`, or `''` when it holds none: a spec that asked
+ * for a new link tells it from the last by this, since the link itself is not stored.
+ */
+export function storedAccountLinkHash(email: string, kind: AccountLinkKind): string {
+  return mongoEval(
+    `const account = db.users.findOne(${filterFor(email)});` +
+      ` print(account?.secrets?.${kind}?.hash ?? '')`,
   );
 }
 

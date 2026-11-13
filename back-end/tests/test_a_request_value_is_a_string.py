@@ -11,7 +11,6 @@ that lets a non-string through finds what the database would find.
 """
 import os
 import sys
-from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -28,7 +27,7 @@ import api.organizations as OrgsApi
 import api.users as UsersApi
 from test_a_vendor_checks_in_with_the_door_code import world  # noqa: E402,F401
 from datatypes import MarketPhase
-from sign_in_secrets import live_code, live_link, stored_code
+from sign_in_secrets import live_code, live_link, live_verification_link, stored_code
 from test_the_sign_in_secrets_hold_one_state import Users
 
 
@@ -53,10 +52,6 @@ class CollectionLikeTheDatabase(Users):
         return next(doc for doc in self.docs if doc["email"] == email)
 
 
-def _in_an_hour():
-    return (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-
-
 @pytest.fixture
 def users(monkeypatch):
     def _install(**fields):
@@ -66,8 +61,6 @@ def users(monkeypatch):
             "password": app_module.bcrypt.generate_password_hash(FIXTURE_PASSWORD).decode("utf-8"),
             "organizations": [],
             "email_verified": True,
-            "verification_token": None,
-            "verification_token_expires": None,
         }
         doc.update(fields)
         collection = CollectionLikeTheDatabase([doc])
@@ -137,8 +130,7 @@ class TestVerifyEmail:
     ):
         collection = users(
             email_verified=False,
-            verification_token="a-live-verification-token",
-            verification_token_expires=_in_an_hour(),
+            secrets={"verify": live_verification_link("a-live-verification-token")},
         )
 
         response = client.post("/verify-email", json={"token": token})
@@ -149,8 +141,7 @@ class TestVerifyEmail:
     def test_the_live_token_still_verifies_the_address(self, client, users):
         collection = users(
             email_verified=False,
-            verification_token="a-live-verification-token",
-            verification_token_expires=_in_an_hour(),
+            secrets={"verify": live_verification_link("a-live-verification-token")},
         )
 
         response = client.post("/verify-email", json={"token": "a-live-verification-token"})

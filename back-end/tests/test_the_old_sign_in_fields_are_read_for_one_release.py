@@ -1,11 +1,12 @@
-"""A code or reset link mailed before ``account_secrets`` keeps working until it would have expired
+"""A code or link mailed before ``account_secrets`` keeps working until it would have expired
 (ADR 0026).
 
 Before it, an account held its code in three fields: ``otp`` (the code as mailed), ``otp_expires``
-(an ISO string) and ``otp_attempts``; and its reset link in two: ``password_reset_token`` (the link
-as mailed) and ``password_reset_token_expires``. For one release the module still reads them: the
-first time it reads such an account it turns them into the records in one conditional write,
-unsetting them, and from then on the account behaves as the table says. The follow-up named in
+(an ISO string) and ``otp_attempts``; its reset link in two: ``password_reset_token`` (the link
+as mailed) and ``password_reset_token_expires``; and its verification link in two:
+``verification_token`` and ``verification_token_expires``. For one release the module still reads
+them: the first time it reads such an account it turns them into the records in one conditional
+write, unsetting them, and from then on the account behaves as the table says. The follow-up named in
 ``docs/implementation/data/users-and-email.md`` deletes this file with the upgrade.
 """
 from datetime import datetime, timedelta, timezone
@@ -17,8 +18,10 @@ from conftest import skip_without_real_dependencies
 skip_without_real_dependencies()
 
 import account_secrets
-from account_secrets import CODE, DISCARDED, LIVE, RESET, SENDING, Issued, Link, Tried, Wait
-from sign_in_secrets import live_code, stored_code, stored_link
+from account_secrets import (
+    CODE, DISCARDED, LIVE, RESET, SENDING, VERIFY, Issued, Link, Tried, Wait,
+)
+from sign_in_secrets import live_code, stored_code, stored_link, stored_verification_link
 from test_the_sign_in_secrets_hold_one_state import Users
 
 NOW = datetime(2026, 11, 13, 9, 0, 0, tzinfo=timezone.utc)
@@ -26,6 +29,7 @@ EMAIL = "fixture-organizer@example.com"
 THE_CODE = "123456"
 NOT_THE_CODE = "000000"
 THE_LINK = "fixture-legacy-reset-link"
+THE_VERIFICATION_LINK = "fixture-legacy-verification-link"
 PASSWORD_HASH = "fixture-new-password-hash"
 LOGIN_ID = "fixture-new-login-id"
 MINUTE = timedelta(minutes=1)
@@ -256,3 +260,89 @@ def test_cleared_reset_fields_are_no_link_and_a_link_is_issued_at_once():
     assert isinstance(answer, Issued)
     assert _no_legacy_field_left(users)
     assert stored_link(_account(users))["state"] == SENDING
+
+
+def _legacy_verification_link(token, expires, verified=False):
+    return CountingUsers({
+        "id": "fixture-organizer-id", "email": EMAIL, "email_verified": verified,
+        "password": "fixture-old-password-hash", "login_id": "fixture-old-login-id",
+        "verification_token": token,
+        "verification_token_expires": expires.isoformat() if expires else None,
+    })
+
+
+class TestALiveVerificationLink:
+    """A stored ``verification_token`` is a live link with no wait, found by the token as
+    mailed."""
+
+    @pytest.fixture
+    def users(self):
+        return _legacy_verification_link(THE_VERIFICATION_LINK, NOW + 40 * MINUTE)
+
+    def test_it_verifies_once(self, users):
+        assert account_secrets.find_link(users, VERIFY, THE_VERIFICATION_LINK) is Link.LIVE
+        assert account_secrets.use_verification_link(users, THE_VERIFICATION_LINK) is False
+
+        assert _account(users)["email_verified"] is True
+        assert account_secrets.find_link(users, VERIFY, THE_VERIFICATION_LINK) is Link.INVALID
+        assert account_secrets.use_verification_link(users, THE_VERIFICATION_LINK) is None
+
+    def test_it_is_upgraded_once_on_the_way_and_kept_hashed(self, users):
+        account_secrets.find_link(users, VERIFY, THE_VERIFICATION_LINK)
+        account_secrets.find_link(users, VERIFY, THE_VERIFICATION_LINK)
+
+        assert users.upgrades == 1
+        assert _no_legacy_field_left(users)
+        assert stored_verification_link(_account(users)) == {
+            "hash": account_secrets.hash_link(THE_VERIFICATION_LINK),
+            "expires_at": NOW + 40 * MINUTE, "next_allowed_at": None, "tries": 0, "state": LIVE}
+
+    def test_a_new_link_may_be_asked_for_at_once_and_replaces_it(self, users):
+        answer = account_secrets.issue(users, VERIFY, dict(_account(users)))
+
+        assert isinstance(answer, Issued)
+        assert _no_legacy_field_left(users)
+        assert account_secrets.find_link(users, VERIFY, THE_VERIFICATION_LINK) is Link.INVALID
+
+    def test_a_reset_ends_it(self, users):
+        _account(users).update(password_reset_token=THE_LINK,
+                               password_reset_token_expires=(NOW + 40 * MINUTE).isoformat())
+
+        assert account_secrets.find_link(users, RESET, THE_LINK) is Link.LIVE
+        assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is True
+
+        assert stored_verification_link(_account(users)) is None
+        assert _no_legacy_field_left(users)
+        assert account_secrets.find_link(users, VERIFY, THE_VERIFICATION_LINK) is Link.INVALID
+
+
+def test_an_expired_legacy_verification_link_answers_expired_and_verifies_nothing():
+    users = _legacy_verification_link(THE_VERIFICATION_LINK, NOW - 10 * MINUTE)
+
+    assert account_secrets.find_link(users, VERIFY, THE_VERIFICATION_LINK) is Link.EXPIRED
+    assert account_secrets.use_verification_link(users, THE_VERIFICATION_LINK) is None
+    assert _account(users)["email_verified"] is False
+
+
+@pytest.mark.parametrize("token, expires", [(None, None), (THE_VERIFICATION_LINK, None)],
+                         ids=["cleared", "no expiry"])
+def test_verification_fields_holding_no_live_link_are_no_link(token, expires):
+    """Cleared fields, as a verified account or one made by hand held them, are no link; so is a
+    token with no expiry, which the old route answered as expired. Either is unset once."""
+    users = _legacy_verification_link(token, expires)
+
+    assert account_secrets.find_link(users, VERIFY, THE_VERIFICATION_LINK) is Link.INVALID
+    answer = account_secrets.issue(users, VERIFY, dict(_account(users)))
+
+    assert isinstance(answer, Issued)
+    assert _no_legacy_field_left(users)
+    assert stored_verification_link(_account(users))["state"] == SENDING
+
+
+def test_a_verified_accounts_cleared_fields_are_unset_with_no_link():
+    users = _legacy_verification_link(None, None, verified=True)
+
+    assert account_secrets.issue(users, CODE, dict(_account(users))) is not None
+
+    assert _no_legacy_field_left(users)
+    assert stored_verification_link(_account(users)) is None

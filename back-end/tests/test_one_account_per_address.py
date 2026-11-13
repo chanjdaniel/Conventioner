@@ -19,6 +19,7 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import api.users as UsersApi  # noqa: E402
+from conftest import _update_first  # noqa: E402
 from utils.email_address import normalized_email  # noqa: E402
 
 
@@ -64,6 +65,9 @@ class FakeUsers:
         self.docs.append(dict(doc))
         self.inserted.append(doc)
         return SimpleNamespace(inserted_id=len(self.docs))
+
+    def update_one(self, query, update, **_options):
+        return _update_first(self.docs, query, update)
 
     def delete_one(self, query):
         self.deleted.append(query)

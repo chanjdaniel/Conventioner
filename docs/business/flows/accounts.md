@@ -46,7 +46,11 @@ Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real k
 4. Open the emailed link, which lands on `/verify-email`; expect confirmation and "Redirecting to sign in…"; three seconds later the page goes to sign in.
 5. Sign in (A2).
 
+The server keeps the link only as its hash, so a copy of the database holds no link that verifies ([the sign-in secrets](../../implementation/data/users-and-email.md#the-sign-in-secrets)).
+
 Branches: mismatched passwords ("Passwords do not match"), short password, a password too long, an email already registered, an expired or reused link, asking too often.
+
+- A link verifies once: opened again, it says "Invalid verification token"; past its hour, "Verification token has expired".
 
 - An email already registered says what a new one says at step 3, after the same checks, and makes no account: the account's owner is emailed "You already have a Conventioner account", with a link to sign in and one to reset the password, and nothing about the account changes ([a sign-up answers alike](../../implementation/data/users-and-email.md#a-sign-up-answers-alike)).
 
@@ -75,6 +79,7 @@ Covered by:
 The page asks for the address on the page itself, in a labelled field.
 "Send the link again" with nothing typed says "Type your email address." under the field and sends nothing; a double click sends one link.
 A server's fault or no answer says so, and keeps the form and the address to try again.
+Each new link replaces the one sent before, which then says "Invalid verification token", and a new one can be asked for at once; a link that could not be mailed leaves none, the one before included, and asking again sends one at once ([a failed send leaves no wait armed](../../implementation/data/users-and-email.md#a-failed-send-leaves-no-wait-armed)).
 Past five links asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes." in place of a link on its way, the same for every address, and keeps the form and the address.
 "Back to sign in" under it is a link to `/login`.
 

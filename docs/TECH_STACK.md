@@ -90,7 +90,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### Utilities
 
-- **Python's `secrets`** - Email verification and password reset tokens, and sign-in codes
+- **Python's `secrets`** - Email verification and password reset links, and sign-in codes, each stored only as its hash (`back-end/account_secrets.py`)
 - **PyJWT 2.15** - The applicant's sign-in token, signed with `SECRET_KEY`
 - **Cryptography 50** - Lets the local stack's `flask run --cert=adhoc` make its certificate; no module imports it
 - **Requests 2.34** - HTTP library
@@ -280,11 +280,10 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 1. User submits registration form with CAPTCHA verification
 2. Backend validates CAPTCHA token
 3. Password is hashed with bcrypt; one longer than 72 bytes, which bcrypt does not read, is refused (400) and makes no account
-4. User account created with `email_verified: false`
-5. Verification token generated and stored; it expires in 1 hour
-6. Verification email sent via Resend
-7. User clicks verification link in email
-8. Email verified, account activated
+4. User account created with `email_verified: false`, holding its verification link's SHA-256, never the link; the link expires in 1 hour, and asking again replaces it at once
+5. Verification email sent via Resend
+6. User clicks verification link in email
+7. Email verified, account activated; the link verifies once
 
 ### Login Methods
 

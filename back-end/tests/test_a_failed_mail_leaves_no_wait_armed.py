@@ -1,16 +1,15 @@
 """A code or link that could not be mailed leaves the organizer free to ask again (T273, R14).
 
 The organizer's code, reset link and verification link are stored before they are mailed, since
-the mail names them. When the send failed, the next request works at once. A code or reset link
-the provider refused is unset (``account_secrets.refused``), so it leaves no wait and no live
-secret, and no earlier one is written back. For a verification link, the route puts back what it
-replaced, so a link already in the inbox keeps working. A newer code or link another request stored
-meanwhile is left. The counts per caller and per address are not taken back: they count requests,
-whether or not a mail went.
+the mail names them. When the send failed, the next request works at once. A secret the provider
+refused is unset (``account_secrets.refused``), so it leaves no wait and no live secret, and no
+earlier one is written back: for a verification link, the link mailed before the failed resend was
+replaced when the resend issued its own, so it no longer verifies, and the next resend mails one
+that does. A newer code or link another request stored meanwhile is left. The counts per caller and
+per address are not taken back: they count requests, whether or not a mail went.
 
 Reproduced on dev through the routes, the send made to fail: a code request answered 500 and the
-next 429 for about an hour, a reset request 500 and then 429, and a failed verification resend left
-the first link refused.
+next 429 for about an hour, and a reset request 500 and then 429.
 """
 from datetime import timedelta
 
@@ -24,7 +23,10 @@ import account_secrets
 import app as app_module
 import api.users as UsersApi
 import sign_in_limits
-from sign_in_secrets import live_code, live_link, stored_code, stored_link
+from sign_in_secrets import (
+    live_code, live_link, live_verification_link, stored_code, stored_link,
+    stored_verification_link,
+)
 from test_the_organizer_sign_in_is_bounded import (  # noqa: F401
     ACCOUNT_EMAIL, CALLER, FAST_ROUNDS, PASSWORD, UNVERIFIED_EMAIL, WINDOW_STARTS, Users, _account,
     client, clock, fast_stand_in_hash,
@@ -43,8 +45,9 @@ ASKED_TOO_OFTEN = "You have asked several times. Try again in 15 minutes."
 @pytest.fixture
 def users(monkeypatch):
     unverified = _account(UNVERIFIED_EMAIL, verified=False)
-    unverified["verification_token"] = FIRST_LINK
-    unverified["verification_token_expires"] = (WINDOW_STARTS + timedelta(days=400)).isoformat()
+    # The link sign-up mailed half an hour before the tests' clock, live for half an hour more.
+    unverified["secrets"] = {"verify": live_verification_link(
+        FIRST_LINK, WINDOW_STARTS + timedelta(minutes=30))}
     fake = Users(_account(ACCOUNT_EMAIL), unverified)
     monkeypatch.setattr(UsersApi, "users_collection", fake)
     # A reset hashes its new password at bcrypt's lowest cost, as the accounts here are hashed.
@@ -53,13 +56,12 @@ def users(monkeypatch):
 
 
 class Mail:
-    """One of the three mails, its route, the fields it stores and the secret its mail names."""
+    """One of the three mails, its route and what it answers once sent."""
 
-    def __init__(self, path, sender, sends_to, fields, sent, per_address):
+    def __init__(self, path, sender, sends_to, sent, per_address):
         self.path = path
         self.sender = sender
         self.sends_to = sends_to
-        self.fields = fields
         self.sent = sent
         self.per_address = per_address
 
@@ -71,16 +73,13 @@ class Mail:
                            environ_base={"REMOTE_ADDR": caller})
 
 
-CODE = Mail("/request-otp", "send_otp_email", ACCOUNT_EMAIL, (), SENT_CODE,
+CODE = Mail("/request-otp", "send_otp_email", ACCOUNT_EMAIL, SENT_CODE,
             sign_in_limits.ORGANIZER_CODE_REQUEST_PER_ADDRESS)
-RESET = Mail("/request-password-reset", "send_password_reset_email", ACCOUNT_EMAIL, (),
-             SENT_RESET, sign_in_limits.RESET_LINK_PER_ADDRESS)
+RESET = Mail("/request-password-reset", "send_password_reset_email", ACCOUNT_EMAIL, SENT_RESET,
+             sign_in_limits.RESET_LINK_PER_ADDRESS)
 VERIFICATION = Mail("/resend-verification", "send_verification_email", UNVERIFIED_EMAIL,
-                    ("verification_token", "verification_token_expires"),
                     SENT_VERIFICATION, sign_in_limits.VERIFICATION_LINK_PER_ADDRESS)
 MAILS = [CODE, RESET, VERIFICATION]
-#: The mails whose failed send puts back the link the account held.
-PUT_BACK = [VERIFICATION]
 
 
 class Outbox:
@@ -154,16 +153,6 @@ class TestAfterAFailedSendTheNextRequestWorks:
                                 environ_base={"REMOTE_ADDR": CALLER})
         assert signed_in.status_code == 200
 
-    def test_the_link_mailed_before_a_failed_resend_still_verifies(
-        self, client, users, outbox, clock,
-    ):
-        _fail_once(client, outbox, VERIFICATION)
-
-        verified = client.post("/verify-email", json={"token": FIRST_LINK})
-
-        assert verified.status_code == 200
-        assert users.account(UNVERIFIED_EMAIL)["email_verified"] is True
-
     def test_the_next_verification_resend_sends_a_link_that_verifies(
         self, client, users, outbox, clock,
     ):
@@ -171,31 +160,6 @@ class TestAfterAFailedSendTheNextRequestWorks:
 
         assert VERIFICATION.ask(client).status_code == 200
         assert client.post("/verify-email", json={"token": outbox.last()}).status_code == 200
-
-    @pytest.mark.parametrize("mail", PUT_BACK, ids=repr)
-    def test_the_account_holds_what_it_held_before(self, client, users, outbox, clock, mail):
-        account = users.account(mail.sends_to)
-        before = {field: account.get(field) for field in mail.fields}
-
-        _fail_once(client, outbox, mail)
-
-        assert {field: account.get(field) for field in mail.fields} == before
-
-
-@pytest.mark.parametrize("mail", PUT_BACK, ids=repr)
-def test_a_newer_value_stored_during_the_failed_send_is_left(client, users, outbox, clock, mail):
-    later = (WINDOW_STARTS + timedelta(days=400)).isoformat()
-    newer = {field: 0 if field == "otp_attempts" else later if field.endswith("_expires")
-             else NEWER for field in mail.fields}
-
-    def another_request_stores_a_newer_one(to):
-        users.update_one({"email": to}, {"$set": newer})
-
-    outbox.meanwhile = another_request_stores_a_newer_one
-    _fail_once(client, outbox, mail)
-
-    account = users.account(mail.sends_to)
-    assert {field: account.get(field) for field in mail.fields} == newer
 
 
 class TestARefusedCodeLeavesNoCode:
@@ -276,6 +240,53 @@ class TestARefusedResetLinkLeavesNoLink:
         _fail_once(client, outbox, RESET)
 
         assert stored_link(users.account(ACCOUNT_EMAIL)) == newer
+
+
+class TestARefusedVerificationLinkLeavesNoLink:
+    """The verification link is one record (``account_secrets``): a resend replaces the link
+    mailed before, and a refused mail unsets the one it issued, so no link is left live and the
+    next resend mails one at once."""
+
+    def test_it_leaves_no_link(self, client, users, outbox, clock):
+        _fail_once(client, outbox, VERIFICATION)
+
+        account = users.account(UNVERIFIED_EMAIL)
+        assert stored_verification_link(account) is None
+        assert not set(account_secrets.LEGACY_FIELDS) & set(account)
+
+    def test_the_link_mailed_before_the_failed_resend_no_longer_verifies(
+        self, client, users, outbox, clock,
+    ):
+        _fail_once(client, outbox, VERIFICATION)
+
+        verified = client.post("/verify-email", json={"token": FIRST_LINK})
+
+        assert (verified.status_code, verified.get_json()) == (
+            400, {"msg": "Invalid verification token"})
+        assert users.account(UNVERIFIED_EMAIL)["email_verified"] is False
+
+    def test_the_next_resend_mails_a_link_at_once(self, client, users, outbox, clock):
+        _fail_once(client, outbox, VERIFICATION)
+
+        asked = VERIFICATION.ask(client)
+
+        assert (asked.status_code, asked.get_json()) == (200, {"msg": SENT_VERIFICATION})
+        assert len(outbox.sent) == 1
+        assert stored_verification_link(users.account(UNVERIFIED_EMAIL))["hash"] == (
+            account_secrets.hash_link(outbox.last()))
+
+    def test_a_newer_link_issued_during_the_failed_send_is_left(
+        self, client, users, outbox, clock,
+    ):
+        newer = live_verification_link("fixture-newer-link", WINDOW_STARTS + timedelta(hours=1))
+
+        def another_request_mails_a_newer_one(to):
+            users.account(to)["secrets"] = {"verify": dict(newer)}
+
+        outbox.meanwhile = another_request_mails_a_newer_one
+        _fail_once(client, outbox, VERIFICATION)
+
+        assert stored_verification_link(users.account(UNVERIFIED_EMAIL)) == newer
 
 
 @pytest.mark.parametrize("mail", MAILS, ids=repr)

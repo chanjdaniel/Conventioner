@@ -8,7 +8,6 @@ from flask_login import UserMixin
 from flask_login.config import COOKIE_NAME
 from datatypes import MarketRole, OrganizationRole, User, organization_people_of
 from db_config import get_database
-from utils.tokens import generate_verification_token, get_token_expiry, verify_token_expiry
 from utils.email import (
     send_account_exists_email, send_verification_email, send_password_reset_email, send_otp_email
 )
@@ -122,6 +121,18 @@ RESET_SENT = "If an account exists, a password reset email has been sent"
 
 #: What a reset by a link that is not live says: never mailed, used, replaced, or used meanwhile.
 RESET_INVALID = "Invalid reset token"
+
+#: What a verification resend says once the link is mailed, or while another is being mailed.
+VERIFICATION_SENT = "Verification email sent"
+
+#: What a verification resend says for an address with no account.
+VERIFICATION_NO_ACCOUNT = "If an account exists, a verification email has been sent"
+
+#: What a verification resend, or a verification link, says of an address already verified.
+ALREADY_VERIFIED = "Email already verified"
+
+#: What a verification link that is not live says: never mailed, used, replaced, or used meanwhile.
+VERIFY_INVALID = "Invalid verification token"
 
 #: What a sign-in past its limit says (``sign_in_limits``), ``{wait}`` being the time left of the
 #: limit's window; the password form puts "Forgot password?" beside it.
@@ -239,27 +250,6 @@ _SIGN_UP = _Bounds(
 def _limit_clock() -> datetime:
     """The moment a bounded request is counted at, which its take-back is counted at too."""
     return datetime.fromtimestamp(_now(), tz=timezone.utc)
-
-
-#: The field holding the secret a mail names, of each kind of mail ``_put_back`` puts back.
-_MAILED_SECRETS = ("verification_token",)
-
-
-def _put_back(email: str, written: Dict[str, Any], previous: dict) -> None:
-    """Puts back what a request stored for a mail that could not be sent, so that the account may
-    ask again at once and a link already in its inbox keeps working.
-
-    ``written`` is what the request set, its secret among it (``_MAILED_SECRETS``), and ``previous``
-    the account as the request read it; each written field gets back what the account held, an
-    absent one read as None. Only while the account still holds the secret the request wrote: a
-    newer link another request stored meanwhile is left. The request's counts are not taken back,
-    since they count requests whether or not a mail went.
-    """
-    held = {field: written[field] for field in _MAILED_SECRETS if field in written}
-    users_collection.update_one(
-        {"email": email, **held},
-        {"$set": {field: previous.get(field) for field in written}},
-    )
 
 
 def _next_code(wait: Optional[int]) -> str:
@@ -520,77 +510,71 @@ def register_user_with_captcha(bcrypt):
     if users_collection.find_one({"email": email}):
         return _answer_a_taken_address(email)
 
-    verification_token = generate_verification_token()
-    verification_token_expires = get_token_expiry(hours=1)
-
-    # Create user document
+    # The account is stored holding its verification link, being mailed.
+    account_id = str(uuid.uuid4())
+    issued, holding_the_link = account_secrets.issue_with_a_new_account(
+        account_secrets.VERIFY, account_id)
     user_doc = {
-        "id": str(uuid.uuid4()),
+        "id": account_id,
         "email": email,
         "password": hashed_password,
         "organizations": [],
         "email_verified": False,
-        "verification_token": verification_token,
-        "verification_token_expires": verification_token_expires,
+        **holding_the_link,
     }
-    
+
     result = _insert_unless_taken(user_doc)
     if result is None:
         return _answer_a_taken_address(email)
 
     if result.inserted_id:
-        # Send verification email
-        email_sent = send_verification_email(email, verification_token)
-        if not email_sent:
+        if not send_verification_email(email, issued.secret):
             # Email failed - rollback user creation to prevent orphaned unverified accounts
             users_collection.delete_one({"_id": result.inserted_id})
             return _sign_up_send_failed()
 
+        account_secrets.accepted(users_collection, account_secrets.VERIFY, issued)
         return _signed_up()
     else:
         return jsonify({"msg": "Failed to register user"}), 500
 
 
 def verify_email():
-    """Verify user's email with token."""
+    """Verify the address by the mailed link (``account_secrets.use_verification_link``).
+
+    The link is read first only to tell an expired link from one that is not there; using it is
+    one write found by the live link, so a link used meanwhile is answered as one that is not
+    there.
+    """
     data = json_object(required=False)
     token = string_field(data, "token")
 
     if not token:
         return jsonify({"msg": "Verification token required"}), 400
 
-    # Find user with matching token
-    user_doc = users_collection.find_one({"verification_token": token})
-    
-    if not user_doc:
-        return jsonify({"msg": "Invalid verification token"}), 400
-
-    # Check if token has expired
-    expires_at = user_doc.get("verification_token_expires")
-    if not verify_token_expiry(expires_at):
+    found = account_secrets.find_link(users_collection, account_secrets.VERIFY, token)
+    if found is account_secrets.Link.INVALID:
+        return jsonify({"msg": VERIFY_INVALID}), 400
+    if found is account_secrets.Link.EXPIRED:
         return jsonify({"msg": "Verification token has expired"}), 400
 
-    # Check if already verified
-    if user_doc.get("email_verified", False):
-        return jsonify({"msg": "Email already verified"}), 400
-
-    # Update user to verified
-    users_collection.update_one(
-        {"email": user_doc["email"]},
-        {
-            "$set": {
-                "email_verified": True,
-                "verification_token": None,
-                "verification_token_expires": None
-            }
-        }
-    )
+    already = account_secrets.use_verification_link(users_collection, token)
+    if already is None:
+        return jsonify({"msg": VERIFY_INVALID}), 400
+    if already:
+        return jsonify({"msg": ALREADY_VERIFIED}), 400
 
     return jsonify({"msg": "Email verified successfully"}), 200
 
 
 def resend_verification_email():
-    """Resend verification email to user, bounded per caller and per address (``_Bounds``)."""
+    """Mail the verification link again, bounded per caller and per address (``_Bounds``).
+
+    A new link replaces the last, and may be asked for at once (``account_secrets.VERIFY``), but
+    while another request's link is being mailed the request mails none and answers as sent, since
+    one link is on its way. A link the provider refused is unset, so no link is left live: the one
+    mailed before was replaced when this one was issued.
+    """
     now = _limit_clock()
     refused = _VERIFICATION_LINK.caller_refusal(now)
     if refused:
@@ -606,35 +590,26 @@ def resend_verification_email():
     if refused:
         return refused
 
-    # Find user
     user_doc = users_collection.find_one({"email": email})
-    
     if not user_doc:
         # Don't reveal if user exists for security
-        return jsonify({"msg": "If an account exists, a verification email has been sent"}), 200
+        return jsonify({"msg": VERIFICATION_NO_ACCOUNT}), 200
 
-    # Check if already verified
     if user_doc.get("email_verified", False):
-        return jsonify({"msg": "Email already verified"}), 400
+        return jsonify({"msg": ALREADY_VERIFIED}), 400
 
-    # Generate new verification token
-    verification_token = generate_verification_token()
-    verification_token_expires = get_token_expiry(hours=1)
+    issued = account_secrets.issue(users_collection, account_secrets.VERIFY, user_doc)
+    if issued is None:
+        return jsonify({"msg": VERIFICATION_NO_ACCOUNT}), 200
+    if isinstance(issued, account_secrets.Wait):
+        return jsonify({"msg": VERIFICATION_SENT}), 200
 
-    # Update user with new token
-    written = {
-        "verification_token": verification_token,
-        "verification_token_expires": verification_token_expires,
-    }
-    users_collection.update_one({"email": email}, {"$set": written})
-
-    # Send verification email; the link already in the inbox keeps working if it could not be sent
-    email_sent = send_verification_email(email, verification_token)
-    if not email_sent:
-        _put_back(email, written, user_doc)
+    if not send_verification_email(email, issued.secret):
+        account_secrets.refused(users_collection, account_secrets.VERIFY, issued)
         return jsonify({"msg": "Failed to send verification email"}), 500
 
-    return jsonify({"msg": "Verification email sent"}), 200
+    account_secrets.accepted(users_collection, account_secrets.VERIFY, issued)
+    return jsonify({"msg": VERIFICATION_SENT}), 200
 
 
 def request_password_reset():
@@ -685,8 +660,9 @@ def reset_password(bcrypt):
 
     The link is read first only to tell an expired link from one that is not there; the reset is
     one write found by the live link, so of two uses at once one resets and the other is answered
-    as a link that is not there. The write verifies the address, ends the account's code, and
-    replaces the login id, which signs out every session and remember-me cookie issued before.
+    as a link that is not there. The write verifies the address, ends the account's code and
+    verification link, and replaces the login id, which signs out every session and remember-me
+    cookie issued before.
     """
     data = json_object(required=False)
     token = string_field(data, "token")

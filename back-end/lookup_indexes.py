@@ -56,7 +56,6 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
     USERS_COLLECTION: [
         ("id",),
         # The email is not here: `api.users.ensure_user_indexes` builds it UNIQUE (E32/F03/S04).
-        ("verification_token",),
         *((field,) for field in account_secrets.LOOKUP_FIELDS),
         # The session and the remember-me cookie name the account by it, so it is read every request.
         ("login_id",),

@@ -26,15 +26,20 @@ The kinds, and how each lives (``KINDS``):
 | --- | --- | --- | --- | --- |
 | ``code`` | 6 digits (``generate_otp``) | 5 minutes | ``expires_at`` + 1 hour | 5 |
 | ``reset`` | ``token_urlsafe(24)`` (``generate_reset_token``) | 1 hour | ``expires_at`` + 1 hour | not counted |
+| ``verify`` | ``token_urlsafe(24)`` (``generate_verification_token``) | 1 hour | the moment it was mailed: no wait | not counted |
 
 A password reset by the mailed link (``use_reset_link``) is one write that sets the password, uses
-the link, ends every other secret the module keeps, marks the address verified and replaces the
+the link, ends the code and the verification link, marks the address verified and replaces the
 login id, so a code from before the reset no longer signs in and every sign-in issued before ends.
 
+A verification link is mailed with the account it verifies: sign-up inserts the account holding it
+already ``sending`` (``issue_with_a_new_account``). An operator verifies an account by hand through
+``verify_by_hand``, which ends its link as following it would.
+
 For one release the fields an account held its secrets in before this module (``otp``,
-``otp_expires``, ``otp_attempts``; ``password_reset_token``, ``password_reset_token_expires``) are
-still read: ``_upgrade`` turns them into the records once, before any change reads the account,
-and the follow-up named in ``docs/implementation/data/users-and-email.md`` deletes it whole.
+``otp_expires``, ``otp_attempts``; ``password_reset_token``, ``password_reset_token_expires``;
+``verification_token``, ``verification_token_expires``) are still read: ``_upgrade`` turns them
+into the records once, before any change reads the account, and the follow-up named in ``docs/implementation/data/users-and-email.md`` deletes it whole.
 """
 import hashlib
 import math
@@ -46,7 +51,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from pymongo import ReturnDocument
 
-from utils.tokens import generate_otp, generate_reset_token
+from utils.tokens import generate_otp, generate_reset_token, generate_verification_token
 
 SECRETS_FIELD = "secrets"
 
@@ -65,6 +70,8 @@ CODE_TRIES = 5
 RESET_LIFE = timedelta(hours=1)
 #: How long after a mailed reset link expires the account may ask for the next.
 RESET_WAIT = timedelta(hours=1)
+#: How long a verification link lasts once issued; the next may be asked for at once.
+VERIFY_LIFE = timedelta(hours=1)
 
 
 def now() -> datetime:
@@ -122,8 +129,9 @@ class Kind:
     hashed: Callable[[str], str]
     #: How long a secret lasts from being issued.
     life: timedelta
-    #: How long after a mailed secret expires the next may be issued.
-    wait: timedelta
+    #: How long after a mailed secret expires the next may be issued; None for no wait, when
+    #: ``next_allowed_at`` is the moment the secret was mailed.
+    wait: Optional[timedelta]
     #: What else the account must hold for a secret to be issued.
     issued_to: Dict[str, Any]
     #: The fields the account held this kind in before ``secrets``, read for one release.
@@ -214,11 +222,45 @@ RESET = Kind(
     from_legacy=_reset_from_legacy,
 )
 
-KINDS = (CODE, RESET)
+
+def _verify_from_legacy(account: dict) -> Optional[dict]:
+    """The verification link the legacy fields hold: a stored token is a live link with no wait.
+    A cleared token (a verified account, or one made by hand), or a token with no readable expiry,
+    is none."""
+    token = account.get("verification_token")
+    expires_at = _legacy_moment(account.get("verification_token_expires"))
+    if not (isinstance(token, str) and token) or expires_at is None:
+        return None
+    return {
+        "hash": hash_link(token),
+        "expires_at": expires_at,
+        "next_allowed_at": None,
+        "tries": 0,
+        "state": LIVE,
+    }
+
+
+VERIFY = Kind(
+    name="verify",
+    make=lambda: generate_verification_token(),
+    hashed=hash_link,
+    life=VERIFY_LIFE,
+    wait=None,
+    # A verified address is never mailed a link to verify it.
+    issued_to={"email_verified": {"$ne": True}},
+    legacy_fields=("verification_token", "verification_token_expires"),
+    from_legacy=_verify_from_legacy,
+)
+
+KINDS = (CODE, RESET, VERIFY)
+
+#: The kinds an account is found by from a link opened.
+LINK_KINDS = (RESET, VERIFY)
 
 #: The fields an account is found by from a link opened, each indexed (``lookup_indexes``): the
 #: link's hash, and for one release the legacy field that held the link as mailed.
-LOOKUP_FIELDS = (RESET.path("hash"), RESET.legacy_fields[0])
+LOOKUP_FIELDS = tuple(field for kind in LINK_KINDS
+                      for field in (kind.path("hash"), kind.legacy_fields[0]))
 
 #: Every legacy field the module still reads, for the one release.
 LEGACY_FIELDS = tuple(field for kind in KINDS for field in kind.legacy_fields)
@@ -275,20 +317,40 @@ class Wait:
     seconds: int
 
 
+def _new(kind: Kind, account_id: str, at: datetime) -> Issued:
+    """A new secret of ``kind`` for the account, issued at ``at``."""
+    secret = kind.make()
+    return Issued(account_id=account_id, secret=secret, hash=kind.hashed(secret),
+                  expires_at=at + kind.life)
+
+
+def _sending(issued: Issued) -> dict:
+    """The record of a secret issued and not yet mailed."""
+    return {"hash": issued.hash, "expires_at": issued.expires_at, "next_allowed_at": None,
+            "tries": 0, "state": SENDING}
+
+
+def issue_with_a_new_account(kind: Kind, account_id: str) -> Tuple[Issued, Dict[str, Any]]:
+    """A secret of ``kind`` for an account not yet stored, and the fields to store the account
+    with, holding it ``sending``: mail it once the account is inserted, then say how the provider
+    answered (``accepted``), or delete the account when it refused."""
+    issued = _new(kind, account_id, now())
+    return issued, {SECRETS_FIELD: {kind.name: _sending(issued)}}
+
+
 def issue(users, kind: Kind, account: dict) -> Union[Issued, Wait, None]:
     """Issue a new secret of ``kind`` to ``account`` (as the caller read it), in one write.
 
     It is issued while no wait is ahead and no other secret of the kind is being mailed; the record
     becomes ``sending`` with no wait, and the account's legacy fields of the kind are unset.
     Refused, the answer is the wait, read once more from the account: what is left of
-    ``next_allowed_at``, or for a secret being mailed, of its expiry and the kind's wait. None when
+    ``next_allowed_at``, or for a secret being mailed, of its expiry and the kind's wait (of its
+    expiry alone, for a kind with no wait). None when
     the account is gone, or no longer holds what the kind is issued to.
     """
     _upgrade(users, {"id": account["id"]}, account)
     at = now()
-    secret = kind.make()
-    issued = Issued(account_id=account["id"], secret=secret, hash=kind.hashed(secret),
-                    expires_at=at + kind.life)
+    issued = _new(kind, account["id"], at)
     wrote = users.update_one(
         {
             "id": account["id"],
@@ -298,10 +360,7 @@ def issue(users, kind: Kind, account: dict) -> Union[Issued, Wait, None]:
             "$nor": [{kind.path("state"): SENDING, kind.path("expires_at"): {"$gt": at}}],
         },
         {
-            "$set": {kind.path(): {
-                "hash": issued.hash, "expires_at": issued.expires_at, "next_allowed_at": None,
-                "tries": 0, "state": SENDING,
-            }},
+            "$set": {kind.path(): _sending(issued)},
             "$unset": {field: "" for field in kind.legacy_fields},
         },
     )
@@ -313,7 +372,7 @@ def issue(users, kind: Kind, account: dict) -> Union[Issued, Wait, None]:
     record = kind.record(held) or {}
     expires_at = _utc(record.get("expires_at"))
     if record.get("state") == SENDING and expires_at is not None and expires_at > at:
-        left = _seconds_until(expires_at + kind.wait, at)
+        left = _seconds_until(expires_at + (kind.wait or timedelta(0)), at)
     else:
         left = _seconds_until(record.get("next_allowed_at"), at)
     return Wait(seconds=max(1, left or 0))
@@ -331,11 +390,14 @@ def _still_sending(kind: Kind, issued: Issued, at: datetime) -> dict:
 
 
 def accepted(users, kind: Kind, issued: Issued) -> None:
-    """The provider took the mail: the secret is live, and the kind's wait is set."""
+    """The provider took the mail: the secret is live, and the kind's wait is set, running from
+    the secret's expiry, or for a kind with no wait, from now, the moment it was mailed."""
+    at = now()
     users.update_one(
-        _still_sending(kind, issued, now()),
+        _still_sending(kind, issued, at),
         {"$set": {kind.path("state"): LIVE,
-                  kind.path("next_allowed_at"): issued.expires_at + kind.wait}},
+                  kind.path("next_allowed_at"): (at if kind.wait is None
+                                                 else issued.expires_at + kind.wait)}},
     )
 
 
@@ -448,8 +510,8 @@ def use_reset_link(users, link: str, password: str, login_id: str) -> bool:
 
     The write sets ``password`` (already hashed) and the new ``login_id``, which ends every sign-in
     issued before; marks the address verified, since following the link proves the mailbox; uses
-    the link, clearing its wait; and ends every other secret the module keeps, the code among them,
-    with every legacy field it reads.
+    the link, clearing its wait; and ends the account's code and verification link, with every
+    legacy field the module reads.
     """
     used = users.find_one_and_update(
         {RESET.path("hash"): hash_link(link), RESET.path("state"): LIVE,
@@ -463,3 +525,33 @@ def use_reset_link(users, link: str, password: str, login_id: str) -> bool:
         {"_id": 0, "id": 1},
     )
     return used is not None
+
+
+def use_verification_link(users, link: str) -> Optional[bool]:
+    """Verify the address by the mailed ``link``, in one write found by the filter that names the
+    live link, which uses it: None when it matched nothing (used meanwhile, or expired), else
+    whether the address was verified already.
+    """
+    used = users.find_one_and_update(
+        {VERIFY.path("hash"): hash_link(link), VERIFY.path("state"): LIVE,
+         VERIFY.path("expires_at"): {"$gt": now()}},
+        {"$set": {"email_verified": True, VERIFY.path("state"): USED,
+                  VERIFY.path("next_allowed_at"): None}},
+        projection={"_id": 0, "email_verified": 1},
+        return_document=ReturnDocument.BEFORE,
+    )
+    if used is None:
+        return None
+    return used.get("email_verified") is True
+
+
+def verify_by_hand(users, email: str) -> bool:
+    """Mark the account verified as following its link would, for an operator: the address is
+    verified and its verification link ended, the legacy one with it. False when there is no
+    account for ``email``."""
+    verified = users.update_one(
+        {"email": email},
+        {"$set": {"email_verified": True},
+         "$unset": {VERIFY.path(): "", **{field: "" for field in VERIFY.legacy_fields}}},
+    )
+    return verified.matched_count == 1

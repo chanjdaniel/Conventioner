@@ -376,7 +376,8 @@ brings that stack up: without it the password-reset test in `auth.spec.ts` answe
 the unconfigured mailer. The password-reset E2E test does
 not read the reset link from an email, and cannot read it from MongoDB, which keeps only its
 hash: after asking for a link it plants one it knows with `plantAccountLink` in
-`front-end/e2e/helpers/accountSecrets.ts`, as `plantSignInCode` plants a code (through
+`front-end/e2e/helpers/accountSecrets.ts`, as the verification specs plant a verification link
+and `plantSignInCode` plants a code (through
 `mongoEval` in `front-end/e2e/helpers/mongo.ts`, which runs `mongosh` in the container named by
 `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 

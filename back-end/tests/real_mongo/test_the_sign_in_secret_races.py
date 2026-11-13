@@ -1,5 +1,5 @@
-"""An organizer's sign-in code and reset link each hold one state on a real server, with requests
-on real threads.
+"""An organizer's sign-in code, reset link and verification link each hold one state on a real
+server, with requests on real threads.
 
 Every guarantee rests on a write conditional on the state it moves from (``account_secrets``): the
 hermetic suite proves the table through fakes; these run the losing branch where it lives. Each
@@ -110,4 +110,35 @@ def test_five_uses_of_one_reset_link_at_once_reset_once(account, mailed_links, r
     stored = UsersApi.users_collection.find_one({"email": ORGANIZER})
     assert app_module.bcrypt.check_password_hash(stored["password"], reset_to)
     assert (stored["secrets"]["reset"]["state"], stored["email_verified"]) == (
+        account_secrets.USED, True)
+
+
+@pytest.fixture
+def mailed_verification_links(monkeypatch):
+    """Every verification link mailed, in order; each send is taken by the provider."""
+    links = []
+
+    def send(to, link):
+        links.append((to, link))
+        return True
+
+    monkeypatch.setattr(UsersApi, "send_verification_email", send)
+    return links
+
+
+def test_five_uses_of_one_verification_link_at_once_verify_once(
+        account, mailed_verification_links, race):
+    UsersApi.users_collection.update_one({"email": ORGANIZER}, {"$set": {"email_verified": False}})
+    [asked] = _clients(1)
+    assert asked.post("/resend-verification", json={"email": ORGANIZER}).status_code == 200
+    [(_to, link)] = mailed_verification_links
+    clients = _clients(5)
+    harness.warm(UsersApi.users_collection, 5)
+
+    answered = race(5, lambda i: clients[i].post("/verify-email", json={"token": link}))
+
+    assert sorted((answer.status_code, answer.get_json()["msg"]) for answer in answered) == [
+        (200, "Email verified successfully"), *[(400, "Invalid verification token")] * 4]
+    stored = UsersApi.users_collection.find_one({"email": ORGANIZER})
+    assert (stored["secrets"]["verify"]["state"], stored["email_verified"]) == (
         account_secrets.USED, True)
