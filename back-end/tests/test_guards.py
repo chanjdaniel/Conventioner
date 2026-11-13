@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
 from conftest import assignment_object, complete_setup, review_setup_decided
 
+import assignment.lifecycle as Lifecycle
 import guards
 from datatypes import (
     ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions, FormField,
@@ -896,6 +897,42 @@ class TestAssignmentComputedGuard:
         assert result.message == self.FREED_AFTER_RESULTS
         assert (result.resolution_link, result.resolution_label, result.resolution_action) == (
             "assignments", "Assign tables", "assign")
+
+    SETTLED_WITH_NOBODY = (
+        "Nobody has a table, so this market's vendor page could not tell anyone where to stand. "
+        "The table allocation for this market is settled, so tables are not allocated again: "
+        "assign each one by hand."
+    )
+
+    @pytest.mark.parametrize("assignment", [
+        assignment_object("none"),
+        assignment_object("run", made_from=RUN),
+    ], ids=["nothing stored", "a run freed down to nobody"])
+    def test_a_market_left_in_offers_with_nobody_seated_points_at_assigning_by_hand(
+            self, assignment):
+        """A run is refused outside Assignment, so Allocate tables would be refused in Offers: the
+        sentence is the owner's, which knows the phase, and the remedy is the grid (T316)."""
+        result = AssignmentComputedGuard().evaluate(_make_market(
+            phase=MarketPhase.OFFERS, assignment_object=assignment), None)
+
+        assert not result.passed
+        assert result.id == "assignment_computed"
+        assert result.message == self.SETTLED_WITH_NOBODY
+        assert (result.resolution_link, result.resolution_label, result.resolution_action) == (
+            "assignments", "Assign tables", "assign")
+
+    def test_its_sentence_is_the_lifecycle_owners(self):
+        """The guard passes on the owner's refusal, so the phase is read in one place (T316)."""
+        market = _make_market(phase=MarketPhase.OFFERS, assignment_object=assignment_object("none"))
+
+        refusal = Lifecycle.unallocated_refusal(market)
+        result = AssignmentComputedGuard().evaluate(market, None)
+
+        assert result.message == refusal.message
+        assert Lifecycle.unallocated_refusal(_make_market(
+            phase=MarketPhase.ASSIGNMENT,
+            assignment_object=assignment_object("run", [self._seat()], made_from=self.RUN),
+        )) is None
 
     def test_a_market_published_before_runs_recorded_their_state_passes(self):
         """Published on tables assigned by hand before T316: nothing in a running market moves."""

@@ -377,8 +377,10 @@ class AssignmentComputedGuard:
     It asks the assignment's lifecycle owner (``assignment/lifecycle.py``, T316) where the
     allocation stands, and refuses ``none``, ``pinned`` (tables assigned by hand alone, which told
     every other approved vendor they had no table though the solver never ran, T277) and an
-    allocation with no row stored; with results published and every seat freed, its remedy is
-    assigning by hand on the Assignments page, since a run is refused then. The cautionary example
+    allocation with no row stored. Its words and remedy are the owner's (``unallocated_refusal``),
+    which reads the phase so that no guard does: with nobody seated where a run is refused (results
+    published, or a market left in Offers), the remedy is assigning by hand on the Assignments
+    page. Its verdict is the same in every phase. The cautionary example
     is in this same file: ``offers`` has an entry invariant and is deadlocked precisely because
     that invariant waits on statuses nothing ever sets.
     """
@@ -387,37 +389,24 @@ class AssignmentComputedGuard:
     description: str = "Tables have been allocated"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
-        standing = Lifecycle.allocation(market, judge_stale=False)
-        if standing is Lifecycle.Allocation.PINNED:
-            return self._refused(
-                "Only tables assigned by hand are stored, so every other approved vendor would "
-                "read that they did not get one. Allocate tables first: allocating keeps the "
-                "tables you assigned.")
-        if not market.assignment_object.vendor_assignments and Lifecycle.results_out(standing):
-            # Every seat freed after results: a run is refused now, so the remedy is the grid,
-            # where a seat is still given by hand (T316).
+        refusal = Lifecycle.unallocated_refusal(market)
+        if refusal is None:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        if refusal.remedy is Lifecycle.Remedy.BY_HAND:
+            # A run is refused here, so the remedy is the grid, where a seat is still given by
+            # hand (T316).
             return PreconditionResult(
                 id=self.id,
                 passed=False,
-                message=(
-                    "Nobody has a table, so this market's vendor page could not tell anyone "
-                    "where to stand. Results are published, so tables are not allocated again: "
-                    "assign each one by hand."),
+                message=refusal.message,
                 resolution_link="assignments",
                 resolution_label="Assign tables",
                 resolution_action="assign",
             )
-        if standing is Lifecycle.Allocation.NONE or not market.assignment_object.vendor_assignments:
-            return self._refused(
-                "No tables have been allocated for this market, so its vendor page could "
-                "not tell anyone where to stand. Allocate tables first.")
-        return PreconditionResult(id=self.id, passed=True, message="")
-
-    def _refused(self, message: str) -> PreconditionResult:
         return PreconditionResult(
             id=self.id,
             passed=False,
-            message=message,
+            message=refusal.message,
             resolution_link="settings",
             resolution_label="Allocate tables",
             resolution_action="assign",

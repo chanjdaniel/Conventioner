@@ -180,6 +180,35 @@ function theFormIsDrafted(market: Market): boolean {
   return (market.applicationForm?.fields?.length ?? 0) > 0 || Array.isArray(market.exampleColumns);
 }
 
+/** Publish results waits on a stale run, and the server would take a new one. */
+function staleRunToPublish(market: Market, blocker: PreconditionResult): boolean {
+  return (
+    blocker.resolutionAction === MarketAction.PublishResults &&
+    Boolean(market.publishWaitsReason) &&
+    market.allocation === 'stale' &&
+    !market.assignRefusalReason
+  );
+}
+
+/**
+ * Whether the server would take a blocker's remedy as it stands (T316): Allocate tables only where
+ * `assignRefusalReason` is clear, Publish results only where `publishWaitsReason` is, each the
+ * server's own answer for that action. A market left in Offers was offered both, and refused
+ * both. Whether this person may take it is the role's, `mayTake`; an answer the read does not
+ * carry leaves the remedy to the role, as before.
+ */
+export function serverTakesRemedy(
+  market: Pick<Market, 'assignRefusalReason' | 'publishWaitsReason'> | null | undefined,
+  blocker: Pick<PreconditionResult, 'resolutionAction' | 'resolutionLink'> | null | undefined,
+): boolean {
+  if (blocker?.resolutionAction === MarketAction.PublishResults) return !market?.publishWaitsReason;
+  // A run is Assign's remedy on Settings, where its button is; on Assignments it is a seat by hand.
+  if (blocker?.resolutionAction === MarketAction.Assign && blocker.resolutionLink === 'settings') {
+    return !market?.assignRefusalReason;
+  }
+  return true;
+}
+
 /**
  * The first thing in a move's way, in the order the organizer works through it: the first blocker
  * served, except that the form comes before Review setup (T260).
@@ -194,6 +223,17 @@ function theFormIsDrafted(market: Market): boolean {
  */
 export function firstInTheWay(market: Market, toPhase: string | null): PreconditionResult | null {
   const [blocker] = blockersFor(market, toPhase);
+  if (blocker && staleRunToPublish(market, blocker)) {
+    // A stale run's fix is a new run (T316): Publish results is refused as out of date, so the
+    // rail says the server's refusal and offers what puts it right, where the server takes a run.
+    return {
+      ...blocker,
+      message: market.publishWaitsReason!,
+      resolutionLink: 'settings',
+      resolutionLabel: 'Allocate tables',
+      resolutionAction: MarketAction.Assign,
+    };
+  }
   if (!blocker || !REVIEW_SETUP.has(blocker.id)) return blocker ?? null;
   if (theFormIsDrafted(market)) return blocker;
   // The decision still open, as the end of a sentence: "then decide what reviewers read first".
@@ -535,7 +575,7 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
         : `To ${pathTransitionLabel(phase, forward, path).toLowerCase()}`;
     return {
       text: `${stage ? `${lead} ` : ''}${ask}: ${standing.message}`,
-      page: standing.resolutionLink ?? null,
+      page: serverTakesRemedy(market, standing) ? (standing.resolutionLink ?? null) : null,
       blocker: standing,
       action: remedy,
     };

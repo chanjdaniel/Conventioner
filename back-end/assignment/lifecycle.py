@@ -335,6 +335,60 @@ def may_go_live(market: Market) -> bool:
     return results_published(market) and bool(market.assignment_object.vendor_assignments)
 
 
+NOTHING_ALLOCATED_TO_GO_LIVE = (
+    "No tables have been allocated for this market, so its vendor page could not tell anyone "
+    "where to stand. Allocate tables first."
+)
+PINS_ONLY_TO_GO_LIVE = (
+    "Only tables assigned by hand are stored, so every other approved vendor would read that they "
+    "did not get one. Allocate tables first: allocating keeps the tables you assigned."
+)
+NOBODY_SEATED_AFTER_RESULTS = (
+    "Nobody has a table, so this market's vendor page could not tell anyone where to stand. "
+    "Results are published, so tables are not allocated again: assign each one by hand."
+)
+NOBODY_SEATED_SETTLED = (
+    "Nobody has a table, so this market's vendor page could not tell anyone where to stand. "
+    "The table allocation for this market is settled, so tables are not allocated again: assign "
+    "each one by hand."
+)
+
+
+class Remedy(str, Enum):
+    """What puts an unallocated market right: a run, or a seat given by hand where a run is refused."""
+
+    RUN = "run"
+    BY_HAND = "by_hand"
+
+
+class Refusal(NamedTuple):
+    """Why the market's allocation cannot go live, and what puts it right."""
+
+    message: str
+    remedy: Remedy
+
+
+def unallocated_refusal(market: Market) -> Optional[Refusal]:
+    """Why the market cannot go live on its allocation, or None once a run with a row is stored.
+
+    The ``assignment_computed`` guard passes this on, so the phase is read here, never in a guard:
+    its verdict is the same in every phase, and only its words and remedy follow where a run is
+    still taken. A run is refused once results are out and outside ``assignment`` (a market left in
+    Offers), so with nobody seated there the remedy is a seat given by hand (T316).
+    """
+    standing = allocation(market, judge_stale=False)
+    seated = bool(market.assignment_object.vendor_assignments)
+    if standing is Allocation.PINNED:
+        return Refusal(PINS_ONLY_TO_GO_LIVE, Remedy.RUN)
+    if seated and standing is not Allocation.NONE:
+        return None
+    if results_out(standing):
+        return Refusal(NOBODY_SEATED_AFTER_RESULTS, Remedy.BY_HAND)
+    if market.phase is not MarketPhase.ASSIGNMENT:
+        return Refusal(NOBODY_SEATED_SETTLED, Remedy.BY_HAND)
+    return Refusal(NOTHING_ALLOCATED_TO_GO_LIVE, Remedy.RUN)
+
+
 def publish(document: Mapping[str, Any]) -> None:
     """Publish results' write: ``resultsPublished`` set, and ``publishedRevision`` set to the
     assignment ``revision`` it stood on, so a change by hand after it reads as

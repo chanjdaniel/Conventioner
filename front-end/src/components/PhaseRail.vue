@@ -50,6 +50,7 @@ import {
   nextStep,
   pathPhaseLabel,
   pathTransitionLabel,
+  serverTakesRemedy,
   spineFor,
   stageActions,
   type StageAction,
@@ -277,9 +278,10 @@ const fix = computed(() => {
   // The move's own first blocker - not the sentence's, which before a run says "run the assignment"
   // in its own words and names no blocker - with the form before Review setup (T260).
   const blocker = props.market ? firstInTheWay(props.market, forwardTransition.value) : null;
-  const to = mayTake(props.market, blocker?.resolutionAction)
-    ? elsewhere(blocker?.resolutionLink)
-    : null;
+  const to =
+    mayTake(props.market, blocker?.resolutionAction) && serverTakesRemedy(props.market, blocker)
+      ? elsewhere(blocker?.resolutionLink)
+      : null;
   return blocker?.resolutionLabel && to ? { label: blocker.resolutionLabel, to } : null;
 });
 

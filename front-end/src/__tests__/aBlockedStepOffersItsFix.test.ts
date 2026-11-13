@@ -371,3 +371,131 @@ describe('a remedy or a step is offered only to someone who may take it', () => 
     });
   });
 });
+
+/*
+ * A remedy the server refuses is never offered (T316): a market left in Offers was offered
+ * "Allocate tables", whose Settings button the server's `assignRefusalReason` keeps disabled
+ * there, and "Publish results", which `publishWaitsReason` refuses outside Assignment. The rail
+ * reads the server's answer for the action a remedy takes, as it reads the role's.
+ */
+describe('a remedy the server refuses is never offered', () => {
+  const NOT_RUN: PreconditionResult = {
+    id: 'assignment_computed',
+    passed: false,
+    message:
+      'No tables have been allocated for this market, so its vendor page could not tell anyone where to stand. Allocate tables first.',
+    resolutionLink: 'settings',
+    resolutionLabel: 'Allocate tables',
+    resolutionAction: MarketAction.Assign,
+  };
+  const UNTOLD: PreconditionResult = {
+    id: 'results_published',
+    passed: false,
+    message: 'Vendors have not been told whether they have a table.',
+    resolutionLink: 'applications',
+    resolutionLabel: 'Publish results',
+    resolutionAction: MarketAction.PublishResults,
+  };
+  const SETTLED =
+    'The table allocation for this market is settled. Change a single assignment on the Assignments page instead of allocating tables again.';
+  const OUTSIDE_ASSIGNMENT = 'Results are published from the assignment phase.';
+  const nextLink = '[data-testid="phase-rail-next-link"]';
+  const inOffers = (blockers: PreconditionResult[], overrides: Partial<Market> = {}) =>
+    railFor(
+      [],
+      {
+        phase: MarketPhase.Offers,
+        allocation: 'none',
+        assignRefusalReason: SETTLED,
+        publishWaitsReason: OUTSIDE_ASSIGNMENT,
+        transitionBlockers: { [MarketPhase.MarketDays]: blockers },
+        ...overrides,
+      },
+      '/markets/market-1/assignments',
+    );
+
+  it('in Offers with nothing stored, no Allocate tables, as a button or as a link', () => {
+    const rail = inOffers([NOT_RUN]);
+
+    expect(rail.find(fix).exists()).toBe(false);
+    expect(rail.find(nextLink).exists()).toBe(false);
+    expect(
+      rail.get('[data-testid="phase-transition-market_days"]').attributes('disabled'),
+    ).toBeDefined();
+  });
+
+  it('in Offers with an allocation stored, no Publish results, as a button or as a link', () => {
+    const rail = inOffers([UNTOLD], { allocation: 'current' });
+
+    expect(rail.find(fix).exists()).toBe(false);
+    expect(rail.find(nextLink).exists()).toBe(false);
+  });
+
+  it('in Assignment, where the server takes them, both are offered as before', () => {
+    const inAssignment = (blocker: PreconditionResult, overrides: Partial<Market>) =>
+      railFor(
+        [],
+        {
+          phase: MarketPhase.Assignment,
+          transitionBlockers: { [MarketPhase.MarketDays]: [blocker] },
+          assignRefusalReason: null,
+          publishWaitsReason: null,
+          ...overrides,
+        },
+        '/markets/market-1/assignments',
+      );
+
+    expect(inAssignment(UNTOLD, { allocation: 'current' }).get(fix).text()).toBe('Publish results');
+    // A stale run's remedy is a run again, which the server takes in Assignment.
+    expect(
+      inAssignment({ ...NOT_RUN, id: 'assignment_after_review' }, { allocation: 'stale' })
+        .get(fix)
+        .text(),
+    ).toBe('Allocate tables');
+  });
+
+  // A run made stale by a rule change: Publish results is refused as out of date, and its fix is a
+  // new run, said in the server's own refusal.
+  const OUT_OF_DATE =
+    'The table allocation is out of date. Allocate tables again before publishing, so applicants are told what the market will hold.';
+  const staleInAssignment = (overrides: Partial<Market> = {}) =>
+    railFor(
+      [],
+      {
+        phase: MarketPhase.Assignment,
+        allocation: 'stale',
+        transitionBlockers: { [MarketPhase.MarketDays]: [UNTOLD] },
+        assignRefusalReason: null,
+        publishWaitsReason: OUT_OF_DATE,
+        ...overrides,
+      },
+      '/markets/market-1/assignments',
+    );
+
+  it('a stale run is offered a new one, in the words of why it may not be published', () => {
+    const rail = staleInAssignment();
+
+    const button = rail.get(fix);
+    expect(button.text()).toBe('Allocate tables');
+    expect(button.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/settings');
+    expect(rail.get('[data-testid="phase-rail-next"]').text()).toBe(
+      `To publish market: ${OUT_OF_DATE}`,
+    );
+  });
+
+  it('a stale run is offered nothing where the server refuses a run too', () => {
+    const rail = staleInAssignment({ assignRefusalReason: 'Results are already published.' });
+
+    expect(rail.find(fix).exists()).toBe(false);
+    expect(rail.find(nextLink).exists()).toBe(false);
+  });
+
+  it('an unread answer leaves the remedy to the role, as an older server served it', () => {
+    const rail = inOffers([NOT_RUN], {
+      assignRefusalReason: undefined,
+      publishWaitsReason: undefined,
+    });
+
+    expect(rail.get(fix).text()).toBe('Allocate tables');
+  });
+});
