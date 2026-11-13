@@ -91,6 +91,7 @@ describes:
   - front-end/src/utils/sessionEnded.ts
   - front-end/src/utils/pageFailed.ts
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
+  - front-end/e2e/a-request-too-large-to-carry.spec.ts
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
   - back-end/api/applicant_auth.py#_send_code_email
@@ -301,9 +302,16 @@ Each kind of failure reads one way, chosen in one place, `getApiErrorMessage(err
 | Another 5xx with no sentence of the back end's (a proxy's 502 or 504)                      | The same                                                      |
 | Another 5xx with a sentence (Discord's `DiscordNotSetUp` 503 and `DiscordUnavailable` 502) | That sentence                                                 |
 | A 401 with no sentence (Flask-Login's)                                                     | "Your session has ended. Sign in again."                      |
-| A 413 with no sentence (the host's or a proxy's, over 4.5 MB)                              | "This was larger than the 4.5 MB one request can carry."      |
+| A body over the host's 4.5 MB, refused by the client before it is sent                     | "This was larger than the 4.5 MB one request can carry."      |
+| A 413 the page can read with no sentence (a proxy's that sends CORS headers)               | The same                                                      |
 | Any other refusal, a 401 with a sentence included (the applicant's code check)             | Its `error`, else its `message`                               |
 | A refusal with neither, or a failure that is not a request's                               | The screen's fallback                                         |
+
+Production's host refuses a body over 4.5 MB itself, before the back end runs, with a 413 that carries none of the back end's CORS headers, so the browser hides it from the page, which reads no answer at all, a failed connection.
+So the client refuses such a body before it is sent: `refuseWhatTheHostWould` in [`api.ts`](../../../front-end/src/utils/api.ts), the last of the `api` client's `transformRequest`, measures the body as it is sent against `MAX_REQUEST_BODY_BYTES`, the host's 4,500,000 bytes, and fails the request with the code `ERR_REQUEST_TOO_LARGE`, which `getApiErrorMessage` words as too large to carry.
+A form is counted by its fields' and files' bytes, its multipart framing left out, so nothing within the limit is refused.
+`api.test.ts` sends each kind of body through an adapter that records a send, and [`a-request-too-large-to-carry.spec.ts`](../../../front-end/e2e/a-request-too-large-to-carry.spec.ts) sends one over the limit through the app's client to a server of its own on another origin, which answers 413 with no CORS header as the host does: before the client refused it, the page said the organizer seemed to be offline.
+It plays the host with a server, not `page.route`, whose `fulfill` adds the CORS header a cross-origin answer lacks.
 
 A fallback says what did not happen ("The verdict was not saved.", "The applications could not be loaded."), never "Failed to ...".
 A download asks for a blob, so `downloadErrorMessage` in [`front-end/src/utils/download.ts`](../../../front-end/src/utils/download.ts) reads a refusal's sentence out of it and then answers the same way, through `answerMessage`.
