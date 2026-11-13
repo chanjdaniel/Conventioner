@@ -19,9 +19,9 @@ def row(email, hand_placed=False):
     }
 
 
-def store(markets, market_id, assignment_object, **fields):
+def store(markets, market_id, assignment_object, phase=MarketPhase.ASSIGNMENT, **fields):
     markets.insert_one(stored_market(
-        MarketPhase.ASSIGNMENT, id=market_id, name=f"Fixture {market_id}",
+        phase, id=market_id, name=f"Fixture {market_id}",
         assignmentObject=assignment_object, **fields))
 
 
@@ -44,12 +44,19 @@ def test_every_market_is_given_its_state_and_a_second_run_changes_nothing(real_d
         "run", rows=[row("run@example.com")], made_from=MADE_FROM, revision=4))
     store(markets, "deleting", {"vendorAssignments": [row("gone@example.com")]},
           deleting={"at": "2026-11-13T00:00:00+00:00", "by": "user-1", "trail_id": "t-1"})
+    # Live and archived before T316, published on tables assigned by hand alone (T277's state).
+    store(markets, "live-pins", {"vendorAssignments": [row("door@example.com", True)],
+                                 "revision": 6}, phase=MarketPhase.MARKET_DAYS,
+          resultsPublished=True)
+    store(markets, "archived-run", {"vendorAssignments": [row("past@example.com")],
+                                    "revision": 1}, phase=MarketPhase.ARCHIVED,
+          resultsPublished=True)
     before = list(markets.find({}, {"_id": 0}))
 
-    assert migrate(dry_run=True) == 4
+    assert migrate(dry_run=True) == 6
     assert list(markets.find({}, {"_id": 0})) == before
 
-    assert migrate() == 4
+    assert migrate() == 6
 
     legacy = assignment_of(markets, "legacy-run")
     assert (legacy["state"], legacy["madeFrom"], legacy["publishedRevision"]) == (
@@ -61,6 +68,16 @@ def test_every_market_is_given_its_state_and_a_second_run_changes_nothing(real_d
     assert assignment_of(markets, "rolled-back")["state"] == "pinned"
     assert assignment_of(markets, "rolled-back")["madeFrom"] is None
     assert "state" not in assignment_of(markets, "deleting")
+    live_pins = assignment_of(markets, "live-pins")
+    assert (live_pins["state"], live_pins["publishedRevision"], live_pins["revision"]) == (
+        "pinned", 6, 6)
+    assert "madeFrom" not in live_pins
+    archived = assignment_of(markets, "archived-run")
+    assert (archived["state"], archived["madeFrom"], archived["publishedRevision"]) == (
+        "run", LEGACY_MADE_FROM, 1)
+    assert [m["phase"] for m in markets.find(
+        {"id": {"$in": ["live-pins", "archived-run"]}}).sort("id", 1)] == [
+        "archived", "market_days"]
     after_first = list(markets.find({}, {"_id": 0}))
 
     assert migrate() == 0

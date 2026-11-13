@@ -11,6 +11,7 @@ import copy
 import pytest
 
 import assignment.lifecycle as Lifecycle
+import guards
 import market_write as MarketWrite
 from assignment.lifecycle import LEGACY_MADE_FROM, Allocation
 from conftest import FakeSlugMarketsCollection, stored_assignment, stored_market
@@ -182,6 +183,59 @@ def test_a_recorded_published_revision_is_left(database):
     assert migrate(db) == 0
 
     assert db.markets.docs == before
+
+
+#: The ``market_days`` entry invariants about the allocation; ``no_orphaned_pin`` is the plan's.
+ASSIGNMENT_INVARIANTS = {"assignment_computed", "assignment_after_review", "results_published"}
+
+
+def invariants(document):
+    """Each ``market_days`` assignment invariant's verdict on the market as stored."""
+    model = market_from_document(copy.deepcopy(document))
+    return {guard.id: guard.evaluate(model, None).passed
+            for guard in guards.PHASE_ENTRY_INVARIANTS["market_days"]
+            if guard.id in ASSIGNMENT_INVARIANTS}
+
+
+def test_a_running_market_published_on_hand_assignments_alone_reads_as_it_did(database):
+    """A market that went live on tables assigned by hand alone before T316, the state T277
+    reproduced: it stores pins only and the revision its results stood on, reads as published,
+    its rows untouched, and every assignment invariant of its market days still passes."""
+    rows = [row(hand_placed=True), row("other@example.com", "A2", hand_placed=True)]
+    db = database(market("m1", assignment(rows=rows, revision=3), phase=MarketPhase.MARKET_DAYS,
+                         resultsPublished=True))
+    before = invariants(stored(db, "m1"))
+
+    assert migrate(db) == 1
+
+    assert stored_object(db, "m1")["state"] == "pinned"
+    assert "madeFrom" not in stored_object(db, "m1")
+    assert stored_object(db, "m1")["publishedRevision"] == 3
+    assert stored_object(db, "m1")["vendorAssignments"] == rows
+    assert stored(db, "m1")["phase"] == "market_days"
+    assert Lifecycle.allocation(market_from_document(copy.deepcopy(stored(db, "m1")))) is (
+        Allocation.PUBLISHED)
+    assert set(before) == ASSIGNMENT_INVARIANTS
+    assert invariants(stored(db, "m1")) == before == dict.fromkeys(ASSIGNMENT_INVARIANTS, True)
+
+
+def test_an_archived_market_is_migrated_like_any_other(database):
+    """An archived market is live (not being deleted), so it is migrated: the write holds only
+    what the judgment read, so the archived phase refuses nothing, and it reads as published."""
+    rows = [row(), row("other@example.com", "A2", hand_placed=True)]
+    db = database(market("m1", assignment(rows=rows, revision=2), phase=MarketPhase.ARCHIVED,
+                         resultsPublished=True))
+
+    assert migrate(db) == 1
+
+    assert stored_object(db, "m1")["state"] == "run"
+    assert stored_object(db, "m1")["madeFrom"] == LEGACY_MADE_FROM
+    assert stored_object(db, "m1")["publishedRevision"] == 2
+    assert stored_object(db, "m1")["vendorAssignments"] == rows
+    assert stored(db, "m1")["phase"] == "archived"
+    assert Lifecycle.allocation(market_from_document(copy.deepcopy(stored(db, "m1")))) is (
+        Allocation.PUBLISHED)
+    assert migrate(db) == 0
 
 
 def test_an_unpublished_market_gains_no_published_revision(database):
