@@ -194,6 +194,6 @@ The organizer's ceiling on how many days any one vendor may be assigned, bounded
 **Sign-in secret**:
 What a mail carries to an organizer's account so they can sign in or settle the account: its sign-in code, reset link or verification link.
 The server keeps one record of a sign-in secret, never the secret itself but its hash, in one of four states: being mailed, live, used or discarded.
-The sign-in code is kept so; the reset link and the verification link are still kept in fields of their own until they join it.
+The sign-in code and the reset link are kept so; the verification link is still kept in fields of its own until it joins them.
 _Avoid_: token, OTP, as names of the record
 See [the sign-in secrets](docs/implementation/data/users-and-email.md#the-sign-in-secrets).

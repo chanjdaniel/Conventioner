@@ -154,11 +154,14 @@ Covered by:
 
 1. At `/login`, choose "Forgot password?"; enter email on `/reset-password-request`.
 2. Follow the emailed link to `/reset-password`, set a new password; every browser signed in to the account, remembered or not, is signed out.
-3. Sign in with the new password.
+   Following the link proves the mailbox, so the reset also marks the address verified, and a sign-in code asked for before it stops working ([the reset link used](../../implementation/data/users-and-email.md#the-sign-in-secrets)).
+3. Sign in with the new password, an address never verified included.
 
 Branches: asking for another link before an hour has passed since the last one expired ("You can ask for another reset link in N minutes."), asking too often, a new password too short or too long.
 
 - A link that could not be mailed says "Failed to send password reset email", and asking again sends one at once ([a failed send leaves no wait armed](../../implementation/data/users-and-email.md#a-failed-send-leaves-no-wait-armed)).
+
+- A link resets once: used again, or opened twice at once, the second says "Invalid reset token" and changes nothing.
 
 - A new password longer than 72 bytes says "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one.", as at sign-up (A1), and leaves the password and the link as they were.
 
@@ -174,12 +177,12 @@ Covered by:
 
 ## A4a. Change a password while signed in
 
-**Status:** Works as far as it can be walked without a mailer: `account-links.spec.ts` walks it to the new password in one browser, reading the link's token from where the server keeps it (T209).
+**Status:** Works as far as it can be walked without a mailer: `account-links.spec.ts` walks it to the new password in one browser, planting a link it knows in place of the one mailed, since the server keeps only the link's hash (T209).
 **Task:** "Change your password."
 
 1. Choose "Change password" in [the bar's account menu, or its sheet on a phone](finding-a-market.md#c4-the-navigation-menu); it opens `/reset-password-request` with the address filled in.
 2. Choose "Send reset link"; the address stays editable, and "Back to Markets" leaves without sending anything.
-3. Follow the emailed link and set a new password, as in A4; every browser signed in to the account is signed out, this one with it.
+3. Follow the emailed link and set a new password, as in A4; every browser signed in to the account is signed out, this one with it, and a sign-in code asked for before stops working.
    A link for another account signs this browser out too, whoever it was signed in as.
 4. Expect the password's confirmation, then sign-in with nothing said of a session ending; sign in with the new password.
 

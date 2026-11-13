@@ -33,7 +33,7 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.users as UsersApi
-from sign_in_secrets import live_code
+from sign_in_secrets import live_code, live_link
 from utils.session_storage import ON_DISK, install_session_storage
 
 
@@ -82,10 +82,6 @@ class OneAccount:
         self.doc = mongo_update(self.doc, update)
 
 
-def _in_an_hour():
-    return (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-
-
 @pytest.fixture
 def users(monkeypatch):
     collection = OneAccount({
@@ -94,9 +90,7 @@ def users(monkeypatch):
         "password": app_module.bcrypt.generate_password_hash(FIXTURE_PASSWORD).decode("utf-8"),
         "organizations": [],
         "email_verified": True,
-        "password_reset_token": RESET_TOKEN,
-        "password_reset_token_expires": _in_an_hour(),
-        "secrets": {"code": live_code(FIXTURE_OTP)},
+        "secrets": {"code": live_code(FIXTURE_OTP), "reset": live_link(RESET_TOKEN)},
     })
     monkeypatch.setattr(UsersApi, "users_collection", collection)
     return collection

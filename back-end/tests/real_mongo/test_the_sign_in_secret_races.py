@@ -1,4 +1,5 @@
-"""An organizer's sign-in code holds one state on a real server, with requests on real threads.
+"""An organizer's sign-in code and reset link each hold one state on a real server, with requests
+on real threads.
 
 Every guarantee rests on a write conditional on the state it moves from (``account_secrets``): the
 hermetic suite proves the table through fakes; these run the losing branch where it lives. Each
@@ -74,3 +75,39 @@ def test_five_right_codes_at_once_sign_in_once(account, mailed, race):
     assert sorted(answer.status_code for answer in answered) == [200, 401, 401, 401, 401]
     stored = _stored_code()
     assert (stored["state"], stored["next_allowed_at"]) == (account_secrets.USED, None)
+
+
+@pytest.fixture
+def mailed_links(monkeypatch):
+    """Every reset link mailed, in order; each send is taken by the provider."""
+    links = []
+
+    def send(to, link):
+        links.append((to, link))
+        return True
+
+    monkeypatch.setattr(UsersApi, "send_password_reset_email", send)
+    return links
+
+
+def test_five_uses_of_one_reset_link_at_once_reset_once(account, mailed_links, race):
+    import app as app_module
+
+    [asked] = _clients(1)
+    assert asked.post("/request-password-reset", json={"email": ORGANIZER}).status_code == 200
+    [(_to, link)] = mailed_links
+    passwords = [f"fixture-racing-password-{i}" for i in range(5)]
+    clients = _clients(5)
+    harness.warm(UsersApi.users_collection, 5)
+
+    answered = race(5, lambda i: clients[i].post(
+        "/reset-password", json={"token": link, "new_password": passwords[i]}))
+
+    assert sorted((answer.status_code, answer.get_json()["msg"]) for answer in answered) == [
+        (200, "Password reset successfully"), *[(400, "Invalid reset token")] * 4]
+    [reset_to] = [password for password, answer in zip(passwords, answered)
+                  if answer.status_code == 200]
+    stored = UsersApi.users_collection.find_one({"email": ORGANIZER})
+    assert app_module.bcrypt.check_password_hash(stored["password"], reset_to)
+    assert (stored["secrets"]["reset"]["state"], stored["email_verified"]) == (
+        account_secrets.USED, True)

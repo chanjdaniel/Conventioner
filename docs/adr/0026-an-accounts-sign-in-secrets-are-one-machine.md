@@ -25,7 +25,7 @@ And a copy of the database held every live code and link as it was mailed.
 **Each kind of secret is one record under the account's `secrets` field, and [`back-end/account_secrets.py`](../../back-end/account_secrets.py) is the only code that reads or writes them.**
 
 - A record is `{hash, expires_at, next_allowed_at, tries, state}`; `state` is `sending`, `live`, `used` or `discarded`, and an absent record is "none".
-- What is stored is a hash, never the secret: a code salted, as the vendor's code is, so a copy of the database holds nothing that signs an account in.
+- What is stored is a hash, never the secret: a code salted, as the vendor's code is, and a link as its SHA-256, by which its account is found, so a copy of the database holds nothing that signs an account in.
 - Every change is one write conditional on the state it moves from, so two requests at once meet in the filter and one of them wins.
   The module's table of (state, event) is the whole of what may happen, and a test, [`back-end/tests/test_the_sign_in_secret_machine.py`](../../back-end/tests/test_the_sign_in_secret_machine.py), holds every cell of it.
 - A secret is issued as `sending` before it is mailed; the provider's answer makes it `live` with its wait, or unsets it, so a mail the provider refused leaves no wait and no live secret, and nothing earlier is written back.
@@ -38,7 +38,8 @@ The kinds, their life and their waits, and the table, are in [users, and the one
 ## As built
 
 - The sign-in code is the module's first kind, `secrets.code`: `/request-otp` issues it, `/login-otp` counts a try in the write that finds it, and the legacy `otp`, `otp_expires` and `otp_attempts` are upgraded on first read.
-- The reset link and the verification link still live in their legacy fields, written by `api/users.py`, until they join the module as its `reset` and `verify` kinds.
+- The reset link is its `reset` kind: `/request-password-reset` issues it, and `/reset-password` uses it in one write that also sets the password, verifies the address, ends the code and replaces the login id; the legacy `password_reset_token` and its expiry are upgraded on first read, and a link is found by that field too for the release.
+- The verification link still lives in its legacy fields, written by `api/users.py`, until it joins the module as its `verify` kind.
 
 ## Consequences
 

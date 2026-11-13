@@ -3,6 +3,7 @@ import { deleteUser } from './helpers/deleteUser';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { marketSetupPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
+import { newAccountLink, plantAccountLink } from './helpers/accountSecrets';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 
 /**
@@ -21,24 +22,30 @@ function uniqueEmail(): string {
   return `e2e-links-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 }
 
-/** One field of the user's document, read straight from Mongo the way `auth.spec.ts` does. */
+/** One field of the user's document, read straight from Mongo. */
 function userField(email: string, field: string): string {
   return mongoEval(`print(db.users.findOne({email: ${JSON.stringify(email)}}).${field})`);
 }
 
+/**
+ * The reset link mailed to `email`, after a request for one: the account keeps only its hash, so
+ * a link the spec knows is planted in its place (`plantAccountLink`).
+ */
+function mailedResetLink(email: string): string {
+  const token = newAccountLink();
+  plantAccountLink(email, 'reset', token);
+  return token;
+}
+
 test.describe('Account links, opened signed out', () => {
-  test('a real reset link shows the form, and the new password signs in', async ({
-    page,
-    request,
-  }) => {
+  test('a reset link shows the form, and the new password signs in', async ({ page, request }) => {
     const email = uniqueEmail();
     ensureVerifiedUser(email, PASSWORD);
     try {
       expect((await request.post('/api/request-password-reset', { data: { email } })).ok()).toBe(
         true,
       );
-      const token = userField(email, 'password_reset_token');
-      expect(token.length).toBeGreaterThanOrEqual(10);
+      const token = mailedResetLink(email);
 
       await page.goto(`/reset-password?token=${encodeURIComponent(token)}`);
       const reset = new PasswordResetPage(page);
@@ -112,8 +119,7 @@ test.describe('Changing a password, signed in', () => {
       // The address already there is all the page needs.
       await reset.clickRequestSubmit();
       await expect(reset.requestSuccessMessage).toBeVisible();
-      const token = userField(email, 'password_reset_token');
-      expect(token.length).toBeGreaterThanOrEqual(10);
+      const token = mailedResetLink(email);
 
       // The emailed link, opened in the browser still signed in. The page moves on 2 seconds after
       // the reset; the clock holds that, so what is true before the move is read before it.
@@ -170,7 +176,7 @@ test.describe('Changing a password, signed in', () => {
       expect((await request.post('/api/request-password-reset', { data: { email } })).ok()).toBe(
         true,
       );
-      const token = userField(email, 'password_reset_token');
+      const token = mailedResetLink(email);
       const other = await page.context().newPage();
       await other.goto(`/reset-password?token=${encodeURIComponent(token)}`);
       const reset = new PasswordResetPage(other);

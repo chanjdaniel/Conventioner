@@ -306,10 +306,10 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 ### Password Reset
 
 1. User requests password reset
-2. Reset token generated and stored
+2. Reset link generated, and only its SHA-256 stored
 3. Reset link sent via Resend email
 4. Token expires in 1 hour; another reset is refused (429) until an hour after it expired, and past five requests per address or thirty per caller in 15 minutes every request is refused (429 with the wait)
-5. User sets new password
+5. User sets new password; the link is used once, the address is marked verified, and a sign-in code asked for before ends
 6. Password hashed and stored; one longer than 72 bytes is refused (400) as at registration
 
 ## Security Features

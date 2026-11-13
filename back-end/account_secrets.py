@@ -6,7 +6,9 @@ verification link. Each is one record under the account's ``secrets`` field, by 
 
 - ``hash`` is what the server keeps of the secret, never the secret itself, so a copy of the
   database holds nothing that signs an account in. A code is kept salted (``hash_code``), as the
-  vendor's code is, and checked against a try in constant time (``code_matches``).
+  vendor's code is, and checked against a try in constant time (``code_matches``). A link is kept
+  as its SHA-256, unsalted (``hash_link``), so the account a link names is found by its hash; a
+  link is 192 random bits, so its hash reveals nothing of it.
 - ``expires_at`` and ``next_allowed_at`` are UTC datetimes; ``next_allowed_at`` is null when
   there is no wait before the next secret of the kind may be mailed.
 - ``tries`` counts the tries that reached a code.
@@ -23,11 +25,16 @@ The kinds, and how each lives (``KINDS``):
 | Kind | Mailed as | Life | ``next_allowed_at`` once mailed | Tries |
 | --- | --- | --- | --- | --- |
 | ``code`` | 6 digits (``generate_otp``) | 5 minutes | ``expires_at`` + 1 hour | 5 |
+| ``reset`` | ``token_urlsafe(24)`` (``generate_reset_token``) | 1 hour | ``expires_at`` + 1 hour | not counted |
 
-For one release the fields an account held its code in before this module (``otp``,
-``otp_expires``, ``otp_attempts``) are still read: ``_upgrade`` turns them into the record once,
-before any change reads the account, and the follow-up named in
-``docs/implementation/data/users-and-email.md`` deletes it whole.
+A password reset by the mailed link (``use_reset_link``) is one write that sets the password, uses
+the link, ends every other secret the module keeps, marks the address verified and replaces the
+login id, so a code from before the reset no longer signs in and every sign-in issued before ends.
+
+For one release the fields an account held its secrets in before this module (``otp``,
+``otp_expires``, ``otp_attempts``; ``password_reset_token``, ``password_reset_token_expires``) are
+still read: ``_upgrade`` turns them into the records once, before any change reads the account,
+and the follow-up named in ``docs/implementation/data/users-and-email.md`` deletes it whole.
 """
 import hashlib
 import math
@@ -39,7 +46,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from pymongo import ReturnDocument
 
-from utils.tokens import generate_otp
+from utils.tokens import generate_otp, generate_reset_token
 
 SECRETS_FIELD = "secrets"
 
@@ -54,6 +61,10 @@ CODE_LIFE = timedelta(minutes=5)
 CODE_WAIT = timedelta(hours=1)
 #: How many tries reach one code before it is discarded.
 CODE_TRIES = 5
+#: How long a reset link lasts once issued.
+RESET_LIFE = timedelta(hours=1)
+#: How long after a mailed reset link expires the account may ask for the next.
+RESET_WAIT = timedelta(hours=1)
 
 
 def now() -> datetime:
@@ -77,6 +88,11 @@ def code_matches(stored: Any, candidate: str) -> bool:
         return False
     salt, expected = stored.split(":", 1)
     return secrets.compare_digest(expected, _salted_digest(salt, candidate))
+
+
+def hash_link(link: str) -> str:
+    """What is stored of a link: its hex SHA-256, by which the account it names is found."""
+    return hashlib.sha256(link.encode("utf-8")).hexdigest()
 
 
 def _utc(moment: Any) -> Optional[datetime]:
@@ -169,7 +185,40 @@ CODE = Kind(
     from_legacy=_code_from_legacy,
 )
 
-KINDS = (CODE,)
+def _reset_from_legacy(account: dict) -> Optional[dict]:
+    """The reset link the legacy fields hold: a stored token is a live link, its wait running from
+    its expiry. A link with no readable expiry, or none at all (a used one), is none."""
+    expires_at = _legacy_moment(account.get("password_reset_token_expires"))
+    if expires_at is None:
+        return None
+    token = account.get("password_reset_token")
+    live = isinstance(token, str) and bool(token)
+    return {
+        "hash": hash_link(token) if live else None,
+        "expires_at": expires_at,
+        "next_allowed_at": expires_at + RESET_WAIT,
+        "tries": 0,
+        "state": LIVE if live else DISCARDED,
+    }
+
+
+RESET = Kind(
+    name="reset",
+    make=lambda: generate_reset_token(),
+    hashed=hash_link,
+    life=RESET_LIFE,
+    wait=RESET_WAIT,
+    # The owner of an address never verified may reset too: the link proves the mailbox.
+    issued_to={},
+    legacy_fields=("password_reset_token", "password_reset_token_expires"),
+    from_legacy=_reset_from_legacy,
+)
+
+KINDS = (CODE, RESET)
+
+#: The fields an account is found by from a link opened, each indexed (``lookup_indexes``): the
+#: link's hash, and for one release the legacy field that held the link as mailed.
+LOOKUP_FIELDS = (RESET.path("hash"), RESET.legacy_fields[0])
 
 #: Every legacy field the module still reads, for the one release.
 LEGACY_FIELDS = tuple(field for kind in KINDS for field in kind.legacy_fields)
@@ -356,3 +405,61 @@ def use_code(users, account: dict) -> bool:
         {"$set": {CODE.path("state"): USED, CODE.path("next_allowed_at"): None}},
     )
     return used.modified_count == 1
+
+
+class Link(Enum):
+    """What a link opened came to."""
+
+    #: No live link of the kind has this hash: never mailed, used, or replaced.
+    INVALID = "invalid"
+    #: The link, past its life.
+    EXPIRED = "expired"
+    #: The link, live: use it.
+    LIVE = "live"
+
+
+def _the_legacy_link_field(kind: Kind) -> str:
+    """The legacy field that held a kind's link as mailed, read for one release."""
+    return kind.legacy_fields[0]
+
+
+def find_link(users, kind: Kind, link: str) -> Link:
+    """Say what ``link`` is, read without a write, only to tell an expired link from one that is
+    not there; using it is a write of its own, which a link used meanwhile does not match.
+
+    For one release a link mailed before this module is found by the legacy field equal to it, and
+    the account is upgraded first, so the link is then found by its hash as any other.
+    """
+    _upgrade(users, {_the_legacy_link_field(kind): link})
+    held = users.find_one({kind.path("hash"): kind.hashed(link), kind.path("state"): LIVE},
+                          {"_id": 0, kind.path(): 1})
+    record = kind.record(held)
+    if record is None:
+        return Link.INVALID
+    expires_at = _utc(record.get("expires_at"))
+    if expires_at is None or expires_at <= now():
+        return Link.EXPIRED
+    return Link.LIVE
+
+
+def use_reset_link(users, link: str, password: str, login_id: str) -> bool:
+    """Reset the password by the mailed ``link``, in one write found by the filter that names the
+    live link: True for the one use that reset, so of two uses at once one resets.
+
+    The write sets ``password`` (already hashed) and the new ``login_id``, which ends every sign-in
+    issued before; marks the address verified, since following the link proves the mailbox; uses
+    the link, clearing its wait; and ends every other secret the module keeps, the code among them,
+    with every legacy field it reads.
+    """
+    used = users.find_one_and_update(
+        {RESET.path("hash"): hash_link(link), RESET.path("state"): LIVE,
+         RESET.path("expires_at"): {"$gt": now()}},
+        {
+            "$set": {"password": password, "login_id": login_id, "email_verified": True,
+                     RESET.path("state"): USED, RESET.path("next_allowed_at"): None},
+            "$unset": {**{kind.path(): "" for kind in KINDS if kind is not RESET},
+                       **{field: "" for field in LEGACY_FIELDS}},
+        },
+        {"_id": 0, "id": 1},
+    )
+    return used is not None

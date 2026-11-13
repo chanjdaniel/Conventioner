@@ -68,10 +68,10 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `email`                                                | the sign-in, stored lowercased and trimmed, unique                                                                                                                                                                               |
 | `password`                                             | a bcrypt hash                                                                                                                                                                                                                    |
 | `organizations`                                        | the ids of the organizations the person is in ([the organization document](organization-document.md)); empty at registration, whatever the body sends, and written only by a membership change                                   |
-| `email_verified`                                       | false until the emailed link is followed; an unverified account cannot sign in                                                                                                                                                   |
+| `email_verified`                                       | false until the emailed verification link, or a reset link, is followed; an unverified account cannot sign in                                                                                                                    |
 | `verification_token`, `verification_token_expires`     | the email-verification link, valid an hour                                                                                                                                                                                       |
-| `password_reset_token`, `password_reset_token_expires` | the password-reset link, valid an hour                                                                                                                                                                                           |
-| `secrets`                                              | the account's sign-in secrets, one record by kind, each kept hashed: the sign-in code is `secrets.code` ([the sign-in secrets](#the-sign-in-secrets))                                                                            |
+| `password_reset_token`, `password_reset_token_expires` | the reset link as it was kept before `secrets`, in clear: read for one release, upgraded to `secrets.reset` the first time the account is read, and written by nothing ([the old fields](#the-old-fields-read-for-one-release))  |
+| `secrets`                                              | the account's sign-in secrets, one record by kind, each kept hashed: the sign-in code is `secrets.code`, the reset link `secrets.reset` ([the sign-in secrets](#the-sign-in-secrets))                                            |
 | `otp`, `otp_expires`, `otp_attempts`                   | the sign-in code as it was kept before `secrets`, in clear: read for one release, upgraded to `secrets.code` the first time the account is read, and written by nothing ([the old fields](#the-old-fields-read-for-one-release)) |
 | `login_id`                                             | the account a session or remember-me cookie names, in its sign-in id: a random value, made at the first sign-in and replaced by a password reset                                                                                 |
 
@@ -79,7 +79,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 The session and the remember-me cookie name the account by its `login_id`, not its address, inside a sign-in id (`AuthUser.get_id`): `<login id>.<s|r>.<seconds since the epoch>`, the kind saying whether "Remember me" was ticked and the time when the account signed in.
 Each signed-in request reads it through the app's user loader, `signed_in_account`, which refuses a sign-in as old as its kind's length ([the cookies](../conventions/security-invariants.md#the-cookies)) and an id of any other shape, then loads the account by its login id (`get_user_by_login_id`); `authenticated_email()` then reads the loaded account's address, and permissions are decided by the account's id.
-**A password reset replaces the login id**, in the same write as the new password, so every session and remember-me cookie issued before the reset loads no one and that browser is signed out; signing in again works at once.
+**A password reset replaces the login id**, in the same write as the new password ([the reset link used](#the-sign-in-secrets)), so every session and remember-me cookie issued before the reset loads no one and that browser is signed out; signing in again works at once.
 An organizer who resets a password because a device was lost or shared is signed out on it.
 A login id that matches no account loads no one, with no fallback to loading by address: a fallback would keep every remember-me cookie issued before the reset, or before login ids, signing in.
 So every organizer must sign in once more after the release that brings login ids, since their sessions had named the account by its address, and once more after the release that brings sign-in ids, since theirs had named the bare login id.
@@ -165,7 +165,7 @@ The try is checked against the stored hash in constant time (`code_matches`).
 - A right code otherwise is used (`state: "used"`, `next_allowed_at` cleared) by a write conditional on its hash and `live`; of two right tries only the one whose write changed the account signs in, and the other answers `SIGN_IN_WRONG_CODE`.
 
 `{wait}` in the expired code's sentence and in `/request-otp`'s refusal, "You can ask for a new code in {wait}.", is what is left of the code's `next_allowed_at`, an hour after it expired (`CODE_WAIT`); once it is over, the expired code's sentence ends "Ask for a new one." instead, and `/request-otp` sends a code.
-`/request-password-reset` keeps one link at a time the same way: until an hour after the last link's `password_reset_token_expires` (`RESET_WAIT`), unless that link was used, which clears it, it answers 429 `NEXT_RESET_LATER`, "You can ask for another reset link in {wait}.", under `msg`, with no `Retry-After`.
+`/request-password-reset` keeps one link at a time the same way, by the reset link's `next_allowed_at`: until an hour after the last mailed link expired (`RESET_WAIT`), unless that link was used, which clears it, it answers 429 `NEXT_RESET_LATER`, "You can ask for another reset link in {wait}.", under `msg`, with no `Retry-After`.
 
 **A password longer than 72 bytes** in UTF-8 (`PASSWORD_MAX_BYTES`), which bcrypt refuses to hash or check, matches no account: `_password_matches` answers false without a bcrypt check, so `/login` answers `SIGN_IN_DOES_NOT_MATCH`, never the server's fault.
 `/register` and `/reset-password` refuse one before hashing, after the 8-character minimum, with 400 `PASSWORD_TOO_LONG` under `msg`, "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one.", and store nothing; the register form and the reset page show it as the server says it.
@@ -176,9 +176,9 @@ The try is checked against the stored hash in constant time (`code_matches`).
 
 **`/request-otp`, `/request-password-reset` and `/resend-verification` store their code or link before they mail it**, since the mail names it, and when the send fails they answer 500 with their own sentence as before, leaving the account free to ask again at once, with no code or reset wait armed by a mail that never went.
 
-- **A code the provider refused is unset** (`account_secrets.refused`): no wait, no live code, and no write that restores an earlier one.
-  The write is conditional on the issued hash and `sending`, so a code a newer request or a change meanwhile left is left as it is.
-- **A link is put back** (`_put_back`): one `update_one` whose filter is the address and the link the request wrote, setting each field it wrote (`password_reset_token`, `password_reset_token_expires`; `verification_token`, `verification_token_expires`) to what the account held when the request read it, an absent field read as None.
+- **A code or a reset link the provider refused is unset** (`account_secrets.refused`): no wait, no live secret, and no write that restores an earlier one.
+  The write is conditional on the issued hash and `sending`, so a secret a newer request or a change meanwhile left is left as it is.
+- **A verification link is put back** (`_put_back`): one `update_one` whose filter is the address and the link the request wrote, setting each field it wrote (`verification_token`, `verification_token_expires`) to what the account held when the request read it, an absent field read as None.
   So a verification link already in the inbox keeps working, and a newer link another request stored meanwhile matches nothing and is left.
 
 The counts are not taken back: a failed send still counts against the caller and the address, so a sixth request in a quarter hour answers `ASKED_TOO_OFTEN` whether or not any mail went, and a failing provider cannot be asked without bound.
@@ -190,45 +190,55 @@ The vendor's code is not put back: its challenge arms no wait, and its failed se
 **An account's sign-in secrets are one machine, and [`back-end/account_secrets.py`](../../../back-end/account_secrets.py) is the only code that reads or writes them** ([ADR 0026](../../adr/0026-an-accounts-sign-in-secrets-are-one-machine.md)).
 Each kind is one record under `secrets`, `{hash, expires_at, next_allowed_at, tries, state}`:
 
-- `hash` is what is kept of the secret, never the secret: a code is kept salted, `"<salt>:<sha256(salt:code)>"`, as the vendor's code is, so a copy of the database holds no code that signs in.
+- `hash` is what is kept of the secret, never the secret: a code is kept salted, `"<salt>:<sha256(salt:code)>"`, as the vendor's code is, and a link as its hex SHA-256, unsalted, by which the account it names is found (`hash_link`; a link is 192 random bits, so its hash reveals nothing of it); so a copy of the database holds no code or link that signs in.
 - `expires_at` and `next_allowed_at` are BSON datetimes in UTC; `next_allowed_at` is null when no wait holds back the next secret of the kind.
 - `tries` counts the tries that reached a code.
 - `state` is `sending` (issued, its mail not yet answered), `live`, `used` or `discarded`; an absent record is the state "none".
 
 The kinds, `KINDS` in the module:
 
-| Kind   | Mailed as                 | Life      | `next_allowed_at` once mailed       | Tries            |
-| ------ | ------------------------- | --------- | ----------------------------------- | ---------------- |
-| `code` | 6 digits (`generate_otp`) | 5 minutes | `expires_at` + 1 hour (`CODE_WAIT`) | 5 (`CODE_TRIES`) |
+| Kind    | Mailed as                                    | Life      | `next_allowed_at` once mailed        | Tries            |
+| ------- | -------------------------------------------- | --------- | ------------------------------------ | ---------------- |
+| `code`  | 6 digits (`generate_otp`)                    | 5 minutes | `expires_at` + 1 hour (`CODE_WAIT`)  | 5 (`CODE_TRIES`) |
+| `reset` | `token_urlsafe(24)` (`generate_reset_token`) | 1 hour    | `expires_at` + 1 hour (`RESET_WAIT`) | not counted      |
 
 Every change is one write conditional on the state it moves from, and nothing else writes the field; each function takes the users collection from `api/users.py`, and reads the time from the module's `now()`.
 
-| From \ event       | issue                                                  | provider accepted           | provider refused | right try                       | wrong try                                    |
-| ------------------ | ------------------------------------------------------ | --------------------------- | ---------------- | ------------------------------- | -------------------------------------------- |
-| none               | sending                                                | -                           | -                | refused                         | refused                                      |
-| sending, unexpired | refused                                                | live, `next_allowed_at` set | none (unset)     | refused                         | refused                                      |
-| sending, expired   | sending (a new one)                                    | no write                    | no write         | refused                         | refused                                      |
-| live, unexpired    | refused while `next_allowed_at` is ahead               | -                           | -                | used, `next_allowed_at` cleared | `tries` + 1; the fifth: discarded, wait kept |
-| live, expired      | refused while `next_allowed_at` is ahead, else sending | -                           | -                | refused, answered expired       | `tries` + 1, as above                        |
-| used               | sending                                                | -                           | -                | refused                         | refused                                      |
-| discarded          | sending once `next_allowed_at` has passed              | -                           | -                | refused                         | refused                                      |
+| From \ event       | issue                                                  | provider accepted           | provider refused | right try (code) / link used    | wrong try (code)                             | password reset |
+| ------------------ | ------------------------------------------------------ | --------------------------- | ---------------- | ------------------------------- | -------------------------------------------- | -------------- |
+| none               | sending                                                | -                           | -                | refused                         | refused                                      | -              |
+| sending, unexpired | refused                                                | live, `next_allowed_at` set | none (unset)     | refused                         | refused                                      | none           |
+| sending, expired   | sending (a new one)                                    | no write                    | no write         | refused                         | refused                                      | none           |
+| live, unexpired    | refused while `next_allowed_at` is ahead               | -                           | -                | used, `next_allowed_at` cleared | `tries` + 1; the fifth: discarded, wait kept | none           |
+| live, expired      | refused while `next_allowed_at` is ahead, else sending | -                           | -                | refused, answered expired       | `tries` + 1, as above                        | none           |
+| used               | sending                                                | -                           | -                | refused                         | refused                                      | none           |
+| discarded          | sending once `next_allowed_at` has passed              | -                           | -                | refused                         | refused                                      | none           |
+
+The "password reset" column is what a reset by the link does to the account's other secrets, the code among them; for the reset link itself it is the "link used" column.
 
 - **Issue** (`issue`) is one `update_one` whose filter is the account by `id`, `email_verified: true` for a code, `next_allowed_at` null or not after now, and no unexpired `sending` record; it sets the record `sending`, with no wait, and unsets the kind's old fields.
-  The code is made before that write, so of two requests at once one mails a code and the other matches nothing and is answered the wait, read once more from the account: what is left of `next_allowed_at`, or, for a code being mailed, of its expiry and the kind's wait.
+  The secret is made before that write, so of two requests at once one mails it and the other matches nothing and is answered the wait, read once more from the account: what is left of `next_allowed_at`, or, for a secret being mailed, of its expiry and the kind's wait.
+  A reset link is issued to an address never verified too, since following it proves the mailbox.
 - **Provider accepted** (`accepted`) and **refused** (`refused`) are conditional on the issued hash, `sending` and its expiry not passed, so a later change is left alone.
 - An expiry writes nothing: a `sending` record past its life is read as none, a `live` one as expired.
+- **The reset link used** (`/reset-password`): `find_link` reads the account by the link's hash and `live` only to tell "Reset token has expired" from "Invalid reset token"; then `use_reset_link` is one `find_one_and_update` whose filter is the hash, `live` and `expires_at` after now, the same filter that found it.
+  In that one write it sets the new password, a new `login_id`, `email_verified: true`, the link `used` and its `next_allowed_at` null, and unsets every other secret the module keeps, the code among them, and the old fields of the code and the reset link.
+  So a code live at the reset ends with it, leaving no code wait, the address's owner can sign in once they have reset, and every sign-in issued before ends with the login id; of two uses at once one resets and the other, matching nothing, answers "Invalid reset token".
 
-[`back-end/tests/test_the_sign_in_secret_machine.py`](../../../back-end/tests/test_the_sign_in_secret_machine.py) holds every cell of the table; [`back-end/tests/real_mongo/test_the_sign_in_secret_races.py`](../../../back-end/tests/real_mongo/test_the_sign_in_secret_races.py) runs five code requests at once and five right codes at once on a real server; [`back-end/tests/test_a_stored_account_holds_no_secret_in_clear.py`](../../../back-end/tests/test_a_stored_account_holds_no_secret_in_clear.py) reads every stored account whole after a code is mailed and used and finds the code nowhere; and [`back-end/tests/test_one_writer_of_the_sign_in_secrets.py`](../../../back-end/tests/test_one_writer_of_the_sign_in_secrets.py) scans the back end for any other module naming `secrets` or an old field.
-An E2E spec plants a code it knows with `plantSignInCode` in [`front-end/e2e/helpers/accountSecrets.ts`](../../../front-end/e2e/helpers/accountSecrets.ts), as the mail would have carried it.
+[`back-end/tests/test_the_sign_in_secret_machine.py`](../../../back-end/tests/test_the_sign_in_secret_machine.py) holds every cell of the table, by kind; [`back-end/tests/real_mongo/test_the_sign_in_secret_races.py`](../../../back-end/tests/real_mongo/test_the_sign_in_secret_races.py) runs five code requests at once, five right codes at once and five uses of one reset link at once on a real server; [`back-end/tests/test_a_stored_account_holds_no_secret_in_clear.py`](../../../back-end/tests/test_a_stored_account_holds_no_secret_in_clear.py) reads every stored account whole after a code or a reset link is mailed and used and finds it nowhere; [`back-end/tests/test_the_sign_in_secrets_hold_one_state.py`](../../../back-end/tests/test_the_sign_in_secrets_hold_one_state.py) drives the routes for the states a reset settles; [`back-end/tests/test_the_reset_link_answers.py`](../../../back-end/tests/test_the_reset_link_answers.py) pins every answer of `/request-password-reset` and `/reset-password`; and [`back-end/tests/test_one_writer_of_the_sign_in_secrets.py`](../../../back-end/tests/test_one_writer_of_the_sign_in_secrets.py) scans the back end for any other module naming `secrets` or an old field.
+An E2E spec plants a code it knows with `plantSignInCode`, and a reset link with `plantAccountLink`, in [`front-end/e2e/helpers/accountSecrets.ts`](../../../front-end/e2e/helpers/accountSecrets.ts), as the mail would have carried it.
 
 ### The old fields, read for one release
 
-Before `secrets`, an account kept its code in clear in `otp`, `otp_expires` (an ISO string) and `otp_attempts`; for one release the module still reads them, so a code mailed before the deploy keeps working until it would have expired.
-The first time the module reads an account holding any of them (`_upgrade`), it turns them into the record in one write, filtered on the values it read and on the record being absent, and unsets them:
+Before `secrets`, an account kept its code in clear in `otp`, `otp_expires` (an ISO string) and `otp_attempts`, and its reset link in `password_reset_token` and `password_reset_token_expires`; for one release the module still reads them, so a code or link mailed before the deploy keeps working until it would have expired.
+The first time the module reads an account holding any of them (`_upgrade`), it turns them into the records in one write, filtered on the values it read and on each record being absent, and unsets them:
 
 - a stored `otp` becomes a live code, its tries from `otp_attempts`, its life from `otp_expires` and its wait an hour after that;
 - a cleared `otp` with its `otp_expires` kept, as five wrong tries left it, becomes a discarded code keeping that wait;
-- cleared fields, or an expiry that does not read, become no code.
+- a stored `password_reset_token` becomes a live reset link, its life from `password_reset_token_expires` and its wait an hour after that, and a cleared one with its expiry kept a discarded link keeping that wait;
+- cleared fields, or an expiry that does not read, become no record.
+
+A link opened is found, for the release, by `password_reset_token` equal to it too (`find_link`), and that account is upgraded before the link is read by its hash.
 
 No writer writes them: a sign-up and `create_account.py` store none.
 [`back-end/tests/test_the_old_sign_in_fields_are_read_for_one_release.py`](../../../back-end/tests/test_the_old_sign_in_fields_are_read_for_one_release.py) holds each shape.
@@ -236,7 +246,7 @@ The follow-up `T311-followup: retire the old sign-in fields and cookie` deletes 
 
 ## Lookups
 
-`login_id` and the two token fields are [lookup indexes](lookup-indexes.md), so loading the account on each request, and following a link, is one indexed read.
+`login_id`, `secrets.reset.hash` and the two old token fields are [lookup indexes](lookup-indexes.md), so loading the account on each request, and following a link, is one indexed read; the reset link's two are `account_secrets.LOOKUP_FIELDS`.
 So is `id`: `get_user_by_id` reads one account by it, and `get_users_by_ids` reads many in one `find` with `$in`, answering the accounts found by id, an id with no account left out.
 A read that names many people uses the batch, never one `get_user_by_id` each: the market read names every account its lists can name in one call ([one market, from the server](../conventions/one-market-from-the-server.md#the-rules)), so a market of 150 people costs the database one read of them, and the organizations read names, in one call, every person of every organization the reader is in ([the organization document](organization-document.md#the-organization)).
 Accounts are made by sign-up, by `back-end/create_account.py` for an operator, and by `create_test_user.py` for the test fixtures.

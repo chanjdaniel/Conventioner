@@ -1,4 +1,3 @@
-import math
 import secrets
 import time
 import uuid
@@ -9,9 +8,7 @@ from flask_login import UserMixin
 from flask_login.config import COOKIE_NAME
 from datatypes import MarketRole, OrganizationRole, User, organization_people_of
 from db_config import get_database
-from utils.tokens import (
-    generate_verification_token, generate_reset_token, get_token_expiry, verify_token_expiry
-)
+from utils.tokens import generate_verification_token, get_token_expiry, verify_token_expiry
 from utils.email import (
     send_account_exists_email, send_verification_email, send_password_reset_email, send_otp_email
 )
@@ -117,11 +114,14 @@ NEXT_CODE_NOW = "Ask for a new one."
 CODE_SENT = "If an account exists for that address, a sign-in code has been sent to it."
 
 #: When another reset link may be asked for: ``{wait}`` is what is left of the account's wait, which
-#: ends an hour after its last link expired (``RESET_WAIT``).
+#: ends an hour after its last link expired (``account_secrets.RESET_WAIT``).
 NEXT_RESET_LATER = "You can ask for another reset link in {wait}."
 
-#: How long after a reset link expires the account may ask for the next.
-RESET_WAIT = timedelta(hours=1)
+#: What a reset-link request says whether or not the address has an account.
+RESET_SENT = "If an account exists, a password reset email has been sent"
+
+#: What a reset by a link that is not live says: never mailed, used, replaced, or used meanwhile.
+RESET_INVALID = "Invalid reset token"
 
 #: What a sign-in past its limit says (``sign_in_limits``), ``{wait}`` being the time left of the
 #: limit's window; the password form puts "Forgot password?" beside it.
@@ -241,30 +241,8 @@ def _limit_clock() -> datetime:
     return datetime.fromtimestamp(_now(), tz=timezone.utc)
 
 
-def _moment(stored: Any) -> Optional[datetime]:
-    """A stored ISO moment (a reset link's ``password_reset_token_expires``), read as UTC; None
-    when there is none."""
-    if not isinstance(stored, str):
-        return None
-    try:
-        moment = datetime.fromisoformat(stored.replace('Z', '+00:00'))
-    except ValueError:
-        return None
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
-
-
-def _wait_after(expires: Any, wait: timedelta, now: datetime) -> Optional[int]:
-    """The whole seconds left of ``wait`` after the stored moment ``expires``, or None when none is
-    left or nothing is stored."""
-    expired_at = _moment(expires)
-    if expired_at is None:
-        return None
-    left = (expired_at + wait - now).total_seconds()
-    return math.ceil(left) if left > 0 else None
-
-
 #: The field holding the secret a mail names, of each kind of mail ``_put_back`` puts back.
-_MAILED_SECRETS = ("password_reset_token", "verification_token")
+_MAILED_SECRETS = ("verification_token",)
 
 
 def _put_back(email: str, written: Dict[str, Any], previous: dict) -> None:
@@ -554,8 +532,6 @@ def register_user_with_captcha(bcrypt):
         "email_verified": False,
         "verification_token": verification_token,
         "verification_token_expires": verification_token_expires,
-        "password_reset_token": None,
-        "password_reset_token_expires": None,
     }
     
     result = _insert_unless_taken(user_doc)
@@ -662,7 +638,13 @@ def resend_verification_email():
 
 
 def request_password_reset():
-    """Request password reset link, bounded per caller and per address (``_Bounds``)."""
+    """Mail a reset link, bounded per caller and per address (``_Bounds``).
+
+    One link at a time (``account_secrets``): refused until an hour after the last mailed link
+    expired, two hours after it was mailed, unless it was used, which clears its wait. The link is
+    issued in one write, so of two requests at once one mails a link and the other is answered the
+    wait. A link the provider refused is unset, so the next request may ask again at once.
+    """
     now = _limit_clock()
     refused = _RESET_LINK.caller_refusal(now)
     if refused:
@@ -678,42 +660,34 @@ def request_password_reset():
     if refused:
         return refused
 
-    # Find user
     user_doc = users_collection.find_one({"email": email})
-    
     if not user_doc:
         # Don't reveal if user exists for security
-        return jsonify({"msg": "If an account exists, a password reset email has been sent"}), 200
+        return jsonify({"msg": RESET_SENT}), 200
 
-    # One link at a time: refused until an hour after the last link expired (two hours after it was
-    # sent), unless that link was used, which clears its expiry.
-    wait = _wait_after(user_doc.get("password_reset_token_expires"), RESET_WAIT, now)
-    if wait is not None:
+    issued = account_secrets.issue(users_collection, account_secrets.RESET, user_doc)
+    if issued is None:
+        return jsonify({"msg": RESET_SENT}), 200
+    if isinstance(issued, account_secrets.Wait):
         return jsonify(
-            {"msg": NEXT_RESET_LATER.format(wait=sign_in_limits.wait_in_words(wait))}), 429
+            {"msg": NEXT_RESET_LATER.format(wait=sign_in_limits.wait_in_words(issued.seconds))}), 429
 
-    # Generate reset token
-    reset_token = generate_reset_token()
-    reset_token_expires = get_token_expiry(hours=1)
-
-    # Update user with reset token
-    written = {
-        "password_reset_token": reset_token,
-        "password_reset_token_expires": reset_token_expires,
-    }
-    users_collection.update_one({"email": email}, {"$set": written})
-
-    # Send password reset email; if it could not be sent, the next request may ask again at once
-    email_sent = send_password_reset_email(email, reset_token)
-    if not email_sent:
-        _put_back(email, written, user_doc)
+    if not send_password_reset_email(email, issued.secret):
+        account_secrets.refused(users_collection, account_secrets.RESET, issued)
         return jsonify({"msg": "Failed to send password reset email"}), 500
 
-    return jsonify({"msg": "If an account exists, a password reset email has been sent"}), 200
+    account_secrets.accepted(users_collection, account_secrets.RESET, issued)
+    return jsonify({"msg": RESET_SENT}), 200
 
 
 def reset_password(bcrypt):
-    """Reset password with reset token."""
+    """Reset the password by the mailed link (``account_secrets.use_reset_link``).
+
+    The link is read first only to tell an expired link from one that is not there; the reset is
+    one write found by the live link, so of two uses at once one resets and the other is answered
+    as a link that is not there. The write verifies the address, ends the account's code, and
+    replaces the login id, which signs out every session and remember-me cookie issued before.
+    """
     data = json_object(required=False)
     token = string_field(data, "token")
     new_password = string_field(data, "new_password")
@@ -727,33 +701,17 @@ def reset_password(bcrypt):
     if _longer_than_bcrypt_reads(new_password):
         return jsonify({"msg": PASSWORD_TOO_LONG}), 400
 
-    # Find user with matching token
-    user_doc = users_collection.find_one({"password_reset_token": token})
-    
-    if not user_doc:
-        return jsonify({"msg": "Invalid reset token"}), 400
-
-    # Check if token has expired
-    expires_at = user_doc.get("password_reset_token_expires")
-    if not verify_token_expiry(expires_at):
+    found = account_secrets.find_link(users_collection, account_secrets.RESET, token)
+    if found is account_secrets.Link.INVALID:
+        return jsonify({"msg": RESET_INVALID}), 400
+    if found is account_secrets.Link.EXPIRED:
         return jsonify({"msg": "Reset token has expired"}), 400
 
-    # Hash new password
     hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
 
-    # Update user password and clear reset token. A new login id signs out every session and
-    # remember-me cookie issued before the reset.
-    users_collection.update_one(
-        {"email": user_doc["email"]},
-        {
-            "$set": {
-                "password": hashed_password,
-                "password_reset_token": None,
-                "password_reset_token_expires": None,
-                "login_id": _new_login_id(),
-            }
-        }
-    )
+    if not account_secrets.use_reset_link(users_collection, token, hashed_password,
+                                          _new_login_id()):
+        return jsonify({"msg": RESET_INVALID}), 400
 
     return jsonify({"msg": "Password reset successfully"}), 200
 

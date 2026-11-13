@@ -132,13 +132,6 @@ def _inside(first_call, second_request):
     return wrapped, ran
 
 
-def fixed_by(reason):
-    """A test that fails until the ticket in ``reason`` lands, by an assertion and nothing else; it
-    fails the suite once it passes, so that ticket removes the mark."""
-    return pytest.mark.xfail(strict=True, raises=AssertionError, reason=reason)
-
-
-@fixed_by("ticket 03: a password reset ends the account's live code")
 def test_a_code_asked_for_before_a_password_reset_is_refused_after_it(
     client, users, outbox, clock,
 ):
@@ -152,7 +145,6 @@ def test_a_code_asked_for_before_a_password_reset_is_refused_after_it(
     assert (entered.status_code, entered.get_json()) == (401, {"msg": WRONG_CODE_SAYS})
 
 
-@fixed_by("ticket 03: a password reset by the mailed link verifies the address")
 def test_the_owner_of_an_unverified_address_resets_the_password_and_signs_in(
     client, users, outbox, clock,
 ):
@@ -184,7 +176,6 @@ def test_two_code_requests_at_once_mail_one_code_and_it_signs_in(
     assert _enter_code(client, _mailed(outbox, ACCOUNT_EMAIL)).status_code == 200
 
 
-@fixed_by("ticket 03: a reset link is used in one conditional write")
 def test_one_reset_link_used_twice_at_once_resets_once(monkeypatch, client, users, outbox, clock):
     assert _ask_for_a_reset_link(client, ACCOUNT_EMAIL).status_code == 200
     link = _mailed(outbox, ACCOUNT_EMAIL)

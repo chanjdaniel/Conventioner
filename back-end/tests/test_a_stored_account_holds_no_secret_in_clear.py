@@ -4,7 +4,7 @@ Each test drives the routes as an organizer would, takes every secret the mail s
 and reads every stored account whole: no value is a mailed secret, and none holds one, but for a
 secret's own hash, which is hex and so may hold six digits by chance.
 
-Later tickets add the reset link, the verification link and the sign-ins.
+Later tickets add the verification link and the sign-ins.
 """
 import pytest
 
@@ -14,7 +14,7 @@ skip_without_real_dependencies()
 
 from test_a_failed_mail_leaves_no_wait_armed import outbox  # noqa: F401
 from test_the_organizer_sign_in_is_bounded import (  # noqa: F401
-    ACCOUNT_EMAIL, CALLER, client, clock, fast_stand_in_hash,
+    ACCOUNT_EMAIL, CALLER, UNVERIFIED_EMAIL, client, clock, fast_stand_in_hash,
 )
 from test_the_sign_in_secrets_hold_one_state import users  # noqa: F401
 
@@ -55,3 +55,15 @@ def test_no_mailed_code_is_stored_in_clear(client, users, outbox, clock, remembe
 
     assert signed_in.status_code == 200
     assert _holding(users.docs, code) == []
+
+
+@pytest.mark.parametrize("email", [ACCOUNT_EMAIL, UNVERIFIED_EMAIL], ids=["verified", "unverified"])
+def test_no_mailed_reset_link_is_stored_in_clear(client, users, outbox, clock, email):
+    assert _post(client, "/request-password-reset", {"email": email}).status_code == 200
+    [(_to, link)] = outbox.sent
+    assert _holding(users.docs, link) == []
+
+    reset = _post(client, "/reset-password", {"token": link, "new_password": "fixture-new-pass-1"})
+
+    assert reset.status_code == 200
+    assert _holding(users.docs, link) == []

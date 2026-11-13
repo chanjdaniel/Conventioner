@@ -1,12 +1,12 @@
 """A code or link that could not be mailed leaves the organizer free to ask again (T273, R14).
 
 The organizer's code, reset link and verification link are stored before they are mailed, since
-the mail names them. When the send failed, the next request works at once. A code the provider
-refused is unset (``account_secrets.refused``), so it leaves no wait and no live code, and no
-earlier code is written back. For a link, the route puts back what it replaced, so a link already
-in the inbox keeps working. A newer code or link another request stored meanwhile is left. The
-counts per caller and per address are not taken back: they count requests, whether or not a mail
-went.
+the mail names them. When the send failed, the next request works at once. A code or reset link
+the provider refused is unset (``account_secrets.refused``), so it leaves no wait and no live
+secret, and no earlier one is written back. For a verification link, the route puts back what it
+replaced, so a link already in the inbox keeps working. A newer code or link another request stored
+meanwhile is left. The counts per caller and per address are not taken back: they count requests,
+whether or not a mail went.
 
 Reproduced on dev through the routes, the send made to fail: a code request answered 500 and the
 next 429 for about an hour, a reset request 500 and then 429, and a failed verification resend left
@@ -24,7 +24,7 @@ import account_secrets
 import app as app_module
 import api.users as UsersApi
 import sign_in_limits
-from sign_in_secrets import live_code, stored_code
+from sign_in_secrets import live_code, live_link, stored_code, stored_link
 from test_the_organizer_sign_in_is_bounded import (  # noqa: F401
     ACCOUNT_EMAIL, CALLER, FAST_ROUNDS, PASSWORD, UNVERIFIED_EMAIL, WINDOW_STARTS, Users, _account,
     client, clock, fast_stand_in_hash,
@@ -73,15 +73,14 @@ class Mail:
 
 CODE = Mail("/request-otp", "send_otp_email", ACCOUNT_EMAIL, (), SENT_CODE,
             sign_in_limits.ORGANIZER_CODE_REQUEST_PER_ADDRESS)
-RESET = Mail("/request-password-reset", "send_password_reset_email", ACCOUNT_EMAIL,
-             ("password_reset_token", "password_reset_token_expires"), SENT_RESET,
-             sign_in_limits.RESET_LINK_PER_ADDRESS)
+RESET = Mail("/request-password-reset", "send_password_reset_email", ACCOUNT_EMAIL, (),
+             SENT_RESET, sign_in_limits.RESET_LINK_PER_ADDRESS)
 VERIFICATION = Mail("/resend-verification", "send_verification_email", UNVERIFIED_EMAIL,
                     ("verification_token", "verification_token_expires"),
                     SENT_VERIFICATION, sign_in_limits.VERIFICATION_LINK_PER_ADDRESS)
 MAILS = [CODE, RESET, VERIFICATION]
 #: The mails whose failed send puts back the link the account held.
-PUT_BACK = [RESET, VERIFICATION]
+PUT_BACK = [VERIFICATION]
 
 
 class Outbox:
@@ -235,6 +234,50 @@ class TestARefusedCodeLeavesNoCode:
         assert stored_code(users.account(ACCOUNT_EMAIL)) == newer
 
 
+class TestARefusedResetLinkLeavesNoLink:
+    """The reset link is one record (``account_secrets``): a refused mail unsets it."""
+
+    def test_it_leaves_no_link_and_no_wait(self, client, users, outbox, clock):
+        _fail_once(client, outbox, RESET)
+
+        account = users.account(ACCOUNT_EMAIL)
+        assert stored_link(account) is None
+        assert not set(account_secrets.LEGACY_FIELDS) & set(account)
+
+    def test_the_next_request_mails_a_link_at_once(self, client, users, outbox, clock):
+        _fail_once(client, outbox, RESET)
+
+        asked = RESET.ask(client)
+
+        assert (asked.status_code, asked.get_json()) == (200, {"msg": SENT_RESET})
+        assert len(outbox.sent) == 1
+        assert stored_link(users.account(ACCOUNT_EMAIL))["hash"] == account_secrets.hash_link(
+            outbox.last())
+
+    def test_no_earlier_link_is_written_back(self, client, users, outbox, clock):
+        # A link mailed three hours before and used: its wait is cleared.
+        used = live_link("fixture-earlier-link", WINDOW_STARTS - timedelta(hours=2))
+        used.update(state=account_secrets.USED, next_allowed_at=None)
+        users.account(ACCOUNT_EMAIL)["secrets"] = {"reset": used}
+
+        _fail_once(client, outbox, RESET)
+
+        assert stored_link(users.account(ACCOUNT_EMAIL)) is None
+
+    def test_a_newer_link_issued_during_the_failed_send_is_left(
+        self, client, users, outbox, clock,
+    ):
+        newer = live_link("fixture-newer-link", WINDOW_STARTS + timedelta(hours=1))
+
+        def another_request_mails_a_newer_one(to):
+            users.account(to)["secrets"] = {"reset": dict(newer)}
+
+        outbox.meanwhile = another_request_mails_a_newer_one
+        _fail_once(client, outbox, RESET)
+
+        assert stored_link(users.account(ACCOUNT_EMAIL)) == newer
+
+
 @pytest.mark.parametrize("mail", MAILS, ids=repr)
 def test_a_failed_send_keeps_its_count_so_the_sixth_request_waits(
     client, users, outbox, clock, mail,
@@ -251,10 +294,8 @@ class TestTheResetLinksWaitSaysHowLong:
     """One reset link at a time, until an hour after the last one expired."""
 
     def _last_link_expired(self, users, ago):
-        users.account(ACCOUNT_EMAIL).update({
-            "password_reset_token": "fixture-earlier-link",
-            "password_reset_token_expires": (WINDOW_STARTS - ago).isoformat(),
-        })
+        users.account(ACCOUNT_EMAIL)["secrets"] = {
+            "reset": live_link("fixture-earlier-link", WINDOW_STARTS - ago)}
 
     def test_asking_too_soon_says_the_minutes_left(self, client, users, outbox, clock):
         self._last_link_expired(users, timedelta(minutes=30))

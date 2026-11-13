@@ -6,10 +6,14 @@ written by the suite's shared matcher and update, and reads what the database th
 the module answered. The rows a time splits (a wait ahead or passed) are each a row of their own.
 
 The "expires" column is the clock passing a record's ``expires_at``, which writes nothing: each of
-its cells is the move from an unexpired row to its expired row ("treated as none" for a code being
-mailed, "treated as expired" for a live one), whose cells the other columns check.
+its cells is the move from an unexpired row to its expired row ("treated as none" for a secret
+being mailed, "treated as expired" for a live one), whose cells the other columns check.
 
-Later kinds add their rows here: the reset link and the verification link.
+The "password reset" column is a reset by a live reset link, over every row of the code; for the
+reset link itself it is the "link used" column. Tries are not counted on a link, so it has no
+"wrong try" column: a link that is not the one stored is found by no hash.
+
+The verification link adds its rows here.
 """
 import copy
 from datetime import datetime, timedelta, timezone
@@ -21,7 +25,7 @@ from conftest import skip_without_real_dependencies
 skip_without_real_dependencies()
 
 import account_secrets
-from account_secrets import CODE, DISCARDED, LIVE, SENDING, USED, Issued, Tried, Wait
+from account_secrets import CODE, DISCARDED, LIVE, RESET, SENDING, USED, Issued, Link, Tried, Wait
 from test_the_sign_in_secrets_hold_one_state import Users
 
 NOW = datetime(2026, 11, 13, 9, 0, 0, tzinfo=timezone.utc)
@@ -29,6 +33,10 @@ EMAIL = "fixture-organizer@example.com"
 ACCOUNT_ID = "fixture-organizer-id"
 THE_CODE = "123456"
 NOT_THE_CODE = "000000"
+THE_LINK = "fixture-reset-link"
+NOT_THE_LINK = "fixture-another-link"
+PASSWORD_HASH = "fixture-new-password-hash"
+LOGIN_ID = "fixture-new-login-id"
 MINUTE = timedelta(minutes=1)
 HOUR = timedelta(hours=1)
 
@@ -236,3 +244,200 @@ def test_the_fifth_wrong_try_discards_the_code_and_keeps_its_wait(clock, row):
     assert answers == [Tried.WRONG] * 6
     assert _code(users) == {**before, "tries": 5, "state": DISCARDED}
     assert account_secrets.try_code(users, EMAIL, THE_CODE).outcome is Tried.WRONG
+
+
+# password reset, over the code: a reset by a live link ends the code, whatever state it is in.
+
+def _with_a_live_link(users):
+    users.docs[0].setdefault("secrets", {})["reset"] = _link_record(
+        LIVE, NOW + 30 * MINUTE, NOW + 30 * MINUTE + HOUR)
+    return users
+
+
+@pytest.mark.parametrize("row", list(ROWS), ids=list(ROWS))
+def test_a_password_reset_ends_the_code(clock, row):
+    users = _with_a_live_link(_users(row))
+
+    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is True
+
+    assert _code(users) is None
+
+
+# The reset link's rows.
+
+def _link_record(state, expires_at, next_allowed_at):
+    return {"hash": account_secrets.hash_link(THE_LINK), "expires_at": expires_at,
+            "next_allowed_at": next_allowed_at, "tries": 0, "state": state}
+
+
+#: Every state the reset link's record can be in, by name; None is no record. A discarded link is
+#: what the fields of one release held for a link cleared with its wait kept.
+LINK_ROWS = {
+    "none": None,
+    "sending, unexpired": _link_record(SENDING, NOW + 30 * MINUTE, None),
+    "sending, expired": _link_record(SENDING, NOW - MINUTE, None),
+    "live, unexpired": _link_record(LIVE, NOW + 30 * MINUTE, NOW + 30 * MINUTE + HOUR),
+    "live, expired, wait ahead": _link_record(LIVE, NOW - MINUTE, NOW + 59 * MINUTE),
+    "live, expired, wait passed": _link_record(LIVE, NOW - 2 * HOUR, NOW - HOUR),
+    "used": _link_record(USED, NOW - MINUTE, None),
+    "discarded, wait ahead": _link_record(DISCARDED, NOW - MINUTE, NOW + 59 * MINUTE),
+    "discarded, wait passed": _link_record(DISCARDED, NOW - 2 * HOUR, NOW - HOUR),
+}
+
+
+def _link_users(row, verified=True):
+    account = {"id": ACCOUNT_ID, "email": EMAIL, "email_verified": verified,
+               "password": "fixture-old-password-hash", "login_id": "fixture-old-login-id"}
+    if LINK_ROWS[row] is not None:
+        account["secrets"] = {"reset": copy.deepcopy(LINK_ROWS[row])}
+    return Users(account)
+
+
+def _link(users):
+    return (users.docs[0].get("secrets") or {}).get("reset")
+
+
+LINK_ISSUE = {
+    "none": "issued",
+    "sending, unexpired": ("wait", 30 * 60 + 3600),
+    "sending, expired": "issued",
+    "live, unexpired": ("wait", 30 * 60 + 3600),
+    "live, expired, wait ahead": ("wait", 59 * 60),
+    "live, expired, wait passed": "issued",
+    "used": "issued",
+    "discarded, wait ahead": ("wait", 59 * 60),
+    "discarded, wait passed": "issued",
+}
+
+
+@pytest.mark.parametrize("row", list(LINK_ROWS), ids=list(LINK_ROWS))
+def test_issue_a_link(clock, row):
+    users = _link_users(row)
+    before = copy.deepcopy(_link(users))
+
+    answer = account_secrets.issue(users, RESET, users.docs[0])
+
+    if LINK_ISSUE[row] == "issued":
+        assert isinstance(answer, Issued)
+        assert _link(users) == {"hash": account_secrets.hash_link(answer.secret),
+                                "expires_at": NOW + HOUR, "next_allowed_at": None, "tries": 0,
+                                "state": SENDING}
+    else:
+        assert answer == Wait(seconds=LINK_ISSUE[row][1])
+        assert _link(users) == before
+
+
+def test_a_link_is_issued_to_an_address_never_verified(clock):
+    users = _link_users("none", verified=False)
+
+    assert isinstance(account_secrets.issue(users, RESET, users.docs[0]), Issued)
+    assert _link(users)["state"] == SENDING
+
+
+def test_accepted_makes_the_link_live_with_its_wait(clock):
+    users = _link_users("none")
+    issued = account_secrets.issue(users, RESET, users.docs[0])
+
+    account_secrets.accepted(users, RESET, issued)
+
+    assert _link(users) == {"hash": issued.hash, "expires_at": NOW + HOUR,
+                            "next_allowed_at": NOW + 2 * HOUR, "tries": 0, "state": LIVE}
+
+
+def test_refused_unsets_the_link(clock):
+    users = _link_users("none")
+    issued = account_secrets.issue(users, RESET, users.docs[0])
+
+    account_secrets.refused(users, RESET, issued)
+
+    assert _link(users) is None
+
+
+@pytest.mark.parametrize("answer", ["accepted", "refused"])
+def test_a_provider_answer_past_the_links_life_writes_nothing(clock, answer):
+    users = _link_users("none")
+    issued = account_secrets.issue(users, RESET, users.docs[0])
+    clock["at"] = NOW + HOUR + MINUTE
+    before = copy.deepcopy(_link(users))
+
+    getattr(account_secrets, answer)(users, RESET, issued)
+
+    assert _link(users) == before
+
+
+OTHER_LINK_ROWS = [row for row in LINK_ROWS if not row.startswith("sending")]
+
+
+@pytest.mark.parametrize("answer", ["accepted", "refused"])
+@pytest.mark.parametrize("row", OTHER_LINK_ROWS, ids=OTHER_LINK_ROWS)
+def test_a_provider_answer_for_a_link_no_longer_held_writes_nothing(clock, row, answer):
+    users = _link_users(row)
+    before = copy.deepcopy(users.docs)
+    elsewhere = Issued(account_id=ACCOUNT_ID, secret=THE_LINK,
+                       hash=account_secrets.hash_link(THE_LINK), expires_at=NOW + HOUR)
+
+    getattr(account_secrets, answer)(users, RESET, elsewhere)
+
+    assert users.docs == before
+
+
+# link used: the reset, in one write, and only by a live link.
+
+LINK_USED = {
+    "none": Link.INVALID,
+    "sending, unexpired": Link.INVALID,
+    "sending, expired": Link.INVALID,
+    "live, unexpired": Link.LIVE,
+    "live, expired, wait ahead": Link.EXPIRED,
+    "live, expired, wait passed": Link.EXPIRED,
+    "used": Link.INVALID,
+    "discarded, wait ahead": Link.INVALID,
+    "discarded, wait passed": Link.INVALID,
+}
+
+
+@pytest.mark.parametrize("row", list(LINK_ROWS), ids=list(LINK_ROWS))
+def test_link_used(clock, row):
+    users = _link_users(row, verified=False)
+    before = copy.deepcopy(users.docs)
+
+    found = account_secrets.find_link(users, RESET, THE_LINK)
+    reset = account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID)
+
+    assert found is LINK_USED[row]
+    if found is Link.LIVE:
+        assert reset is True
+        [account] = users.docs
+        assert (account["password"], account["login_id"], account["email_verified"]) == (
+            PASSWORD_HASH, LOGIN_ID, True)
+        assert _link(users) == {**LINK_ROWS[row], "state": USED, "next_allowed_at": None}
+    else:
+        assert reset is False
+        assert users.docs == before
+
+
+def test_a_link_not_the_one_stored_is_invalid_and_resets_nothing(clock):
+    users = _link_users("live, unexpired")
+    before = copy.deepcopy(users.docs)
+
+    assert account_secrets.find_link(users, RESET, NOT_THE_LINK) is Link.INVALID
+    assert account_secrets.use_reset_link(users, NOT_THE_LINK, PASSWORD_HASH, LOGIN_ID) is False
+    assert users.docs == before
+
+
+def test_a_link_expiring_between_its_read_and_its_use_resets_nothing(clock):
+    users = _link_users("live, unexpired")
+    assert account_secrets.find_link(users, RESET, THE_LINK) is Link.LIVE
+    clock["at"] = NOW + 30 * MINUTE
+    before = copy.deepcopy(users.docs)
+
+    assert account_secrets.use_reset_link(users, THE_LINK, PASSWORD_HASH, LOGIN_ID) is False
+    assert users.docs == before
+
+
+def test_of_two_uses_of_one_link_one_resets(clock):
+    users = _link_users("live, unexpired")
+
+    assert [account_secrets.use_reset_link(users, THE_LINK, password, LOGIN_ID)
+            for password in ("fixture-first-hash", "fixture-second-hash")] == [True, False]
+    assert users.docs[0]["password"] == "fixture-first-hash"

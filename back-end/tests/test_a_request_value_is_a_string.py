@@ -28,7 +28,8 @@ import api.organizations as OrgsApi
 import api.users as UsersApi
 from test_a_vendor_checks_in_with_the_door_code import world  # noqa: E402,F401
 from datatypes import MarketPhase
-from sign_in_secrets import live_code, stored_code
+from sign_in_secrets import live_code, live_link, stored_code
+from test_the_sign_in_secrets_hold_one_state import Users
 
 
 FIXTURE_EMAIL = "fixture-user@example.com"
@@ -40,36 +41,13 @@ NOT_STRINGS = [{"$ne": None}, ["a-token"], 12345, True]
 NOT_AN_ADDRESS = [*NOT_STRINGS, [FIXTURE_EMAIL]]
 
 
-def _matches(value, condition):
-    """Whether a stored value meets one filter term: an equality, or a ``$ne`` operator."""
-    if isinstance(condition, dict) and any(key.startswith("$") for key in condition):
-        unknown = set(condition) - {"$ne"}
-        assert not unknown, f"the fake does not implement {unknown}"
-        return value != condition["$ne"]
-    return value == condition
-
-
-class CollectionLikeTheDatabase:
-    """A collection matching equality and ``$ne`` as the database does."""
+class CollectionLikeTheDatabase(Users):
+    """A collection reading and writing as the database does, operators included (the suite's
+    shared matcher and update), so a lookup that lets a non-string through finds what the
+    database would find."""
 
     def __init__(self, docs):
-        self.docs = [dict(doc) for doc in docs]
-
-    def _first(self, query):
-        return next(
-            (doc for doc in self.docs
-             if all(_matches(doc.get(key), condition) for key, condition in query.items())),
-            None,
-        )
-
-    def find_one(self, query):
-        doc = self._first(query)
-        return dict(doc) if doc else None
-
-    def update_one(self, query, update):
-        doc = self._first(query)
-        if doc:
-            doc.update(update.get("$set", {}))
+        super().__init__(*docs)
 
     def by_email(self, email):
         return next(doc for doc in self.docs if doc["email"] == email)
@@ -90,8 +68,6 @@ def users(monkeypatch):
             "email_verified": True,
             "verification_token": None,
             "verification_token_expires": None,
-            "password_reset_token": None,
-            "password_reset_token_expires": None,
         }
         doc.update(fields)
         collection = CollectionLikeTheDatabase([doc])
@@ -134,10 +110,7 @@ class TestResetPassword:
     def test_a_token_that_is_not_a_string_is_refused_and_changes_no_password(
         self, client, users, token,
     ):
-        collection = users(
-            password_reset_token="a-live-reset-token",
-            password_reset_token_expires=_in_an_hour(),
-        )
+        collection = users(secrets={"reset": live_link("a-live-reset-token")})
 
         response = client.post(
             "/reset-password", json={"token": token, "new_password": NEW_PASSWORD},
@@ -147,10 +120,7 @@ class TestResetPassword:
         assert _password_is(collection, FIXTURE_PASSWORD)
 
     def test_the_live_token_still_resets_the_password(self, client, users):
-        collection = users(
-            password_reset_token="a-live-reset-token",
-            password_reset_token_expires=_in_an_hour(),
-        )
+        collection = users(secrets={"reset": live_link("a-live-reset-token")})
 
         response = client.post(
             "/reset-password", json={"token": "a-live-reset-token", "new_password": NEW_PASSWORD},

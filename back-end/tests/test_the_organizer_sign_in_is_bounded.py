@@ -26,7 +26,7 @@ import account_secrets
 import app as app_module
 import api.users as UsersApi
 import sign_in_limits
-from sign_in_secrets import live_code, stored_code
+from sign_in_secrets import live_code, live_link, stored_code, stored_link
 
 
 ACCOUNT_EMAIL = "fixture-organizer@example.com"
@@ -796,9 +796,7 @@ def hashes_made(monkeypatch):
 def resettable(mail):
     """The account, with a reset link sent an hour from expiring."""
     account = mail.users.account(ACCOUNT_EMAIL)
-    account["password_reset_token"] = RESET_TOKEN
-    account["password_reset_token_expires"] = (
-        datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    account["secrets"] = {"reset": live_link(RESET_TOKEN, WINDOW_STARTS + timedelta(hours=1))}
     return account
 
 
@@ -850,7 +848,7 @@ class TestAPasswordLongerThanBcryptReadsIsRefused:
     def test_a_password_of_72_bytes_resets(self, client, resettable, clock, password):
         assert _reset(client, password).status_code == 200
 
-        assert resettable["password_reset_token"] is None
+        assert stored_link(resettable)["state"] == account_secrets.USED
         assert _sign_in(client, ACCOUNT_EMAIL, password).status_code == 200
 
     @pytest.mark.parametrize("ask", [_sign_up, _reset], ids=["sign-up", "reset"])

@@ -60,6 +60,13 @@ def test_the_login_id_every_request_loads_the_account_by_is_among_them():
     assert ("login_id",) in LOOKUP_INDEXES["users"]
 
 
+def test_a_reset_link_is_found_by_an_index_in_either_shape():
+    """A reset link opened is found by its hash, and for one release by the field that held it as
+    mailed (``account_secrets.find_link``)."""
+    for fields in [("secrets.reset.hash",), ("password_reset_token",)]:
+        assert fields in LOOKUP_INDEXES["users"]
+
+
 def test_an_index_already_on_the_same_fields_is_left_alone_whatever_its_options():
     """A migrated database holds a unique ``id_1``; asking for a plain one beside it would be
     refused by Mongo as a conflicting index, and would fail the boot."""
