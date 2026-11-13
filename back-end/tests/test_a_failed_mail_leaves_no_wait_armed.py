@@ -1,10 +1,12 @@
 """A code or link that could not be mailed leaves the organizer free to ask again (T273, R14).
 
 The organizer's code, reset link and verification link are stored before they are mailed, since
-the mail names them. When the send failed, the route puts back what it replaced: the next request
-works at once, and a link already in the inbox keeps working. A newer code or link another request
-stored meanwhile is left. The counts per caller and per address are not taken back: they count
-requests, whether or not a mail went.
+the mail names them. When the send failed, the next request works at once. A code the provider
+refused is unset (``account_secrets.refused``), so it leaves no wait and no live code, and no
+earlier code is written back. For a link, the route puts back what it replaced, so a link already
+in the inbox keeps working. A newer code or link another request stored meanwhile is left. The
+counts per caller and per address are not taken back: they count requests, whether or not a mail
+went.
 
 Reproduced on dev through the routes, the send made to fail: a code request answered 500 and the
 next 429 for about an hour, a reset request 500 and then 429, and a failed verification resend left
@@ -18,9 +20,11 @@ from conftest import skip_without_real_dependencies
 
 skip_without_real_dependencies()
 
+import account_secrets
 import app as app_module
 import api.users as UsersApi
 import sign_in_limits
+from sign_in_secrets import live_code, stored_code
 from test_the_organizer_sign_in_is_bounded import (  # noqa: F401
     ACCOUNT_EMAIL, CALLER, FAST_ROUNDS, PASSWORD, UNVERIFIED_EMAIL, WINDOW_STARTS, Users, _account,
     client, clock, fast_stand_in_hash,
@@ -67,8 +71,7 @@ class Mail:
                            environ_base={"REMOTE_ADDR": caller})
 
 
-CODE = Mail("/request-otp", "send_otp_email", ACCOUNT_EMAIL,
-            ("otp", "otp_expires", "otp_attempts"), SENT_CODE,
+CODE = Mail("/request-otp", "send_otp_email", ACCOUNT_EMAIL, (), SENT_CODE,
             sign_in_limits.ORGANIZER_CODE_REQUEST_PER_ADDRESS)
 RESET = Mail("/request-password-reset", "send_password_reset_email", ACCOUNT_EMAIL,
              ("password_reset_token", "password_reset_token_expires"), SENT_RESET,
@@ -77,6 +80,8 @@ VERIFICATION = Mail("/resend-verification", "send_verification_email", UNVERIFIE
                     ("verification_token", "verification_token_expires"),
                     SENT_VERIFICATION, sign_in_limits.VERIFICATION_LINK_PER_ADDRESS)
 MAILS = [CODE, RESET, VERIFICATION]
+#: The mails whose failed send puts back the link the account held.
+PUT_BACK = [RESET, VERIFICATION]
 
 
 class Outbox:
@@ -168,7 +173,7 @@ class TestAfterAFailedSendTheNextRequestWorks:
         assert VERIFICATION.ask(client).status_code == 200
         assert client.post("/verify-email", json={"token": outbox.last()}).status_code == 200
 
-    @pytest.mark.parametrize("mail", MAILS, ids=repr)
+    @pytest.mark.parametrize("mail", PUT_BACK, ids=repr)
     def test_the_account_holds_what_it_held_before(self, client, users, outbox, clock, mail):
         account = users.account(mail.sends_to)
         before = {field: account.get(field) for field in mail.fields}
@@ -178,7 +183,7 @@ class TestAfterAFailedSendTheNextRequestWorks:
         assert {field: account.get(field) for field in mail.fields} == before
 
 
-@pytest.mark.parametrize("mail", MAILS, ids=repr)
+@pytest.mark.parametrize("mail", PUT_BACK, ids=repr)
 def test_a_newer_value_stored_during_the_failed_send_is_left(client, users, outbox, clock, mail):
     later = (WINDOW_STARTS + timedelta(days=400)).isoformat()
     newer = {field: 0 if field == "otp_attempts" else later if field.endswith("_expires")
@@ -192,6 +197,42 @@ def test_a_newer_value_stored_during_the_failed_send_is_left(client, users, outb
 
     account = users.account(mail.sends_to)
     assert {field: account.get(field) for field in mail.fields} == newer
+
+
+class TestARefusedCodeLeavesNoCode:
+    """The code is one record (``account_secrets``): a refused mail unsets it."""
+
+    def test_it_leaves_no_code_and_no_wait(self, client, users, outbox, clock):
+        _fail_once(client, outbox, CODE)
+
+        account = users.account(ACCOUNT_EMAIL)
+        assert stored_code(account) is None
+        assert not set(account_secrets.LEGACY_FIELDS) & set(account)
+
+    @pytest.mark.parametrize("earlier", [account_secrets.USED, account_secrets.DISCARDED])
+    def test_no_earlier_code_is_written_back(self, client, users, outbox, clock, earlier):
+        # A code mailed two hours before, since used or discarded: its wait has passed.
+        code = live_code("135791", WINDOW_STARTS - timedelta(hours=2))
+        code.update(state=earlier, next_allowed_at=None if earlier == account_secrets.USED
+                    else code["next_allowed_at"])
+        users.account(ACCOUNT_EMAIL)["secrets"] = {"code": code}
+
+        _fail_once(client, outbox, CODE)
+
+        assert stored_code(users.account(ACCOUNT_EMAIL)) is None
+
+    def test_a_newer_code_issued_during_the_failed_send_is_left(
+        self, client, users, outbox, clock,
+    ):
+        newer = live_code("246810", WINDOW_STARTS + timedelta(minutes=5))
+
+        def another_request_mails_a_newer_one(to):
+            users.account(to)["secrets"] = {"code": dict(newer)}
+
+        outbox.meanwhile = another_request_mails_a_newer_one
+        _fail_once(client, outbox, CODE)
+
+        assert stored_code(users.account(ACCOUNT_EMAIL)) == newer
 
 
 @pytest.mark.parametrize("mail", MAILS, ids=repr)

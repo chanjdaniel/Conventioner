@@ -4,6 +4,7 @@ kind: data
 describes:
   - back-end/utils/email_address.py
   - back-end/datatypes.py#User
+  - back-end/account_secrets.py
   - back-end/api/users.py#ensure_user_indexes
   - back-end/api/users.py#AuthUser
   - back-end/api/users.py#register_user_with_captcha
@@ -29,7 +30,12 @@ describes:
   - back-end/tests/test_one_account_per_address.py
   - back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py
   - back-end/tests/test_delete_user_authorization.py
-verified: 2026-11-11
+  - back-end/tests/test_the_sign_in_secret_machine.py
+  - back-end/tests/test_the_old_sign_in_fields_are_read_for_one_release.py
+  - back-end/tests/test_a_stored_account_holds_no_secret_in_clear.py
+  - back-end/tests/test_one_writer_of_the_sign_in_secrets.py
+  - back-end/tests/real_mongo/test_the_sign_in_secret_races.py
+verified: 2026-11-13
 sources:
   - E32/F03/S04
   - T85
@@ -43,6 +49,7 @@ sources:
   - T263
   - T273
   - T283
+  - T311
 ---
 
 # Users, and the one spelling of an address
@@ -55,17 +62,18 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 ## The fields that matter
 
-| Field                                                  | What it is                                                                                                                                                                                                      |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                                                   | a UUID, the primary key, and what every role and membership names                                                                                                                                               |
-| `email`                                                | the sign-in, stored lowercased and trimmed, unique                                                                                                                                                              |
-| `password`                                             | a bcrypt hash                                                                                                                                                                                                   |
-| `organizations`                                        | the ids of the organizations the person is in ([the organization document](organization-document.md)); empty at registration, whatever the body sends, and written only by a membership change                  |
-| `email_verified`                                       | false until the emailed link is followed; an unverified account cannot sign in                                                                                                                                  |
-| `verification_token`, `verification_token_expires`     | the email-verification link, valid an hour                                                                                                                                                                      |
-| `password_reset_token`, `password_reset_token_expires` | the password-reset link, valid an hour                                                                                                                                                                          |
-| `otp`, `otp_expires`, `otp_attempts`                   | a sign-in code, valid five minutes; its tries are counted in the update that reads it, and the fifth wrong one discards the code and keeps `otp_expires`, which holds back the next code until an hour after it |
-| `login_id`                                             | the account a session or remember-me cookie names, in its sign-in id: a random value, made at the first sign-in and replaced by a password reset                                                                |
+| Field                                                  | What it is                                                                                                                                                                                                                       |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                                   | a UUID, the primary key, and what every role and membership names                                                                                                                                                                |
+| `email`                                                | the sign-in, stored lowercased and trimmed, unique                                                                                                                                                                               |
+| `password`                                             | a bcrypt hash                                                                                                                                                                                                                    |
+| `organizations`                                        | the ids of the organizations the person is in ([the organization document](organization-document.md)); empty at registration, whatever the body sends, and written only by a membership change                                   |
+| `email_verified`                                       | false until the emailed link is followed; an unverified account cannot sign in                                                                                                                                                   |
+| `verification_token`, `verification_token_expires`     | the email-verification link, valid an hour                                                                                                                                                                                       |
+| `password_reset_token`, `password_reset_token_expires` | the password-reset link, valid an hour                                                                                                                                                                                           |
+| `secrets`                                              | the account's sign-in secrets, one record by kind, each kept hashed: the sign-in code is `secrets.code` ([the sign-in secrets](#the-sign-in-secrets))                                                                            |
+| `otp`, `otp_expires`, `otp_attempts`                   | the sign-in code as it was kept before `secrets`, in clear: read for one release, upgraded to `secrets.code` the first time the account is read, and written by nothing ([the old fields](#the-old-fields-read-for-one-release)) |
+| `login_id`                                             | the account a session or remember-me cookie names, in its sign-in id: a random value, made at the first sign-in and replaced by a password reset                                                                                 |
 
 ## The session names the account by its login id
 
@@ -147,16 +155,16 @@ The sign-in page and the verification page say the 429's sentence after "Send th
 
 ### A code's tries are counted in one update
 
-**`/login-otp` counts a try on the code in the same update that reads it**: one `find_one_and_update` on `{email, otp: {$ne: None}, otp_attempts: {$lt: 5}}` adding one to `otp_attempts`, with no plain read of the account before it.
-So no more than five tries ever reach one code, even when they arrive at once; a try that finds nothing to match (no account, no code, or its five tries counted) answers `SIGN_IN_WRONG_CODE`.
-The code is compared with `secrets.compare_digest`.
+**`/login-otp` counts a try on the code in the same write that finds it** (`account_secrets.try_code`): one `find_one_and_update` on `{email, secrets.code.state: "live", secrets.code.tries: {$lt: 5}}` adding one to `secrets.code.tries`, with no plain read of the account before it but the one-release read of [the old fields](#the-old-fields-read-for-one-release).
+So no more than five tries ever reach one code, even when they arrive at once; a try that finds nothing to match (no account, no live code, or its five tries counted) answers `SIGN_IN_WRONG_CODE`.
+The try is checked against the stored hash in constant time (`code_matches`).
 
-- The fifth wrong code discards the code, by an update conditional on the stored code, and keeps `otp_expires`, so `/request-otp` keeps its wait; it answers 401 `SIGN_IN_WRONG_CODE`, as every wrong code does.
+- The fifth wrong code discards the code (`state: "discarded"`), by a write conditional on its hash and `live`, and keeps its `next_allowed_at`, so `/request-otp` keeps its wait; it answers 401 `SIGN_IN_WRONG_CODE`, as every wrong code does.
 - A right code that has expired answers 400 "That code has expired. You can ask for a new code in {wait}.", and is left as it is.
-- A right code on an account not yet verified answers `SIGN_IN_VERIFY_FIRST` and is left as it is.
-- A right code otherwise is consumed by an update conditional on the stored code; of two right tries only the one whose update changed the account signs in, and the other answers `SIGN_IN_WRONG_CODE`.
+- A right code on an account not yet verified answers `SIGN_IN_VERIFY_FIRST` and is left live.
+- A right code otherwise is used (`state: "used"`, `next_allowed_at` cleared) by a write conditional on its hash and `live`; of two right tries only the one whose write changed the account signs in, and the other answers `SIGN_IN_WRONG_CODE`.
 
-`{wait}` in the expired code's sentence and in `/request-otp`'s refusal, "You can ask for a new code in {wait}.", is what is left of the account's wait, which ends an hour after its code's `otp_expires` (`_code_wait`); once it is over, the expired code's sentence ends "Ask for a new one." instead, and `/request-otp` sends a code.
+`{wait}` in the expired code's sentence and in `/request-otp`'s refusal, "You can ask for a new code in {wait}.", is what is left of the code's `next_allowed_at`, an hour after it expired (`CODE_WAIT`); once it is over, the expired code's sentence ends "Ask for a new one." instead, and `/request-otp` sends a code.
 `/request-password-reset` keeps one link at a time the same way: until an hour after the last link's `password_reset_token_expires` (`RESET_WAIT`), unless that link was used, which clears it, it answers 429 `NEXT_RESET_LATER`, "You can ask for another reset link in {wait}.", under `msg`, with no `Retry-After`.
 
 **A password longer than 72 bytes** in UTF-8 (`PASSWORD_MAX_BYTES`), which bcrypt refuses to hash or check, matches no account: `_password_matches` answers false without a bcrypt check, so `/login` answers `SIGN_IN_DOES_NOT_MATCH`, never the server's fault.
@@ -164,15 +172,67 @@ The code is compared with `secrets.compare_digest`.
 
 [`back-end/tests/test_the_organizer_sign_in_is_bounded.py`](../../../back-end/tests/test_the_organizer_sign_in_is_bounded.py) holds each; [`back-end/tests/test_sign_in_limits.py`](../../../back-end/tests/test_sign_in_limits.py) holds the counters.
 
-### A failed send puts back what it replaced
+### A failed send leaves no wait armed
 
-**`/request-otp`, `/request-password-reset` and `/resend-verification` store their code or link before they mail it**, since the mail names it, and when the send fails they put back what the account held before, then answer 500 with their own sentence as before (`_put_back`).
-So the next request works at once, with no code or reset wait armed by a mail that never went, and a verification link already in the inbox keeps working.
-The put-back is one `update_one` whose filter is the address and the code or link the request wrote, setting each field it wrote (`otp`, `otp_expires`, `otp_attempts`; `password_reset_token`, `password_reset_token_expires`; `verification_token`, `verification_token_expires`) to what the account held when the request read it, an absent field read as None.
-So a newer code or link another request stored meanwhile matches nothing and is left.
+**`/request-otp`, `/request-password-reset` and `/resend-verification` store their code or link before they mail it**, since the mail names it, and when the send fails they answer 500 with their own sentence as before, leaving the account free to ask again at once, with no code or reset wait armed by a mail that never went.
+
+- **A code the provider refused is unset** (`account_secrets.refused`): no wait, no live code, and no write that restores an earlier one.
+  The write is conditional on the issued hash and `sending`, so a code a newer request or a change meanwhile left is left as it is.
+- **A link is put back** (`_put_back`): one `update_one` whose filter is the address and the link the request wrote, setting each field it wrote (`password_reset_token`, `password_reset_token_expires`; `verification_token`, `verification_token_expires`) to what the account held when the request read it, an absent field read as None.
+  So a verification link already in the inbox keeps working, and a newer link another request stored meanwhile matches nothing and is left.
+
 The counts are not taken back: a failed send still counts against the caller and the address, so a sixth request in a quarter hour answers `ASKED_TOO_OFTEN` whether or not any mail went, and a failing provider cannot be asked without bound.
 The vendor's code is not put back: its challenge arms no wait, and its failed send is answered as a sent one ([where it is kept](../../business/rules/a-vendor-signs-in-before-applying.md#where-it-is-kept)).
 [`back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py`](../../../back-end/tests/test_a_failed_mail_leaves_no_wait_armed.py) holds each, and the reset link's wait.
+
+## The sign-in secrets
+
+**An account's sign-in secrets are one machine, and [`back-end/account_secrets.py`](../../../back-end/account_secrets.py) is the only code that reads or writes them** ([ADR 0026](../../adr/0026-an-accounts-sign-in-secrets-are-one-machine.md)).
+Each kind is one record under `secrets`, `{hash, expires_at, next_allowed_at, tries, state}`:
+
+- `hash` is what is kept of the secret, never the secret: a code is kept salted, `"<salt>:<sha256(salt:code)>"`, as the vendor's code is, so a copy of the database holds no code that signs in.
+- `expires_at` and `next_allowed_at` are BSON datetimes in UTC; `next_allowed_at` is null when no wait holds back the next secret of the kind.
+- `tries` counts the tries that reached a code.
+- `state` is `sending` (issued, its mail not yet answered), `live`, `used` or `discarded`; an absent record is the state "none".
+
+The kinds, `KINDS` in the module:
+
+| Kind   | Mailed as                 | Life      | `next_allowed_at` once mailed       | Tries            |
+| ------ | ------------------------- | --------- | ----------------------------------- | ---------------- |
+| `code` | 6 digits (`generate_otp`) | 5 minutes | `expires_at` + 1 hour (`CODE_WAIT`) | 5 (`CODE_TRIES`) |
+
+Every change is one write conditional on the state it moves from, and nothing else writes the field; each function takes the users collection from `api/users.py`, and reads the time from the module's `now()`.
+
+| From \ event       | issue                                                  | provider accepted           | provider refused | right try                       | wrong try                                    |
+| ------------------ | ------------------------------------------------------ | --------------------------- | ---------------- | ------------------------------- | -------------------------------------------- |
+| none               | sending                                                | -                           | -                | refused                         | refused                                      |
+| sending, unexpired | refused                                                | live, `next_allowed_at` set | none (unset)     | refused                         | refused                                      |
+| sending, expired   | sending (a new one)                                    | no write                    | no write         | refused                         | refused                                      |
+| live, unexpired    | refused while `next_allowed_at` is ahead               | -                           | -                | used, `next_allowed_at` cleared | `tries` + 1; the fifth: discarded, wait kept |
+| live, expired      | refused while `next_allowed_at` is ahead, else sending | -                           | -                | refused, answered expired       | `tries` + 1, as above                        |
+| used               | sending                                                | -                           | -                | refused                         | refused                                      |
+| discarded          | sending once `next_allowed_at` has passed              | -                           | -                | refused                         | refused                                      |
+
+- **Issue** (`issue`) is one `update_one` whose filter is the account by `id`, `email_verified: true` for a code, `next_allowed_at` null or not after now, and no unexpired `sending` record; it sets the record `sending`, with no wait, and unsets the kind's old fields.
+  The code is made before that write, so of two requests at once one mails a code and the other matches nothing and is answered the wait, read once more from the account: what is left of `next_allowed_at`, or, for a code being mailed, of its expiry and the kind's wait.
+- **Provider accepted** (`accepted`) and **refused** (`refused`) are conditional on the issued hash, `sending` and its expiry not passed, so a later change is left alone.
+- An expiry writes nothing: a `sending` record past its life is read as none, a `live` one as expired.
+
+[`back-end/tests/test_the_sign_in_secret_machine.py`](../../../back-end/tests/test_the_sign_in_secret_machine.py) holds every cell of the table; [`back-end/tests/real_mongo/test_the_sign_in_secret_races.py`](../../../back-end/tests/real_mongo/test_the_sign_in_secret_races.py) runs five code requests at once and five right codes at once on a real server; [`back-end/tests/test_a_stored_account_holds_no_secret_in_clear.py`](../../../back-end/tests/test_a_stored_account_holds_no_secret_in_clear.py) reads every stored account whole after a code is mailed and used and finds the code nowhere; and [`back-end/tests/test_one_writer_of_the_sign_in_secrets.py`](../../../back-end/tests/test_one_writer_of_the_sign_in_secrets.py) scans the back end for any other module naming `secrets` or an old field.
+An E2E spec plants a code it knows with `plantSignInCode` in [`front-end/e2e/helpers/accountSecrets.ts`](../../../front-end/e2e/helpers/accountSecrets.ts), as the mail would have carried it.
+
+### The old fields, read for one release
+
+Before `secrets`, an account kept its code in clear in `otp`, `otp_expires` (an ISO string) and `otp_attempts`; for one release the module still reads them, so a code mailed before the deploy keeps working until it would have expired.
+The first time the module reads an account holding any of them (`_upgrade`), it turns them into the record in one write, filtered on the values it read and on the record being absent, and unsets them:
+
+- a stored `otp` becomes a live code, its tries from `otp_attempts`, its life from `otp_expires` and its wait an hour after that;
+- a cleared `otp` with its `otp_expires` kept, as five wrong tries left it, becomes a discarded code keeping that wait;
+- cleared fields, or an expiry that does not read, become no code.
+
+No writer writes them: a sign-up and `create_account.py` store none.
+[`back-end/tests/test_the_old_sign_in_fields_are_read_for_one_release.py`](../../../back-end/tests/test_the_old_sign_in_fields_are_read_for_one_release.py) holds each shape.
+The follow-up `T311-followup: retire the old sign-in fields and cookie` deletes `_upgrade`, its tests and the fields on `User`, no sooner than 30 days after this release reaches production, with a script, which Daniel runs, that unsets the fields.
 
 ## Lookups
 

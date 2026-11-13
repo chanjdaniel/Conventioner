@@ -28,6 +28,7 @@ import api.organizations as OrgsApi
 import api.users as UsersApi
 from test_a_vendor_checks_in_with_the_door_code import world  # noqa: E402,F401
 from datatypes import MarketPhase
+from sign_in_secrets import live_code, stored_code
 
 
 FIXTURE_EMAIL = "fixture-user@example.com"
@@ -91,9 +92,6 @@ def users(monkeypatch):
             "verification_token_expires": None,
             "password_reset_token": None,
             "password_reset_token_expires": None,
-            "otp": None,
-            "otp_expires": None,
-            "otp_attempts": 0,
         }
         doc.update(fields)
         collection = CollectionLikeTheDatabase([doc])
@@ -222,12 +220,12 @@ class TestLogin:
 class TestSignInCode:
     @pytest.mark.parametrize("otp", NOT_STRINGS)
     def test_a_code_that_is_not_a_string_is_refused_and_counts_no_try(self, client, users, otp):
-        collection = users(otp="123456", otp_expires=_in_an_hour())
+        collection = users(secrets={"code": live_code("123456")})
 
         response = client.post("/login-otp", json={"email": FIXTURE_EMAIL, "otp": otp})
 
         assert response.status_code == 400
-        assert collection.by_email(FIXTURE_EMAIL)["otp_attempts"] == 0
+        assert stored_code(collection.by_email(FIXTURE_EMAIL))["tries"] == 0
 
 
 class TestALookupByAddress:

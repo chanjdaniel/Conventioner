@@ -63,9 +63,6 @@ def create_account(users: Any, email: str, password: str) -> str:
         "verification_token_expires": None,
         "password_reset_token": None,
         "password_reset_token_expires": None,
-        "otp": None,
-        "otp_expires": None,
-        "otp_attempts": 0,
     })
     return account_id
 

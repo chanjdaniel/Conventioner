@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -22,6 +22,7 @@ sources:
   - E47/F02/S01
   - T263
   - T283
+  - T311
 ---
 
 # Accounts
@@ -126,19 +127,23 @@ Covered by:
 2. Enter the code from the email, tick "Remember me" or leave it, and choose "Sign in"; the choice is the Sign in tab's, kept between the two (A2).
 3. "Use a different email", a button, returns to step 1 with the focus in the Email field.
 
+The server keeps the code only as a salted hash, so a copy of the database holds no code that signs in ([the sign-in secrets](../../implementation/data/users-and-email.md#the-sign-in-secrets)).
+
 Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, at every try; a right code that has expired; too many tries; asking for another code too soon; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
 
 - The fifth wrong code discards the code and says "That code is not right." as the others do, so the right code after it is refused alike.
 - A right code that has expired says "That code has expired. You can ask for a new code in N minutes.": a new code can be asked for an hour after the last one expired, whether it expired or five wrong tries discarded it, and once that wait is over it says "Ask for a new one." instead.
 - Asking for another code before then says "You can ask for a new code in N minutes.".
+- Two requests for a code at once, as a browser that sends one press twice makes, mail one code, the one that signs in, and the other is answered "You can ask for a new code in N minutes.".
+- A code that could not be mailed says "The sign-in code could not be sent. Please try again.", and asking again sends one at once.
 - Past five codes asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address.
 - Past ten tries at one address in 15 minutes, or sixty from one caller, the next says "Too many sign-in attempts. Try again in N minutes, or reset your password.", the same for every address; a right code takes its own try back, as a right password does ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 
 Covered by:
 
-- `a-failure-says-what-to-do.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
+- `a-failure-says-what-to-do.spec.ts`, which stubs the send and plants a code it knows as the mail would carry it (`plantSignInCode`), then signs in with it
 - `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code
-- `remember-me.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
+- `remember-me.spec.ts`, which stubs the send and plants a code it knows, then signs in with it
 - `sign-in-fits-a-phone.spec.ts`
 - `the-sign-in-fits-a-small-phone.spec.ts`
 - `the-sign-in-says-what-to-do-next.spec.ts`, which stubs the send and walks only a wrong code
@@ -153,7 +158,7 @@ Covered by:
 
 Branches: asking for another link before an hour has passed since the last one expired ("You can ask for another reset link in N minutes."), asking too often, a new password too short or too long.
 
-- A link that could not be mailed says "Failed to send password reset email", and asking again sends one at once ([a failed send puts back what it replaced](../../implementation/data/users-and-email.md#a-failed-send-puts-back-what-it-replaced)).
+- A link that could not be mailed says "Failed to send password reset email", and asking again sends one at once ([a failed send leaves no wait armed](../../implementation/data/users-and-email.md#a-failed-send-leaves-no-wait-armed)).
 
 - A new password longer than 72 bytes says "That password is too long. Use 72 characters or fewer; an accented letter or an emoji counts as more than one.", as at sign-up (A1), and leaves the password and the link as they were.
 

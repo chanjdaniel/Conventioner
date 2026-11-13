@@ -28,12 +28,6 @@ def get_token_expiry(hours: int = 1) -> str:
     return expiry.isoformat()
 
 
-def get_otp_expiry(minutes: int = 5) -> str:
-    """Get expiration timestamp for an OTP (default: 5 minutes from now)."""
-    expiry = datetime.now(timezone.utc) + timedelta(minutes=minutes)
-    return expiry.isoformat()
-
-
 def verify_token_expiry(expires_at: str) -> bool:
     """Check if a token has expired.
 

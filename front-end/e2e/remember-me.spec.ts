@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { test, expect, APP_API, TEST_USER, LoginPage } from './fixtures';
-import { mongoEval } from './helpers/mongo';
+import { plantSignInCode } from './helpers/accountSecrets';
 import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
 
 /**
@@ -56,11 +56,7 @@ async function signInByCode(page: Page, remember: boolean) {
   await expect(login.otpCodeInput).toBeVisible();
   await expect(login.otpRememberMe).not.toBeChecked();
   if (remember) await login.otpRememberMe.check();
-  const expires = new Date(Date.now() + 5 * 60_000).toISOString();
-  mongoEval(
-    `db.users.updateOne({ email: '${TEST_USER.email}' }, ` +
-      `{ $set: { otp: '246810', otp_expires: '${expires}', otp_attempts: 0 } })`,
-  );
+  plantSignInCode(TEST_USER.email, '246810');
   await login.otpCodeInput.fill('246810');
   await login.otpSubmitButton.click();
   await login.waitForMarkets();

@@ -15,6 +15,7 @@ when it was made. A password reset replaces the login id, so every session and r
 issued before the reset stops signing in, and a cookie from before the sign-in carried its time is
 not read at all.
 """
+import copy
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -24,7 +25,7 @@ from email.utils import parsedate_to_datetime
 import pytest
 from flask_login.utils import encode_cookie
 
-from conftest import mongo_matches, mongo_project, skip_without_real_dependencies
+from conftest import mongo_matches, mongo_project, mongo_update, skip_without_real_dependencies
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -32,6 +33,7 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.users as UsersApi
+from sign_in_secrets import live_code
 from utils.session_storage import ON_DISK, install_session_storage
 
 
@@ -60,13 +62,14 @@ class OneAccount:
             return mongo_project(dict(self.doc), projection)
         return None
 
-    def find_one_and_update(self, query, update, return_document=None):
+    def find_one_and_update(self, query, update, return_document=None, **_options):
         if not mongo_matches(self.doc, query):
             return None
+        before = self.doc
         self._apply(update)
-        return dict(self.doc)
+        return copy.deepcopy(self.doc if return_document else before)
 
-    def update_one(self, query, update):
+    def update_one(self, query, update, **_options):
         if self.before_next_update:
             self.before_next_update, run = None, self.before_next_update
             run()
@@ -76,9 +79,7 @@ class OneAccount:
         return SimpleNamespace(matched_count=1, modified_count=1)
 
     def _apply(self, update):
-        self.doc.update(update.get("$set", {}))
-        for field, amount in update.get("$inc", {}).items():
-            self.doc[field] = self.doc.get(field, 0) + amount
+        self.doc = mongo_update(self.doc, update)
 
 
 def _in_an_hour():
@@ -95,9 +96,7 @@ def users(monkeypatch):
         "email_verified": True,
         "password_reset_token": RESET_TOKEN,
         "password_reset_token_expires": _in_an_hour(),
-        "otp": FIXTURE_OTP,
-        "otp_expires": _in_an_hour(),
-        "otp_attempts": 0,
+        "secrets": {"code": live_code(FIXTURE_OTP)},
     })
     monkeypatch.setattr(UsersApi, "users_collection", collection)
     return collection

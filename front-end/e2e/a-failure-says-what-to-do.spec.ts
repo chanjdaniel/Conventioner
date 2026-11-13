@@ -1,6 +1,7 @@
 import type { APIRequestContext, Page, Request, Route } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './helpers/marketScreens';
+import { plantSignInCode } from './helpers/accountSecrets';
 import { mongoEval } from './helpers/mongo';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import {
@@ -356,11 +357,7 @@ test.describe('signing in keeps the place', () => {
     await login.otpEmailInput.fill(TEST_USER.email);
     await login.otpSubmitButton.click();
     await expect(login.otpCodeInput).toBeVisible();
-    const expires = new Date(Date.now() + 5 * 60_000).toISOString();
-    mongoEval(
-      `db.users.updateOne({ email: '${TEST_USER.email}' }, ` +
-        `{ $set: { otp: '246810', otp_expires: '${expires}', otp_attempts: 0 } })`,
-    );
+    plantSignInCode(TEST_USER.email, '246810');
     await login.otpCodeInput.fill('246810');
     await login.otpSubmitButton.click();
 

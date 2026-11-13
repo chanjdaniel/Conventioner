@@ -22,6 +22,7 @@ from conftest import (
 
 skip_without_real_dependencies()
 
+import account_secrets
 import app as app_module
 import api.users as UsersApi
 from test_a_failed_mail_leaves_no_wait_armed import outbox  # noqa: F401
@@ -163,13 +164,14 @@ def test_the_owner_of_an_unverified_address_resets_the_password_and_signs_in(
     assert signed_in.status_code == 200
 
 
-@fixed_by("ticket 02: issuing a code is one conditional write")
 def test_two_code_requests_at_once_mail_one_code_and_it_signs_in(
     monkeypatch, client, users, outbox, clock,
 ):
     second_client = app_module.app.test_client()
-    wrapped, second = _inside(UsersApi.generate_otp, lambda: _ask_for_a_code(second_client))
-    monkeypatch.setattr(UsersApi, "generate_otp", wrapped)
+    # The code is made before the one write that issues it.
+    wrapped, second = _inside(account_secrets.generate_otp,
+                              lambda: _ask_for_a_code(second_client))
+    monkeypatch.setattr(account_secrets, "generate_otp", wrapped)
 
     first = _ask_for_a_code(client)
 

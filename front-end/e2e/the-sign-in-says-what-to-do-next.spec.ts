@@ -8,6 +8,7 @@ import {
   SPACE_SCALE,
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
+import { forgetSignInCode, plantSignInCode } from './helpers/accountSecrets';
 import { mongoEval } from './helpers/mongo';
 import { ROOM_IN_WINDOW_WAIT_MS, waitForRoomInWindow } from './helpers/signInWindow';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
@@ -222,13 +223,7 @@ for (const { name, viewport } of WIDTHS) {
       await login.otpEmailInput.fill(TEST_USER.email);
       await login.otpSubmitButton.click();
       await expect(login.otpSuccessMessage).toHaveText(CODE_SENT);
-      const setCode = (code: string | null, expires: string | null) =>
-        mongoEval(
-          `db.users.updateOne({ email: ${JSON.stringify(TEST_USER.email)} }, ` +
-            `{ $set: { otp: ${JSON.stringify(code)}, otp_expires: ${JSON.stringify(expires)}, ` +
-            `otp_attempts: 0 } })`,
-        );
-      setCode('246810', new Date(Date.now() + 5 * 60_000).toISOString());
+      plantSignInCode(TEST_USER.email, '246810');
       try {
         await login.otpCodeInput.fill('135791');
         await login.otpSubmitButton.click();
@@ -238,7 +233,7 @@ for (const { name, viewport } of WIDTHS) {
         await expectItSaysItWell(page);
       } finally {
         // No code left behind for the next spec to be refused by.
-        setCode(null, null);
+        forgetSignInCode(TEST_USER.email);
       }
     });
   });

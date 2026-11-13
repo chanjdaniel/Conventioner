@@ -38,8 +38,10 @@ def test_an_account_is_made_verified_in_the_shape_sign_up_makes():
     assert doc["password"] != "a long passphrase"
     assert CreateAccount.bcrypt.check_password_hash(doc["password"], "a long passphrase")
     assert doc["organizations"] == []
-    for key in ("verification_token", "password_reset_token", "otp"):
+    for key in ("verification_token", "password_reset_token"):
         assert doc[key] is None
+    # No sign-in code is written at all: an account's code lives in ``secrets`` once one is asked for.
+    assert not {"otp", "otp_expires", "otp_attempts", "secrets"} & set(doc)
 
 
 def test_an_address_that_already_has_an_account_is_refused():

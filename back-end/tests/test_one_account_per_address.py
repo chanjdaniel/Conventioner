@@ -138,7 +138,7 @@ class TestRegistering:
         collection = users("dan@example.com")
         collection.docs[0].update({
             "password": "the-accounts-own-hash", "email_verified": True, "organizations": ["org-1"],
-            "verification_token": None, "password_reset_token": None, "otp": None,
+            "verification_token": None, "password_reset_token": None, "secrets": {},
             "login_id": "the-accounts-login-id",
         })
         collection.before = [dict(doc) for doc in collection.docs]
