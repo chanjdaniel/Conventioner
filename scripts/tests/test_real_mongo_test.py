@@ -34,9 +34,6 @@ esac
 # A stub Python: logs what the suite would have been given, and exits $PYTEST_STATUS; with
 # $PYTEST_HANGS it writes its pid to $PYTEST_PID and waits, as a long suite does.
 PYTHON = """#!/usr/bin/env bash
-case "$*" in
-  "-c "*) exec python3 "$@" ;;
-esac
 printf 'python %s | cwd=%s uri=%s required=%s\\n' "$*" "$PWD" "${REAL_MONGODB_URI-unset}" "${REAL_MONGODB_REQUIRED-unset}" >> "$CALL_LOG"
 if [ -n "${PYTEST_HANGS:-}" ]; then
   echo $$ > "$PYTEST_PID"
@@ -122,7 +119,14 @@ def test_the_server_is_the_compose_files_mongodb_on_a_loopback_port_docker_picks
 
 
 def test_the_server_carries_the_team_labels_from_the_environment(tmp_path):
-    _, calls = run(tmp_path, TEAM_OWNER="agent-team", TEAM_TASK="T1", TEAM_KIND="gate", TEAM_WORKTREE="/w")
+    _, calls = run(
+        tmp_path,
+        TEAM_OWNER="agent-team",
+        TEAM_TASK="T1",
+        TEAM_KIND="gate",
+        TEAM_WORKTREE="/w",
+        TEAM_EXPIRES="2026-11-13T12:00:00Z",
+    )
 
     run_call = the_run(calls)
     for label in (
@@ -130,9 +134,15 @@ def test_the_server_carries_the_team_labels_from_the_environment(tmp_path):
         "io.github.chanjdaniel.team.task=T1",
         "io.github.chanjdaniel.team.kind=gate",
         "io.github.chanjdaniel.team.worktree=/w",
-        "io.github.chanjdaniel.team.expires=20",
+        "io.github.chanjdaniel.team.expires=2026-11-13T12:00:00Z",
     ):
         assert f"--label {label}" in run_call
+
+
+def test_the_server_sets_no_expiry_of_its_own_when_none_is_given(tmp_path):
+    _, calls = run(tmp_path)
+
+    assert "--label io.github.chanjdaniel.team.expires= " in the_run(calls)
 
 
 def test_the_suite_runs_from_the_back_end_on_that_server_and_may_not_skip(tmp_path):

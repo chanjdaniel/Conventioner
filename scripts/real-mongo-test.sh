@@ -43,10 +43,6 @@ if [ $# -eq 0 ]; then
   set -- tests/real_mongo
 fi
 
-# The expires label's time. Like the other labels, it says whose the container is to whoever
-# reads `docker ps`, and removes nothing: the removals below are the only ones.
-EXPIRES="${TEAM_EXPIRES:-$("$PYTHON" -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) + d.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"))')}"
-
 # ── Removal ──────────────────────────────────────────────────────────────────
 
 # The EXIT trap removes the server after a normal exit, a failure, and SIGINT or SIGTERM; nothing
@@ -87,7 +83,7 @@ docker run --detach --rm --name "$NAME" \
   --label "io.github.chanjdaniel.team.task=${TEAM_TASK:-}" \
   --label "io.github.chanjdaniel.team.kind=${TEAM_KIND:-}" \
   --label "io.github.chanjdaniel.team.worktree=${TEAM_WORKTREE:-}" \
-  --label "io.github.chanjdaniel.team.expires=$EXPIRES" \
+  --label "io.github.chanjdaniel.team.expires=${TEAM_EXPIRES:-}" \
   --tmpfs /data/db --tmpfs /data/configdb \
   --ulimit nofile=64000:64000 \
   -p 127.0.0.1::27017 \
