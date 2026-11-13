@@ -99,10 +99,11 @@ class PagedHistory:
         self.docs.append(document)
 
     def update_one(self, query, update, upsert=False):
-        """The entry written once under its id: an upsert that only sets on insert."""
+        """The entry written once under its id: an upsert that only sets on insert, inserting the
+        filter's plain fields with it, as the server does."""
         assert set(update) == {"$setOnInsert"} and upsert, "the history writes no other update"
         if not any(_matches(doc, query) for doc in self.docs):
-            self.docs.append(dict(update["$setOnInsert"]))
+            self.docs.append({**query, **update["$setOnInsert"]})
 
     def find(self, query, projection=None):
         found = [_projected(doc, projection) for doc in self.docs if _matches(doc, query)]

@@ -332,6 +332,27 @@ class TestAMarketsOwnDeleteCutAndRetried:
         assert draft["id"] not in real_db["organizations"].find_one({"id": ORG})["markets"]
 
 
+class TestTwoOverlappingDeletesOfOneMarket:
+    #: The race is a chance: each round is a fresh entry id written by two threads at once.
+    ROUNDS = 200
+
+    def test_record_that_it_went_once(self, real_db, boot_indexes, market_records, race):
+        """A double press, or a retry sent while the first Delete still runs: both reach the
+        tombstone and both record under its trail id, so the write must be atomic against itself."""
+        harness.warm(market_records.history, 2)
+        twice = []
+        for _ in range(self.ROUNDS):
+            entry_id = str(uuid.uuid4())
+            race(2, lambda _i: History.record_for_organization(
+                ORG, OWNER, History.DELETE_MARKET, subject={"market_id": "fixture-market"},
+                detail={"before": {"name": "Fixture Market"}, "after": {"name": None}},
+                entry_id=entry_id))
+            if market_records.history.count_documents({"id": entry_id}) != 1:
+                twice.append(entry_id)
+
+        assert twice == []
+
+
 def _applicant_market(market_in):
     return market_in(MarketPhase.APPLICATIONS, intakeMode="form", setupObject=SETUP_CAMEL,
                      applicationForm={"fields": [

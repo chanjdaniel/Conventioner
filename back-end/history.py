@@ -203,7 +203,8 @@ def _write(
     vendors: Iterable[str], subject: Part, detail: Part, entry_id: Optional[str] = None,
 ) -> None:
     """Write one entry of the market or the organization ``owner`` names, by its key. Given an
-    ``entry_id``, the entry is written once: a second write under that id finds it and adds none."""
+    ``entry_id``, the entry is written once: it is stored under that id as its ``_id``, which the
+    database holds unique, so a second write under it, even one at the same instant, adds none."""
     try:
         built = _built(detail)
         if built is None:
@@ -224,7 +225,7 @@ def _write(
         if entry_id is None:
             history_collection.insert_one(entry)
         else:
-            history_collection.update_one({"id": entry_id}, {"$setOnInsert": entry}, upsert=True)
+            history_collection.update_one({"_id": entry_id}, {"$setOnInsert": entry}, upsert=True)
     except Exception as e:
         # The error's type and the entry's ids, never its text: a driver's message can quote the
         # document it refused, and an entry holds answers and addresses.
