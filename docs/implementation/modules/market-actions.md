@@ -22,7 +22,7 @@ describes:
   - back-end/api/markets.py#hand_on_market
   - back-end/tests/test_handing_a_market_on.py
   - back-end/tests/real_mongo/test_handing_a_market_on_on_the_server.py
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - E39
   - E39/F01/S01

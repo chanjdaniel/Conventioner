@@ -2,10 +2,9 @@
  * Assignments reads where a run may happen from the server, never from the phase (T316).
  *
  * Before an assignment is stored, the page draws the tables and says anyone assigned first keeps
- * their table only where a run may happen (E11/F02/S01). It worked that out from the phase alone
- * (`assignPhase.ts`), while the server also refuses a run once results are published: so a market
- * published with nothing stored offered a pin before a run the server would refuse. Each now asks
- * the served `assignRefusalReason`, and says it, in the server's words, when there is one.
+ * their table only where a run may happen (E11/F02/S01). The server also refuses a run once results
+ * are published, so the page asks the served `assignRefusalReason` and says it, in the server's
+ * words, when there is one, rather than working the answer out from the phase.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';

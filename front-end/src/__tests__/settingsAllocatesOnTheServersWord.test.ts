@@ -1,10 +1,9 @@
 /**
  * Settings' Allocate tables reads where a run may happen from the server alone (T316).
  *
- * The front end kept a copy of the rule (`assignPhase.ts`, the phase alone), which already
- * disagreed with the server's: the server also refuses a run once results are published. So the
- * button reads the person's answer for the Assignment row, then the served `assignRefusalReason`,
- * and waits for the market's read before it offers anything.
+ * The server alone says whether a run may happen (the served `assignRefusalReason`, which also
+ * refuses a run once results are published), so the button reads the person's answer for the
+ * Assignment row, then that reason, and waits for the market's read before it offers anything.
  *
  * And it says "again" only once a table allocation has been run: on pins only nothing has been
  * allocated yet, so the button and its line read as the first run (the coordinator's wording).
