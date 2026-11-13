@@ -34,6 +34,7 @@ sources:
   - T257
   - T277
   - T316
+  - T315
 ---
 
 # The guards and the phase move
@@ -77,7 +78,8 @@ A guard that sets a `resolution_link` sets the `resolution_action` its remedy ta
 | Decide what reviewers read first                                                                              | `form?step=review`     | `change-form`         |
 | Decide the automatic rejections                                                                               | `form?step=review`     | `change-form`         |
 
-"Open the layout" is the one link that names which of a market's pages of a kind it leads to: the layout of the location whose tables are in no section, never the market's bare `layout`, which redirects to its first location's.
+"Open the layout" is the one link that names which of a market's pages of a kind it leads to: the layout of the location whose tables are in no section (`LayoutTablesHaveSectionsGuard`), or of the location holding a section of a tier without tables (`EveryTierHasTablesGuard`), never the market's bare `layout`, which redirects to its first location's.
+A laid-out location's sections count its layout's tables, and Market Setup shows their counts read-only, so when the plan's first tier without tables has a section there, `EveryTierHasTablesGuard` says that tier alone, naming its first such section and its location, and leads to that layout (T315); otherwise its Market Setup line, "Give every tier tables", names only the tiers with no section in a laid-out location, the others said once those are fixed; and a market with no tables at all whose sections lie in one is sent to the first such section's layout too.
 A link without an action, or an action without a link, is refused at construction.
 That the action is a row of the table is held by `TestEveryRemedyNamesTheActionItTakes` in [`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py), not at construction, so a renamed row fails the build rather than answering the organizer with a 500.
 
@@ -120,7 +122,7 @@ A new market starts at `draft` ([a new market](../data/market-document.md#a-new-
 The market write's refusal, `MarketChanged`, is answered in the rail's terms from the market it carries: a request that finds the market moved under it gets `PhaseChangedUnderRequest`, a `ConflictError` whose `body()` is the endpoint's 409: `phase_changed`, the phase it is in now, the phase asked for, and one blocker telling the organizer to reload.
 A move whose guard read a fact another write changes without moving the phase holds that fact at its value as read too (`_what_the_move_stood_on` names the keys): Back to review holds `resultsPublished`, which its guard read unset, since Publish results writes it in place ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)), and Open applications holds the form's revision, `formRevision`, and the plan's, `planRevision`, since its guards judged the form and the plan as read and a form or a plan save writes them without moving the phase ([the form's revision](market-write.md#the-forms-revision), [the plan's revision](market-write.md#the-plans-revision)).
 When the phase stayed and that fact changed, the request gets `MoveBlockedUnderRequest`, a 409 shaped as the guards' own, `preconditions_not_met` with the blockers the move meets now, or, when they all pass on the market as it now stands, one blocker `market_changed` saying the market changed and to reload, so the rail never shows a refusal with no reason.
-The endpoint catches nothing: that 409, `MoveUnavailable`'s 400 and a market deleted under it (404) reach the [registered handler](../conventions/an-exception-never-reaches-a-client.md#the-two-handlers), and only the guards' own 409 is built by the endpoint.
+The endpoint catches nothing: that 409, `MoveUnavailable`'s 400 and a market deleted under it (404) reach the [registered handler](../conventions/an-exception-never-reaches-a-client.md#the-handlers), and only the guards' own 409 is built by the endpoint.
 Do not add a second copy of that write: the endpoint carried one until E26, which is how stamps drift.
 
 **Leaving draft finalizes the form.**

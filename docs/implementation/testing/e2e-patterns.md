@@ -48,6 +48,7 @@ sources:
   - T263
   - T284
   - T257
+  - T315
 ---
 
 # E2E patterns
@@ -74,6 +75,7 @@ A dialog that more than one screen opens has an object of its own (`FollowUpDial
 
 **The Application Form tab is a sequence of steps** (E33/F01): the builder, the preview and the highlights are never all on screen.
 A spec opens the step it asserts on, with `ApplicationFormPage.openStep(step)`, whose header is `form-step-<step>` and whose body is `form-step-body-<step>`.
+Each step can show before the form's own read has answered, the copy the market holds under "Loading the application form...", so a spec that sweeps a step waits for `ApplicationFormPage.loading` to be hidden first, as the walked states do with `formAt` (T315).
 
 ## Fixtures
 

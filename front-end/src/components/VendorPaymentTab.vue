@@ -350,39 +350,46 @@ defineExpose({ reload: load });
       </div>
     </template>
 
-    <RecordPaymentDialog
-      :open="!!entryDialog"
-      :marketId="marketId"
-      :email="email"
-      :currency="account?.currency"
-      :mode="entryDialog?.mode"
-      :entry="entryDialog?.entry"
-      @close="open = null"
-      @saved="saved"
-      @refreshed="refreshed"
-    />
-    <ChangeOwedDialog
-      :open="!!owedLine"
-      :marketId="marketId"
-      :email="email"
-      :line="owedLine"
-      :currency="account?.currency ?? null"
-      @close="open = null"
-      @saved="saved"
-    />
-    <AppDialog
-      :open="!!confirmText"
-      :title="confirmText?.title ?? ''"
-      testid="payment-confirm"
-      :confirm-label="confirmBusy ? 'Saving…' : confirmText?.confirm"
-      :confirm-disabled="confirmBusy"
-      :destructive="confirming?.kind === 'remove'"
-      :error="confirmError"
-      @close="open = null"
-      @submit="confirm"
-    >
-      <p class="payment-confirm-body" data-testid="payment-confirm-body">{{ confirmText?.body }}</p>
-    </AppDialog>
+    <!-- To the body, so each is a sibling of the drawer and centred on the window: the drawer's panel
+         carries a transform, which makes it the box a fixed dialog inside it centres on (dialogs: a
+         dialog opened from inside a modal teleports). -->
+    <Teleport to="body">
+      <RecordPaymentDialog
+        :open="!!entryDialog"
+        :marketId="marketId"
+        :email="email"
+        :currency="account?.currency"
+        :mode="entryDialog?.mode"
+        :entry="entryDialog?.entry"
+        @close="open = null"
+        @saved="saved"
+        @refreshed="refreshed"
+      />
+      <ChangeOwedDialog
+        :open="!!owedLine"
+        :marketId="marketId"
+        :email="email"
+        :line="owedLine"
+        :currency="account?.currency ?? null"
+        @close="open = null"
+        @saved="saved"
+      />
+      <AppDialog
+        :open="!!confirmText"
+        :title="confirmText?.title ?? ''"
+        testid="payment-confirm"
+        :confirm-label="confirmBusy ? 'Saving…' : confirmText?.confirm"
+        :confirm-disabled="confirmBusy"
+        :destructive="confirming?.kind === 'remove'"
+        :error="confirmError"
+        @close="open = null"
+        @submit="confirm"
+      >
+        <p class="payment-confirm-body" data-testid="payment-confirm-body">
+          {{ confirmText?.body }}
+        </p>
+      </AppDialog>
+    </Teleport>
   </section>
 </template>
 

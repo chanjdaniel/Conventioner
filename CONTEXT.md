@@ -21,6 +21,11 @@ One event, run by an organization over one or more days.
 _Avoid_: Event, show, convention
 See [Market](docs/business/concepts/market.md).
 
+**Transfer ownership**:
+The Owner of a market makes someone with access its Owner and stays on it as an Admin; an organization's owner does the same for one of its admins or members, by the API alone today.
+_Avoid_: Hand on, hand over
+See [Transfer ownership](docs/business/flows/ending-and-managing-a-market.md#l4a-transfer-ownership).
+
 **Phase**:
 Where a market is in its lifecycle: `draft`, `applications`, `assignment`, `offers`, `market_days`, `archived`. The single source of truth for a market's state. `applications` is the one stage where applications arrive and are reviewed at once, shown as Review on a Google Form market and Applications on one whose vendors apply on its page; whether it is taking applications is a fact about its form, not a phase.
 _Avoid_: Status, stage, state (all used for other things; `isDraft` in particular is derived from phase, never set)

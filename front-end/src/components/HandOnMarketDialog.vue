@@ -1,15 +1,15 @@
 <script setup lang="ts">
 /**
- * Handing a market on (T283): its Owner picks someone who has access, found by typing part of
- * their address, reads what the other person gains and what they keep, and confirms.
+ * Transferring a market's ownership (T283, T315): its Owner picks someone who has access, found by
+ * typing part of their address, reads what the other person gains and what they keep, and confirms.
  *
  * Destructive, since the Owner cannot take it back themselves: once it lands, only the new Owner can
- * hand it back. The choices are everyone with access but the Owner, the person looking, each with
+ * transfer it back. The choices are everyone with access but the Owner, the person looking, each with
  * the role that counts beside the address; the words saying what changes show once a choice is
  * made, and the button waits for one. Nothing closes the dialog while the request is in flight, so
  * its refusal is read here, under the choice it refused. A choice the people no longer offer, as
  * when a re-read finds the person gone, is let go, so the field never shows someone it would not
- * hand on to; a choice the person makes is told (`choose`), so the refusal of the last one goes.
+ * transfer it to; a choice the person makes is told (`choose`), so the refusal of the last one goes.
  */
 import { computed, ref, watch } from 'vue';
 import type { PersonWithAccess } from '@/assets/types/datatypes';
@@ -24,7 +24,7 @@ const props = defineProps<{
   marketName: string;
   /**
    * Everyone with access, as the market read serves them. The person looking is never offered: only
-   * the Owner is let open this dialog, and the server refuses a hand-on to themselves.
+   * the Owner is let open this dialog, and the server refuses a transfer to themselves.
    */
   people: PersonWithAccess[];
   /** The organization a role comes through, by name, as Users with access says it. */
@@ -69,10 +69,10 @@ watch(
 <template>
   <AppDialog
     :open="open"
-    :title="`Hand ${marketName} on`"
+    :title="`Transfer ownership of ${marketName}`"
     testid="hand-on-market"
     destructive
-    confirm-label="Hand on"
+    confirm-label="Transfer ownership"
     :confirm-disabled="!newOwner || busy"
     :close-disabled="busy"
     :error="error"

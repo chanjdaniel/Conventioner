@@ -964,6 +964,43 @@ test.describe('CSV vendor import', () => {
     await expect(importPage.error).toHaveCount(0);
   });
 
+  test('a file too large to send is refused on the upload step, and nothing is sent', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // T315 08: the host refuses a body over 4.5 MB before the back end sees it, and the organizer
+    // was told the import could not be completed. A synthetic file of the fixture rows, each with
+    // its own address, grown past the 4 MB bound; never a real export.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    await openImport(importPage, request, seed.marketId);
+
+    const rows = [HEADERS.join(',')];
+    let bytes = rows[0]!.length;
+    for (let n = 0; bytes <= 4_000_000; n += 1) {
+      const row = ROWS[n % 2]!.replace(/(nadia|theo)@/, `$1${n}@`);
+      rows.push(row);
+      bytes += row.length + 1;
+    }
+    const sent: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/applications/import')) sent.push(r.url());
+    });
+
+    await importPage.chooseFile(rows.join('\n'));
+    await expect(importPage.error).toHaveText(
+      'This file is too large to send: one import carries at most 4 MB. Split its rows into smaller files, each with the header row, and import them one after another.',
+    );
+    await expect(importPage.upload).toBeVisible();
+    await expect(importPage.map).toHaveCount(0);
+    expect(sent).toEqual([]);
+
+    // A file within the bound is taken as before, from the same picker.
+    await importPage.chooseFile(CSV);
+    await expect(importPage.map).toBeVisible();
+    await expect(importPage.error).toHaveCount(0);
+  });
+
   test('a skipped row is not written, and an address that is not one is skipped', async ({
     authenticatedPage: page,
     request,

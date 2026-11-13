@@ -213,6 +213,96 @@ test.describe('the Payment tab', () => {
     });
   });
 
+  test('its dialogs open centred on the window, with the drawer held behind them', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await aliceOnTwoGoldDays(request);
+    const tab = await paymentTab(page, marketId);
+    // An entry, so the entry menu's Remove has something to confirm.
+    await recordPayment(page, '35', 'cash');
+    const drawer = page.getByTestId('vendors-detail-panel');
+    const line = tab.getByTestId('payment-line').first();
+    const entry = tab.getByTestId('payment-entry').first();
+
+    /** Each dialog the tab opens, how it is opened, and the control focus goes back to. */
+    const dialogs = [
+      {
+        name: 'Record payment',
+        testid: 'record-payment',
+        anchored: true,
+        opener: page.getByTestId('payment-record'),
+        open: () => page.getByTestId('payment-record').click(),
+      },
+      {
+        name: 'Change owed',
+        testid: 'change-owed',
+        anchored: true,
+        opener: line.getByTestId('payment-line-menu-button'),
+        open: async () => {
+          await line.getByTestId('payment-line-menu-button').click();
+          await line.getByTestId('payment-line-menu-owed').click();
+        },
+      },
+      {
+        name: "the entry menu's Remove",
+        testid: 'payment-confirm',
+        anchored: false,
+        opener: entry.getByTestId('payment-entry-menu-button'),
+        open: async () => {
+          await entry.getByTestId('payment-entry-menu-button').click();
+          await entry.getByTestId('payment-entry-menu-remove').click();
+        },
+      },
+    ];
+
+    for (const size of [
+      { width: 390, height: 844 },
+      { width: 1440, height: 900 },
+    ]) {
+      await page.setViewportSize(size);
+      for (const dialog of dialogs) {
+        const at = `${dialog.name} at ${size.width}`;
+        await dialog.open();
+        const window = page.getByTestId(`${dialog.testid}-window`);
+        await expect(window, `${at} opens`).toBeVisible();
+        // Its window centred across the browser's window, not the drawer it was opened from. The
+        // window is the box a fixed element is laid out in, measured by one, since headless
+        // Chromium's scroll bar gutter takes 15px from it that `clientWidth` still counts.
+        const box = (await window.boundingBox())!;
+        const area = await page.evaluate(() => {
+          const probe = document.createElement('div');
+          probe.style.cssText = 'position: fixed; inset: 0; visibility: hidden';
+          document.body.append(probe);
+          const { width, height } = probe.getBoundingClientRect();
+          probe.remove();
+          return { width, height };
+        });
+        expect(Math.abs(box.x + box.width / 2 - area.width / 2), `${at}: across`).toBeLessThan(1);
+        // Down, a dialog whose body grows as it is filled holds its top 48px below the window's;
+        // the rest are centred.
+        if (dialog.anchored) expect(Math.abs(box.y - 48), `${at}: its top`).toBeLessThan(1);
+        else
+          expect(Math.abs(box.y + box.height / 2 - area.height / 2), `${at}: down`).toBeLessThan(1);
+        // The drawer stays behind it, out of reach.
+        expect(
+          await drawer.evaluate((el) => !!el.closest('[inert]')),
+          `${at}: the drawer is inert`,
+        ).toBe(true);
+
+        // Escape closes the dialog alone, and focus goes back to what opened it.
+        await page.keyboard.press('Escape');
+        await expect(window, `${at} closes`).toBeHidden();
+        await expect(drawer, `${at}: the drawer stays open`).toBeVisible();
+        expect(
+          await drawer.evaluate((el) => !!el.closest('[inert]')),
+          `${at}: the drawer is handed back`,
+        ).toBe(false);
+        await expect(dialog.opener, `${at}: focus goes back`).toBeFocused();
+      }
+    }
+  });
+
   test('a Viewer reads the tab and is offered no Record payment', async ({ browser, request }) => {
     const marketId = await aliceOnTwoGoldDays(request);
 

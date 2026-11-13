@@ -60,6 +60,7 @@ sources:
   - T263
   - T274
   - T283
+  - T315
 ---
 
 # The organization document, and roles
@@ -97,8 +98,8 @@ It serves each with what removing someone from it takes (E38/F15/S01): `marketCo
 **Who changes an organization**: only the owner renames it, adds an admin, changes someone's place between admin and member, or transfers ownership; the owner or an admin adds a member or changes its default table; the owner removes anyone but themselves, an admin only members.
 A person's place changes only through [the organization's people](../modules/organization-people.md), whose table says each of these and refuses the rest: "Add admin" of a member makes them an admin, the owner's `PUT /organizations/<org_id>/users/<user_id>` with `{"place": "admin" | "member"}` makes a member an admin or an admin a member (the place they hold already answers 200 and writes nothing, the owner's place is refused), "Add admin" of an admin and "Add member" of a member say they already are, 400, and adding the owner or an admin as a member is refused as before.
 Renaming is all an update does: it reads the body's `name`, a string that is not blank, and nothing else, so the owner, the admins, the members and the markets change only through the writes above, which keep each user's `organizations` in step.
-Transferring ownership hands the organization to one of its admins or members and makes the old owner an admin; transferring it to its own owner, or to someone outside it ("Hand the organization only to one of its admins or members."), is refused before anything is written.
-The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
+Transferring ownership makes one of its admins or members the organization's owner and the old owner an admin; transferring it to its own owner, or to someone outside it ("Transfer ownership only to one of the organization's admins or members."), is refused before anything is written.
+The owner cannot be removed ("They own this organization, so they can't be removed from it."), and an account that owns an organization cannot be deleted until it transfers the organization's ownership.
 Removing someone who is neither an admin nor a member, another organizer having removed them first, answers 404 "They are no longer in this organization." before any write, as does a removal whose write finds them gone under it; nothing is recorded, and Manage organization reads that 404 as done ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)); a market role taken twice answers alike ([roles on a market](#roles-on-a-market)).
 Deleting an organization is the owner's, deletes the drafts and archived markets it holds, and is refused while it holds a market mid-lifecycle ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md), through [market deletion](../modules/market-deletion.md)).
 **An organization being deleted reads as absent**: every read and write of it, the person's organizations, its pages, its rename, its default table and its people's writes included, passes its filter through `live` in [`back-end/tombstone.py`](../../../back-end/tombstone.py), so it leaves its people's lists and takes no change, and a write that matched nothing answers 404 "Organization not found"; its name stays taken until it is gone.
@@ -141,9 +142,9 @@ Manage organization's "Default permissions for new markets" ([`OrganizationPermi
 
 ## The organization's history
 
-**Every change to the organization is recorded in [the history](history.md#what-an-organization-records)**, keyed by `organization_id` where a market's entry holds `market_id`: renaming it, an admin or a member added, a member made an admin, either removed, ownership handed on, a market created in it or deleted from it, a floorplan template filed under it added, changed, removed, or moved out of it or into it, and a row of its default table set or reset, or every row reset.
+**Every change to the organization is recorded in [the history](history.md#what-an-organization-records)**, keyed by `organization_id` where a market's entry holds `market_id`: renaming it, an admin or a member added, a member made an admin, either removed, ownership transferred, a market created in it or deleted from it, a floorplan template filed under it added, changed, removed, or moved out of it or into it, and a row of its default table set or reset, or every row reset.
 Each is recorded once its change has landed, never fails it, and records nothing when nothing changed: a rename to the name it has; an admin added again is refused, 400, and records nothing either.
-An organization has no table of who may do what, so its actions are the history's own verbs, one per kind of change; a change with an admin on either side of it is `manage-organization-admins`, a member added or removed `manage-organization-members`, as a market's role changes go under the row their check asked, and ownership handed on is `transfer-organization`.
+An organization has no table of who may do what, so its actions are the history's own verbs, one per kind of change; a change with an admin on either side of it is `manage-organization-admins`, a member added or removed `manage-organization-members`, as a market's role changes go under the row their check asked, and ownership transferred is `transfer-organization`.
 Creating the organization and deleting it record nothing here: its history starts empty, and the deletion takes the history with it after the [deletion trail](../../business/rules/when-an-organization-may-be-deleted.md) is written.
 
 **Its owner, its admins and its members read it**, in Manage organization's History section ([`ManageOrgOverlay.vue`](../../../front-end/src/views/ManageOrgOverlay.vue), with its entries drawn by [`OrganizationHistory.vue`](../../../front-end/src/components/OrganizationHistory.vue)), through `get_history` (`GET /organizations/:id/history`), 25 at a time as the end of its box scrolls into view ([`PagedList`](../../../front-end/src/components/PagedList.vue)); anyone else is refused, 403.
@@ -161,10 +162,10 @@ Those changes alone are also read in the default table's dialog, through `get_de
 A map, not one list per role, so nobody can hold two roles on one market.
 Whoever creates a market owns it, and only they do (`create_owned_market`): the create body's roles were once taken on trust, so a client could make a market owned by someone else or by nobody (bug 46).
 Anyone else is added afterwards by email, through `add_market_role`, which stores their user id; they must already have an account.
-The owner's entry cannot be changed, removed or added beside through a role write; the owner hands the market on instead (`hand_on_market`, the fixed row `hand-on-market`, T283), to anyone the market read finds with access, in one write that sets `roles.<owner>` to `admin` and `roles.<new>` to `owner`, holding both keys as read, so the market has exactly one owner before it and after it, and a second hand-on on the same read answers the market write's 409 ([the market's actions](../modules/market-actions.md#hand-the-market-on-hand-on-market)).
-An account that owns a market is not deleted: `delete_user` reads `{"roles.<user id>": "owner"}` and refuses while it finds one, until the owner hands the market on or deletes it ([deleting an account](users-and-email.md#deleting-an-account)).
+The owner's entry cannot be changed, removed or added beside through a role write; the owner transfers the market's ownership instead (`hand_on_market`, the fixed row `hand-on-market`, T283), to anyone the market read finds with access, in one write that sets `roles.<owner>` to `admin` and `roles.<new>` to `owner`, holding both keys as read, so the market has exactly one owner before it and after it, and a second transfer on the same read answers the market write's 409 ([the market's actions](../modules/market-actions.md#transfer-ownership-hand-on-market)).
+An account that owns a market is not deleted: `delete_user` reads `{"roles.<user id>": "owner"}` and refuses while it finds one, until the owner transfers the market's ownership or deletes it ([deleting an account](users-and-email.md#deleting-an-account)).
 An owner manages every other role; an admin manages editors and viewers: the table's two rows for roles, Give and take Admin roles (Owner, fixed) and Give and take Editor and Viewer roles (Admin), which `roles_row` picks by the role given or taken ([the market's actions](../modules/market-actions.md)).
-Roles change, and a market is handed on, on an archived market too: neither is a change to its record.
+Roles change, and a market's ownership is transferred, on an archived market too: neither is a change to its record.
 Taking a role nobody holds, another organizer having taken it first, answers 404 "They no longer have a role on this market.", as does a removal whose write finds it gone under it, and records nothing; `remove_market_role` asks both roles rows before it looks at the person, so someone who may take no role there is refused in one sentence whoever the person is, the only owner, an Admin, anyone else or nobody, and Manage market reads the 404 as done ([`test_removing_someone_already_gone.py`](../../../back-end/tests/test_removing_someone_already_gone.py), with its organization twin [above](#the-organization)).
 
 **Each role write sets or takes one person's key, never the whole map** (T274): giving and changing `$set` `roles.<user id>`, taking `$unset`s it, through [the market write](../modules/market-write.md), holding the phase, as every market write does, and that person's role and the requester's as read, so two admins changing roles at the same moment never undo each other, and a role taken never comes back.
@@ -172,7 +173,7 @@ A write that met roles changed since its read stores nothing and answers the mar
 
 **"Markets this person has a role on" is a query on the map's key**, `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
 
-**Giving, changing and taking a market role records into [the market's history](history.md)** (`role_given`, `role_changed`, `role_taken`), under the Admin row when an Admin or Owner role is either side of it, else the Editor and Viewer row; handing the market on records `handed_on` under its own row.
+**Giving, changing and taking a market role records into [the market's history](history.md)** (`role_given`, `role_changed`, `role_taken`), under the Admin row when an Admin or Owner role is either side of it, else the Editor and Viewer row; transferring the market's ownership records `handed_on` under its own row.
 
 ## What a person may do on a market
 

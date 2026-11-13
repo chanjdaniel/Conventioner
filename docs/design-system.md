@@ -105,6 +105,7 @@ sources:
   - T229
   - T263
   - T201
+  - T315
 ---
 
 # Conventioner's design language
@@ -739,6 +740,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
    On each screen it also fails a disabled control drawn as a box that draws no line ([one disabled state](#the-primitive-layer)).
    The measures are in [`e2e/helpers/contrastSweep.ts`](../front-end/e2e/helpers/contrastSweep.ts), and [`e2e/contrast-measure.spec.ts`](../front-end/e2e/contrast-measure.spec.ts) shows them fixture pages, each defect they are meant to catch and its quiet twin.
    `contrast.test.ts` asserts tokens, not usages, and that gap has been occupied: a token exempt from the contract because it never carries text (`--mm-border`) was used as a button fill under white text at 1.74:1.
+   The form tab's "Loading the application form...", whose `--mm-text-muted` was 4.23:1 on its beige and shows only while the form's read is in flight, has its ink held by the sweep in [`e2e/choices-at-scale.spec.ts`](../front-end/e2e/choices-at-scale.spec.ts), which holds the form's read open, not by `contrast.test.ts`, which asserts tokens, not usages (T315).
 4. **An accessibility sweep**, [`e2e/accessibility-sweep.spec.ts`](../front-end/e2e/accessibility-sweep.spec.ts), runs axe (`@axe-core/playwright`) over the same states and fails on any WCAG 2.0, 2.1 or 2.2 A or AA violation it can see, naming each one's rule, impact and target.
    Its configuration is the `expectAccessible` fixture in `e2e/fixtures.ts`, which also holds the app to exactly one `main` landmark; axe's `color-contrast` rule is off there, since the contrast sweep owns contrast and one defect should fail one check.
    It landed with what it found fixed (T75): an empty `<html lang>`, no `main` landmark, a market row that was a `role="button"` around its own Manage button, a calendar marked as an ARIA grid with no rows, an unnamed close button on the navigation drawer, and buttons whose `aria-label` replaced the words on them ([every control is named](implementation/conventions/every-control-is-named.md#the-rules)).
@@ -780,6 +782,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
 
 The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed a market row's squeezed dates until it opened a market first; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
 All four sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
+A state on the form tab opens once the form's own read has answered (`formAt`), since until then the tab draws the copy the market holds under its loading line, a moment nobody stays on, and a sweep in it measures a page that is gone the next instant.
 The list holds these states, one a line, each beside the state it is most like, so a new state is one line there, not at the list's end ([two features never share a line](implementation/conventions/two-features-never-share-a-line.md#the-design-language)):
 
 - the router's routes

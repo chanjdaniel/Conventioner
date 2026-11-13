@@ -18,7 +18,9 @@ from typing import Any, Dict, List, Tuple
 
 from flask import Flask, Response, jsonify, request
 from pydantic import ValidationError
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
+
+from host_limits import REQUEST_TOO_LARGE
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +102,12 @@ def answer_client_error(error: ClientError) -> Tuple[Response, int]:
     return jsonify(error.body()), error.status
 
 
+def answer_too_large(_error: RequestEntityTooLarge) -> Tuple[Response, int]:
+    """A body over the host's limit (``host_limits``), in a sentence: werkzeug's own answer is an
+    HTML page no screen reads."""
+    return jsonify({"error": REQUEST_TOO_LARGE}), 413
+
+
 def answer_unexpected(error: Exception) -> HTTPException | Tuple[Response, int]:
     """Log what escaped a route and answer nothing of it.
 
@@ -168,7 +176,9 @@ def install_error_answers(app: Flask) -> None:
     On `Exception`, not `InternalServerError`: under `TESTING` or debug Flask propagates an
     unhandled exception rather than calling a 500 handler, so only this is exercised by the suite
     the way it runs in production. Flask picks the handler nearest the raised class, so a client
-    error reaches `answer_client_error` first.
+    error reaches `answer_client_error` first, and a body over ``MAX_CONTENT_LENGTH`` reaches
+    `answer_too_large`.
     """
     app.register_error_handler(ClientError, answer_client_error)
+    app.register_error_handler(RequestEntityTooLarge, answer_too_large)
     app.register_error_handler(Exception, answer_unexpected)

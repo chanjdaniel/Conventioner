@@ -210,7 +210,7 @@ describe('the history readers', () => {
       { names: {}, labels: {} },
     );
     expect(parts.map((part) => (part.kind === 'text' ? part.text : '')).join('')).toBe(
-      'dana@ember.test handed the market on to sam@ember.test, and stays on it as an Admin',
+      'dana@ember.test transferred ownership of the market to sam@ember.test, and stays on it as an Admin',
     );
   });
 

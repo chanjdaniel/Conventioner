@@ -43,6 +43,7 @@ sources:
   - T283
   - T277
   - T316
+  - T315
 ---
 
 # The market's history
@@ -282,9 +283,9 @@ One block per action, in the order of [the actions table](../modules/market-acti
 
 **`hand-on-market`**
 
-- `handed_on`: the market's owner handing it on to someone with access, who becomes its Owner while the old owner stays on it as an Admin ([handing a market on](../../business/flows/ending-and-managing-a-market.md#l4a-hand-the-market-on))
+- `handed_on`: the market's owner transferring its ownership to someone with access, who becomes its Owner while the old owner stays on it as an Admin ([transferring a market's ownership](../../business/flows/ending-and-managing-a-market.md#l4a-transfer-ownership))
   - Subject: `user_id`, `email`: the new Owner
-  - Detail: `owner`, the old owner's address before and the new Owner's after; read "<actor> handed the market on to <email>, and stays on it as an Admin"
+  - Detail: `owner`, the old owner's address before and the new Owner's after; read "<actor> transferred ownership of the market to <email>, and stays on it as an Admin", older entries included, since an entry stores no words
 
 **`change-the-table`**
 
@@ -334,7 +335,7 @@ One block per action, in the order its constants stand in `history.py`; a new ki
 
 **`transfer-organization`**
 
-- null: ownership handed on, one entry for the one act
+- null: ownership transferred, one entry for the one act, read "<actor> transferred ownership of the organization to <email>"
   - Subject: `user_id`, `email` of the new owner
   - Detail: `owner`: the old owner's address and the new one's
 

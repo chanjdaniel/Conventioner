@@ -2211,6 +2211,12 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
     return []
 
 
+#: Said of giving the Owner role, by adding someone or changing their role, while the market has one:
+#: a market has one Owner, and it changes only when ownership is transferred.
+ALREADY_HAS_AN_OWNER = (
+    "This market already has an Owner. To make someone else its Owner, transfer ownership to them.")
+
+
 def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> None:
     """Add a user role to a market. Asks the row that gives the role (``Actions.roles_row``).
 
@@ -2236,7 +2242,7 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
     if role == MarketRole.OWNER:
         for uid, existing_role in roles.items():
             if existing_role == MarketRole.OWNER.value:
-                raise BadRequestError("Market already has an owner. Transfer ownership first.")
+                raise BadRequestError(ALREADY_HAS_AN_OWNER)
 
     user = UsersApi.get_user(user_email)
     if not user:
@@ -2255,6 +2261,9 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
 
 
 NO_LONGER_ON_THE_MARKET = "They no longer have a role on this market."
+
+#: Said of removing the market's one Owner: it changes only when ownership is transferred.
+THE_ONLY_OWNER_STAYS = "The market's only Owner can't be removed. Transfer ownership first."
 
 
 def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> None:
@@ -2293,7 +2302,7 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     if taking_an_owner:
         owner_count = sum(1 for r in roles.values() if r == MarketRole.OWNER.value)
         if owner_count <= 1:
-            raise BadRequestError("Cannot remove the only owner. Transfer ownership first.")
+            raise BadRequestError(THE_ONLY_OWNER_STAYS)
 
     # The role as the market model read it, which takes only the four roles: every removal asks
     # the row of the role it takes.
@@ -2353,7 +2362,7 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     if new_role == MarketRole.OWNER:
         for uid, existing_role in roles.items():
             if uid != user_id and existing_role == MarketRole.OWNER.value:
-                raise BadRequestError("Market already has an owner. Transfer ownership first.")
+                raise BadRequestError(ALREADY_HAS_AN_OWNER)
 
     if current_role_value == new_role.value:
         return False
@@ -2365,9 +2374,10 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     return True
 
 
-#: Said of a hand-on to anyone the market read does not find with access, the Owner included.
+#: Said of a transfer of ownership to anyone the market read does not find with access, the Owner
+#: included.
 HAND_ON_ONLY_TO_SOMEONE_WITH_ACCESS = (
-    "You can hand this market only to someone who has access to it.")
+    "You can transfer ownership only to someone who has access to this market.")
 
 
 def hand_on_market(market_id: str, user_id: str, requesting_user: str) -> None:
@@ -2380,7 +2390,7 @@ def hand_on_market(market_id: str, user_id: str, requesting_user: str) -> None:
     delete it.
 
     One write, holding the Owner's role and the new Owner's as read (absent when their access
-    comes through the organization): the Owner was the one Owner as read, so a second hand-on of
+    comes through the organization): the Owner was the one Owner as read, so a second transfer of
     theirs meets their role changed, and the market never has two Owners or none.
 
     Raises:
@@ -2405,7 +2415,7 @@ def hand_on_market(market_id: str, user_id: str, requesting_user: str) -> None:
     with_access = PermissionsApi.people_with_market_role(market, organization)
     if user_id == owner.id or user_id not in with_access:
         raise BadRequestError(HAND_ON_ONLY_TO_SOMEONE_WITH_ACCESS)
-    # A role a gone account left behind is no one to hand it to, and the read lists no such row:
+    # A role a gone account left behind is no one to transfer it to, and the read lists no such row:
     # its accounts are read as the read reads them (``_Accounts``).
     new_owner = UsersApi.get_users_by_ids([user_id]).get(user_id)
     if new_owner is None:

@@ -24,6 +24,7 @@ sources:
   - T217
   - T223
   - T283
+  - T315
 ---
 
 # Organizations
@@ -105,7 +106,7 @@ Covered by:
 
 - `*-sweep.spec.ts`, the sweeps' state "the manage-organization dialog, removing a member"
 - `access-control.spec.ts` ("org membership changes")
-- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, someone removed in another window included
+- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, someone removed in another window included, and at 390 the address in the confirmation's title broken only before its "@" or a dot
 
 ## B3a. Make an admin a member, or a member an admin
 
@@ -162,7 +163,7 @@ Refused, naming each blocking market and its phase: "Archive or delete them firs
 
 **Status:** No screen (`POST /organizations/<id>/transfer` exists; no screen offers it).
 
-The owner hands the organization only to one of its admins or members, who becomes its owner while the old owner stays on as an admin, all at once; handing it to someone outside it is refused, "Hand the organization only to one of its admins or members.", and so is handing it to its own owner, "They already own this organization" ([the organization's people](../../implementation/modules/organization-people.md)).
+The owner transfers the organization's ownership only to one of its admins or members, who becomes its owner while the old owner stays on as an admin, all at once; transferring it to someone outside it is refused, "Transfer ownership only to one of the organization's admins or members.", and so is transferring it to its own owner, "They already own this organization" ([the organization's people](../../implementation/modules/organization-people.md)).
 
 Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 
@@ -173,7 +174,7 @@ Its gaps worth a spec are in [walking the flows](../../implementation/testing/wa
 
 1. On the organization's card, "Manage"; every one of its people has it, and a member's dialog holds only the owner, the default permissions ([B8](#b8-set-the-default-permissions-for-new-markets)) and the History.
 2. "History", a heading with a chevron, closed until opened, as [Manage market's](reading-the-markets-history.md#l6-read-the-markets-history) is; opening it reads the newest 25 changes, newest first, in a box of bounded height, as Manage market's is, and the next 25 come as its end scrolls into view.
-3. Each change is one sentence and its time, worded as the market's history words them: "e2e@example.com renamed the organization from "Ember Markets" to "Ember Fairs"", "e2e@example.com gave priya@example.com the Admin role", "e2e@example.com changed priya@example.com from Member to Admin", "e2e@example.com took the Member role from priya@example.com", "e2e@example.com handed the organization to priya@example.com", "e2e@example.com created the market "Winter Fair"", "e2e@example.com deleted the market "Winter Fair"", "e2e@example.com added the floorplan template "Main hall"" (and "changed", "removed"), "e2e@example.com moved the floorplan template "Main hall" out of the organization" (and "into"), "e2e@example.com changed Check vendors in for new markets from Editor to Admin", "e2e@example.com set Check vendors in for new markets back to its default, Editor", "e2e@example.com reset Check vendors in and Export CSV for new markets to their built-in defaults".
+3. Each change is one sentence and its time, worded as the market's history words them: "e2e@example.com renamed the organization from "Ember Markets" to "Ember Fairs"", "e2e@example.com gave priya@example.com the Admin role", "e2e@example.com changed priya@example.com from Member to Admin", "e2e@example.com took the Member role from priya@example.com", "e2e@example.com transferred ownership of the organization to priya@example.com", "e2e@example.com created the market "Winter Fair"", "e2e@example.com deleted the market "Winter Fair"", "e2e@example.com added the floorplan template "Main hall"" (and "changed", "removed"), "e2e@example.com moved the floorplan template "Main hall" out of the organization" (and "into"), "e2e@example.com changed Check vendors in for new markets from Editor to Admin", "e2e@example.com set Check vendors in for new markets back to its default, Editor", "e2e@example.com reset Check vendors in and Export CSV for new markets to their built-in defaults".
 4. "Before and after" opens a table of what each change set, as it was and as it is.
 5. A change made in the dialog while the History is open (a person added or removed, a rename, a change to the default permissions) shows at its top as it lands, without reopening the dialog.
 

@@ -40,6 +40,7 @@ sources:
   - T270
   - T274
   - T271
+  - T315
 ---
 
 # The CSV import
@@ -67,10 +68,19 @@ The server sees text, not bytes, so `parse_csv` refuses a NUL anywhere, or an un
 The two unprintable sets are one set written twice (`UNPRINTABLE` in the browser, `_UNPRINTABLE_CODES` on the server), and one table of the characters on each side of every bound, line feed and carriage return aside, runs in a header row through both readers, so a bound moved in either fails a test.
 The browser's reader drops a byte-order mark, and an empty file goes on to the server's "That file is empty."
 
+**A file too large to send is refused before it is sent** (T315).
+The host refuses a request body over 4.5 MB before the back end sees it ([the host's limits](../../OPERATIONS.md#the-hosts-limits)), and an organizer with a large file was told "The import could not be completed." or that they seemed to be offline, and tried again.
+`readCsvFile` takes the sentence for a too-large file from its caller and holds the file to `MAX_RESPONSES_FILE_BYTES`, 4,000,000 bytes, the 4 MB the floorplan upload holds, leaving the rest of the 4.5 MB for the request's other fields: a file whose `size` passes it is refused before it is read, and one whose text passes it as the JSON string the request carries, each line break and quote escaped, once read.
+The import's sentence is `IMPORT_FILE_TOO_LARGE`, "This file is too large to send: one import carries at most 4 MB. Split its rows into smaller files, each with the header row, and import them one after another.", since a later import leaves the applications an earlier one brought in as they are ([ADR 0011](../../adr/0011-re-import-upserts-on-market-and-email.md)); the start's is `START_FILE_TOO_LARGE` ([starting from a Google Form](../../business/flows/starting-from-a-google-form.md#g3-upload-and-the-year-question)).
+A body that passes the back end's own 4.5 MB anyway is answered 413 with a sentence ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md#the-handlers)).
+Production's host answers its own 413, before the back end runs, with none of the back end's CORS headers, so the browser hides it and it reaches the page as a failed connection, "You seem to be offline"; the app's API client refuses any body over 4.5 MB before it is sent, with "This was larger than the 4.5 MB one request can carry." ([what the organizer reads](../conventions/an-exception-never-reaches-a-client.md#what-the-organizer-reads)).
+
 **Importing is the CSV path's, in Draft and Review** (E31/F03/S04).
 `import_refusal` refuses a form market outright, and otherwise allows `draft` and `applications` (`IMPORT_PHASES`): a draft's first import is its way into Review, and in Review a Redo import reads the whole file again (E38/F04, [review needs an import](../../business/rules/review-needs-an-import.md)); past review, nothing more can be imported, since no move leads back (bug 42).
 In a draft it also refuses with every one of `first_import_blockers`, the move into Review judged less `ResponsesImportedGuard`, their messages joined in the guards' order, so all a setup lacks to let the market in is said at once, before a row is read (T205: one trip to Market Setup, not one per missing thing).
 `firstImportBlockers` and `importRefusal` in [`front-end/src/utils/importPhase.ts`](../../../front-end/src/utils/importPhase.ts) are their mirrors, read from the served `transitionBlockers` and the market's intake, so the import's page and a refused request say the same: the form market's sentence before anything else, and otherwise the same list.
+The page's refusal heading (`refusalHeading` in `CsvImportView.vue`) checks the phase before the role: an archived market is headed "An archived market takes no imports" whoever reads it, since the served `actionRefusals` put the archived sentence before each changing row's own, so it reaches the page as the role refusal, the Owner's included; the body is that refusal as served (T315).
+The page's `h1` (`heading`) reads "Redo import" in Review alone, where the rail offers it, and on the done step of a redo; on a market past review, from Assignment to archived, it is "Import responses", as on a draft's refused first import, never "Redo import", which such a market does not offer.
 
 **The first import takes the market into Review** once its rows are written: `enter_review` moves it through `take_move` under the importer, and the result says the phase it is in (`phase`).
 A first import that wrote nothing, or a move refused by a setup changed under it, leaves the market a draft.
@@ -161,7 +171,7 @@ A first import's reviewers are chosen on its preview step, whose confirm, when t
 - [Priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md): a row must carry its own `submitted_at` for first come, first served to decide anything.
 - [A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md).
 
-`back-end/tests/test_csv_import.py`, `back-end/tests/test_a_re_imports_back_to_review_lands_with_the_answers.py`, `front-end/src/__tests__/aFileThatIsNotCsv.test.ts`, `front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts`, `front-end/e2e/csv-import.spec.ts`, `front-end/e2e/the-import-lines-up.spec.ts` and `front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts` pin it; the synthetic exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
+`back-end/tests/test_csv_import.py`, `back-end/tests/test_a_re_imports_back_to_review_lands_with_the_answers.py`, `front-end/src/__tests__/aFileThatIsNotCsv.test.ts`, `front-end/src/__tests__/aResponsesFileTooLargeToSend.test.ts`, `front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts`, `front-end/e2e/csv-import.spec.ts`, `front-end/e2e/the-import-lines-up.spec.ts` and `front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts` pin it; the synthetic exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
 
 What the organizer does on the import, step by step, is [importing a Google Form's responses](../../business/flows/import.md).
 

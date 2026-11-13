@@ -81,7 +81,7 @@ describe('what an organization’s entry says', () => {
         subject: PERSON,
         detail: { before: { owner: 'olive@ember.test' }, after: { owner: 'ada@ember.test' } },
       }),
-    ).toBe('olive@ember.test handed the organization to ada@ember.test');
+    ).toBe('olive@ember.test transferred ownership of the organization to ada@ember.test');
   });
 
   it('words a market created in it by its name', () => {
