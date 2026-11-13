@@ -26,7 +26,7 @@ describes:
   - front-end/src/components/ScrollBox.vue
   - front-end/src/__tests__/scrollBox.test.ts
   - front-end/e2e/the-long-dialogs-scroll-their-body.spec.ts
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -169,6 +169,7 @@ A dialog now takes `inert` off its own branch on open and puts the marks back on
 **Escape closes only the dialog on top**: every open dialog took the key, so one press closed a confirmation and the dialog beneath it together and left focus on `<body>` (T114).
 [`useEscapeToClose`](../../../front-end/src/utils/useEscapeToClose.ts) keeps the open overlays in the order they opened and hands Escape to the last.
 A component inside a dialog that opens a dialog of its own teleports it to the body, so it is that sibling rather than a window inside a window: Manage market's Permissions and its confirmations do ([setting who may do what](../../business/flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what)), as Manage organization's Default permissions and its confirmations do, each placed first in its `Teleport`, since siblings of one layer paint in their order and its confirmations must lie above it.
+The vendor drawer's Payment tab teleports its three, Record payment, Change owed and the confirmation its entry and line menus open, in one `Teleport`, as the drawer's Discord offer teleports its confirmation: the drawer's panel carries a `transform`, which makes it the box a fixed descendant is laid out in, so inside it they centred on the panel and not the window (T315).
 Asserting this needs a control the page holds: the view container is an ancestor of the dialogs and is never marked, so an assertion on it passes whatever the marks say.
 
 ## The create-market dialog
