@@ -3,7 +3,7 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { planSetupObject, seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { seedApplicationWithStatus } from './helpers/seedPhaseMarket';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { namelessControls } from './helpers/accessibleNames';
 
 /**
@@ -96,4 +96,65 @@ test('publishing waits for a run, then says who will read what before it tells t
   await page.getByTestId('phase-transition-market_days').click();
   await page.getByTestId('sweep-confirm-submit-button').click();
   await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days');
+});
+
+test('a table assigned by hand is not an allocation: publishing waits until tables are allocated, and the hand assignment is kept', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const market = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { setupObject: planSetupObject([DATE]) },
+  );
+  for (const email of ['pinned@example.com', 'unseated@example.com']) {
+    seedApprovedVendor(market.marketId, email, {
+      dates: [DATE],
+      tiers: ['Gold'],
+      sections: ['Main Hall', 'Garden'],
+    });
+  }
+  await post(request, `/markets/${market.marketId}/transition`, { toPhase: 'assignment' });
+  // One vendor assigned by hand, and no table allocation run: the other vendor would read "You did
+  // not get assigned" though nobody decided it (T316).
+  const pin = { email: 'pinned@example.com', date: DATE, table_code: 'Main Hall 3' };
+  const placed = await request.put(`${BACKEND_URL}/markets/${market.marketId}/placements`, {
+    data: { ...pin, table_choice: 'Full Table' },
+  });
+  expect(placed.ok(), await placed.text()).toBeTruthy();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(marketSetupPath(market.marketId, 'applications'));
+  const publish = page.getByTestId('applications-publish-button');
+  await expect(publish).toBeDisabled();
+  await expect(page.getByTestId('applications-publish-hint')).toHaveText(
+    'Only tables assigned by hand are stored. Allocate tables first: allocating keeps them and assigns every other approved vendor, so each applicant is told whether they have a table.',
+  );
+
+  // Allocate tables, on Settings, where the rail sends an organizer with pins only.
+  await page.goto(marketScreenPath(market.marketId, 'settings'));
+  await page.getByTestId('market-setup-assign-button').click();
+  await expect(page).toHaveURL(new RegExp(`/markets/${market.marketId}/assignments$`), {
+    timeout: 15000,
+  });
+  const read = await request.get(`${BACKEND_URL}/markets/${market.marketId}`);
+  expect(read.ok(), await read.text()).toBeTruthy();
+  const { market: stored } = (await read.json()) as {
+    market: {
+      assignmentObject: { vendorAssignments: { email: string; tableCode: string }[] };
+    };
+  };
+  const seats = stored.assignmentObject.vendorAssignments;
+  expect(seats.filter((seat) => seat.email === pin.email).map((seat) => seat.tableCode)).toEqual([
+    pin.table_code,
+  ]);
+  expect(seats.some((seat) => seat.email === 'unseated@example.com')).toBe(true);
+
+  await page.goto(marketSetupPath(market.marketId, 'applications'));
+  await expect(publish).toBeEnabled();
+  await expect(page.getByTestId('applications-publish-hint')).toHaveText(
+    "Vendors read whether they have a table on the market's vendor page. No email is sent.",
+  );
 });

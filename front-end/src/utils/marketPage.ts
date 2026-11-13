@@ -14,7 +14,7 @@
  * bar and the rail beneath it say the same thing about where the market is. This replaced
  * `marketSurface.ts`, whose four surfaces could not name the assignment, Vendors or Attendance.
  */
-import { type Market } from '@/assets/types/datatypes';
+import { MarketPhase, type Allocation, type Market } from '@/assets/types/datatypes';
 
 export type MarketPage =
   | 'setup'
@@ -56,12 +56,39 @@ export type SetupViewPage = (typeof SETUP_VIEW_PAGES)[number];
 
 /**
  * Whether the market holds an assignment: any placement stored. The one statement of it, read by
- * every page that changes with it - the bar and page row's dot, the landing, the Assignments page.
+ * the pages that ask whether there are rows to show - Assignments, Vendors, Payments, the run button
+ * on Settings, the Discord card.
+ * Where a market is worked on reads the served `allocation` instead (T316): hand assignments alone
+ * store rows, but are no table allocation.
  */
 export function hasAssignment(
   market: Pick<Market, 'assignmentObject'> | null | undefined,
 ): boolean {
   return (market?.assignmentObject?.vendorAssignments?.length ?? 0) > 0;
+}
+
+/** Whether applicants have been told whether they have a table, as the served allocation reads. */
+export function resultsAreOut(allocation: Allocation | null | undefined): boolean {
+  return allocation === 'published' || allocation === 'changed_since_published';
+}
+
+/**
+ * Why no run may happen on a market though a seat is still given by hand on Assignments, or null
+ * (T316): its results are published, or its table allocation is otherwise settled (a market left
+ * in Offers, which nothing sets any more). There, with every seat empty, Assignments says so in its
+ * own words and draws the tables to whoever may assign, since the server's refusal points at
+ * Assignments itself.
+ * Settled is the server's word, never the phase's: going live waits on `assignment_computed`, and
+ * its remedy is Assign tables on this page, not Allocate tables on Settings.
+ */
+export function settledBy(
+  market: Pick<Market, 'allocation' | 'transitionBlockers'>,
+): 'results' | 'settled' | null {
+  if (resultsAreOut(market.allocation)) return 'results';
+  const unallocated = market.transitionBlockers?.[MarketPhase.MarketDays]?.find(
+    (blocker) => blocker.id === 'assignment_computed',
+  );
+  return unallocated?.resolutionLink === 'assignments' ? 'settled' : null;
 }
 
 /** The pages under each tab, in the order its page row shows them. */

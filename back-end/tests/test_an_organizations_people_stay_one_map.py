@@ -1,12 +1,12 @@
-"""No sequence of changes breaks an organization's people map, and handing it on is one write
-(T283).
+"""No sequence of changes breaks an organization's people map, and transferring its ownership is
+one write (T283).
 
 An organization's people are one map, ``{user_id: "owner" | "admin" | "member"}``, written only by
-``organization_people``, its lists kept as an exact mirror. Handing the organization on is one
-conditional write filtered on the giver being owner, so no cut and no read finds it with two owners,
-none, or an owner in a list: on ``dev`` at ``279afc56`` it was four unconditional writes, and the
-planner's probes cut between them left an organization that did not parse, or a new owner with no
-place in it at all.
+``organization_people``, its lists kept as an exact mirror. Transferring the organization's
+ownership is one conditional write filtered on the giver being owner, so no cut and no read finds
+it with two owners, none, or an owner in a list: on ``dev`` at ``279afc56`` it was four
+unconditional writes, and the planner's probes cut between them left an organization that did not
+parse, or a new owner with no place in it at all.
 
 The property test drives random sequences of every change, by random requesters on random targets,
 a third of them with a second change landing between the first's read and its write, through the
@@ -98,8 +98,8 @@ HANDED_ON = {OWNER.id: "admin", ADMIN.id: "admin", MEMBER.id: "owner"}
 
 
 def _as_it_was_or_handed_on(doc):
-    """The organization reads exactly as it was, or exactly as handed on to MEMBER: nothing
-    between."""
+    """The organization reads exactly as it was, or exactly as with its ownership transferred to
+    MEMBER: nothing between."""
     people = organization_people_of(doc)
     assert people in (FOLDED["people"], HANDED_ON), people
     assert_one_map(doc)
@@ -111,7 +111,7 @@ def test_a_transfer_cut_before_its_owner_write_leaves_an_organization_that_parse
     # On dev the transfer to a member wrote: the member pulled (1), the owner added to admins (2),
     # the owner set (3). Cut at the third, the owner stood in its own admins and the organization
     # did not parse, so its admin held nothing through it on any market. Now the transfer is one
-    # write, and a cut where the third was finds it handed on whole.
+    # write, and a cut where the third was finds its ownership transferred whole.
     stored = install_organizations(monkeypatch, FakeOrganizations(SHAPES[shape]))
     stored.cut_at = 3
 

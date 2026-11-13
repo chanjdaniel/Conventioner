@@ -363,6 +363,12 @@ export interface Market {
   assignmentRulesLockReason?: string | null;
   /** Which of the solver's inputs changed since the assignment ran (E22/F03/S01). */
   assignmentOutOfDate?: string[];
+  /**
+   * Where the table allocation stands, judged by the server's assignment lifecycle (T316). The
+   * screens read it rather than working it out from the rows, the phase or `resultsPublished`.
+   * Undefined on a read that does not carry it, such as the list, which reads as `none`.
+   */
+  allocation?: Allocation;
   /** Hand placements at a seat the plan no longer has (bug 31); Publish is refused while any. */
   orphanedPins?: Array<{ email: string; date: string; tableCode: string }>;
   /**
@@ -808,6 +814,15 @@ export interface FloorplanObject {
   sectionStyles: SectionStyle[];
   startingCounts: StartingCount[];
 }
+
+/**
+ * Where a market's table allocation stands, as the market read serves it (T316,
+ * `back-end/assignment/lifecycle.py`, `Allocation`): nothing assigned; tables assigned by hand
+ * only, with no allocation run (pins only); a run that is current or out of date (stale); results
+ * published, and published then changed by hand.
+ */
+export type Allocation =
+  'none' | 'pinned' | 'current' | 'stale' | 'published' | 'changed_since_published';
 
 /**
  * One of the four things an assignment is made from, as the server names them in

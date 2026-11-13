@@ -39,7 +39,18 @@ function breaksIn(locator: Locator, address: string, narrow: boolean): Promise<s
         const local = drawn[at + address.indexOf('@') - 1].right - drawn[at].left;
         const whole = drawn[at + address.length - 1].right - drawn[at].left;
         element.style.whiteSpace = '';
-        element.style.width = `${(local + whole) / 2}px`;
+        // The line is the content box: a dialog's title keeps room for the close at its right.
+        const style = getComputedStyle(element);
+        const around =
+          style.boxSizing === 'border-box'
+            ? [
+                style.paddingLeft,
+                style.paddingRight,
+                style.borderLeftWidth,
+                style.borderRightWidth,
+              ].reduce((sum, length) => sum + parseFloat(length), 0)
+            : 0;
+        element.style.width = `${(local + whole) / 2 + around}px`;
       }
       const drawn = draw();
       const text = textOf(drawn);

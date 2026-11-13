@@ -9,11 +9,11 @@ import { withUser } from './helpers/withUser';
 import { PHONE_AND_DESK, inTheWindow } from './helpers/phoneWindow';
 
 /**
- * A market's Owner hands the market on (T283).
+ * A market's Owner transfers its ownership (T283, T315).
  *
  * A market has one Owner, the only person who may delete it, give and take Admin roles and change
- * who may do what, and there was no way to hand that on. Manage market now gives its Owner "Hand
- * this market on": a dialog finds someone with access by part of their address, says what they gain
+ * who may do what, and there was no way to pass that on. Manage market now gives its Owner
+ * "Transfer ownership": a dialog finds someone with access by part of their address, says what they gain
  * and what the Owner keeps, and confirmed, makes them the Owner and the Owner an Admin. The section
  * goes, Users with access shows both roles, the History says it, and the new Owner, signing in,
  * finds Delete market and the section theirs.
@@ -29,7 +29,7 @@ test.beforeAll(() => {
 /**
  * A draft market of the test user's, in an organization of its own so no other spec's people stand
  * in its list, with `ADMIN` its Admin and `EDITOR` its Editor. The test user owns that organization,
- * so on the market it is an Admin through it once the market is handed on.
+ * so on the market it is an Admin through it once the market's ownership is transferred.
  */
 async function seed(
   request: APIRequestContext,
@@ -86,18 +86,20 @@ for (const size of PHONE_AND_DESK) {
       await expect(manage.handOnLine).toHaveText(
         'Make someone with access its Owner. You stay on it as an Admin.',
       );
-      await expect(manage.handOnButton).toHaveText('Hand on');
+      await expect(manage.handOnButton).toHaveText('Transfer ownership');
       await expect(manage.deleteButton).toBeVisible();
       await manage.handOnButton.scrollIntoViewIfNeeded();
       if (size.phone) {
-        await window.expectInside(manage.handOnButton, 'Hand on');
+        await window.expectInside(manage.handOnButton, 'Transfer ownership');
         await window.expectFits(page, 'Manage market');
       }
 
       // Asked first: whom to, found by part of their address, and nothing until one is chosen.
       await window.press(manage.handOnButton);
-      await expect(page.getByRole('dialog', { name: `Hand ${marketName} on` })).toBeVisible();
-      await expect(manage.handOnConfirmButton).toHaveText('Hand on');
+      await expect(
+        page.getByRole('dialog', { name: `Transfer ownership of ${marketName}` }),
+      ).toBeVisible();
+      await expect(manage.handOnConfirmButton).toHaveText('Transfer ownership');
       await expect(manage.handOnConfirmButton).toBeDisabled();
       await expect(manage.handOnConsequence).toHaveCount(0);
       await manage.handOnPicker.field.fill('e2e-hand-on');
@@ -112,10 +114,10 @@ for (const size of PHONE_AND_DESK) {
       );
       await expect(manage.handOnConfirmButton).toBeEnabled();
       if (size.phone) {
-        await window.expectInside(manage.handOn, 'the hand-on dialog');
-        await window.expectFits(page, 'the hand-on dialog');
+        await window.expectInside(manage.handOn, 'the transfer dialog');
+        await window.expectFits(page, 'the transfer dialog');
       }
-      await expectAccessible(`the hand-on dialog, ${size.name}`);
+      await expectAccessible(`the transfer dialog, ${size.name}`);
 
       await window.press(manage.handOnConfirmButton);
       await expect(manage.handOn).toHaveCount(0);
@@ -130,10 +132,10 @@ for (const size of PHONE_AND_DESK) {
 
       await manage.openHistory();
       await expect(manage.historySentences.first()).toHaveText(
-        `${me} handed the market on to ${ADMIN}, and stays on it as an Admin`,
+        `${me} transferred ownership of the market to ${ADMIN}, and stays on it as an Admin`,
       );
 
-      // The server holds it: the new Owner, signing in, may delete it and hand it on.
+      // The server holds it: the new Owner, signing in, may delete it and transfer its ownership.
       await withUser(
         browser,
         ADMIN,
@@ -150,7 +152,10 @@ for (const size of PHONE_AND_DESK) {
           );
           if (size.phone) {
             await theirManage.handOnButton.scrollIntoViewIfNeeded();
-            await inTheWindow(size).expectInside(theirManage.handOnButton, 'their Hand on');
+            await inTheWindow(size).expectInside(
+              theirManage.handOnButton,
+              'their Transfer ownership',
+            );
           }
         },
         size.use,

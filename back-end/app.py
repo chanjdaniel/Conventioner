@@ -20,6 +20,7 @@ import api.discord_connection as DiscordConnectionApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
+import host_limits as HostLimits
 import typesafe_client as TypeSafe
 import market_stats as MarketStats
 import api.attendance as AttendanceApi
@@ -483,7 +484,8 @@ configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
 install_error_answers(app)
 install_security_headers(app)
 
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload limit
+# The host's own limit, so a local stack refuses what production refuses (host_limits.py).
+app.config["MAX_CONTENT_LENGTH"] = HostLimits.MAX_REQUEST_BODY_BYTES
 
 bcrypt = Bcrypt(app)
 
@@ -863,8 +865,8 @@ def change_org_place(org_id: str, user_id: str) -> Response:
 @app.route('/organizations/<org_id>/transfer', methods=['POST'])
 @login_required
 def transfer_org_ownership(org_id: str) -> Response:
-    """Hand the organization on to one of its admins or members: its owner's to do. The body is
-    ``{"new_owner_email": "<address>"}``."""
+    """Transfer the organization's ownership to one of its admins or members: its owner's to do.
+    The body is ``{"new_owner_email": "<address>"}``."""
     data = json_object(required=True)
 
     new_owner_email = string_field(data, 'new_owner_email')
@@ -923,15 +925,18 @@ def update_market_role(market_id: str, user_id: str) -> Response:
         return jsonify({"error": "Failed to update role"}), 400
     return jsonify({"message": "Role updated successfully"}), 200
 
+#: Said of a transfer of ownership that names no one to transfer it to.
+CHOOSE_WHO_TO_TRANSFER_TO = "Choose who to transfer ownership to."
+
 @app.route('/markets/<market_id>/hand-on', methods=['POST'])
 @login_required
 def hand_on_market(market_id: str) -> Response:
-    """Hand the market on (T283): body ``{"userId": "<id>"}``, someone with access, who becomes
-    its Owner while the requester, its Owner, stays on it as an Admin. Answers the market as the
-    market read serves it to the requester now."""
+    """Transfer the market's ownership (T283): body ``{"userId": "<id>"}``, someone with access,
+    who becomes its Owner while the requester, its Owner, stays on it as an Admin. Answers the
+    market as the market read serves it to the requester now."""
     user_id = string_field(json_object(required=False), 'userId')
     if not user_id:
-        return jsonify({"error": "Choose who to hand this market on to."}), 400
+        return jsonify({"error": CHOOSE_WHO_TO_TRANSFER_TO}), 400
     requester = authenticated_email()
     MarketsApi.hand_on_market(market_id, user_id, requester)
     return jsonify({"market": MarketsApi.get_market_for_user(requester, market_id)}), 200

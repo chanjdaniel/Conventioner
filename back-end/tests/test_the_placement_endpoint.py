@@ -694,6 +694,10 @@ def test_freeing_and_swapping_leave_what_the_run_was_made_from_alone(collection,
         ("ana@example.com", "2026-08-01", "Hall A 1"),
         ("ben@example.com", "2026-08-01", "Hall A 2"),
     )
+    # A run that recorded what it was made from (T316): one stored with none, from before runs
+    # recorded it, is given the legacy marker by its first write.
+    collection.doc["assignmentObject"].update(
+        state="run", madeFrom={"rules": "r", "plan": "p", "applications": "a", "review": "1"})
 
     if change == "free":
         PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1")

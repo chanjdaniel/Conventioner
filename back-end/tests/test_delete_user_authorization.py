@@ -275,8 +275,8 @@ def _market(market_id, name, roles):
 
 class TestOwningAMarket:
     """A market's Owner is the only person who may delete it, manage its admins and change who may
-    do what on it, so an account that is the Owner of a market stays until it hands the market on
-    or deletes it (T283), and every market keeps an Owner."""
+    do what on it, so an account that is the Owner of a market stays until it transfers the
+    market's ownership or deletes it (T283), and every market keeps an Owner."""
 
     def test_a_markets_owner_cannot_delete_their_account(self, client, users, markets):
         collection = users(_user(ATTACKER, user_id="id-owner"))
@@ -288,7 +288,7 @@ class TestOwningAMarket:
         assert response.status_code == 409
         assert ATTACKER in collection.docs, "the account must survive a refused deletion"
         assert response.get_json() == {
-            "msg": "Hand on or delete Spring Market before deleting this account.",
+            "msg": "Transfer or delete Spring Market before deleting this account.",
             "ownedMarkets": ["Spring Market"],
         }
 
@@ -307,7 +307,7 @@ class TestOwningAMarket:
 
         assert response.status_code == 409
         assert response.get_json() == {
-            "msg": "Hand on or delete Spring Market, Winter Market before deleting this account.",
+            "msg": "Transfer or delete Spring Market, Winter Market before deleting this account.",
             "ownedMarkets": ["Spring Market", "Winter Market"],
         }
         assert stored.last_projection == {"_id": 0, "id": 1, "name": 1}
@@ -326,7 +326,7 @@ class TestOwningAMarket:
         assert response.get_json() == {
             "msg": (
                 "Transfer ownership of Seed Test Org before deleting this account. "
-                "Hand on or delete Spring Market before deleting this account."
+                "Transfer or delete Spring Market before deleting this account."
             ),
             "ownedOrganizations": ["Seed Test Org"],
             "ownedMarkets": ["Spring Market"],

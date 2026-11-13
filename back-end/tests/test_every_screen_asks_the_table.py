@@ -185,14 +185,15 @@ class TestTheRulesOfTheMarketsLifeAreServedOnTheirOwn:
         assert read(MarketRole.OWNER, MarketPhase.ASSIGNMENT)["addingVendorsReason"] is None
 
     def test_results_wait_for_the_allocation(self, read, monkeypatch):
-        monkeypatch.setattr(ApplicantsApi, "publish_results_refusal", lambda _m: "Run it first.")
+        monkeypatch.setattr(ApplicantsApi, "publish_results_refusal",
+                            lambda _m, **_kw: "Run it first.")
 
         assert read(MarketRole.VIEWER)["publishWaitsReason"] == "Run it first."
 
     def test_the_outcomes_are_counted_only_for_someone_who_may_publish_now(
         self, read, monkeypatch,
     ):
-        monkeypatch.setattr(ApplicantsApi, "publish_results_refusal", lambda _m: None)
+        monkeypatch.setattr(ApplicantsApi, "publish_results_refusal", lambda _m, **_kw: None)
         monkeypatch.setattr(
             MarketsApi.ResultOutcome, "outcome_counts", lambda _m: {"has_a_table": 2})
 

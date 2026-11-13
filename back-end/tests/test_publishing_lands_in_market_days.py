@@ -20,11 +20,10 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import api.applications as ApplicationsApi  # noqa: E402
+import assignment.made_from as MadeFrom  # noqa: E402
 import guards  # noqa: E402
-from conftest import FakeSlugMarketsCollection, stored_market  # noqa: E402
-from datatypes import (  # noqa: E402
-    AssignmentObject, Market, MarketPhase, MarketRole, market_name_slug,
-)
+from conftest import FakeSlugMarketsCollection, assignment_object, stored_market  # noqa: E402
+from datatypes import Market, MarketPhase, MarketRole, market_name_slug  # noqa: E402
 from guards import VALID_TRANSITIONS, evaluate_transition  # noqa: E402
 from market_documents import applicant_intake_market_by_slug  # noqa: E402
 
@@ -38,15 +37,21 @@ def _market(phase=MarketPhase.ASSIGNMENT, assignments=("vendor@example.com",)):
         creation_date="2026-01-01",
         roles={"user-1": MarketRole.OWNER},
         modification_list=[],
-        assignment_object=AssignmentObject(
-            vendor_assignments=[
+        # A run, published on the revision it stands on; freed down to nobody with no
+        # ``assignments``.
+        assignment_object=assignment_object(
+            "run",
+            [
                 {
-                    "email": e, "date": "2026-05-01", "table_code": "A1",
-                    "table_choice": "Full Table", "section": "Main Hall",
+                    "email": e, "date": "2026-05-01", "tableCode": "A1",
+                    "tableChoice": "Full Table", "section": "Main Hall",
                     "tier": "Standard", "location": "Hall",
                 }
                 for e in assignments
             ],
+            # What a run over this market, with no plan, applications or phase record, records.
+            made_from=MadeFrom.fingerprint(None, [], []),
+            published_revision=0,
         ),
         # Published, so the one invariant these read is the assignment's: results are its own
         # (`test_publishing_settles_the_assignment.py`).
@@ -94,7 +99,8 @@ class TestTheEntryInvariant:
     def test_it_checks_something_the_solver_actually_writes(self):
         """`offers` is deadlocked precisely because its invariant checks something nothing sets.
 
-        The solver writes `assignmentObject.vendorAssignments`, so that is what this reads.
+        The solver writes `assignmentObject.vendorAssignments`, so that is what this reads, beside
+        the state the assignment's lifecycle owner stores with them (T316).
         """
         blocked = evaluate_transition(_market(assignments=()), MarketPhase.MARKET_DAYS, None)
         allowed = evaluate_transition(_market(), MarketPhase.MARKET_DAYS, None)

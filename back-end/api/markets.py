@@ -18,6 +18,7 @@ from datatypes import (
     Application,
     ApplicationForm,
     ApplicationStatus,
+    AssignmentState,
     AssignmentStatistics,
     EssentialFormOptions,
     FloorplanObject,
@@ -94,6 +95,7 @@ from guards import (
     transition_verdicts,
 )
 import vendor_notes as VendorNotes
+import assignment.lifecycle as Lifecycle
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
@@ -327,7 +329,7 @@ def _why_the_review_is_closed(market: Market) -> Optional[str]:
     """
     if review_is_open(market.phase):
         return None
-    if market.results_published:
+    if Lifecycle.results_published(market):
         return "published"
     if market.phase is MarketPhase.ASSIGNMENT:
         return "allocating"
@@ -478,7 +480,7 @@ def assignment_rules_lock_reason(market: Market) -> Optional[str]:
         return ARCHIVED_REFUSAL
     if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is None:
         return ASSIGNMENT_RULES_SETTLED
-    if market.results_published:
+    if Lifecycle.results_published(market):
         return ASSIGNMENT_RULES_PUBLISHED
     return None
 
@@ -985,6 +987,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignmentOutOfDate'] = (
         changed_since_run(market) if market.phase is MarketPhase.ASSIGNMENT else []
     )
+    # And where the table allocation stands (T316), from the one owner of the assignment's state,
+    # handed the groups just read so the approved applications are read once.
+    market_dict['allocation'] = Lifecycle.allocation(
+        market, changed=market_dict['assignmentOutOfDate']).value
     # Hand placements at a seat the plan no longer has, for Assignments and the vendor's panel to mark
     # (bug 31). The guard refuses Publish on the same list; reading it here keeps the pages from
     # deciding for themselves which seats exist.
@@ -1017,7 +1023,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['verdictsSettledReason'] = verdicts_settled
     adding_vendors = adding_refusal(market.phase)
     market_dict['addingVendorsReason'] = adding_vendors
-    publish_waits = ApplicantsApi.publish_results_refusal(market)
+    publish_waits = ApplicantsApi.publish_results_refusal(
+        market, changed=market_dict['assignmentOutOfDate'])
     market_dict['publishWaitsReason'] = publish_waits
     market_dict['publishOutcomes'] = (
         None if refusals[Actions.PUBLISH_RESULTS.id] or publish_waits
@@ -1297,7 +1304,8 @@ def new_market(body: Dict[str, Any], roles: Dict[str, Any]) -> Market:
     """
     chosen = {field: body[field] for field in MARKET_CREATE_FIELDS if field in body}
     return Market.model_validate(
-        {**chosen, "roles": roles, "modification_list": [], "assignment_object": {}})
+        {**chosen, "roles": roles, "modification_list": [],
+         "assignment_object": {"state": AssignmentState.NONE}})
 
 
 def create_market(market: Market, owner_email: str) -> tuple:
@@ -2204,6 +2212,12 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
     return []
 
 
+#: Said of giving the Owner role, by adding someone or changing their role, while the market has one:
+#: a market has one Owner, and it changes only when ownership is transferred.
+ALREADY_HAS_AN_OWNER = (
+    "This market already has an Owner. To make someone else its Owner, transfer ownership to them.")
+
+
 def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> None:
     """Add a user role to a market. Asks the row that gives the role (``Actions.roles_row``).
 
@@ -2229,7 +2243,7 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
     if role == MarketRole.OWNER:
         for uid, existing_role in roles.items():
             if existing_role == MarketRole.OWNER.value:
-                raise BadRequestError("Market already has an owner. Transfer ownership first.")
+                raise BadRequestError(ALREADY_HAS_AN_OWNER)
 
     user = UsersApi.get_user(user_email)
     if not user:
@@ -2248,6 +2262,9 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
 
 
 NO_LONGER_ON_THE_MARKET = "They no longer have a role on this market."
+
+#: Said of removing the market's one Owner: it changes only when ownership is transferred.
+THE_ONLY_OWNER_STAYS = "The market's only Owner can't be removed. Transfer ownership first."
 
 
 def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> None:
@@ -2286,7 +2303,7 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     if taking_an_owner:
         owner_count = sum(1 for r in roles.values() if r == MarketRole.OWNER.value)
         if owner_count <= 1:
-            raise BadRequestError("Cannot remove the only owner. Transfer ownership first.")
+            raise BadRequestError(THE_ONLY_OWNER_STAYS)
 
     # The role as the market model read it, which takes only the four roles: every removal asks
     # the row of the role it takes.
@@ -2346,7 +2363,7 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     if new_role == MarketRole.OWNER:
         for uid, existing_role in roles.items():
             if uid != user_id and existing_role == MarketRole.OWNER.value:
-                raise BadRequestError("Market already has an owner. Transfer ownership first.")
+                raise BadRequestError(ALREADY_HAS_AN_OWNER)
 
     if current_role_value == new_role.value:
         return False
@@ -2358,9 +2375,10 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     return True
 
 
-#: Said of a hand-on to anyone the market read does not find with access, the Owner included.
+#: Said of a transfer of ownership to anyone the market read does not find with access, the Owner
+#: included.
 HAND_ON_ONLY_TO_SOMEONE_WITH_ACCESS = (
-    "You can hand this market only to someone who has access to it.")
+    "You can transfer ownership only to someone who has access to this market.")
 
 
 def hand_on_market(market_id: str, user_id: str, requesting_user: str) -> None:
@@ -2373,7 +2391,7 @@ def hand_on_market(market_id: str, user_id: str, requesting_user: str) -> None:
     delete it.
 
     One write, holding the Owner's role and the new Owner's as read (absent when their access
-    comes through the organization): the Owner was the one Owner as read, so a second hand-on of
+    comes through the organization): the Owner was the one Owner as read, so a second transfer of
     theirs meets their role changed, and the market never has two Owners or none.
 
     Raises:
@@ -2398,7 +2416,7 @@ def hand_on_market(market_id: str, user_id: str, requesting_user: str) -> None:
     with_access = PermissionsApi.people_with_market_role(market, organization)
     if user_id == owner.id or user_id not in with_access:
         raise BadRequestError(HAND_ON_ONLY_TO_SOMEONE_WITH_ACCESS)
-    # A role a gone account left behind is no one to hand it to, and the read lists no such row:
+    # A role a gone account left behind is no one to transfer it to, and the read lists no such row:
     # its accounts are read as the read reads them (``_Accounts``).
     new_owner = UsersApi.get_users_by_ids([user_id]).get(user_id)
     if new_owner is None:

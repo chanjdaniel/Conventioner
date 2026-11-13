@@ -74,8 +74,10 @@ test('a Google Form market that went live before it could publish says the revie
     TEST_USER.password,
   );
   // Going live waits for results now (ADR 0022), so this market went before that rule reached it.
+  // No route reaches that state any more, so it is written: the flag unset, and the revision
+  // Publish results stood on with it, since neither was ever written (T316).
   mongoEval(
-    `db.markets.updateOne({id: ${JSON.stringify(seed.marketId)}}, {$unset: {resultsPublished: ''}})`,
+    `db.markets.updateOne({id: ${JSON.stringify(seed.marketId)}}, {$unset: {resultsPublished: '', 'assignmentObject.publishedRevision': ''}})`,
   );
 
   await expect(await conditionLine(page, seed.marketId)).toHaveText(WENT_LIVE);

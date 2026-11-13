@@ -41,6 +41,9 @@ sources:
   - T217
   - T263
   - T283
+  - T277
+  - T316
+  - T315
 ---
 
 # The market's history
@@ -78,6 +81,7 @@ Every other kind of change gives its detail the changed fields before and after,
 An import, the start from a CSV and a run record their counts instead, and a verdict is recorded whole each time it is given, since each one is.
 **The placement kinds are the one exception**: their details keep the shapes they had before the history widened, because the entries moved from `placement_history` have no before to give.
 A `placed` entry written since adds one key, `before`: the seat the vendor left on that date (`table_code`, `table_choice`), null when they had none, so a move reads from one seat to the other; an older `placed` entry has no `before` key at all, which says the seat left is unknown, not that there was none.
+A `placed`, `freed` or `swapped` entry written while results are published adds `after_results: true` (T316), since that vendor's page had already told them where they sit; the routes pass the lifecycle owner's `results_published` of the market they read ([the assignment's lifecycle](../modules/assignment-lifecycle.md)), and the key is absent otherwise, so every older entry, and every one written before results, reads as it always did.
 
 **A run is one entry**, not none and not one per placement.
 Leaving runs out would make the history lie by omission, since a placement changed between two hand edits would have no explanation; one entry per placement would drown the hand edits, which are the entries anyone reads.
@@ -220,7 +224,7 @@ One block per action, in the order of [the actions table](../modules/market-acti
 - `placed`, `freed`, `swapped`, `assigned`: a placement, a freed seat, a swap, a run
   - Vendors: as above
   - Subject: the table-day
-  - Detail: as above, `placed` with the seat left as `before`
+  - Detail: as above, `placed` with the seat left as `before`, and `after_results: true` on a `placed`, `freed` or `swapped` written while results are published
 - `rules`: the assignment rules, which ride in the plan
   - Detail: `priority` or `assignment_options`
 - `owed_taken_back`: a day seated again, by hand or by a run, taking back the $0 a free's deduction set ([payments](payments.md)), by whoever seated them
@@ -279,9 +283,9 @@ One block per action, in the order of [the actions table](../modules/market-acti
 
 **`hand-on-market`**
 
-- `handed_on`: the market's owner handing it on to someone with access, who becomes its Owner while the old owner stays on it as an Admin ([handing a market on](../../business/flows/ending-and-managing-a-market.md#l4a-hand-the-market-on))
+- `handed_on`: the market's owner transferring its ownership to someone with access, who becomes its Owner while the old owner stays on it as an Admin ([transferring a market's ownership](../../business/flows/ending-and-managing-a-market.md#l4a-transfer-ownership))
   - Subject: `user_id`, `email`: the new Owner
-  - Detail: `owner`, the old owner's address before and the new Owner's after; read "<actor> handed the market on to <email>, and stays on it as an Admin"
+  - Detail: `owner`, the old owner's address before and the new Owner's after; read "<actor> transferred ownership of the market to <email>, and stays on it as an Admin", older entries included, since an entry stores no words
 
 **`change-the-table`**
 
@@ -331,7 +335,7 @@ One block per action, in the order its constants stand in `history.py`; a new ki
 
 **`transfer-organization`**
 
-- null: ownership handed on, one entry for the one act
+- null: ownership transferred, one entry for the one act, read "<actor> transferred ownership of the organization to <email>"
   - Subject: `user_id`, `email` of the new owner
   - Detail: `owner`: the old owner's address and the new one's
 

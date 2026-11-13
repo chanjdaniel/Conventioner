@@ -21,7 +21,7 @@ describes:
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
   - back-end/assignment/assignment.py#vendors_to_show
   - front-end/src/views/ResultView.vue#runPlacementChange
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -50,12 +50,15 @@ sources:
   - T263
   - T270
   - T201
+  - T277
+  - T316
 ---
 
 # Placements
 
 Who sits where, stored once on the market and written by one module.
-[`back-end/api/placements.py`](../../../back-end/api/placements.py) is the only writer of `assignmentObject` ([the market document](../data/market-document.md)), the stored assignment that check-in reads at the door and the organizer edits one seat at a time.
+[`back-end/api/placements.py`](../../../back-end/api/placements.py) holds the only doors that change the seats of `assignmentObject` ([the market document](../data/market-document.md)), the stored assignment that check-in reads at the door and the organizer edits one seat at a time.
+Each writes through `store`, the one write of the rows, in [the assignment's lifecycle](assignment-lifecycle.md), which also stores the assignment's state (`none`, `pinned` or `run`) beside them; Publish results' `publishedRevision` and the migration's state are that module's too.
 The organizer edits it on the Assignments page, which fits a phone (`meta.fitsAPhone`, [the design language](../../design-system.md#layout)): the vendor drawer's "Change assignment" at the door leads there, so a seat can be changed on the phone it was tapped on (T142).
 Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
@@ -76,7 +79,7 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
 1. One write on the day's owed record, landing only while its amount by hand is the one read, keeps the freed line and, when `deductOwed` asked it, the free's $0 (`PaymentsApi.keep_freed_line`); unasked, it puts back the amount a stopped free's $0 replaced, or none.
    An amount that keeps changing under it is refused, 409, with nothing written.
-2. The seat is freed (`_store_vendor_assignments`).
+2. The seat is freed (`lifecycle.store`).
 3. When step 2 is refused by the revision, the record goes back as it held before, only while it still holds what step 1 wrote, and the error goes on.
    When it raises anything else, which may come after the store reached the database, the record goes back that way only while the stored assignment still seats the vendor that day; when that cannot be read, the line stays, since a held seat reads its own price over it.
 4. The freed entry is recorded, and with the deduction an "owed set" entry from what the line owed as the request read it, while the seat was held, to 0.
@@ -105,8 +108,8 @@ Placing into a taken seat is still refused while the organizer can see both vend
 A swap is atomic because three separate operations invite a half-finished state, and the half-finished state is a vendor standing at no table on market day.
 
 **No change lands over another.**
-Each of the four reads the whole assignment and writes it back whole (`_store_vendor_assignments`), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
-So the write goes through [the market write](market-write.md), `_store_vendor_assignments` taking the market as the change read it: it lands only while the market is in the phase it was read in and `assignmentObject.revision` is still the one read (taken from the stored document, which a run's solver never touches), and counts the revision one more.
+Each of the four reads the whole assignment and writes it back whole through `store` in [`back-end/assignment/lifecycle.py`](../../../back-end/assignment/lifecycle.py), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
+So the write goes through [the market write](market-write.md), `store` taking the market as the change read it: it lands only while the market is in the phase it was read in and `assignmentObject.revision` is still the one read (taken from the stored document, which a run's solver never touches), and counts the revision one more.
 A run also holds `resultsPublished` as read, so an allocation never lands after Publish results told applicants the one before it; and since the phase is held, no placement, free or swap lands on a market archived a moment before.
 Otherwise the change is refused with the market write's `MarketChanged` (409) and [its one sentence](market-write.md#what-it-answers), before any history or payments line is recorded.
 An assignment stored before the count existed has none, and reads as 0.
@@ -158,15 +161,16 @@ Which side of a table is free lives in `assignment_slots` (`[left, right]`, None
 Do not conflate them; see `MarketTableRow` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), beside `VendorAssignmentResult` and `AssignmentObject`.
 
 **Statistics are never stored.**
-A write sets `vendorAssignments`, `assignmentDate` and, for a run alone, `madeFrom`, counts `assignmentObject.revision` one up, and clears `assignmentStatistics`, so a stale copy is never resurrected.
+A write sets `vendorAssignments`, `assignmentDate`, `state` and, for a run alone, `madeFrom`, counts `assignmentObject.revision` one up, and clears `assignmentStatistics`, so a stale copy is never resurrected.
 
 ## The trail
 
 Every change here is recorded in [the market's history](../data/history.md), under the `assign` action: a placement, a freed seat, a swap, and a solver run as one entry, with how many placements it wrote and how many pins it kept.
+A placement, a free or a swap made while results are published (`Lifecycle.results_published`) records `after_results` in its entry, since that vendor's page had already told them where they sit.
 
 ## Why
 
-- [Assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md): `assign_phase_refusal`, and after results are published `assign_refusal`, served as `assignRefusalReason`.
+- [Assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md): `assign_phase_refusal`, and after results are published, as [the assignment's lifecycle](assignment-lifecycle.md) reads them, `assign_refusal`, served as `assignRefusalReason`.
 - [A seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md), and anyone may be pinned, warned.
 - [Adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md): seated here, by hand, as a held pin.
 - [An assignment knows when it is out of date](../../business/rules/an-assignment-knows-when-it-is-out-of-date.md): only a run records what it was made from ([made from](made-from.md)).

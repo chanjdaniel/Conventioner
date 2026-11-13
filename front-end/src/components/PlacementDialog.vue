@@ -65,6 +65,11 @@ const props = defineProps<{
    * asked.
    */
   deduction?: { amount: string; name: string } | null;
+  /**
+   * Whether results are published (the served `allocation`, T316): a vendor's page then already
+   * says where they sit, so the dialog says what a change here does to it.
+   */
+  resultsOut?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -257,6 +262,26 @@ function submitPrimary() {
 
 /** Both halves, in a list where the organizer is choosing between people. */
 const label = (email: string | null | undefined): string => vendorLabel(email, props.vendorNames);
+
+/**
+ * After results are published, what this change does to a vendor's page, and that nothing is sent
+ * to them (T316): the occupant's page names this seat, and an empty seat's next holder reads it.
+ */
+const resultsOutNote = computed(() => {
+  if (!props.resultsOut) return '';
+  if (props.mode === 'place') {
+    return (
+      'Results are published, so whoever you assign here reads this table on their vendor page ' +
+      'at once, and nothing is sent to them.'
+    );
+  }
+  const seat = tableInWords(props.tableCode, props.seat ?? FULL_TABLE);
+  return (
+    `Results are published, so the vendor page of ${label(props.occupantEmail)} tells them they ` +
+    `have ${seat} on ${props.dateLabel}. Freeing, moving or swapping them changes what it says, ` +
+    'and nothing is sent to them.'
+  );
+});
 
 /** A seated vendor's table, in words: "Hall B 1, left half" rather than a stored spelling. */
 function whereTheySit(target: SeatedVendor): string {
@@ -545,6 +570,15 @@ function findsToMove(option: PickerOption, words: string): boolean {
       </label>
     </template>
 
+    <!-- Last in the body, so it is read just before the change is made (T316). -->
+    <p
+      v-if="resultsOutNote"
+      class="placement-results-out"
+      data-testid="placement-dialog-results-out"
+    >
+      {{ resultsOutNote }}
+    </p>
+
     <!--
       Its own footer, because the occupied mode has a destructive action beside the primary one.
       The primary is `type="submit"`, so Enter reaches it and nothing else here; in the occupied
@@ -642,6 +676,19 @@ function findsToMove(option: PickerOption, words: string): boolean {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
+}
+
+/* Not a muted aside: the vendor has been told, and this says what a change does to that. The
+   attention block the app draws a state that asks for care in (`ReviewSetupDecision.vue`). */
+.placement-results-out {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--mm-yellow);
+  border-radius: var(--radius-control);
+  background: var(--mm-chip-attention);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .placement-occupant-row {

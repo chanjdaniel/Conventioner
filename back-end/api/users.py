@@ -891,6 +891,11 @@ def get_user_raw(email: str) -> Optional[dict]:
     return None
 
 
+#: Said of an account that is the Owner of markets, naming them: its Owner transfers each market's
+#: ownership or deletes it first, as Manage market offers.
+OWNS_MARKETS = "Transfer or delete {markets} before deleting this account."
+
+
 def delete_user(authenticated_email: str):
     """Delete the authenticated user's own account.
 
@@ -909,7 +914,7 @@ def delete_user(authenticated_email: str):
 
     The Owner of a market is refused for the same reason, beside the organization refusal (T283): a
     market's Owner is the only person who may delete it, manage its admins and change who may do
-    what on it, so every market keeps an Owner whose account exists. Handing the market on
+    what on it, so every market keeps an Owner whose account exists. Transferring its ownership
     (``POST /markets/<id>/hand-on``) or deleting it is something its Owner may do, and then this
     succeeds. A role below Owner on a market is not ownership, and the deletion goes ahead.
     """
@@ -956,8 +961,7 @@ def delete_user(authenticated_email: str):
                 f"Transfer ownership of {', '.join(org_names)} before deleting this account.")
             refusal["ownedOrganizations"] = org_names
         if market_names:
-            sentences.append(
-                f"Hand on or delete {', '.join(market_names)} before deleting this account.")
+            sentences.append(OWNS_MARKETS.format(markets=', '.join(market_names)))
             refusal["ownedMarkets"] = market_names
         return jsonify({"msg": " ".join(sentences), **refusal}), 409
 

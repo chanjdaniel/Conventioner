@@ -1,7 +1,7 @@
-"""Handing a market on, on a real server, with real threads meeting (T283).
+"""Transferring a market's ownership, on a real server, with real threads meeting (T283).
 
-A hand-on is one write holding the Owner's role and the new Owner's as read, so the market never
-has two Owners. The hermetic suite lands a second hand-on between one's read and its write
+A transfer is one write holding the Owner's role and the new Owner's as read, so the market never
+has two Owners. The hermetic suite lands a second transfer between one's read and its write
 (``test_handing_a_market_on.py``); this runs that losing branch where it lives: both threads read
 the market and judge who has access, and only then do their writes meet on the server.
 """
@@ -64,7 +64,7 @@ def test_a_refused_hand_on_answers_409_through_the_route(
     owner, admin, editor = (signed_in(email) for email in (OWNER, ADMIN, EDITOR))
     market = market_in(MarketPhase.APPLICATIONS, roles={
         owner.account_id: "owner", admin.account_id: "admin", editor.account_id: "editor"})
-    # The Owner's other tab hands it to the Admin between this request's read and its write.
+    # The Owner's other tab transfers it to the Admin between this request's read and its write.
     interleave("api.markets.load_market_context",
                lambda: MarketsApi.hand_on_market(market["id"], admin.account_id, OWNER))
 

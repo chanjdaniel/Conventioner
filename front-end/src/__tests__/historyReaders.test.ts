@@ -210,7 +210,7 @@ describe('the history readers', () => {
       { names: {}, labels: {} },
     );
     expect(parts.map((part) => (part.kind === 'text' ? part.text : '')).join('')).toBe(
-      'dana@ember.test handed the market on to sam@ember.test, and stays on it as an Admin',
+      'dana@ember.test transferred ownership of the market to sam@ember.test, and stays on it as an Admin',
     );
   });
 
@@ -218,6 +218,88 @@ describe('the history readers', () => {
     expect(Object.keys(NAMED_VALUES).sort()).toEqual(['role', 'source', 'status']);
     expect(Object.keys(WORDED_VALUES).sort()).toEqual(['aisles', 'table_types']);
     expect(fieldValue('source', 'organization')).toBe('The organization’s default');
+  });
+});
+
+/** A placement written while results were published says so after its day (T316). */
+describe('a placement after results were published', () => {
+  const ON_THE_DAY = ' on Nov 19, 2026';
+
+  function says(kind: string, vendors: string[], detail: Record<string, unknown>): string {
+    const parts = entryParts(
+      {
+        id: 'e1',
+        actor: 'dana@ember.test',
+        at: '2026-11-20T10:00:00+00:00',
+        action: 'assign',
+        kind,
+        vendors,
+        subject: {},
+        detail,
+      },
+      { names: {}, labels: {} },
+    );
+    return parts.map((part) => (part.kind === 'text' ? part.text : `[${part.kind}]`)).join('');
+  }
+
+  const SWAP = {
+    date: '2026-11-19',
+    seats: [
+      { email: 'ana@ember.test', table_code: 'A3' },
+      { email: 'ben@ember.test', table_code: 'B7' },
+    ],
+  };
+
+  it.each([
+    [
+      'a free, by the table their vendor page had shown',
+      'freed',
+      ['ana@ember.test'],
+      { date: '2026-11-19', table_code: 'B7' },
+      `freed B7, leaving [vendor] with no table${ON_THE_DAY}, after results were published: their vendor page had shown B7`,
+    ],
+    [
+      'a move, by the table left',
+      'placed',
+      ['ana@ember.test'],
+      { date: '2026-11-19', table_code: 'B7', before: { table_code: 'A3' } },
+      `moved [vendor] from A3 to B7${ON_THE_DAY}, after results were published: their vendor page had shown A3`,
+    ],
+    [
+      'a new assignment',
+      'placed',
+      ['ana@ember.test'],
+      { date: '2026-11-19', table_code: 'B7', before: null },
+      `assigned [vendor] at B7${ON_THE_DAY}, after results were published`,
+    ],
+    [
+      'a swap',
+      'swapped',
+      ['ana@ember.test', 'ben@ember.test'],
+      SWAP,
+      `swapped [vendor] and [vendor] - now at A3 and B7${ON_THE_DAY}, after results were published`,
+    ],
+  ])('says %s', (_name, kind, vendors, detail, sentence) => {
+    expect(says(kind, vendors, { ...detail, after_results: true })).toBe(
+      `dana@ember.test ${sentence}`,
+    );
+  });
+
+  it.each([
+    ['freed', ['ana@ember.test'], { date: '2026-11-19', table_code: 'B7' }],
+    [
+      'placed',
+      ['ana@ember.test'],
+      { date: '2026-11-19', table_code: 'B7', before: { table_code: 'A3' } },
+    ],
+    ['placed', ['ana@ember.test'], { date: '2026-11-19', table_code: 'B7', before: null }],
+    ['swapped', ['ana@ember.test', 'ben@ember.test'], SWAP],
+  ])('reads an entry of %s without the key exactly as before', (kind, vendors, detail) => {
+    expect(says(kind, vendors, detail)).not.toContain('after results');
+    expect(says(kind, vendors, detail)).toBe(
+      says(kind, vendors, { ...detail, after_results: false }),
+    );
+    expect(says(kind, vendors, detail)).toMatch(new RegExp(`${ON_THE_DAY}$`));
   });
 });
 

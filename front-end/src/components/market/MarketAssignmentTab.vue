@@ -5,9 +5,10 @@
  * settings on Market Setup.
  *
  * The result used to sit under the rules on one long page; it is a page of its own now
- * (Assignments), and a run lands there. Once an assignment exists the button runs it again and says what that keeps:
+ * (Assignments), and a run lands there. Once rows are stored the button says what a run keeps:
  * every hand placement is a pin, and a run re-places only what the solver placed, so there is no
- * confirmation to ask for.
+ * confirmation to ask for. It says "again" only once a table allocation has been run: on pins only
+ * nothing has been allocated yet (T316).
  *
  * Assignment Priority, Assignment Options and Assign used to live in the PLAN - the earliest
  * stage, and the furthest possible point from where they belong. A priority rule names a form
@@ -16,8 +17,8 @@
  *
  * Assign was worse: the back end already refuses it outside the assignment phase, so a permanently
  * visible, permanently disabled button on the plan explained a rule on every screen instead of
- * applying it on one. The refusal below is still the front end MIRRORING the server, never the
- * rule itself - a hidden button is not a rule.
+ * applying it on one. The refusal below is the server's own sentence, served on the market read
+ * (`assignRefusalReason`), and the server still enforces it - a hidden button is not a rule.
  */
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
@@ -47,8 +48,10 @@ const props = defineProps<{
   mayAllocate: boolean;
   /** Why the rules can no longer change, from the market (E22/F02/S02); null while they can. */
   rulesLockReason: string | null;
-  /** How many hand placements the stored assignment holds; null when nothing has been run yet. */
+  /** How many hand placements the stored assignment holds; null when it holds no row. */
   handPlacements: number | null;
+  /** A table allocation has been run, as the served allocation says, so a run is a run again. */
+  allocated: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -106,7 +109,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
         @click="emit('assign')"
         data-testid="market-setup-assign-button"
       >
-        {{ handPlacements === null ? 'Allocate tables' : 'Allocate tables again' }}
+        {{ allocated ? 'Allocate tables again' : 'Allocate tables' }}
       </button>
       <p
         v-if="handPlacements !== null && !assignRefusalReason"
@@ -115,7 +118,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
       >
         {{
           handPlacements
-            ? `Keeps your ${handPlacements} hand assignment${handPlacements === 1 ? '' : 's'}; allocates tables for everyone else again.`
+            ? `Keeps your ${handPlacements} hand assignment${handPlacements === 1 ? '' : 's'}; allocates tables for everyone else${allocated ? ' again' : ''}.`
             : 'Allocates tables for everyone again.'
         }}
       </p>

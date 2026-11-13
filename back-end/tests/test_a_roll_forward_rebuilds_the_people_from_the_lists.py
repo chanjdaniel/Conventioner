@@ -5,9 +5,9 @@ before wrote (T283, ADR 0025).
 The release before writes only ``owner``, ``admins`` and ``members``, so while it runs a folded
 organization's ``people`` goes stale, and once the map's release runs again every reader prefers
 the stale map: a person removed meanwhile would keep their roles, one added would have none, and an
-organization handed on would read as its old owner's. Each test replays the release before's own
-writes on a folded organization, as it makes them, then reads the organization as the market read
-does."""
+organization whose ownership was transferred would read as its old owner's. Each test replays the
+release before's own writes on a folded organization, as it makes them, then reads the
+organization as the market read does."""
 import copy
 from types import SimpleNamespace
 
@@ -246,8 +246,9 @@ def test_without_reconcile_a_folded_organization_is_never_rebuilt():
 def test_a_change_judged_on_the_stale_map_before_the_reconcile_outlives_it(monkeypatch):
     """Why the reconcile is the first thing done after the roll forward (RELEASING.md "Rolling
     back", ADR 0025): until it runs, the map's release judges and writes on the stale map, and a
-    write it lets through is kept by the reconcile. Here the release before handed the organization
-    to ADMIN; the stale map still says OWNER owns it, so OWNER hands it to MEMBER, and once
+    write it lets through is kept by the reconcile. Here the release before transferred the
+    organization's ownership to ADMIN; the stale map still says OWNER owns it, so OWNER transfers it
+    to MEMBER, and once
     reconciled MEMBER owns it and ADMIN, its owner while rolled back, has no place in it."""
     accounts = {user_id: SimpleNamespace(id=user_id, email=f"{user_id}@example.com")
                 for user_id in (OWNER, ADMIN, MEMBER)}

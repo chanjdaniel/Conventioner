@@ -80,14 +80,33 @@ export function isPlacementKind(kind: string | null): boolean {
   return kind !== null && PLACEMENT_KINDS.includes(kind);
 }
 
+/**
+ * What a placement written while results were published adds after its day (T316): that it came
+ * then, and, for a free or a move, the table the vendor's page had shown them. Nothing for an entry
+ * without `after_results`, so every older entry reads as it did.
+ */
+function afterResults(entry: MarketHistoryEntry): string {
+  const detail = asDetail(entry.detail);
+  if (detail.after_results !== true) return '';
+  const shown =
+    entry.kind === 'freed'
+      ? str(detail.table_code)
+      : entry.kind === 'placed'
+        ? str(asDetail(detail.before).table_code)
+        : '';
+  return shown
+    ? `, after results were published: their vendor page had shown ${shown}`
+    : ', after results were published';
+}
+
 /** A placement's sentence: who made it, what its kind says, and the day it is for after them. */
 function placement(entry: MarketHistoryEntry, context: ReaderContext): MarketHistoryPart[] {
   const { actor, detail, onDay, text } = sentence(entry, context);
-  const on = onDay(detail.date);
+  const after = onDay(detail.date) + afterResults(entry);
   return [
     actor,
     ...PLACEMENT_WORDS[entry.kind as string](entry, context),
-    ...(on ? [text(on)] : []),
+    ...(after ? [text(after)] : []),
   ];
 }
 

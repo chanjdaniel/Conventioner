@@ -149,8 +149,8 @@ MANAGE_ADMINS = action(
 #: Making someone who has access the market's Owner, its Owner becoming an Admin, in one write
 #: (T283): the one way a market's Owner changes, so an Owner who steps away never strands it.
 HAND_ON_MARKET = action(
-    "hand-on-market", "People", "Hand the market on", MarketRole.OWNER,
-    "hand this market on to someone else", fixed=True)
+    "hand-on-market", "People", "Transfer ownership", MarketRole.OWNER,
+    "transfer this market's ownership to someone else", fixed=True)
 DELETE_MARKET = action(
     "delete-market", "People", "Delete the market", MarketRole.OWNER, "delete this market",
     fixed=True)
@@ -401,8 +401,9 @@ def ask_assign_if_the_rules_change(
 def roles_row(role: MarketRole) -> Action:
     """The row that gives and takes ``role``: Editor and Viewer roles one, Admin roles another.
 
-    A market's one Owner is never given as a role: it is handed on (``HAND_ON_MARKET``), so giving
-    the Owner role is the Admin row's, as giving it always took the owner.
+    A market's one Owner is never given as a role: its ownership is transferred
+    (``HAND_ON_MARKET``), so giving the Owner role is the Admin row's, as giving it always took the
+    owner.
     """
     if role in (MarketRole.EDITOR, MarketRole.VIEWER):
         return MANAGE_EDITORS_AND_VIEWERS

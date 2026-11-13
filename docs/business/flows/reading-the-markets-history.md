@@ -15,7 +15,7 @@ describes:
   - front-end/e2e/an-address-breaks-only-before-its-at.spec.ts
   - front-end/src/utils/historyReaders/
   - front-end/src/utils/personChoice.ts
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - E40/F01/S03
   - E40/F01/S04
@@ -38,6 +38,9 @@ sources:
   - T263
   - T257
   - T283
+  - T277
+  - T316
+  - T315
 ---
 
 # Reading the market's history
@@ -74,6 +77,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    - A possible Discord match declined reads "e2e@example.com said the Discord member @fern_studio_42 is not Ana Rivera", opening to the member, by username and the names that looked alike, and the username on file it was offered for ([possible matches](../../implementation/modules/discord.md#possible-matches)); one confirmed is the update of their info it saved.
    - "e2e@example.com assigned Ana Rivera at B7 (Full Table) on Nov 19, 2026"
    - A placement reads the same in [the assignment history](placing-by-hand.md#j13-assignment-history), which is this list, but for its day, which leads the entry there: a move names the table left and the table taken, "e2e@example.com moved Ana Rivera from A3 to B7 (Full Table) on Nov 19, 2026", and allocating tables reads "allocated tables: 40 assignments written, 3 pins preserved".
+   - A placement made while results are published says so after its day (T316): "e2e@example.com freed B7, leaving Ana Rivera with no table on Nov 19, 2026, after results were published: their vendor page had shown B7", a move naming the table left the same way, and an assignment of an empty seat or a swap ending ", after results were published".
    - A vendor's money reads in the market's currency ([payments](../../implementation/data/payments.md)), each opening to its amount, how it was paid, the day and the note, or the amount owed, in the Payment tab's words:
      - "… seated Ana Rivera again on May 8, 2099, taking back the $0.00 set when the table was freed"
      - "e2e@example.com recorded a payment of $50.00 from Ana Rivera"
@@ -107,7 +111,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    A later page that fails ends the list in what failed, "Older changes could not be loaded." unless the failure says more, and "Try again", which brings it and moves focus to the first control of what landed.
    A reader already at the end of the rows is shown that line, which lands below them; a reader still above the end keeps their place, and neither has their focus moved.
    There is no count of the entries, since a server page cannot know one cheaply, and no line for the list's end: the bottom shade going away says it.
-   A change made in the dialog (a person given, changed or taken a role, the market handed on, a rename, a row of the permission table) reads the first page again, under the filters as they are, so it shows without reopening the dialog.
+   A change made in the dialog (a person given, changed or taken a role, the market's ownership transferred, a rename, a row of the permission table) reads the first page again, under the filters as they are, so it shows without reopening the dialog.
 6. The filters above the list narrow it, and stay set while the dialog is open: "Who" (a field that finds anyone who changed something as an organizer by typing part of their address, "Anyone" first; its list lies over the filters below it, the arrow keys move, Enter takes, Escape closes the list before the dialog, and the words only search, so the list of changes stays narrowed as it was until another is taken), "Kind of change" (the table's groups: Market Setup, Applications, Lifecycle, Vendors, Assignment, Payments, The door, Discord, People; a seat filled again that takes back the $0 a free set reads under both Assignment and Payments), "Vendor" (a field that finds, by a name or part of an address, the market's vendors who gave a name and every address a loaded change names, each row the name beside the address ([`personChoice.ts`](../../../front-end/src/utils/personChoice.ts)) and at most 50 drawn before "N more, type to narrow"; its list lies over the filters below it and looks the same on every browser, the words narrow as they are typed and stay as typed on leaving unless they are a vendor's whole address or label, when the field names that vendor, one match narrows to that vendor, and choosing a row narrows to them and the field names them; while the words match several it says "2 vendors match. Keep typing, or choose one.", words that match nobody narrow the list to nothing, and an address typed whole that no loaded change names is asked for all the same), and "Changed from" and "Changed to" (when the change was made, calendar days in the reader's timezone, both kept).
    They stay above the box, and in a window about 800px tall or more they stay in sight beside the whole of it; a change of filter starts the list again from its newest entry, at the top of the box.
    "Clear filters" sets them all back; with nothing to show the list says "No change matches these filters.", or "Nothing has changed on this market yet." when unfiltered.

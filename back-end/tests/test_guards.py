@@ -7,18 +7,21 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
-from conftest import complete_setup, review_setup_decided
+from conftest import assignment_object, complete_setup, review_setup_decided
 
+import assignment.lifecycle as Lifecycle
 import guards
 from datatypes import (
-    ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions, FormField,
-    IntakeMode, Market, MarketDateObject, MarketPhase, MarketRole, PhaseEntry, RejectionRule,
-    SectionObject,
+    ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions,
+    FloorplanObject, FormField, IntakeMode, LocationObject, Market, MarketDateObject, MarketPhase,
+    MarketRole, PhaseEntry, RejectionRule, SectionObject,
     SetupObject, TierObject, VendorAssignmentResult,
 )
 from guards import (
     AllApplicationsReviewedGuard,
+    AssignmentComputedGuard,
     AssignmentNotBeforeReviewGuard,
+    EveryTierHasTablesGuard,
     NoAskedForTierWithoutTablesGuard,
     NoOrphanedPinGuard,
     FormHasFieldsGuard,
@@ -820,6 +823,136 @@ class TestBackToReview:
         assert guard.description
 
 
+class TestAssignmentComputedGuard:
+    """A market goes live only on a table allocation that placed someone (T316, T277 ticket 03).
+
+    Tables assigned by hand alone are no allocation: going live on them told every other approved
+    vendor they had no table, though the solver never ran.
+    """
+
+    NOTHING = (
+        "No tables have been allocated for this market, so its vendor page could not tell anyone "
+        "where to stand. Allocate tables first."
+    )
+    PINS_ONLY = (
+        "Only tables assigned by hand are stored, so every other approved vendor would read that "
+        "they did not get one. Allocate tables first: allocating keeps the tables you assigned."
+    )
+    RUN = {"rules": "r", "plan": "p", "applications": "a", "review": "1"}
+
+    @staticmethod
+    def _seat(hand_placed=False):
+        return VendorAssignmentResult(
+            email="ana@example.com", date="2026-08-01", table_code="A 1",
+            table_choice="Full Table", section="A", tier="Gold", location="Hall",
+            hand_placed=hand_placed)
+
+    def _evaluate(self, assignment, **overrides):
+        return AssignmentComputedGuard().evaluate(_make_market(
+            phase=MarketPhase.ASSIGNMENT, assignment_object=assignment, **overrides), None)
+
+    def _refused(self, result, message):
+        assert not result.passed
+        assert result.id == "assignment_computed"
+        assert result.message == message
+        assert (result.resolution_link, result.resolution_label, result.resolution_action) == (
+            "settings", "Allocate tables", "assign")
+
+    def test_nothing_allocated_is_refused_in_words(self):
+        self._refused(self._evaluate(assignment_object("none")), self.NOTHING)
+
+    def test_tables_assigned_by_hand_alone_are_refused_in_words(self):
+        pinned = assignment_object("pinned", [self._seat(hand_placed=True)])
+
+        self._refused(self._evaluate(pinned), self.PINS_ONLY)
+
+    def test_a_run_passes(self):
+        assert self._evaluate(assignment_object("run", [self._seat()], made_from=self.RUN)).passed
+
+    def test_a_run_edited_by_hand_passes(self):
+        edited = assignment_object(
+            "run", [self._seat(hand_placed=True)], made_from=self.RUN)
+
+        assert self._evaluate(edited).passed
+
+    def test_a_run_freed_down_to_nobody_is_refused(self):
+        self._refused(
+            self._evaluate(assignment_object("run", made_from=self.RUN)), self.NOTHING)
+
+    FREED_AFTER_RESULTS = (
+        "Nobody has a table, so this market's vendor page could not tell anyone where to stand. "
+        "Results are published, so tables are not allocated again: assign each one by hand."
+    )
+
+    @pytest.mark.parametrize("assignment", [
+        assignment_object("run", made_from=RUN),
+        AssignmentObject(),
+    ], ids=["a run", "a market published before T316"])
+    def test_every_seat_freed_after_results_points_at_assigning_by_hand(self, assignment):
+        """The server refuses a run once results are out, so Allocate tables would be refused:
+        the remedy is the grid, where a seat is still given by hand (T316)."""
+        result = self._evaluate(assignment, results_published=True)
+
+        assert not result.passed
+        assert result.id == "assignment_computed"
+        assert result.message == self.FREED_AFTER_RESULTS
+        assert (result.resolution_link, result.resolution_label, result.resolution_action) == (
+            "assignments", "Assign tables", "assign")
+
+    SETTLED_WITH_NOBODY = (
+        "Nobody has a table, so this market's vendor page could not tell anyone where to stand. "
+        "The table allocation for this market is settled, so tables are not allocated again: "
+        "assign each one by hand."
+    )
+
+    @pytest.mark.parametrize("assignment", [
+        assignment_object("none"),
+        assignment_object("run", made_from=RUN),
+    ], ids=["nothing stored", "a run freed down to nobody"])
+    def test_a_market_left_in_offers_with_nobody_seated_points_at_assigning_by_hand(
+            self, assignment):
+        """A run is refused outside Assignment, so Allocate tables would be refused in Offers: the
+        sentence is the owner's, which knows the phase, and the remedy is the grid (T316)."""
+        result = AssignmentComputedGuard().evaluate(_make_market(
+            phase=MarketPhase.OFFERS, assignment_object=assignment), None)
+
+        assert not result.passed
+        assert result.id == "assignment_computed"
+        assert result.message == self.SETTLED_WITH_NOBODY
+        assert (result.resolution_link, result.resolution_label, result.resolution_action) == (
+            "assignments", "Assign tables", "assign")
+
+    def test_its_sentence_is_the_lifecycle_owners(self):
+        """The guard passes on the owner's refusal, so the phase is read in one place (T316)."""
+        market = _make_market(phase=MarketPhase.OFFERS, assignment_object=assignment_object("none"))
+
+        refusal = Lifecycle.unallocated_refusal(market)
+        result = AssignmentComputedGuard().evaluate(market, None)
+
+        assert result.message == refusal.message
+        assert Lifecycle.unallocated_refusal(_make_market(
+            phase=MarketPhase.ASSIGNMENT,
+            assignment_object=assignment_object("run", [self._seat()], made_from=self.RUN),
+        )) is None
+
+    def test_a_market_published_before_runs_recorded_their_state_passes(self):
+        """Published on tables assigned by hand before T316: nothing in a running market moves."""
+        published = AssignmentObject(vendor_assignments=[self._seat(hand_placed=True)])
+
+        assert self._evaluate(published, results_published=True).passed
+
+    def test_it_reads_no_application(self, monkeypatch):
+        """Whether the run is out of date is not its question, so it asks the owner without it."""
+        import assignment.made_from as MadeFrom
+
+        def refuse(*_args):
+            raise AssertionError("read the approved applications")
+
+        monkeypatch.setattr(MadeFrom, "approved_solver_vendors", refuse)
+
+        assert self._evaluate(assignment_object("run", [self._seat()], made_from=self.RUN)).passed
+
+
 class TestAssignmentNotBeforeReviewGuard:
     """A market does not go live on a run made before its review reopened (T207, ADR 0021).
 
@@ -1021,6 +1154,182 @@ class TestNoAskedForTierWithoutTablesGuard:
         )
 
         assert result.passed is True
+
+
+class TestEveryTierHasTablesGuard:
+    """A draft's tier without tables is sent where its tables come from (T315).
+
+    A laid-out location's sections count the layout's tables (``layout.derive_counts``), so Market
+    Setup shows such a section's count read-only: the fix for a tier whose section is there is its
+    layout, and the blocker says so and leads there, one laid-out tier at a time.
+    """
+
+    UPPER = LocationObject(id="loc-upper", name="Upper Hall")
+    LOWER = LocationObject(id="loc-lower", name="Lower Hall")
+    GOLD = TierObject(id=1, name="Gold")
+    SILVER = TierObject(id=2, name="Silver")
+    BRONZE = TierObject(id=3, name="Bronze")
+
+    def _market(self, tiers, sections, laid_out=("loc-upper",)):
+        return _make_market(setup_object=SetupObject(
+            priority=[],
+            market_dates=[MarketDateObject(date="2099-05-01")],
+            tiers=list(tiers),
+            locations=[self.UPPER, self.LOWER],
+            sections=list(sections),
+            assignment_options=AssignmentOptionObject(),
+            floorplans=[
+                FloorplanObject(id=f"fp-{location}", location_id=location)
+                for location in laid_out
+            ],
+        ))
+
+    def _section(self, name, tier, count, location):
+        return SectionObject(
+            id=f"sec-{name}", name=name, location=location, tier=tier, count=count)
+
+    def _evaluate(self, market):
+        return EveryTierHasTablesGuard().evaluate(market, None)
+
+    def test_a_bare_tier_in_a_laid_out_location_leads_to_that_layout(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.passed is False
+        assert result.message == (
+            "Tier Gold has no tables. Put tables in its section Gold row on the Upper Hall "
+            "layout, or remove the tier on Market Setup.")
+        assert result.resolution_link == "layout/loc-upper"
+        assert result.resolution_label == "Open the layout"
+        assert result.resolution_action == "change-setup"
+
+    def test_its_first_section_on_a_layout_is_the_one_named(self):
+        """A tier's typed section comes first in the plan; its laid-out one is the one named."""
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+            self._section("Gold aisle", self.GOLD, 0, self.UPPER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert "its section Gold row on the Upper Hall layout" in result.message
+        assert result.resolution_link == "layout/loc-upper"
+
+    def test_a_bare_tier_with_no_section_is_sent_to_market_setup(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message == (
+            "Tier Gold has no tables. Give each a section with tables on Market Setup, or "
+            "remove it.")
+        assert result.resolution_link == "setup"
+        assert result.resolution_label == "Give every tier tables"
+
+    def test_a_bare_tier_only_in_a_typed_location_is_sent_to_market_setup(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message.startswith("Tier Gold has no tables. Give each a section")
+        assert result.resolution_link == "setup"
+
+    def test_two_bare_tiers_whose_first_is_laid_out_name_only_it(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER, self.BRONZE), sections=(
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+            self._section("Silver corner", self.SILVER, 0, self.LOWER),
+            self._section("Bronze corner", self.BRONZE, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message.startswith("Tier Gold has no tables. Put tables in its section")
+        assert "Silver" not in result.message
+        assert result.resolution_link == "layout/loc-upper"
+
+    def test_two_bare_tiers_whose_second_is_laid_out_name_only_the_first_on_market_setup(self):
+        """The Market Setup line never names a tier whose fix is a layout; that one is said once
+        the first is fixed."""
+        market = self._market(tiers=(self.GOLD, self.SILVER, self.BRONZE), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Silver row", self.SILVER, 0, self.UPPER),
+            self._section("Bronze corner", self.BRONZE, 4, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message == (
+            "Tier Gold has no tables. Give each a section with tables on Market Setup, or "
+            "remove it.")
+        assert result.resolution_link == "setup"
+        assert result.resolution_label == "Give every tier tables"
+
+    def test_bare_tiers_on_no_layout_are_all_named_on_market_setup(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER, self.BRONZE), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Silver row", self.SILVER, 0, self.UPPER),
+            self._section("Bronze corner", self.BRONZE, 4, self.LOWER),
+        ), laid_out=())
+
+        result = self._evaluate(market)
+
+        assert result.message.startswith("Tiers Gold, Silver have no tables.")
+        assert result.resolution_link == "setup"
+
+    def test_a_market_with_no_tables_on_a_laid_out_location_leads_to_that_layout(self):
+        market = self._market(tiers=(self.GOLD,), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message == (
+            "This market has no tables yet. Put tables in its sections on the Upper Hall layout.")
+        assert result.resolution_link == "layout/loc-upper"
+        assert result.resolution_label == "Open the layout"
+        assert result.resolution_action == "change-setup"
+
+    def test_a_market_with_no_tables_and_no_layout_is_sent_to_market_setup(self):
+        market = self._market(tiers=(self.GOLD,), sections=(
+            self._section("Gold corner", self.GOLD, 0, self.LOWER),
+        ))
+
+        result = self._evaluate(market)
+
+        assert result.message == (
+            "This market has no tables yet. Add a section with tables on Market Setup.")
+        assert result.resolution_link == "setup"
+        assert result.resolution_label == "Add tables"
+
+    def test_a_floorplan_of_no_location_is_not_a_layout(self):
+        """A beta floorplan, of no location, leaves its section's count typed."""
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold row", self.GOLD, 0, self.UPPER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ), laid_out=())
+        market.setup_object.floorplans = [FloorplanObject(id="fp-beta", location_id=None)]
+
+        assert self._evaluate(market).resolution_link == "setup"
+
+    def test_every_tier_with_tables_passes(self):
+        market = self._market(tiers=(self.GOLD, self.SILVER), sections=(
+            self._section("Gold row", self.GOLD, 3, self.UPPER),
+            self._section("Bronze corner", self.SILVER, 4, self.LOWER),
+        ))
+
+        assert self._evaluate(market).passed is True
 
 
 class TestNoOrphanedPinGuard:
@@ -1268,6 +1577,7 @@ class TestEveryRemedyNamesTheActionItTakes:
         "Fix the price groups": "change-setup",
         "Open the layout": "change-setup",
         "Allocate tables": "assign",
+        "Assign tables": "assign",
         "Publish results": "publish-results",
         "Finish deciding": "give-verdicts",
         "Import responses": "import-applications",

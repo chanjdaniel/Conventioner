@@ -100,6 +100,9 @@ describes:
   - back-end/api/markets.py#take_move
   - back-end/utils/captcha.py#verify_recaptcha
   - back-end/tests/test_captcha.py
+  - front-end/e2e/a-request-too-large-to-carry.spec.ts
+  - back-end/host_limits.py
+  - back-end/tests/test_the_hosts_request_limit.py
 verified: 2026-11-13
 sources:
   - T74
@@ -116,6 +119,7 @@ sources:
   - T273
   - T274
   - T311
+  - T315
 ---
 
 # An exception never reaches a client
@@ -192,13 +196,14 @@ Its own types are client errors too:
 What stays a builtin is a bug if it escapes: the room with neither walls nor a size (the route refuses that first), `normalized_submitted_at`'s refusal (every caller catches it), and the applications API's verdict without a giver, its index error and its upsert that keeps losing a race.
 `BrokenAllocationError`, the solver's own check of an allocation it produced ([the assignment solver](../modules/assignment-solver.md#sharp-edges)), stays a `RuntimeError` and answers the generic 500 from the run and the preview; its message names application ids, never an address.
 
-## The two handlers
+## The handlers
 
-`install_error_answers(app)`, called once in [`back-end/app.py`](../../../back-end/app.py) right after the public endpoint defenses are configured, registers both on the app, so every blueprint is covered too.
+`install_error_answers(app)`, called once in [`back-end/app.py`](../../../back-end/app.py) right after the public endpoint defenses are configured, registers each on the app, so every blueprint is covered too.
 
 - A `ClientError` is answered `jsonify(error.body())` with `error.status`, and is not logged: it is an answer, not a failure.
+- A body over `MAX_CONTENT_LENGTH`, the host's 4.5 MB (`MAX_REQUEST_BODY_BYTES` in [`back-end/host_limits.py`](../../../back-end/host_limits.py)), raises Werkzeug's `RequestEntityTooLarge` where the route first reads it, and is answered `{"error": REQUEST_TOO_LARGE}`, "This was larger than the 4.5 MB one request can carry.", 413, in place of Werkzeug's HTML page; production's host refuses such a body before Flask sees it ([the host's limits](../../OPERATIONS.md#the-hosts-limits)), so this is what a local stack answers in its place.
 - Any other `Exception` is logged once with `logger.error`, with no `exc_info`, and answered `{"error": "Internal server error"}`, 500.
-  A Werkzeug `HTTPException` is an `Exception` too, so this handler returns one unchanged: Flask's 404 and 405, an `abort()`, the 413 of an oversized upload and Flask-Login's 401 answer as Flask writes them.
+  A Werkzeug `HTTPException` is an `Exception` too, so this handler returns one unchanged: Flask's 404 and 405, an `abort()` and Flask-Login's 401 answer as Flask writes them.
 - The handler is on `Exception`, not `InternalServerError`, because under `TESTING` or debug Flask propagates an unhandled exception instead of calling a 500 handler; registered on `Exception`, the suite exercises it the way production runs it.
 
 **The log line** names the method, `request.endpoint`, and the view argument `market_id`, `market_slug` or `org_id` when the route has one, then the traceback as `traceback_without_messages(error)` writes it.
@@ -208,7 +213,7 @@ It never names the path, the query string, the body or the view argument `vendor
 
 The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_assignment_csv` and `get_market_tables`, in `app.py` and in `api/markets.py`) answer this way: an `IncompleteApplicationsError` is still the preview's (`get_assigned_market`) 400 with its own message, the other three never raise it ([placements](../modules/placements.md#what-a-read-shows)), and anything else reaches the handler.
 
-So do the organization routes (the list, create, read, update, its history, deletion preview, delete, and adding, removing and handing on its people) and the market role routes (add, remove, update): none catches anything, each keeps the literal answers it decides itself (`Organization name required`, `Invalid role: <role>`), and every refusal of `api/organizations.py` and the markets API's role writes reaches the handler.
+So do the organization routes (the list, create, read, update, its history, deletion preview, delete, and adding and removing its people and transferring its ownership) and the market role routes (add, remove, update): none catches anything, each keeps the literal answers it decides itself (`Organization name required`, `Invalid role: <role>`), and every refusal of `api/organizations.py` and the markets API's role writes reaches the handler.
 An organization or a market that does not exist answers 404 on each of them, and a role or an address that is not a string is refused as a missing one ([a request value is a string](a-request-value-is-a-string.md)).
 Removing someone already gone says what is true now, as the client half asks: "They are no longer in this organization." and "They no longer have a role on this market.", each a 404 ([the organization document](../data/organization-document.md#the-organization)); the two removal routes answer nothing of their own.
 
@@ -278,6 +283,7 @@ Before that it refuses a database the environment does not name, or the primary 
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.
+- [`test_the_hosts_request_limit.py`](../../../back-end/tests/test_the_hosts_request_limit.py) holds `MAX_CONTENT_LENGTH` to the host's 4,500,000 bytes, sends each import route a body one byte over it and finds 413 with the sentence and the file never inspected, and sends the inspect a body at it and finds it read.
 - [`test_captcha.py`](../../../back-end/tests/test_captcha.py) meets each of reCAPTCHA's three failures and finds one log record, the exception's by its type alone, nothing of the caller, the secret or a library's message in the log, and nothing printed.
 - [`test_account_emails_log_no_address.py`](../../../back-end/tests/test_account_emails_log_no_address.py) sends each of the five mails with email disabled, accepted, answered with no message id and refused by an error whose message holds the address, and finds the address, the error's text and the provider's response body in no log record.
 - CodeQL's `py/stack-trace-exposure` is the automated backstop: it is in the default suite GitHub's default setup runs on every pull request and weekly on `dev` ([CI and the gate](../testing/ci-and-the-gate.md#codeql)), and it flags a route that catches an exception and answers its text.
@@ -297,8 +303,16 @@ Each kind of failure reads one way, chosen in one place, `getApiErrorMessage(err
 | Another 5xx with no sentence of the back end's (a proxy's 502 or 504)                      | The same                                                      |
 | Another 5xx with a sentence (Discord's `DiscordNotSetUp` 503 and `DiscordUnavailable` 502) | That sentence                                                 |
 | A 401 with no sentence (Flask-Login's)                                                     | "Your session has ended. Sign in again."                      |
+| A body over the host's 4.5 MB, refused by the client before it is sent                     | "This was larger than the 4.5 MB one request can carry."      |
+| A 413 the page can read with no sentence (a proxy's that sends CORS headers)               | The same                                                      |
 | Any other refusal, a 401 with a sentence included (the applicant's code check)             | Its `error`, else its `message`                               |
 | A refusal with neither, or a failure that is not a request's                               | The screen's fallback                                         |
+
+Production's host refuses a body over 4.5 MB itself, before the back end runs, with a 413 that carries none of the back end's CORS headers, so the browser hides it from the page, which reads no answer at all, a failed connection.
+So the client refuses such a body before it is sent: `refuseWhatTheHostWould` in [`api.ts`](../../../front-end/src/utils/api.ts), the last of the `api` client's `transformRequest`, measures the body as it is sent against `MAX_REQUEST_BODY_BYTES`, the host's 4,500,000 bytes, and fails the request with the code `ERR_REQUEST_TOO_LARGE`, which `getApiErrorMessage` words as too large to carry.
+A form is counted by its fields' and files' bytes, its multipart framing left out, so nothing within the limit is refused.
+`api.test.ts` sends each kind of body through an adapter that records a send, and [`a-request-too-large-to-carry.spec.ts`](../../../front-end/e2e/a-request-too-large-to-carry.spec.ts) sends one over the limit through the app's client to a server of its own on another origin, which answers 413 with no CORS header as the host does: before the client refused it, the page said the organizer seemed to be offline.
+It plays the host with a server, not `page.route`, whose `fulfill` adds the CORS header a cross-origin answer lacks.
 
 A fallback says what did not happen ("The verdict was not saved.", "The applications could not be loaded."), never "Failed to ...".
 A download asks for a blob, so `downloadErrorMessage` in [`front-end/src/utils/download.ts`](../../../front-end/src/utils/download.ts) reads a refusal's sentence out of it and then answers the same way, through `answerMessage`.

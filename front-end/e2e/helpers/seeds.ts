@@ -74,6 +74,38 @@ export async function publishResults(
   }
 }
 
+/**
+ * Allocate tables, as Allocate tables does, and then free every seat the run gave, so a spec seats
+ * its vendors by hand on an allocation: tables assigned by hand alone are no allocation, and
+ * Publish results refuses them (T316). The run stays a run with nobody seated; each seat a spec
+ * then gives by hand is an edit of it, as an organizer's would be.
+ *
+ * Each free also removes the seat from what its vendor owes, as an organizer ticking "Also remove
+ * its $… from what they owe" would: a freed seat's line otherwise stays owed (Q26), and the spec's
+ * money is what it seats by hand. A day seated again by hand forgets its freed line anyway.
+ */
+export async function allocateThenFreeEverySeat(
+  request: APIRequestContext,
+  baseURL: string,
+  marketId: string,
+): Promise<void> {
+  const ran = await request.post(`${baseURL}/markets/${marketId}/assignment`);
+  if (!ran.ok()) throw new Error(`Assignment run failed: ${ran.status()} ${await ran.text()}`);
+  const { assignmentObject } = (await ran.json()) as {
+    assignmentObject?: { vendorAssignments?: { email: string; date: string }[] };
+  };
+  const days = new Set(
+    (assignmentObject?.vendorAssignments ?? []).map(({ email, date }) => `${email}\n${date}`),
+  );
+  for (const day of days) {
+    const [email, date] = day.split('\n');
+    const freed = await request.delete(`${baseURL}/markets/${marketId}/placements`, {
+      data: { email, date, deductOwed: true },
+    });
+    if (!freed.ok()) throw new Error(`Freeing failed: ${freed.status()} ${await freed.text()}`);
+  }
+}
+
 /** Replicates the front end's `marketNameToKebabSlug`: a market's URL-safe slug. */
 export function marketNameToSlug(name: string): string {
   return name

@@ -6,9 +6,6 @@ describes:
   - back-end/app.py#configure_public_endpoint_defenses
   - back-end/app.py#RefusingLoginManager
   - back-end/app.py#hold_a_restored_session_to_its_browser
-  - back-end/app.py#a_legacy_remembered_account
-  - back-end/app.py#forget_the_legacy_remember_cookie
-  - back-end/organizer_sessions.py
   - back-end/utils/deployment.py
   - back-end/utils/session_storage.py
   - back-end/utils/env_file.py
@@ -35,6 +32,9 @@ describes:
   - back-end/api/applicant_auth.py#_send_code_email
   - back-end/tests/test_the_code_mail_carries_only_words.py
   - front-end/vite.config.ts#assertNoLocalHatchOnVercel
+  - back-end/app.py#a_legacy_remembered_account
+  - back-end/app.py#forget_the_legacy_remember_cookie
+  - back-end/organizer_sessions.py
 verified: 2026-11-13
 sources:
   - T74
@@ -267,7 +267,7 @@ The checks above make the process boot safe; that one makes safe each lookup a r
 
 **Every route asks for a session unless the walk's public list names it with its reason**: [`test_every_route_asks.py`](../../../back-end/tests/test_every_route_asks.py) walks every registered route-method: one in no class (`PUBLIC`, `CALLERS_OWN`, or scoped by the market, organization, image or template its rule or body names) fails it, every one but `PUBLIC` answers 401 without a session, and a signed-in stranger is refused, 403 or 404, on every scoped one, with nothing written.
 
-**An exception never reaches a client**: a refusal is answered in copy our code wrote, and any other failure is logged and answered a bare `{"error": "Internal server error"}`; the types, the two handlers and their tests are [an exception never reaches a client](an-exception-never-reaches-a-client.md).
+**An exception never reaches a client**: a refusal is answered in copy our code wrote, and any other failure is logged and answered a bare `{"error": "Internal server error"}`; the types, the handlers and their tests are [an exception never reaches a client](an-exception-never-reaches-a-client.md).
 
 **The front end has no DOM or HTML sink today** (no `v-html`, no `innerHTML`), and its lint refuses `v-html` anywhere ([every control is named](every-control-is-named.md#how-it-is-enforced)).
 If one is ever introduced, lifting that rule is the decision, and the chosen tools are DOMPurify for `v-html` and Trusted Types (`require-trusted-types-for 'script'`) for the page.

@@ -1,4 +1,8 @@
-import axios from 'axios';
+import axios, {
+  AxiosError,
+  type AxiosRequestTransformer,
+  type InternalAxiosRequestConfig,
+} from 'axios';
 
 /**
  * `withCredentials` is the whole of the client's side of authentication: the session cookie says
@@ -12,11 +16,70 @@ import axios from 'axios';
 export const api = axios.create({
   baseURL: import.meta.env.VITE_FLASK_HOST,
   withCredentials: true,
+  // After axios's own, so the body is measured as it is sent, its JSON already written.
+  transformRequest: [...defaultTransforms(), refuseWhatTheHostWould],
 });
 
 export const OFFLINE_MESSAGE = 'You seem to be offline. Check the connection and try again.';
 export const SERVER_FAULT_MESSAGE = 'Something went wrong on our side. Try again in a moment.';
 export const SESSION_ENDED_MESSAGE = 'Your session has ended. Sign in again.';
+export const REQUEST_TOO_LARGE_MESSAGE = 'This was larger than the 4.5 MB one request can carry.';
+
+/**
+ * The host's limit on a request's body, 4.5 MB read as 4,500,000 bytes: `MAX_REQUEST_BODY_BYTES` in
+ * `back-end/host_limits.py`, which holds a local stack's back end to it.
+ */
+export const MAX_REQUEST_BODY_BYTES = 4_500_000;
+/** The `code` of a request the client refused to send, its body over the host's limit. */
+export const REQUEST_TOO_LARGE_CODE = 'ERR_REQUEST_TOO_LARGE';
+
+function defaultTransforms(): AxiosRequestTransformer[] {
+  const transforms = axios.defaults.transformRequest;
+  if (!transforms) return [];
+  return Array.isArray(transforms) ? transforms : [transforms];
+}
+
+/** Whether a string passes the limit as the UTF-8 bytes it is sent as. */
+function textPassesTheLimit(text: string): boolean {
+  // Each UTF-16 unit is one to three bytes in UTF-8, so only a string between the two is encoded.
+  if (text.length > MAX_REQUEST_BODY_BYTES) return true;
+  if (text.length * 3 <= MAX_REQUEST_BODY_BYTES) return false;
+  return new TextEncoder().encode(text).byteLength > MAX_REQUEST_BODY_BYTES;
+}
+
+/**
+ * Whether a body, as axios sends it, passes the host's limit. A form is counted by its fields' and
+ * files' bytes alone, its multipart framing left out, so nothing within the limit is refused.
+ */
+function passesTheHostsLimit(data: unknown): boolean {
+  if (typeof data === 'string') return textPassesTheLimit(data);
+  if (data instanceof Blob) return data.size > MAX_REQUEST_BODY_BYTES;
+  if (data instanceof ArrayBuffer || ArrayBuffer.isView(data))
+    return data.byteLength > MAX_REQUEST_BODY_BYTES;
+  if (data instanceof URLSearchParams) return textPassesTheLimit(data.toString());
+  if (data instanceof FormData) {
+    let bytes = 0;
+    for (const [, value] of data.entries()) {
+      bytes += typeof value === 'string' ? new TextEncoder().encode(value).byteLength : value.size;
+      if (bytes > MAX_REQUEST_BODY_BYTES) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Refuse a body the host would refuse, before it is sent (T315). In production the API is on
+ * another origin, and the host refuses a body over 4.5 MB itself, before the back end runs, with a
+ * 413 that carries no CORS header: the browser hides that answer from the page, which would read
+ * it as no answer at all and tell the organizer they seem to be offline. Refused here, the request
+ * fails as a refusal `getApiErrorMessage` words as too large to carry.
+ */
+function refuseWhatTheHostWould(this: InternalAxiosRequestConfig, data: unknown): unknown {
+  if (passesTheHostsLimit(data)) {
+    throw new AxiosError(REQUEST_TOO_LARGE_MESSAGE, REQUEST_TOO_LARGE_CODE, this);
+  }
+  return data;
+}
 
 /** The sentence a refusal carries, when the server wrote one. */
 function sentenceOf(data: unknown): string | null {
@@ -37,6 +100,12 @@ function sentenceOf(data: unknown): string | null {
  *   what is wrong in Conventioner's words), else the server's fault too (a proxy's 502 or 504).
  * - A 401 with no sentence of its own (Flask-Login's): the session has ended. The response
  *   interceptor below also takes the organizer to sign in again.
+ * - A body the client refused to send, over the host's 4.5 MB (`refuseWhatTheHostWould`): too
+ *   large to carry, so trying again cannot help.
+ * - A 413 the page can read with no sentence of its own (a proxy's that sends CORS headers): the
+ *   same. Production's host answers its own 413 with no CORS header, so that one reaches the page
+ *   as no answer at all, a failed connection; the client's refusal above is what keeps a body over
+ *   4.5 MB from meeting it.
  * - Any other refusal: its own sentence, a 401's included (the applicant's code check words its
  *   own), else `fallback`, which a screen words as what did not happen ("The verdict was not
  *   saved.").
@@ -45,6 +114,7 @@ function sentenceOf(data: unknown): string | null {
  */
 export function getApiErrorMessage(err: unknown, fallback: string): string {
   if (!axios.isAxiosError(err) || axios.isCancel(err)) return fallback;
+  if (err.code === REQUEST_TOO_LARGE_CODE) return REQUEST_TOO_LARGE_MESSAGE;
   return answerMessage(err.response, fallback);
 }
 
@@ -62,6 +132,7 @@ export function answerMessage(
   if (sentence) return sentence;
   if (response.status >= 500) return SERVER_FAULT_MESSAGE;
   if (response.status === 401) return SESSION_ENDED_MESSAGE;
+  if (response.status === 413) return REQUEST_TOO_LARGE_MESSAGE;
   return fallback;
 }
 
