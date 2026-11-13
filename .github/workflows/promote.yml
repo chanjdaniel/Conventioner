@@ -1,6 +1,6 @@
 name: Promote
 
-# `main` moves only through this workflow (docs/adr/0026-main-moves-only-through-promote.md):
+# `main` moves only through this workflow (docs/adr/0027-main-moves-only-through-promote.md):
 # Daniel starts it by hand, from `dev`, with the full sha of the `dev` commit to promote, in the
 # Actions tab (Promote, Run workflow) or with
 # `gh workflow run promote.yml --ref dev -f commit=<sha>`. A check-only run

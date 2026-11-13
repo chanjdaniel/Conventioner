@@ -14,11 +14,11 @@ This file holds what nearly every session needs; everything else is in the knowl
 ## Branch Model
 
 - `dev` is the default/integration branch: all feature PRs target `dev`.
-- `main` is the deploy-only branch: reached ONLY by promoting a green `dev` commit (`git push origin <sha>:main`), and deployed from by hand only.
+- `main` is the deploy-only branch: reached ONLY by promoting a green `dev` commit through the Promote workflow (`gh workflow run promote.yml --ref dev -f commit=<sha>`, Daniel's to start; never a push to `main`, which its rulesets refuse), and deployed from by hand only.
   `main` requires six checks and `dev` nine, `real-data-and-workflows`, `CodeQL` and `agent-review` among them ([CI and the gate](docs/implementation/testing/ci-and-the-gate.md#ci)); after a Release PR (merged with `--admin`, it gets no CI), merge `main` back into `dev`.
 - Never commit directly to `main`.
   Never open PRs targeting `main` (except the release-please Release PR, which is automated).
-- **Promotion is a fast-forward, and only Daniel deploys, by hand**: `.github/workflows/deploy.yml` runs only on `workflow_dispatch` from `main`, shipping the back end, checking `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`).
+- **Promotion is a fast-forward, made only by Promote's GitHub App ([ADR 0027](docs/adr/0027-main-moves-only-through-promote.md)), and only Daniel deploys, by hand**: `.github/workflows/deploy.yml` runs only on `workflow_dispatch` from `main`, shipping the back end, checking `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`).
   No push, merge or PR deploys: both `vercel.json` files set `git.deploymentEnabled: false`; never start a deploy yourself.
   After an Instant Rollback, promote a build again or no deploy reaches the domain.
   A hotfix goes through `dev` when nothing unreleased waits there, else through a `hotfix/` branch from `main`.
