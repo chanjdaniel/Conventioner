@@ -77,6 +77,17 @@ async function setupMarketToOffers(request: APIRequestContext): Promise<PhaseMar
   return seed;
 }
 
+/**
+ * Results published as Publish results stores them: `resultsPublished`, and the assignment
+ * revision it stood on as `assignmentObject.publishedRevision` (T316), so the market reads as
+ * published rather than changed since. A walk through offers has no route that publishes them.
+ */
+function publishedBehindThePagesBack(marketId: string): void {
+  mongoEval(
+    `db.markets.updateOne({id: ${JSON.stringify(marketId)}}, [{$set: {resultsPublished: true, "assignmentObject.publishedRevision": {$ifNull: ["$assignmentObject.revision", 0]}}}])`,
+  );
+}
+
 test.describe('Phase state machine - full walk', () => {
   let seed: PhaseMarketSeed;
 
@@ -135,10 +146,10 @@ test.describe('Phase state machine - full walk', () => {
     // placements serves a page that can tell nobody where to stand.
     seedStoredAssignment(seed.marketId);
     // And a form market tells its applicants before it goes live (E36/F04/S02). Publish results is
-    // offered in assignment only, and this walk took the legacy road through offers.
-    mongoEval(
-      `db.markets.updateOne({id: ${JSON.stringify(seed.marketId)}}, {$set: {resultsPublished: true}})`,
-    );
+    // taken in assignment only, and this walk took the legacy road through offers, so no route
+    // can publish them here: written as Publish results writes them, the flag beside the
+    // assignment revision it stood on (T316).
+    publishedBehindThePagesBack(seed.marketId);
     // Written behind the page's back, so the page reads the market again.
     await page.reload();
     await page.getByTestId('phase-transition-market_days').click();
@@ -308,10 +319,9 @@ test.describe('Phase state machine - sweep', () => {
     // placements serves a page that can tell nobody where to stand.
     seedStoredAssignment(seed.marketId);
     // And every market tells its vendors before it goes live (E36/F04/S02, ADR 0022). Publish
-    // results is offered in assignment only, and this sweep takes the legacy road through offers.
-    mongoEval(
-      `db.markets.updateOne({id: ${JSON.stringify(seed.marketId)}}, {$set: {resultsPublished: true}})`,
-    );
+    // results is taken in assignment only, and this sweep takes the legacy road through offers,
+    // so no route can publish them here (T316).
+    publishedBehindThePagesBack(seed.marketId);
     await transitionViaPage(page, seed.marketId, 'market_days');
 
     const afterSent = queryStatus(sentEmail);

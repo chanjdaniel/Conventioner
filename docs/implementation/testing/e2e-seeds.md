@@ -10,6 +10,7 @@ describes:
   - front-end/e2e/helpers/seeds.ts#removeFromOrganization
   - front-end/e2e/helpers/seeds.ts#seedMarketWithVendors
   - front-end/e2e/helpers/seeds.ts#seedPublishedMarketWithAssignments
+  - front-end/e2e/helpers/seeds.ts#allocateThenFreeEverySeat
   - front-end/e2e/helpers/seedAssignedMarket.ts
   - front-end/e2e/helpers/seedPhaseMarket.ts
   - front-end/e2e/helpers/seedDraftMarket.ts
@@ -56,6 +57,7 @@ sources:
   - T274
   - T257
   - T201
+  - T316
 ---
 
 # E2E seeds
@@ -106,6 +108,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - its review setup decided, unless `reviewSetupUndecided: true`
   - `orgId` puts it in that organization, which the signed-in user runs, rather than their first
   - `transitionMarket()` and `seedApplicationWithStatus()` beside them
+  - `seedStoredAssignment()` beside them writes rows straight into Mongo as a run made before runs recorded what they were made from (`state: "run"` and the legacy `madeFrom` marker, T316), for the phase walks that reach market days by the legacy road through Offers, where no route publishes results
 
 **`decideReviewSetup()`** ([file](../../../front-end/e2e/helpers/decideReviewSetup.ts))
 
@@ -270,6 +273,7 @@ It used to be `GET /markets/{id}/assignment`, which only computes, followed by a
 
 **Publishing is `assignment -> market_days`**, and that move's entry invariant is that an assignment exists, so `seedPublishedMarketWithAssignments()` assigns before it publishes.
 A market must publish its results first, on either path ([publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)), so the helper calls `POST /markets/{id}/publish-results` in between.
+Publish results waits for a table allocation that was run (T316), so a spec that seats its vendors by hand and then publishes calls `allocateThenFreeEverySeat()` first ([`seeds.ts`](../../../front-end/e2e/helpers/seeds.ts)): it allocates tables and frees every seat the run gave, each free also removing the seat from what its vendor owes, so the seats the spec gives are hand edits of a run and its money is what it seats.
 It returns the `marketSlug` of the market's vendor page, where its vendors check in.
 
 ## Sharp edges
