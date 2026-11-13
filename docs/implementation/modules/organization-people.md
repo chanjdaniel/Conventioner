@@ -13,9 +13,10 @@ describes:
   - front-end/src/__tests__/aChangeThatMetAnotherInAnOrganization.test.ts
   - front-end/src/__tests__/changingAPlaceAsksFirst.test.ts
   - front-end/e2e/an-organizations-people-change-place.spec.ts
-verified: 2026-11-11
+verified: 2026-11-13
 sources:
   - T283
+  - T315
 ---
 
 # The organization's people
@@ -89,7 +90,7 @@ A place change of someone removed meanwhile is that 409 too, since only a remova
 **Manage organization gives its owner "Make member" on each admin's row and "Make admin" on each member's**, secondary buttons before Remove, each naming the person in a visually hidden span, as Remove does.
 Each carries `data-dialog-not-first`, so Manage organization still opens on "Add admin", never on the first admin's row ([dialogs](../conventions/dialogs.md)).
 Each opens a confirmation in `AppDialog`, not destructive, whose words `organizationPlaceChange` in [`organizations.ts`](../../../front-end/src/utils/organizations.ts) gives: "Make <email> a member?", "They will read every market of <organization> instead of running it, unless a market gives them a role of its own.", confirmed by "Make member"; or "Make <email> an admin?", "They will run every market of <organization> as its Admin.", confirmed by "Make admin".
-Its title draws the address through `EmailAddress`, in `AppDialog`'s `title` slot, so a long address breaks only before its "@" or a dot ([dialogs](../conventions/dialogs.md)).
+`AppDialog` draws its title, as every dialog's, through `EmailAddress`, so a long address breaks only before its "@" or a dot ([dialogs](../conventions/dialogs.md)), and so does the Remove confirmation's.
 The flow is [B3a in organizations](../../business/flows/organizations.md#b3a-make-an-admin-a-member-or-a-member-an-admin).
 Confirmed, the organization is read again, the confirmation closes, and focus goes to the list the person now stands in, a `tabindex="-1"` group named by its heading, as after a Remove.
 A 404, someone removed meanwhile, is read as done, with focus on the list their row left; every other refusal stays in the confirmation, the 409 with the organization read again behind it.

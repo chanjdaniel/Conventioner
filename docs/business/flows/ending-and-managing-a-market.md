@@ -146,7 +146,7 @@ Covered by:
 - [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge)
 - `manageMarketMeetsAChangedMarket.test.ts` (a role's add, change and take refused over a changed market)
 - [`people-at-scale-market.spec.ts`](../../../front-end/e2e/people-at-scale-market.spec.ts) (the list at 154 people: a page at a time, finding one person, the place kept, someone just added; on a phone at 390 and 320)
-- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390)
+- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390; at 390 the address in Remove's and a role change's title broken only before its "@" or a dot)
 - `the-manage-market-dialog-holds-together.spec.ts`
 - `tier2.spec.ts` ("add user, change role, and remove user from market")
 

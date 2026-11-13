@@ -740,8 +740,6 @@ function handleDeleted() {
     @close="cancelPlaceChange"
     @submit="handlePlaceChange"
   >
-    <!-- The address breaks only before its "@" or a dot, never just after a hyphen. -->
-    <template #title><EmailAddress :words="placing?.title ?? ''" /></template>
     <p class="confirm-text" data-testid="manage-org-place-change-text">{{ placing?.text }}</p>
   </AppDialog>
 

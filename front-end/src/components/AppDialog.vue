@@ -34,6 +34,7 @@
  * gathered, pinned above the actions (`dialogs.md`).
  */
 import { computed, nextTick, ref, watch, type FunctionalComponent } from 'vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
 import { FOCUSABLE } from '@/utils/focusable';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
@@ -44,9 +45,9 @@ const props = withDefaults(
   defineProps<{
     open: boolean;
     /**
-     * The heading, and the dialog's accessible name. A `title` slot, when given, draws the heading
-     * instead, as words with an address in them drawn through `EmailAddress` (T283); the string
-     * still names the dialog, so the slot must draw the same words.
+     * The heading, and the dialog's accessible name. It is drawn through `EmailAddress`, so an
+     * address in it, a person's in a Remove or a role change, breaks only before its "@" or a dot,
+     * never just after a hyphen (T283, T315); words with no address draw as plain text.
      */
     title: string;
     /** Test id prefix, so each dialog keeps stable ids: `<testid>-window`, `-close-button`, … */
@@ -272,9 +273,7 @@ watch(
 
       <component :is="pinned ? Unwrapped : ScrollBox" v-bind="whole">
         <div class="dialog-parts">
-          <h2 class="dialog-title">
-            <slot name="title">{{ title }}</slot>
-          </h2>
+          <h2 class="dialog-title"><EmailAddress :words="title" /></h2>
 
           <!--
             The form, when this dialog is one action. `@submit.prevent` and a `type="submit"` confirm

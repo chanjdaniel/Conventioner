@@ -105,7 +105,7 @@ Covered by:
 
 - `*-sweep.spec.ts`, the sweeps' state "the manage-organization dialog, removing a member"
 - `access-control.spec.ts` ("org membership changes")
-- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, someone removed in another window included
+- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, someone removed in another window included, and at 390 the address in the confirmation's title broken only before its "@" or a dot
 
 ## B3a. Make an admin a member, or a member an admin
 

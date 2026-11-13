@@ -23,7 +23,6 @@ const Host = defineComponent({
     dialog: { type: Object as PropType<DialogProps>, default: () => ({}) },
     tray: { type: Boolean, default: false },
     actions: { type: Boolean, default: false },
-    heading: { type: Boolean, default: false },
   },
   setup(props, { expose }) {
     const open = ref(false);
@@ -61,12 +60,6 @@ const Host = defineComponent({
             ...(props.actions
               ? { actions: () => h('button', { 'data-testid': 'people-reset' }, 'Reset') }
               : {}),
-            ...(props.heading
-              ? {
-                  title: () =>
-                    h('span', { 'data-testid': 'people-heading' }, ['Choose ', h('em', 'people')]),
-                }
-              : {}),
           },
         ),
       ]);
@@ -91,13 +84,8 @@ interface HostState {
 }
 
 /** Opens the dialog as a user does: focus on the opener, then a click on it. */
-async function openFromTheButton(
-  dialog: DialogProps = {},
-  tray = false,
-  actions = false,
-  heading = false,
-) {
-  wrapper = mount(Host, { attachTo: document.body, props: { dialog, tray, actions, heading } });
+async function openFromTheButton(dialog: DialogProps = {}, tray = false, actions = false) {
+  wrapper = mount(Host, { attachTo: document.body, props: { dialog, tray, actions } });
   const opener = byTestId('opener')!;
   opener.focus();
   opener.click();
@@ -249,12 +237,23 @@ describe('its title', () => {
     expect(byTestId('people-window')?.getAttribute('aria-label')).toBe('Choose people');
   });
 
-  it('draws a `title` slot when given, the string still naming the dialog', async () => {
-    await openFromTheButton({}, false, false, true);
+  it('draws an address in it so it breaks only before its "@" or a dot, the string naming the dialog', async () => {
+    const words = 'Remove e2e-remove-hyphen-name@example.com from this organization?';
+    await openFromTheButton({ title: words });
     const title = document.querySelector('.dialog-title')!;
-    expect(title.querySelector('[data-testid="people-heading"] em')?.textContent).toBe('people');
-    expect(title.textContent).toBe('Choose people');
-    expect(byTestId('people-window')?.getAttribute('aria-label')).toBe('Choose people');
+    expect(title.textContent).toBe(words);
+    expect([...title.querySelectorAll('.email-address')].map((half) => half.textContent)).toEqual([
+      'e2e-remove-hyphen-name',
+      '@example.com',
+    ]);
+    expect([...title.querySelectorAll('.email-address-break')].map((p) => p.textContent)).toEqual([
+      '@example',
+      '.com',
+    ]);
+    expect(
+      [...title.querySelectorAll('.email-address-held')].map((run) => run.textContent),
+    ).toEqual(['-r', '-h', '-n']);
+    expect(byTestId('people-window')?.getAttribute('aria-label')).toBe(words);
   });
 });
 
