@@ -229,6 +229,18 @@ describe("the first import's refusal", () => {
     expect(wrapper.get('h1').text()).toBe('Import responses');
   });
 
+  it.each([MarketPhase.Assignment, MarketPhase.Offers, MarketPhase.MarketDays])(
+    'names the page of a market in %s "Import responses", never the Redo import it does not offer',
+    async (phase) => {
+      // Past review nothing more is imported, so the refused page is the import's, as an archived
+      // market's is: Redo import is the rail's in Review alone.
+      const wrapper = await openImport(market([], { phase }));
+
+      expect(wrapper.find('[data-testid="import-wrong-phase"]').exists()).toBe(true);
+      expect(wrapper.get('h1').text()).toBe('Import responses');
+    },
+  );
+
   it('heads a market taking applications Redo import, which it offers', async () => {
     const wrapper = await openImport(market([], { phase: MarketPhase.Applications }));
 

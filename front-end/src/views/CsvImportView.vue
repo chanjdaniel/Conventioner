@@ -177,14 +177,14 @@ const enteredReview = ref(false);
  */
 const importedFirst = ref(false);
 /**
- * The page's heading: what this import is, or on the done step what it was. An archived market
- * offers no Redo import, so its refused page is named as a draft's refused first import is (T315).
+ * The page's heading: what this import is, or on the done step what it was. Redo import is Review's
+ * alone, as the rail offers it: past review a market offers none, so its refused page is named as a
+ * draft's refused first import is (T315).
  */
 const heading = computed(() =>
-  (step.value === 'done' ? importedFirst.value : firstImport.value) ||
-  marketPhase.value === MarketPhase.Archived
-    ? 'Import responses'
-    : 'Redo import',
+  (step.value === 'done' ? !importedFirst.value : marketPhase.value === MarketPhase.Applications)
+    ? 'Redo import'
+    : 'Import responses',
 );
 
 /**
