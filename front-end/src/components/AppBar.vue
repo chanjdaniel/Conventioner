@@ -11,6 +11,9 @@
  * break, the menu button stands for the links and the account menu, in CSS, so the two layouts
  * never disagree with the frame's.
  *
+ * Sign out everywhere, the account menu's and the sheet's last entry, asks first in its dialog
+ * (`SignOutEverywhereDialog`), teleported to the body so it stands over the page as any dialog does.
+ *
  * The button opens a sheet under the bar. A list of places and not a form in a window, so it is not
  * an `AppDialog`, but it keeps a modal's contract: the page behind is inert, focus moves in, and
  * Escape, the scrim and the button close it and give focus back.
@@ -19,6 +22,7 @@ import { computed, inject, nextTick, onUnmounted, ref, useId, watch, type Ref } 
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import RowMenu from '@/components/RowMenu.vue';
 import ScrollBox from '@/components/ScrollBox.vue';
+import SignOutEverywhereDialog from '@/components/SignOutEverywhereDialog.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import IconExpandDown from '@/components/icons/IconExpandDown.vue';
 import IconMenu from '@/components/icons/IconMenu.vue';
@@ -36,6 +40,7 @@ const CHANGE_PASSWORD = '/reset-password-request';
 const ACCOUNT_ITEMS = [
   { id: 'change-password', label: 'Change password' },
   { id: 'sign-out', label: 'Sign out' },
+  { id: 'sign-out-everywhere', label: 'Sign out everywhere' },
 ];
 
 const route = useRoute();
@@ -54,6 +59,21 @@ function leave() {
 function chooseFromAccount(id: string) {
   if (id === 'change-password') void router.push(CHANGE_PASSWORD);
   if (id === 'sign-out') leave();
+  if (id === 'sign-out-everywhere') askToSignOutEverywhere();
+}
+
+const everywhereOpen = ref(false);
+
+/**
+ * Open Sign out everywhere. From the sheet, focus goes to the menu button first, which is still in
+ * the page once the sheet has gone, so the dialog gives focus back there when it closes.
+ */
+function askToSignOutEverywhere() {
+  if (sheetOpen.value) {
+    menuButton.value?.focus();
+    closeSheet();
+  }
+  everywhereOpen.value = true;
 }
 
 const sheetOpen = ref(false);
@@ -83,7 +103,10 @@ useEscapeToClose(sheetOpen, closeSheet);
 useFocusGoesBack(() => sheetOpen.value);
 watch(() => route.fullPath, closeSheet);
 // A session ended in another tab takes the button with it, and the row naming the account changes.
-watch(organizer, closeSheet);
+watch(organizer, () => {
+  closeSheet();
+  everywhereOpen.value = false;
+});
 
 /** Past the break the button is gone, and nothing would be left to close the sheet with. */
 let phoneWindow: MediaQueryList | null = null;
@@ -198,10 +221,22 @@ onUnmounted(stopWatchingTheWindow);
             >
               Sign out
             </button>
+            <button
+              type="button"
+              class="app-bar-sheet-row"
+              data-testid="app-bar-sheet-sign-out-everywhere"
+              @click="askToSignOutEverywhere"
+            >
+              Sign out everywhere
+            </button>
           </div>
         </ScrollBox>
       </div>
     </template>
+
+    <Teleport to="body">
+      <SignOutEverywhereDialog :open="everywhereOpen" @close="everywhereOpen = false" />
+    </Teleport>
   </div>
 </template>
 

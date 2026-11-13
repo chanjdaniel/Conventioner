@@ -1,6 +1,6 @@
 import type { Router } from 'vue-router';
 import { useMarketStore } from '@/stores/market';
-import { getApiErrorStatus, onSessionEnded } from '@/utils/api';
+import { api, getApiErrorStatus, onSessionEnded } from '@/utils/api';
 import { loginAddress } from '@/utils/signInNext';
 
 /**
@@ -52,6 +52,33 @@ export async function signOut(router: Router): Promise<void> {
   await endTheSessionOnTheServer();
   forgetTheSession();
   await router.push('/login');
+}
+
+/**
+ * What Sign out everywhere came to: `done`, every sign-in of the account ended, this browser's with
+ * it; `ended`, a 401, so the session was already over and has ended here as any organizer request's
+ * 401 ends it (`installSessionEnded`); `failed`, any other failure, the person still signed in here
+ * and elsewhere.
+ */
+export type SignedOutEverywhere = 'done' | 'ended' | 'failed';
+
+/**
+ * Sign out everywhere: end every sign-in of the account on the server, then forget what
+ * `endSession` forgets and go to sign in, which says the person is signed out on every device.
+ *
+ * Through the app's `api`, unlike `signOut`: a 401 is a session that ended under the organizer, and
+ * is told as one. A failure forgets nothing, since the other devices are still signed in, and
+ * the caller says so.
+ */
+export async function signOutEverywhere(router: Router): Promise<SignedOutEverywhere> {
+  try {
+    await api.post('/logout-everywhere');
+  } catch (error) {
+    return getApiErrorStatus(error) === 401 ? 'ended' : 'failed';
+  }
+  forgetTheSession();
+  await router.push(loginAddress(null, { everywhere: true }));
+  return 'done';
 }
 
 /**

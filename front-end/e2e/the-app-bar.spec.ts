@@ -22,8 +22,9 @@ const links = (page: Page) => page.getByRole('navigation', { name: 'Main' });
 const placeLink = (page: Page, name: string) => links(page).getByRole('link', { name });
 const accountButton = (page: Page) => page.getByTestId('app-bar-account-button');
 const accountMenu = (page: Page) => page.getByTestId('app-bar-account');
-const signOutItem = (page: Page) => page.getByRole('menuitem', { name: 'Sign out' });
+const signOutItem = (page: Page) => page.getByRole('menuitem', { name: 'Sign out', exact: true });
 const changePasswordItem = (page: Page) => page.getByRole('menuitem', { name: 'Change password' });
+const everywhereItem = (page: Page) => page.getByRole('menuitem', { name: 'Sign out everywhere' });
 
 test.describe('the bar on a desk', () => {
   let marketId: string;
@@ -150,6 +151,8 @@ test.describe('the bar on a desk', () => {
 
     await page.keyboard.press('ArrowDown');
     await expect(signOutItem(page)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(everywhereItem(page)).toBeFocused();
 
     // The arrows go round rather than leaving the menu.
     await page.keyboard.press('ArrowDown');
@@ -296,7 +299,10 @@ test.describe('the bar on a phone', () => {
   const sheet = (page: Page) => page.getByTestId('app-bar-sheet');
   const scrim = (page: Page) => page.getByTestId('app-bar-scrim');
   const sheetLink = (page: Page, name: string) => sheet(page).getByRole('link', { name });
-  const sheetSignOut = (page: Page) => sheet(page).getByRole('button', { name: 'Sign out' });
+  const sheetSignOut = (page: Page) =>
+    sheet(page).getByRole('button', { name: 'Sign out', exact: true });
+  const sheetEverywhere = (page: Page) =>
+    sheet(page).getByRole('button', { name: 'Sign out everywhere' });
 
   /** A box's edges against the window a person sees, whatever the page has scrolled to. */
   const inWindow = (locator: Locator) =>
@@ -373,7 +379,7 @@ test.describe('the bar on a phone', () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(150);
   });
 
-  test('opens a sheet of 44px rows holding the two places, the address, Change password and Sign out', async ({
+  test('opens a sheet of 44px rows holding the two places, the address, Change password, Sign out and Sign out everywhere', async ({
     authenticatedPage: page,
   }) => {
     await page.goto('/markets');
@@ -392,6 +398,7 @@ test.describe('the bar on a phone', () => {
       sheet(page).getByText(TEST_USER.email),
       sheetLink(page, 'Change password'),
       sheetSignOut(page),
+      sheetEverywhere(page),
     ];
     let above = 0;
     for (const row of rows) {
@@ -486,7 +493,14 @@ test.describe('the bar on a phone', () => {
     expect(
       [...seen].filter(
         (name) =>
-          !['Markets', 'Organizations', 'Change password', 'Sign out', 'Close menu'].includes(name),
+          ![
+            'Markets',
+            'Organizations',
+            'Change password',
+            'Sign out',
+            'Sign out everywhere',
+            'Close menu',
+          ].includes(name),
       ),
     ).toEqual([]);
     expect(seen).toContain('Close menu');
@@ -587,8 +601,8 @@ test.describe('the bar on a phone', () => {
     const shade = (edge: string) => page.getByTestId(`app-bar-sheet-scroll-shade-${edge}`);
     await expect(shade('bottom'), 'it says there is more').toBeVisible();
     await expect(shade('top')).toHaveCount(0);
-    await sheetSignOut(page).scrollIntoViewIfNeeded();
-    const last = await sheetSignOut(page).boundingBox();
+    await sheetEverywhere(page).scrollIntoViewIfNeeded();
+    const last = await sheetEverywhere(page).boundingBox();
     expect(last!.y + last!.height).toBeLessThanOrEqual(180);
     await expect(shade('top')).toBeVisible();
     await expect(shade('bottom')).toHaveCount(0);
@@ -634,6 +648,7 @@ test.describe('the bar on a phone', () => {
       await expect(sheet(page)).toBeVisible();
       expect(await inWindow(sheet(page))).toEqual({ left: 0, right: 390, windowWidth: 390 });
       await expectInsideTheWindow(sheetSignOut(page), 'Sign out');
+      await expectInsideTheWindow(sheetEverywhere(page), 'Sign out everywhere');
       expect(await inWindow(scrim(page))).toEqual({ left: 0, right: 390, windowWidth: 390 });
     });
 
@@ -734,7 +749,7 @@ for (const size of SIZES) {
         await expect(sheet.getByRole('link', { name: 'Markets' })).toBeVisible();
         await expect(sheet.getByRole('link', { name: 'Organizations' })).toBeVisible();
         await expect(sheet.getByText(email)).toBeVisible();
-        await expect(sheet.getByRole('button', { name: 'Sign out' })).toBeVisible();
+        await expect(sheet.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
         await page.keyboard.press('Escape');
         await expect(sheet).toHaveCount(0);
       } else {

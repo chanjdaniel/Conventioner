@@ -270,7 +270,7 @@ class AuthUser(UserMixin):
     The session and the remember cookie name it by its sign-in (``sign_in``): the secret whose hash
     keys its record in ``organizer_sessions``, or for one release a legacy sign-in id
     (``_legacy_account``). Either loads the account by its login id, so the one write that replaces
-    the login id, a password reset's, ends every sign-in issued before.
+    the login id, a password reset's or Sign out everywhere's, ends every sign-in issued before.
     """
 
     def __init__(self, user: User, sign_in: Optional[str] = None):
@@ -335,10 +335,10 @@ def signed_in_account(sign_in):
     """The account a session or remember cookie names, or None: the app's user loader.
 
     A secret is recalled from ``organizer_sessions``: None once its sign-in has ended (signed out,
-    replaced by a sign-in in the browser, ended by a reset or the account's deletion, or past the
-    end its record holds), and
-    None when its account's login id is no longer the one the record was made under. For one
-    release a legacy sign-in id is read too (``_legacy_account``).
+    replaced by a sign-in in the browser, ended by Sign out everywhere, a reset or the account's
+    deletion, or past the end its record holds), and None when its account's login id is no
+    longer the one the record was made under. For one release a legacy sign-in id is read too
+    (``_legacy_account``).
     """
     if not isinstance(sign_in, str) or not sign_in:
         return None
@@ -511,6 +511,20 @@ def logout(logout_user):
     end_this_browsers_sign_ins()
     logout_user()
     return jsonify({"message": "Logged out"}), 200
+
+
+def logout_everywhere(current_user, logout_user):
+    """Sign out everywhere: end every sign-in of the account, this browser's with it, then clear
+    both cookies.
+
+    The one write that replaces the login id ends every sign-in issued before, a legacy one
+    included, as a reset's does; ending every record of the account's sign-ins is the clean-up
+    after it. A failed write is the error handler's 500, and leaves the person signed in.
+    """
+    users_collection.update_one({"id": current_user.id}, {"$set": {"login_id": _new_login_id()}})
+    organizer_sessions.end_all(current_user.id)
+    logout_user()
+    return jsonify({"message": "Signed out everywhere"}), 200
 
 def check_session(current_user):
     return jsonify({"email": current_user.email}), 200

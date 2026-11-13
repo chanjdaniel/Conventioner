@@ -641,6 +641,11 @@ def login() -> Response:
 def logout() -> Response:
     return UsersApi.logout(logout_user)
 
+@app.route('/logout-everywhere', methods=['POST'])
+@login_required
+def logout_everywhere() -> Response:
+    return UsersApi.logout_everywhere(current_user, logout_user)
+
 @app.route('/check-session', methods=['GET'])
 @login_required
 def check_session() -> Response:

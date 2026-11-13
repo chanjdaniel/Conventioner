@@ -39,14 +39,22 @@ export function safeNext(
   return next;
 }
 
-/** The sign-in page, carrying the page to return to when there is one, and why when it ended. */
+/** What the sign-in page says to someone who has just signed out everywhere (`everywhere`). */
+export const SIGNED_OUT_EVERYWHERE_MESSAGE = 'You are signed out on every device.';
+
+/**
+ * The sign-in page, carrying the page to return to when there is one (`fullPath`, or none with
+ * `null`), and why the person is there: `ended`, a session that ended under them, or `everywhere`,
+ * Sign out everywhere done.
+ */
 export function loginAddress(
-  fullPath: string,
-  { ended = false }: { ended?: boolean } = {},
+  fullPath: string | null,
+  { ended = false, everywhere = false }: { ended?: boolean; everywhere?: boolean } = {},
 ): RouteLocationRaw & { path: string; query: Record<string, string> } {
   const query: Record<string, string> = {};
   const next = safeNext(fullPath);
   if (next) query.next = next;
   if (ended) query.ended = '1';
+  if (everywhere) query.everywhere = '1';
   return { path: LOGIN_PATH, query };
 }

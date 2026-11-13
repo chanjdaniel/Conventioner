@@ -545,6 +545,31 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // Sign out everywhere's question, from the sheet on a phone (T311); never confirmed.
+    name: 'the sign-out-everywhere dialog, from the sheet',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: at(
+      fixed('/markets'),
+      'markets-result-count',
+      ['app-bar-menu-button', 'app-bar-sheet'],
+      ['app-bar-sheet-sign-out-everywhere', 'sign-out-everywhere-window'],
+    ),
+  },
+  {
+    // The same question, from the account menu at a desk; never confirmed.
+    name: 'the sign-out-everywhere dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    deskOnly: true,
+    open: at(
+      fixed('/markets'),
+      'markets-result-count',
+      ['app-bar-account-button', 'app-bar-account'],
+      ['app-bar-account-sign-out-everywhere', 'sign-out-everywhere-window'],
+    ),
+  },
+  {
     name: 'the organizations',
     who: 'organizer',
     sizes: FITS_A_PHONE,

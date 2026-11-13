@@ -157,7 +157,7 @@ for (const remember of [true, false]) {
       expect((await copy.request.get(`${APP_API}/check-session`)).status()).toBe(200);
 
       await page.getByTestId('app-bar-account-button').click();
-      await page.getByRole('menuitem', { name: 'Sign out' }).click();
+      await page.getByRole('menuitem', { name: 'Sign out', exact: true }).click();
       await page.waitForURL(/\/login/);
 
       expect((await copy.request.get(`${APP_API}/check-session`)).status()).toBe(401);

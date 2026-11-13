@@ -14,8 +14,9 @@ its deletion, only with ``Secure``, ``Path=/`` and no ``Domain``.
 
 Every sign-in is kept on the server (``organizer_sessions``): both cookies carry a random secret,
 and the server keeps its hash beside the account, the login id and when the sign-in ends. Signing
-out ends it there, a new sign-in in the browser ends the one it held, and a password reset ends
-every one of the account's, so a copy of the browser's cookies stops working too.
+out ends it there, a new sign-in in the browser ends the one it held, and Sign out everywhere and
+a password reset end every one of the account's, so a copy of the browser's cookies stops working
+too.
 
 For one release, a sign-in made before sign-ins were kept on the server still signs in: its id
 names the login id, the kind and the time, in the session or in the ``remember_token`` cookie. A
@@ -31,6 +32,7 @@ from email.utils import parsedate_to_datetime
 
 import pytest
 from flask_login.utils import decode_cookie, encode_cookie
+from pymongo.errors import PyMongoError
 
 from conftest import mongo_matches, mongo_project, mongo_update, skip_without_real_dependencies
 
@@ -690,6 +692,118 @@ def test_a_password_reset_ends_every_session_and_remember_cookie_issued_before_i
     assert not _signed_in(reopened)
     assert not _signed_in(copied)
     assert not _signed_in(client)
+
+
+def _sign_out_everywhere(client):
+    response = client.post("/logout-everywhere")
+    assert (response.status_code, response.get_json()) == (200, {"message": "Signed out everywhere"})
+    return response
+
+
+def test_signing_out_everywhere_ends_every_sign_in_of_the_account(
+    users, organizer_sessions, clock
+):
+    # Before the release, a browser remembered under the old shape, and the session it restored.
+    legacy = _a_browser_with_the_legacy_remember_cookie(_legacy_sign_in_id(users, clock))
+    assert _signed_in(legacy)
+    legacy_session = _session_copied(legacy)
+    here, ticked, by_code = (app_module.app.test_client() for _ in range(3))
+    _sign_in(here)
+    _sign_in_remembered(ticked)
+    _sign_in_with_the_code_remembered(by_code)
+    held = [here, _copied(here), ticked, _copied(ticked), _reopened(ticked), by_code,
+            _reopened(by_code), legacy, legacy_session]
+    assert all(_signed_in(browser) for browser in held)
+    login_id = users.doc["login_id"]
+
+    _sign_out_everywhere(here)
+
+    assert organizer_sessions.documents == []
+    assert users.doc["login_id"] not in (None, login_id)
+    assert [_signed_in(browser) for browser in held] == [False] * len(held)
+
+
+def test_signing_out_everywhere_leaves_another_accounts_sign_ins(client, users,
+                                                                  organizer_sessions):
+    someone_elses = OrganizerSessions.start("fixture-other-user-id", "fixture-other-login-id", True)
+    _sign_in(client)
+
+    _sign_out_everywhere(client)
+
+    assert [kept["user_id"] for kept in organizer_sessions.documents] == ["fixture-other-user-id"]
+    assert OrganizerSessions.recall(someone_elses) == ("fixture-other-user-id",
+                                                       "fixture-other-login-id")
+
+
+@pytest.mark.parametrize("remember", [True, None], ids=["ticked", "unticked"])
+def test_signing_out_everywhere_clears_this_browsers_cookies(client, users, remember):
+    _sign_in(client, remember=remember)
+
+    response = _sign_out_everywhere(client)
+
+    assert not _signed_in(client)
+    assert client.get_cookie(REMEMBER_COOKIE) is None
+    if remember:
+        assert _deletes(response, REMEMBER_COOKIE)
+        # A browser takes a __Host- cookie's deletion only with Secure, Path=/ and no Domain.
+        attributes = _set_cookie(response, REMEMBER_COOKIE)
+        assert "secure" in attributes and "path=/" in attributes
+        assert not any(a.startswith("domain=") for a in attributes)
+
+
+def test_signing_out_everywhere_deletes_the_legacy_remember_cookie(users, clock):
+    browser = _a_browser_with_the_legacy_remember_cookie(_legacy_sign_in_id(users, clock))
+    assert _signed_in(browser)
+
+    response = _sign_out_everywhere(browser)
+
+    assert _deletes(response, LEGACY_REMEMBER_COOKIE)
+    assert browser.get_cookie(LEGACY_REMEMBER_COOKIE) is None
+
+
+@pytest.mark.parametrize("sign_in", [_sign_in, _sign_in_remembered, _sign_in_with_the_code],
+                         ids=["unticked", "ticked", "code"])
+def test_signing_in_after_signing_out_everywhere_works_at_once(users, sign_in):
+    first = app_module.app.test_client()
+    _sign_in_remembered(first)
+    _sign_out_everywhere(first)
+
+    client = app_module.app.test_client()
+    sign_in(client)
+
+    assert _signed_in(client)
+
+
+def test_signing_out_everywhere_that_fails_leaves_every_sign_in(monkeypatch, client, users,
+                                                                organizer_sessions):
+    elsewhere = app_module.app.test_client()
+    _sign_in_remembered(elsewhere)
+    _sign_in(client)
+
+    def the_database_is_gone(*_args, **_kwargs):
+        raise PyMongoError("fixture: the database did not answer")
+
+    monkeypatch.setattr(users, "update_one", the_database_is_gone)
+    response = client.post("/logout-everywhere")
+
+    assert response.status_code == 500
+    assert "fixture" not in response.get_data(as_text=True)
+    assert len(organizer_sessions.documents) == 2
+    assert _signed_in(client)
+    assert _signed_in(elsewhere)
+
+
+def test_signing_out_everywhere_signed_out_is_refused(client, users, organizer_sessions):
+    elsewhere = app_module.app.test_client()
+    _sign_in_remembered(elsewhere)
+    login_id = users.doc["login_id"]
+
+    response = client.post("/logout-everywhere")
+
+    assert response.status_code == 401
+    assert users.doc["login_id"] == login_id
+    assert len(organizer_sessions.documents) == 1
+    assert _signed_in(elsewhere)
 
 
 def test_signing_in_after_a_reset_works_at_once(users):

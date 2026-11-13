@@ -17,17 +17,17 @@ const box = async (locator: Locator) => {
   return b;
 };
 
-/** The sheet's rows a person presses, the places, Change password and Sign out. */
+/** The sheet's rows a person presses, the places, Change password, Sign out and Sign out everywhere. */
 const openTheSheet = async (page: Page) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/markets');
   await page.getByRole('button', { name: 'Open menu' }).click();
   const sheet = page.getByTestId('app-bar-sheet');
-  await expect(sheet.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Sign out everywhere' })).toBeVisible();
   return sheet.locator('a, button');
 };
 
-test('every row of the sheet is one shape, Sign out included', async ({
+test('every row of the sheet is one shape, Sign out and Sign out everywhere included', async ({
   authenticatedPage: page,
 }) => {
   const rows = await (
@@ -38,7 +38,7 @@ test('every row of the sheet is one shape, Sign out included', async ({
       return { x: Math.round(box.x), width: Math.round(box.width), height: Math.round(box.height) };
     }),
   );
-  expect(rows).toHaveLength(4);
+  expect(rows).toHaveLength(5);
   for (const key of ['x', 'width', 'height'] as const) {
     expect(new Set(rows.map((row) => row[key])).size, `${key}: ${JSON.stringify(rows)}`).toBe(1);
   }
