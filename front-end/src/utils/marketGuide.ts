@@ -15,6 +15,7 @@
 import {
   IntakeMode,
   MarketPhase,
+  type Allocation,
   type Market,
   type PreconditionResult,
 } from '@/assets/types/datatypes';
@@ -22,7 +23,7 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { phaseLabel, phaseSpine, transitionDirection, VALID_TRANSITIONS } from '@/utils/phase';
 import {
   TAB_PAGES,
-  hasAssignment,
+  resultsAreOut,
   type MarketFlow,
   type MarketPage,
   type MarketTab,
@@ -179,6 +180,35 @@ function theFormIsDrafted(market: Market): boolean {
   return (market.applicationForm?.fields?.length ?? 0) > 0 || Array.isArray(market.exampleColumns);
 }
 
+/** Publish results waits on a stale run, and the server would take a new one. */
+function staleRunToPublish(market: Market, blocker: PreconditionResult): boolean {
+  return (
+    blocker.resolutionAction === MarketAction.PublishResults &&
+    Boolean(market.publishWaitsReason) &&
+    market.allocation === 'stale' &&
+    !market.assignRefusalReason
+  );
+}
+
+/**
+ * Whether the server would take a blocker's remedy as it stands (T316): Allocate tables only where
+ * `assignRefusalReason` is clear, Publish results only where `publishWaitsReason` is, each the
+ * server's own answer for that action. A market left in Offers was offered both, and refused
+ * both. Whether this person may take it is the role's, `mayTake`; an answer the read does not
+ * carry leaves the remedy to the role, as before.
+ */
+export function serverTakesRemedy(
+  market: Pick<Market, 'assignRefusalReason' | 'publishWaitsReason'> | null | undefined,
+  blocker: Pick<PreconditionResult, 'resolutionAction' | 'resolutionLink'> | null | undefined,
+): boolean {
+  if (blocker?.resolutionAction === MarketAction.PublishResults) return !market?.publishWaitsReason;
+  // A run is Assign's remedy on Settings, where its button is; on Assignments it is a seat by hand.
+  if (blocker?.resolutionAction === MarketAction.Assign && blocker.resolutionLink === 'settings') {
+    return !market?.assignRefusalReason;
+  }
+  return true;
+}
+
 /**
  * The first thing in a move's way, in the order the organizer works through it: the first blocker
  * served, except that the form comes before Review setup (T260).
@@ -193,6 +223,17 @@ function theFormIsDrafted(market: Market): boolean {
  */
 export function firstInTheWay(market: Market, toPhase: string | null): PreconditionResult | null {
   const [blocker] = blockersFor(market, toPhase);
+  if (blocker && staleRunToPublish(market, blocker)) {
+    // A stale run's fix is a new run (T316): Publish results is refused as out of date, so the
+    // rail says the server's refusal and offers what puts it right, where the server takes a run.
+    return {
+      ...blocker,
+      message: market.publishWaitsReason!,
+      resolutionLink: 'settings',
+      resolutionLabel: 'Allocate tables',
+      resolutionAction: MarketAction.Assign,
+    };
+  }
   if (!blocker || !REVIEW_SETUP.has(blocker.id)) return blocker ?? null;
   if (theFormIsDrafted(market)) return blocker;
   // The decision still open, as the end of a sentence: "then decide what reviewers read first".
@@ -239,14 +280,15 @@ export interface NextStep {
 /** What a row of the guide reads off the market, beyond its phase. */
 interface Standing {
   path: IntakeMode;
-  /** An assignment is stored. */
-  assigned: boolean;
+  /**
+   * Where the table allocation stands, as the server serves it (T316): whether tables are
+   * allocated, and whether its applicants have been told, which settles the result.
+   */
+  allocation: Allocation;
   /** Every one of its dates is over. */
   ended: boolean;
   /** It reached market days: its vendor page is the record. */
   ran: boolean;
-  /** Its applicants have been told whether they have a table, which settles the result. */
-  published?: boolean;
   /** Its vendor page has stopped taking applications, inside the stage (E38/F04/S02). */
   stopped?: boolean;
 }
@@ -336,11 +378,12 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     statement: `${stageLead(standing)} Every application is decided: Begin assignment.`,
     onlooker: watchedStage(standing),
   }),
-  // Worked on the rules until there are assignments, and on the assignments after. Once results
-  // are published the assignments are settled, and what is left is the move. Both paths publish
+  // Worked on the rules until tables are allocated, and on the assignments after: tables assigned
+  // by hand alone are no allocation, and Publish results waits for one (T316). Once results are
+  // published the assignments are settled, and what is left is the move. Both paths publish
   // results before the market goes live (ADR 0022), so the sentences are the same on both.
-  [MarketPhase.Assignment]: ({ assigned, published }) =>
-    published
+  [MarketPhase.Assignment]: ({ allocation }) =>
+    resultsAreOut(allocation)
       ? {
           page: 'assignments',
           action: MarketAction.MovePhase,
@@ -349,7 +392,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
           onlooker:
             'Results are published, so the assignments are settled. Check-in with the door code opens when the market is published.',
         }
-      : assigned
+      : allocation === 'current' || allocation === 'stale'
         ? {
             page: 'assignments',
             action: MarketAction.Assign,
@@ -362,17 +405,20 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
         : {
             page: 'settings',
             action: MarketAction.Assign,
-            statement: 'Set the rules and allocate tables.',
+            statement:
+              allocation === 'pinned'
+                ? 'Set the rules and allocate tables. The tables you assigned by hand are kept.'
+                : 'Set the rules and allocate tables.',
             onlooker: 'Tables are not allocated yet. Read the rules they will follow on Settings.',
           },
   // Nothing sets a market in offers any more, but one left there still has a step onward, whose
   // blockers are served to everyone; someone who may not assign reads only where to look.
-  [MarketPhase.Offers]: ({ assigned, path }) => ({
-    page: assigned ? 'assignments' : 'settings',
+  [MarketPhase.Offers]: ({ allocation, path }) => ({
+    page: allocation === 'none' ? 'settings' : 'assignments',
     action: MarketAction.Assign,
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,
     onlooker: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}. ${
-      assigned ? 'Read the assignments.' : 'Read the rules on Settings.'
+      allocation === 'none' ? 'Read the rules on Settings.' : 'Read the assignments.'
     }`,
   }),
   // Once it has run, what is left is archiving it.
@@ -391,8 +437,8 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
           onlooker: 'Follow who has checked in at the door.',
         },
   // One that never ran has nothing to show but its plan.
-  [MarketPhase.Archived]: ({ assigned, ran }) => ({
-    page: assigned ? 'assignments' : 'setup',
+  [MarketPhase.Archived]: ({ allocation, ran }) => ({
+    page: allocation === 'none' ? 'setup' : 'assignments',
     statement: ran
       ? 'Archived: the record of what happened stays on its vendor page.'
       : 'Archived: this market is the record of what happened.',
@@ -417,14 +463,22 @@ function rowFor(phase: string, standing: Standing): GuideRow {
   );
 }
 
+/** Where the table allocation stands; a read that did not carry it reads as nothing allocated. */
+function allocationOf(allocation: Allocation | null | undefined): Allocation {
+  return allocation ?? 'none';
+}
+
 /**
  * The page a market is worked on in its phase: the one carrying the dot, and where it lands. The
- * guide's own page for the phase; only the phase and whether a run is stored decide it.
+ * guide's own page for the phase; only the phase and where the table allocation stands decide it.
  */
-export function currentPage(phase: string | undefined | null, hasAssignment: boolean): MarketPage {
+export function currentPage(
+  phase: string | undefined | null,
+  allocation: Allocation | null | undefined,
+): MarketPage {
   return rowFor(String(phase ?? MarketPhase.Draft), {
     path: IntakeMode.Csv,
-    assigned: hasAssignment,
+    allocation: allocationOf(allocation),
     ended: false,
     ran: false,
   }).page;
@@ -437,19 +491,21 @@ export function currentPage(phase: string | undefined | null, hasAssignment: boo
  */
 export function landingPage(
   phase: string,
-  hasAssignment: boolean,
+  allocation: Allocation | null | undefined,
   path: IntakeMode,
 ): MarketPage | MarketFlow {
-  return landingOf(rowFor(phase, { path, assigned: hasAssignment, ended: false, ran: false }));
+  return landingOf(
+    rowFor(phase, { path, allocation: allocationOf(allocation), ended: false, ran: false }),
+  );
 }
 
 /** The page a tab opens: the one carrying the dot when the tab holds it, else its first. */
 export function pageForTab(
   tab: MarketTab,
   phase: string | undefined | null,
-  hasAssignment: boolean,
+  allocation: Allocation | null | undefined,
 ): MarketPage {
-  const current = currentPage(phase, hasAssignment);
+  const current = currentPage(phase, allocation);
   return TAB_PAGES[tab].includes(current) ? current : TAB_PAGES[tab][0];
 }
 
@@ -478,21 +534,22 @@ const FACTS: ReadonlySet<string> = new Set([UNDECIDED]);
 export function nextStep(market: Market, today: string = calendarToday()): NextStep {
   const phase = String(market.phase ?? MarketPhase.Draft);
   const path = intakeModeOf(market);
-  const assigned = hasAssignment(market);
+  const allocation = allocationOf(market.allocation);
   const forward = forwardFrom(market, today);
   const blocker = firstInTheWay(market, forward);
   const stopped = Boolean(market.applicationsStopped);
   const row = rowFor(phase, {
     path,
-    assigned,
+    allocation,
     ended: lastDateHasPassed(market, today),
     ran: (market.phasesReached ?? []).includes(MarketPhase.MarketDays),
-    published: Boolean(market.resultsPublished),
     stopped,
   });
   // Before a run, running is the step, and the sentence says so; Publish still waits, disabled with
-  // its own reason. Anywhere else a refused step onward is the next thing to put right.
-  const runFirst = phase === MarketPhase.Assignment && !assigned;
+  // its own reason. Hand assignments alone are no run (T316). Anywhere else a refused step onward
+  // is the next thing to put right.
+  const runFirst =
+    phase === MarketPhase.Assignment && (allocation === 'none' || allocation === 'pinned');
   const standing = forward && blocker && !runFirst ? blocker : null;
   const remedy = standing?.resolutionAction ?? null;
   const theirs = mayTake(market, row.action);
@@ -518,7 +575,7 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
         : `To ${pathTransitionLabel(phase, forward, path).toLowerCase()}`;
     return {
       text: `${stage ? `${lead} ` : ''}${ask}: ${standing.message}`,
-      page: standing.resolutionLink ?? null,
+      page: serverTakesRemedy(market, standing) ? (standing.resolutionLink ?? null) : null,
       blocker: standing,
       action: remedy,
     };

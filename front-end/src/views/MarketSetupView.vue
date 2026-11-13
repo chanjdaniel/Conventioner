@@ -14,7 +14,6 @@ import {
   type Market,
 } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
-import { assignRefusal } from '@/utils/assignPhase';
 import {
   SETUP_VIEW_PAGES,
   hasAssignment,
@@ -318,22 +317,16 @@ watch(
 );
 
 /**
- * Why the assignment cannot be run, or null (`E10/F03/S02`): by this person (bug 37), then in this
- * market's phase.
+ * Why the assignment cannot be run, or null (`E10/F03/S02`): by this person (bug 37), then the
+ * server's word on this market (E36/F04/S02, T316): its phase, and not once results are published.
  *
  * The server enforces it, and this lets the button say no before it is pressed rather than after.
- * Safe to freeze now that a placement can be changed by hand from the Tables view - shipping the
- * freeze first would have stranded an organizer on market day with archiving a running market as
- * their only move.
+ * No copy of the rule stands in for it: before the market is read the person's answer is unknown,
+ * which `actionRefusal` reads as refused, so the button waits for the read.
  */
-// The server's word on whether the run may happen (E36/F04/S02): its phase, and not once results
-// are published. The phase mirror stands in only until the market has been read.
 const assignRefusalReason = computed(
   () =>
-    actionRefusal(market.value, MarketAction.Assign) ||
-    (market.value?.assignRefusalReason !== undefined
-      ? market.value.assignRefusalReason
-      : assignRefusal(market.value?.phase)),
+    actionRefusal(market.value, MarketAction.Assign) || (market.value?.assignRefusalReason ?? null),
 );
 
 /**
@@ -409,11 +402,21 @@ const assignError = ref('');
 /** The applications a refused run named, each with what it lacks (bug 42). */
 const assignIncomplete = ref<IncompleteApplication[]>([]);
 
-/** How many hand placements the stored assignment holds; null until one has been run. */
+/** How many hand placements the stored assignment holds; null while it holds no row. */
 const handPlacements = computed((): number | null => {
   if (!hasAssignment(market.value)) return null;
   return (market.value?.assignmentObject?.vendorAssignments ?? []).filter((row) => row.handPlaced)
     .length;
+});
+
+/**
+ * Whether a table allocation has been run, as the server serves it (T316): only then does Allocate
+ * tables run it "again". Pins only holds rows with nothing allocated, and an absent allocation
+ * reads as nothing assigned, as the rail reads it.
+ */
+const allocated = computed(() => {
+  const allocation = market.value?.allocation;
+  return Boolean(allocation) && allocation !== 'none' && allocation !== 'pinned';
 });
 
 /**
@@ -549,6 +552,7 @@ async function openLayout(locationId: string): Promise<void> {
           :mayAllocate="mayTake(market, MarketAction.Assign)"
           :rulesLockReason="market.assignmentRulesLockReason ?? null"
           :handPlacements="handPlacements"
+          :allocated="allocated"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         >

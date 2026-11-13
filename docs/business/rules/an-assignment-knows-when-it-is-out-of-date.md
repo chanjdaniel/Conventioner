@@ -4,13 +4,15 @@ kind: rule
 describes:
   - back-end/assignment/made_from.py#changed_since_run
   - front-end/src/utils/assignmentOutOfDate.ts
-verified: 2026-11-03
+verified: 2026-11-14
 sources:
   - wayfinding/the-assignment-tab/03
   - E22/F03
   - E22/F03/S01
   - E22/F03/S02
   - T207
+  - T277
+  - T316
 ---
 
 # An assignment knows when it is out of date
@@ -39,10 +41,12 @@ Placing, freeing or swapping is an edit to the result, not an input, so it never
 
 **An assignment older than the record is not stale.**
 One made before runs recorded their inputs is not known to be out of date and is never shown as such, because a notice on every existing market would teach organizers to ignore it.
+It records a legacy marker in place of its inputs, which names none of them, so it reads as current ([the assignment's lifecycle](../../implementation/modules/assignment-lifecycle.md)).
 
 ## Where it is kept
 
 - What changed is decided by the server, from the fingerprints each run records: `changed_since_run` in [`back-end/assignment/made_from.py`](../../../back-end/assignment/made_from.py), served on the market as `assignmentOutOfDate` ([what an assignment was made from](../../implementation/modules/made-from.md)).
 - Only a run records its inputs, and a hand edit leaves them alone: [placements](../../implementation/modules/placements.md).
-- [`front-end/src/utils/assignmentOutOfDate.ts`](../../../front-end/src/utils/assignmentOutOfDate.ts) only words the groups, on the Assignments page's summary.
+- Whether the stored run is out of date at all is the served `allocation`, `stale`, which Publish results is refused on ([the assignment's lifecycle](../../implementation/modules/assignment-lifecycle.md)).
+- [`front-end/src/utils/assignmentOutOfDate.ts`](../../../front-end/src/utils/assignmentOutOfDate.ts) only words the groups, on the Assignments page's summary, and only while the served `allocation` is `stale`, so the notice and Publish results never disagree.
 - The reopened review is counted from the market's phase record, the `review` group ([what an assignment was made from](../../implementation/modules/made-from.md)).

@@ -171,6 +171,7 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
         mayAllocate,
         rulesLockReason,
         handPlacements: null,
+        allocated: false,
       },
       global: {
         stubs: {

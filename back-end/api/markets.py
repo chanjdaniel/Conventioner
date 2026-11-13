@@ -18,6 +18,7 @@ from datatypes import (
     Application,
     ApplicationForm,
     ApplicationStatus,
+    AssignmentState,
     AssignmentStatistics,
     EssentialFormOptions,
     FloorplanObject,
@@ -94,6 +95,7 @@ from guards import (
     transition_verdicts,
 )
 import vendor_notes as VendorNotes
+import assignment.lifecycle as Lifecycle
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
@@ -327,7 +329,7 @@ def _why_the_review_is_closed(market: Market) -> Optional[str]:
     """
     if review_is_open(market.phase):
         return None
-    if market.results_published:
+    if Lifecycle.results_published(market):
         return "published"
     if market.phase is MarketPhase.ASSIGNMENT:
         return "allocating"
@@ -478,7 +480,7 @@ def assignment_rules_lock_reason(market: Market) -> Optional[str]:
         return ARCHIVED_REFUSAL
     if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is None:
         return ASSIGNMENT_RULES_SETTLED
-    if market.results_published:
+    if Lifecycle.results_published(market):
         return ASSIGNMENT_RULES_PUBLISHED
     return None
 
@@ -985,6 +987,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignmentOutOfDate'] = (
         changed_since_run(market) if market.phase is MarketPhase.ASSIGNMENT else []
     )
+    # And where the table allocation stands (T316), from the one owner of the assignment's state,
+    # handed the groups just read so the approved applications are read once.
+    market_dict['allocation'] = Lifecycle.allocation(
+        market, changed=market_dict['assignmentOutOfDate']).value
     # Hand placements at a seat the plan no longer has, for Assignments and the vendor's panel to mark
     # (bug 31). The guard refuses Publish on the same list; reading it here keeps the pages from
     # deciding for themselves which seats exist.
@@ -1017,7 +1023,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['verdictsSettledReason'] = verdicts_settled
     adding_vendors = adding_refusal(market.phase)
     market_dict['addingVendorsReason'] = adding_vendors
-    publish_waits = ApplicantsApi.publish_results_refusal(market)
+    publish_waits = ApplicantsApi.publish_results_refusal(
+        market, changed=market_dict['assignmentOutOfDate'])
     market_dict['publishWaitsReason'] = publish_waits
     market_dict['publishOutcomes'] = (
         None if refusals[Actions.PUBLISH_RESULTS.id] or publish_waits
@@ -1297,7 +1304,8 @@ def new_market(body: Dict[str, Any], roles: Dict[str, Any]) -> Market:
     """
     chosen = {field: body[field] for field in MARKET_CREATE_FIELDS if field in body}
     return Market.model_validate(
-        {**chosen, "roles": roles, "modification_list": [], "assignment_object": {}})
+        {**chosen, "roles": roles, "modification_list": [],
+         "assignment_object": {"state": AssignmentState.NONE}})
 
 
 def create_market(market: Market, owner_email: str) -> tuple:

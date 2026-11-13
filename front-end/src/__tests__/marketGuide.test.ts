@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   IntakeMode,
   MarketPhase,
+  type Allocation,
   type ApplicationForm,
   type ExampleColumn,
   type Market,
@@ -25,6 +26,7 @@ import {
   firstInTheWay,
   forwardFrom,
   landingPage,
+  pageForTab,
   spineFor,
   intakeModeOf,
   nextStep,
@@ -38,9 +40,27 @@ import { TAB_LABELS } from '@/utils/marketPage';
 
 const TODAY = '2099-05-10';
 
-/** A market whose assignment placed one vendor. */
-const ASSIGNED: Pick<Market, 'assignmentObject'> = {
+/** Every answer the market read serves as `allocation` (`assignment/lifecycle.py`, `Allocation`). */
+const ALLOCATIONS: readonly Allocation[] = [
+  'none',
+  'pinned',
+  'current',
+  'stale',
+  'published',
+  'changed_since_published',
+];
+
+/** A market whose table allocation placed one vendor, and is current. */
+const ASSIGNED: Pick<Market, 'assignmentObject' | 'allocation'> = {
   assignmentObject: assignmentPlacing('a@example.com'),
+  allocation: 'current',
+};
+
+/** The same market once its results are published. */
+const PUBLISHED: Pick<Market, 'assignmentObject' | 'allocation' | 'resultsPublished'> = {
+  ...ASSIGNED,
+  allocation: 'published',
+  resultsPublished: true,
 };
 
 function market(phase: MarketPhase, overrides: Partial<Market> = {}): Market {
@@ -145,18 +165,13 @@ describe('the next step', () => {
       text: 'Set the rules and allocate tables.',
       page: 'settings',
     });
-    const run = market(MarketPhase.Assignment, {
-      assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] },
-    } as Partial<Market>);
+    const run = market(MarketPhase.Assignment, ASSIGNED);
     expect(nextStep(run, TODAY)).toMatchObject({ page: 'assignments' });
     expect(nextStep(run, TODAY).text).toMatch(/cannot be undone/);
   });
 
   it('once the results are published, says the assignments are settled (E36/F04/S02)', () => {
-    const told = market(MarketPhase.Assignment, {
-      assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] },
-      resultsPublished: true,
-    } as Partial<Market>);
+    const told = market(MarketPhase.Assignment, PUBLISHED);
 
     expect(nextStep(told, TODAY).text).toBe(
       'Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone.',
@@ -218,16 +233,10 @@ describe('the next step', () => {
   it('is where the market is worked on: the statement leads where a move lands', () => {
     for (const intakeMode of [IntakeMode.Form, IntakeMode.Csv]) {
       for (const phase of phaseSpine().filter((p) => p !== MarketPhase.Archived)) {
-        for (const assigned of [false, true]) {
-          const m = market(
-            phase as MarketPhase,
-            {
-              intakeMode,
-              assignmentObject: { vendorAssignments: assigned ? [{ email: 'a@example.com' }] : [] },
-            } as Partial<Market>,
-          );
-          expect(nextStep(m, TODAY).page, `${intakeMode} ${phase} ${assigned}`).toBe(
-            landingPage(phase, assigned, intakeMode),
+        for (const allocation of ALLOCATIONS) {
+          const m = market(phase as MarketPhase, { ...ASSIGNED, intakeMode, allocation });
+          expect(nextStep(m, TODAY).page, `${intakeMode} ${phase} ${allocation}`).toBe(
+            landingPage(phase, allocation, intakeMode),
           );
         }
       }
@@ -240,6 +249,133 @@ describe('the next step', () => {
       page: 'attendance',
     });
     expect(nextStep(market(MarketPhase.MarketDays), '2099-06-01').text).toMatch(/Archive it/);
+  });
+});
+
+/*
+ * The rail reads where the table allocation stands, as the market read serves it (T316), never
+ * whether rows are stored: an organizer who has only assigned tables by hand had been told to check
+ * the assignments and publish, though no allocation had run and Publish results waits for one.
+ */
+describe('the rail reads where the table allocation stands (T316)', () => {
+  const PINS_ONLY = 'Set the rules and allocate tables. The tables you assigned by hand are kept.';
+  const CHECK =
+    'Check the assignments, then publish the market: that opens check-in with the door code, and cannot be undone.';
+  const SETTLED =
+    'Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone.';
+  const NOT_ALLOCATED =
+    'Tables are not allocated yet. Read the rules they will follow on Settings.';
+  const ALLOCATED =
+    'Tables are allocated, and the market is not published yet. Read the assignments.';
+  const WATCHED_SETTLED =
+    'Results are published, so the assignments are settled. Check-in with the door code opens when the market is published.';
+
+  /** What the organizer and a Viewer read in Assignment, and where each is led. */
+  const rail: Record<Allocation, { organizer: string; onlooker: string; page: string }> = {
+    none: {
+      organizer: 'Set the rules and allocate tables.',
+      onlooker: NOT_ALLOCATED,
+      page: 'settings',
+    },
+    pinned: { organizer: PINS_ONLY, onlooker: NOT_ALLOCATED, page: 'settings' },
+    current: { organizer: CHECK, onlooker: ALLOCATED, page: 'assignments' },
+    stale: { organizer: CHECK, onlooker: ALLOCATED, page: 'assignments' },
+    published: { organizer: SETTLED, onlooker: WATCHED_SETTLED, page: 'assignments' },
+    changed_since_published: { organizer: SETTLED, onlooker: WATCHED_SETTLED, page: 'assignments' },
+  };
+
+  /** The market with that allocation; a run or a pin stores rows, and nothing stores none. */
+  const allocated = (allocation: Allocation, overrides: Partial<Market> = {}) =>
+    market(MarketPhase.Assignment, {
+      assignmentObject: assignmentPlacing(...(allocation === 'none' ? [] : ['a@example.com'])),
+      allocation,
+      resultsPublished: allocation === 'published' || allocation === 'changed_since_published',
+      ...overrides,
+    });
+
+  for (const intakeMode of [IntakeMode.Form, IntakeMode.Csv]) {
+    for (const allocation of ALLOCATIONS) {
+      const { organizer, onlooker, page } = rail[allocation];
+
+      it(`${intakeMode}, ${allocation}: tells the organizer the step, on its page`, () => {
+        expect(nextStep(allocated(allocation, { intakeMode }), TODAY)).toMatchObject({
+          text: organizer,
+          page,
+          blocker: null,
+        });
+      });
+
+      it(`${intakeMode}, ${allocation}: tells a Viewer what they may read, where it is`, () => {
+        const watched = allocated(allocation, { intakeMode, actionRefusals: VIEWER_ANSWERS });
+        expect(nextStep(watched, TODAY)).toMatchObject({
+          text: onlooker,
+          page,
+          action: MarketAction.Read,
+        });
+      });
+
+      it(`${intakeMode}, ${allocation}: the rail's link, the tab and a move's landing agree`, () => {
+        expect(currentPage(MarketPhase.Assignment, allocation)).toBe(page);
+        expect(pageForTab('assignment', MarketPhase.Assignment, allocation)).toBe(page);
+        expect(landingPage(MarketPhase.Assignment, allocation, intakeMode)).toBe(page);
+      });
+    }
+  }
+
+  it('with pins only, names the run, not the refusal Publish waits on', () => {
+    // The server refuses going live on pins only, with the guard's own sentence; the run is the
+    // step, so the rail says it and the refusal stays beside Publish results.
+    const pinned = allocated('pinned', {
+      transitionBlockers: {
+        market_days: [
+          {
+            id: 'assignment_computed',
+            passed: false,
+            message:
+              'Only tables assigned by hand are stored, so every other approved vendor would read that they did not get one. Allocate tables first: allocating keeps the tables you assigned.',
+            resolutionLink: 'settings',
+            resolutionLabel: 'Allocate tables',
+            resolutionAction: MarketAction.Assign,
+          },
+        ],
+        applications: [],
+      },
+    });
+    expect(nextStep(pinned, TODAY)).toMatchObject({
+      text: PINS_ONLY,
+      page: 'settings',
+      blocker: null,
+      action: MarketAction.Assign,
+    });
+  });
+
+  it('with pins only, tells an Editor the same step, which is theirs', () => {
+    const pinned = allocated('pinned', { actionRefusals: EDITOR_ANSWERS });
+    expect(nextStep(pinned, TODAY)).toMatchObject({
+      text: PINS_ONLY,
+      page: 'settings',
+      action: MarketAction.Assign,
+    });
+  });
+
+  it('reads an allocation the read did not carry as none, whatever rows are stored', () => {
+    const unread = market(MarketPhase.Assignment, ASSIGNED);
+    delete unread.allocation;
+    expect(nextStep(unread, TODAY)).toMatchObject({
+      text: 'Set the rules and allocate tables.',
+      page: 'settings',
+    });
+    expect(currentPage(MarketPhase.Assignment, undefined)).toBe('settings');
+    expect(currentPage(MarketPhase.Assignment, null)).toBe('settings');
+  });
+
+  it('leads Offers to the rules only while nothing is assigned', () => {
+    for (const allocation of ALLOCATIONS) {
+      const left = market(MarketPhase.Offers, { allocation, actionRefusals: VIEWER_ANSWERS });
+      const page = allocation === 'none' ? 'settings' : 'assignments';
+      expect(nextStep(left, TODAY).page, allocation).toBe(page);
+      expect(currentPage(MarketPhase.Offers, allocation), allocation).toBe(page);
+    }
   });
 });
 
@@ -298,7 +434,7 @@ describe('what the rail tells someone the step is not theirs', () => {
     ],
     [
       'assignment, results published',
-      viewer(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true }),
+      viewer(MarketPhase.Assignment, PUBLISHED),
       TODAY,
       'Results are published, so the assignments are settled. Check-in with the door code opens when the market is published.',
       'assignments',
@@ -640,7 +776,7 @@ describe('the action a step takes (T142)', () => {
       ],
       [
         'assignment, results published',
-        market(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true }),
+        market(MarketPhase.Assignment, PUBLISHED),
         TODAY,
         MarketAction.MovePhase,
       ],
@@ -784,9 +920,9 @@ describe('the Google Form path enters Review by its first import (E38/F04/S01)',
   });
 
   it('lands a move into the stage on the review, on both paths', () => {
-    expect(landingPage(MarketPhase.Applications, false, IntakeMode.Csv)).toBe('applications');
-    expect(landingPage(MarketPhase.Applications, false, IntakeMode.Form)).toBe('applications');
-    expect(currentPage(MarketPhase.Applications, false)).toBe('applications');
+    expect(landingPage(MarketPhase.Applications, 'none', IntakeMode.Csv)).toBe('applications');
+    expect(landingPage(MarketPhase.Applications, 'none', IntakeMode.Form)).toBe('applications');
+    expect(currentPage(MarketPhase.Applications, 'none')).toBe('applications');
   });
 
   it('says to import, never to collect', () => {

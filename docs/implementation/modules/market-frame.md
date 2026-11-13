@@ -12,6 +12,8 @@ describes:
 verified: 2026-11-11
 sources:
   - T209
+  - T277
+  - T316
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01
   - wayfinding/the-order-of-the-work/map
@@ -70,7 +72,8 @@ Stats, last, has no phase of its own and no note: it reads the market from its f
 Tools, just left of it, has none either: it holds the manual tools an organizer runs whenever they choose, each a card of a `.card-grid` on the page's inset, the [Discord card](discord.md) first ([`ToolsView.vue`](../../../front-end/src/views/ToolsView.vue)).
 
 [`front-end/src/utils/marketPage.ts`](../../../front-end/src/utils/marketPage.ts) says which tab holds which page (`TAB_PAGES`), which tab a flow stands under (import under Applications, start-from-CSV and a location's layout under Market Setup), and which page a route is (`pageOfRoute`), the one reading of it so the bar and the page row can never disagree.
-`hasAssignment` is the one statement of "an assignment is stored", read by the dot, the landing and the Assignments page.
+`hasAssignment` is the one statement of "an assignment is stored", read by the pages that ask whether there are rows to show: Assignments, Vendors, Payments, the run button on Settings and the Discord card.
+The dot, the tab's page and the landing read the served `allocation` instead (`currentPage` and `pageForTab` in [the market guide](market-guide.md)), since tables assigned by hand alone store rows but are no table allocation.
 
 ## Sharp edges
 

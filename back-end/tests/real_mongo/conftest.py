@@ -146,6 +146,26 @@ def market_in(real_db, signed_in):
 
 
 @pytest.fixture
+def allocated(real_db):
+    """``allocated(market, rows, revision=1)``: store ``rows`` on the stored ``market`` as one table
+    allocation left them (T316): state ``run``, made from the market's inputs as they stand, so
+    Publish results reads it as current; returns the assignment object stored."""
+    from conftest import made_from_now, stored_assignment
+    from market_documents import MARKETS_COLLECTION
+
+    def store(market, rows, revision=1):
+        markets = real_db[MARKETS_COLLECTION]
+        assignment = stored_assignment(
+            "run", rows, made_from=made_from_now(markets.find_one({"id": market["id"]})),
+            revision=revision)
+        markets.update_one({"id": market["id"]}, {"$set": {"assignmentObject": assignment}})
+        market["assignmentObject"] = assignment
+        return assignment
+
+    return store
+
+
+@pytest.fixture
 def interleave(monkeypatch):
     """``interleave(target, then)``: ``then()`` lands once, right after ``target``'s first call
     returns (``harness.interleave``)."""

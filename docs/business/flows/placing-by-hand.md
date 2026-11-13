@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/AssignmentHistoryDialog.vue
   - front-end/src/utils/personChoice.ts
   - front-end/src/components/SearchPicker.vue
-verified: 2026-11-11
+verified: 2026-11-14
 sources:
   - brain-dump/2026-10-19#30
   - wayfinding/claims-and-room/05
@@ -34,6 +34,8 @@ sources:
   - T224
   - T263
   - T283
+  - T277
+  - T316
 ---
 
 # Placing by hand
@@ -44,7 +46,7 @@ sources:
 
 Every seat on the Assignments page is a control: a free seat opens the placement dialog to place someone ([`PlacementDialog.vue`](../../../front-end/src/components/PlacementDialog.vue)), and a held seat shows its occupant's name, a link at rest, which opens the [vendor drawer](vendor-drawer.md), and "Change" in its corner, which opens the dialog on that seat.
 "Change" shows at rest, not on hover, since it is the only way to a held seat's dialog and a touch has no hover; a seat on a market that can no longer change loses its box and its "Change", and a held one's name still opens the drawer.
-Before a run the tables are drawn already, so a seat can be given first: "Anyone you assign below first keeps their table: allocating tables assigns everyone else around them."
+Before a run, where the server would take one (`assignRefusalReason`), the tables are drawn already, so a seat can be given first: "Anyone you assign below first keeps their table: allocating tables assigns everyone else around them."
 A hand placement warns about every answer it overrides and never blocks on one; what it may not do is seat someone with no application, or two people in one seat ([a seat only for an applicant](../rules/a-seat-only-for-an-applicant.md)).
 **Every answer a hand change can cross is said before it is made, and the list is grouped, never filtered**, so overriding an answer is always one pick away; a search narrows each group and hides none.
 The two ceilings are separate sentences because they are separate promises: "This gives them 2 dates; they asked for at most 1." is the vendor's own answer, "…the market allows at most 1 per vendor." the organizer's rule for everyone.
@@ -56,6 +58,9 @@ The keyboard works them alone: the arrow keys move through the list, Enter takes
 None of them passes the picker's `cap`, so each draws every choice it finds.
 The dialog is the wide size, since a real name and address with a table and a side did not fit the standard one.
 On a phone the page and the dialog fit the window (T142): a held seat's "Change", each "What to do with them" choice and each "Which seat" choice are thumb's targets, and the dialog's buttons wrap onto a second row where three do not fit on one.
+
+**After results are published, the dialog says what a change does to a vendor's page** (T316), in a note last in its body, above its actions (`placement-dialog-results-out`): on a held seat, "Results are published, so the vendor page of <occupant> tells them they have <table> on <date>. Freeing, moving or swapping them changes what it says, and nothing is sent to them.", the occupant as the dialog names them and the table in words ("Front 1, left half"); on an empty seat, "Results are published, so whoever you assign here reads this table on their vendor page at once, and nothing is sent to them."
+The Assignments page tells the dialog from the served `allocation` (`published` or `changed_since_published`, [the assignment's lifecycle](../../implementation/modules/assignment-lifecycle.md)); before results there is no note.
 
 Every change goes through [the one writer of placements](../../implementation/modules/placements.md), and each is recorded in [the market's history](../../implementation/data/history.md).
 
@@ -122,6 +127,7 @@ Any change to the tables, a placement, a move, a swap, a free or a run, that lan
 After either refusal the page reads the tables and the market again, and the seat's dialog stays open with the sentence, showing who sits where now.
 Covered by:
 
+- `a-change-after-results-says-so.spec.ts`
 - `moving-a-vendor-to-an-empty-seat.spec.ts`
 - `placement-edit.spec.ts`
 
@@ -133,6 +139,7 @@ Freeing never changes what they owe by itself: the day keeps its line on their [
 Whoever may change the amount owed is also asked, naming what the day's line owes, "Also remove its $15.00 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, and not asked where it owes nothing; ticked, the day owes $0 once freed, so a vendor who paid reads paid more than owed (E44/F01/S02).
 Covered by:
 
+- `a-change-after-results-says-so.spec.ts`
 - `changing-owed-and-paid.spec.ts`
 - `placement-edit.spec.ts`
 
@@ -140,10 +147,12 @@ Covered by:
 
 **Status:** Works (walked live).
 Every hand assignment is a pin; on the Settings page, "Allocate tables again" says "Keeps your N hand assignments; allocates tables for everyone else again." (or "Allocates tables for everyone again." with none) and seats pins first.
+With pins only and no allocation run yet, the button reads "Allocate tables" and its line "Keeps your N hand assignments; allocates tables for everyone else." (T316).
 Covered by:
 
 - `placement-pins.spec.ts`
 - `placing-someone-not-approved.spec.ts`
+- `results-wait-for-the-allocation.spec.ts`
 
 ## J10. A pin the plan no longer holds
 
@@ -171,8 +180,10 @@ With nothing filtered and nothing there it says "No assignments have been change
 A vendor's drawer holds their placements on its History tab, among everything else the market's history holds about them ([the vendor drawer](vendor-drawer.md)).
 Each entry leads with the market day it is about, "Every market day" on a run and on the rules, then says who made the change and what changed, naming each vendor by name with their email beside, and when: "e2e@example.com assigned <vendor> at Front 10 (Full Table)" (the table alone where no table choice was recorded), "e2e@example.com moved <vendor> from Back 1 to Front 10 (Full Table)" when they had a table that day, "e2e@example.com swapped <vendor> and <vendor> - now at Front 10 and Back 1", "e2e@example.com freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "e2e@example.com allocated tables: N assignments written, M pins preserved", and names nobody, so it is in no vendor's tab.
 A move recorded before the history kept the table left reads as an assignment.
+A change made while results are published says so after the day: a free and a move add ", after results were published: their vendor page had shown Back 1", naming the table the vendor's page had shown, and an assignment of an empty seat and a swap add ", after results were published" (T316).
 Covered by:
 
+- `a-change-after-results-says-so.spec.ts`
 - `the-assignment-history.spec.ts`
 - `the-vendors-history.spec.ts`
 

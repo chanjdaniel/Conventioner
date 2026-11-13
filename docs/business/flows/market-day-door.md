@@ -21,6 +21,8 @@ sources:
   - E38/F09/S01
   - E38/F15/S04
   - T202
+  - T277
+  - T316
 ---
 
 # Publishing, and the door on market day
@@ -45,6 +47,8 @@ Both read the stored assignment, so a vendor placed, swapped or freed by hand is
 Disabled before the click, with the rail naming the first blocker:
 
 - no assignment is stored: "No tables have been allocated for this market, so its vendor page could not tell anyone where to stand. Allocate tables first.", with "Allocate tables";
+- only tables assigned by hand are stored, with no table allocation run: "Only tables assigned by hand are stored, so every other approved vendor would read that they did not get one. Allocate tables first: allocating keeps the tables you assigned.", with "Allocate tables" (T316);
+- every seat freed after results are published, when a run is refused: "Nobody has a table, so this market's vendor page could not tell anyone where to stand. Results are published, so tables are not allocated again: assign each one by hand.", with "Assign tables", which leads to Assignments (T316); and the same in a market left in Offers with nobody seated, where a run is refused too: "Nobody has a table, so this market's vendor page could not tell anyone where to stand. The table allocation for this market is settled, so tables are not allocated again: assign each one by hand.";
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds));
 - the results are not published, on either path: "Vendors have not been told whether they have a table. Publish the results before the market goes live.", with "Publish results" ([I7](assignment-and-result.md#i7-publish-results)).
 

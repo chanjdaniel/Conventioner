@@ -5,7 +5,7 @@ import { seedApplication, seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
-import { publishResults } from './helpers/seeds';
+import { allocateThenFreeEverySeat, publishResults } from './helpers/seeds';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 import { StatsPage } from './pages/StatsPage';
@@ -214,6 +214,9 @@ test('from assignment to the archive, each tile is the figure of the page it lin
   request,
 }) => {
   const marketId = await fourVendors(request, PRICING);
+  // Results are published below, which waits for tables to be allocated (T316): the seats are
+  // hand edits of a run.
+  await allocateThenFreeEverySeat(request, BACKEND_URL, marketId);
   await seatAndPay(request, marketId);
   let stats = await openStats(page, marketId);
 
@@ -387,6 +390,9 @@ test("check-in reads each day's vendors in of those expected from Market Days, a
   request,
 }) => {
   const marketId = await fourVendors(request, null);
+  // Results are published below, which waits for tables to be allocated (T316): the seats are
+  // hand edits of a run.
+  await allocateThenFreeEverySeat(request, BACKEND_URL, marketId);
   await seatAndPay(request, marketId);
   let stats = await openStats(page, marketId);
   // Nobody checks in before Market Days, and an unpriced market has no money to tell.

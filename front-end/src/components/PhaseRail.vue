@@ -30,7 +30,6 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useMediaQuery } from '@vueuse/core';
 import { useRoute, useRouter } from 'vue-router';
-import { hasAssignment } from '@/utils/marketPage';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
@@ -51,6 +50,7 @@ import {
   nextStep,
   pathPhaseLabel,
   pathTransitionLabel,
+  serverTakesRemedy,
   spineFor,
   stageActions,
   type StageAction,
@@ -278,9 +278,10 @@ const fix = computed(() => {
   // The move's own first blocker - not the sentence's, which before a run says "run the assignment"
   // in its own words and names no blocker - with the form before Review setup (T260).
   const blocker = props.market ? firstInTheWay(props.market, forwardTransition.value) : null;
-  const to = mayTake(props.market, blocker?.resolutionAction)
-    ? elsewhere(blocker?.resolutionLink)
-    : null;
+  const to =
+    mayTake(props.market, blocker?.resolutionAction) && serverTakesRemedy(props.market, blocker)
+      ? elsewhere(blocker?.resolutionLink)
+      : null;
   return blocker?.resolutionLabel && to ? { label: blocker.resolutionLabel, to } : null;
 });
 
@@ -446,10 +447,11 @@ async function doTransition(toPhase: string): Promise<boolean> {
   //
   // Read off the phase moved to rather than the re-read market's: the move is done once the server
   // answered, and a re-read that failed in transit leaves the store holding the market as it was
-  // before it. Whether a run is stored, which no move changes, can come from either.
+  // before it. The allocation can come from either: a move may change whether a run reads as out
+  // of date, never whether tables are allocated.
   const moved = marketStore.market ?? props.market;
   await router.push(
-    marketPath(props.market.id, landingPage(toPhase, hasAssignment(moved), path.value)),
+    marketPath(props.market.id, landingPage(toPhase, moved.allocation, path.value)),
   );
   return true;
 }
