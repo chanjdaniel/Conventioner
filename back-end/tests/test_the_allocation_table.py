@@ -16,8 +16,7 @@ from typing import NamedTuple, Optional
 
 import pytest
 
-from conftest import stored_assignment
-from test_attendance_api import FakeAttendanceCollection
+from conftest import FakeApplicationsCollection, stored_assignment
 from test_back_to_review import (  # noqa: F401 (world and runs are fixtures)
     DAY, MARKET, _application, _market, runs, world,
 )
@@ -57,7 +56,7 @@ def table(world, runs, monkeypatch):
         {**_application(), "id": "app-ana", "applicant_email": ANA},
         {**_application(), "id": "app-ben", "applicant_email": BEN, "form_data": {"shop": "Kiln"}},
     ]
-    monkeypatch.setattr(AttendanceApi, "attendance_collection", FakeAttendanceCollection())
+    monkeypatch.setattr(AttendanceApi, "attendance_collection", FakeApplicationsCollection())
     return Table(world.client, markets, runs)
 
 
