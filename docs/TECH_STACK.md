@@ -9,12 +9,13 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - T254
   - T251
   - T263
   - T273
+  - T317
 ---
 
 # Technology Stack
@@ -203,6 +204,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 - **ESLint 10.13.0** - JavaScript/TypeScript linter
   - Code quality enforcement
+  - `npm run lint` fixes what it can; `npm run lint:check` verifies without fixing and refuses a warning as it does an error, and CI's `frontend-lint-and-types` and `scripts/nm-test.sh` run it
   - Vue-specific linting rules from `eslint-plugin-vue` 10 (its `flat/essential` set, plus `vue/no-v-html` as an error, so no template renders raw HTML)
 - **minimatch 11, held by `overrides` in `front-end/package.json`** - the glob matcher under ESLint, typescript-eslint and `@vue/test-utils`'s js-beautify, all development-only
   - Each of them still asks for minimatch 10, so the override holds every copy at `^11.0.8`, the line that has upstream's hardening

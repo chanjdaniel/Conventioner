@@ -8,8 +8,9 @@ scripts/tests/test_deploy_proof.py runs them against stubs as its dry run. Two c
         Whether the Test workflow passed on a push to `main` at that commit. Every check `main`
         requires is a job of the Test workflow, and branch protection's own list needs an admin
         token to read, so a Test run that concluded `success` is the proof. The newest run by
-        `run_number` decides; a re-run of failed jobs is the same run. It fails closed: an error
-        from GitHub refuses, with no retry. Needs GITHUB_REPOSITORY and GITHUB_TOKEN;
+        `run_number` decides; a re-run of failed jobs is the same run (read by scripts/github_runs.py,
+        as Promote reads `dev`'s). It fails closed: an error from GitHub refuses, with no retry.
+        Needs GITHUB_REPOSITORY and GITHUB_TOKEN;
         GITHUB_API_URL defaults to https://api.github.com.
 
     prove --project backend|frontend --url <address> --commit <sha> (--own | --domain)
@@ -36,7 +37,6 @@ bypass secret, which GitHub would not mask), or more than 200 characters of a re
 never runs with -v or -L, which would print or follow the bypass header.
 """
 import argparse
-import http.client
 import json
 import os
 import re
@@ -44,12 +44,12 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
+
+import github_runs
 
 OWN_ADDRESS = re.compile(r"^https://[a-z0-9-]+\.vercel\.app$")
 EXCERPT = 200
@@ -310,29 +310,7 @@ def check(project: Project, address: str, host: str, answer: Answer, fetch) -> L
 
 
 def green(sha: str, api: str, repository: str, token: str) -> int:
-    query = urllib.parse.urlencode({"head_sha": sha, "event": "push", "branch": "main", "per_page": 100})
-    request = urllib.request.Request(
-        f"{api.rstrip('/')}/repos/{repository}/actions/workflows/test.yml/runs?{query}",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            listed = json.load(response)["workflow_runs"]
-        runs = [
-            run for run in listed
-            if run["head_sha"] == sha and run["event"] == "push" and run["head_branch"] == "main"
-        ]
-        newest = max(runs, key=lambda run: run["run_number"], default=None)
-    except urllib.error.HTTPError as error:
-        reason = str(error.code)
-    except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError) as error:
-        reason = type(error).__name__
-    else:
-        reason = None
+    newest, reason = github_runs.newest_run(sha, "main", api, repository, token)
     if reason is not None:
         return refuse(f"Could not read the Test runs for {short(sha)} from GitHub ({reason}), so nothing was deployed.")
     if newest is None:

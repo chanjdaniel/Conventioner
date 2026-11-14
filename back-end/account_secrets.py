@@ -1,4 +1,4 @@
-"""An account's sign-in secrets (ADR 0027): the only code that reads or writes them.
+"""An account's sign-in secrets (ADR 0028): the only code that reads or writes them.
 
 An organizer's account holds up to three secrets a mail carries: a sign-in code, a reset link and a
 verification link. Each is one record under the account's ``secrets`` field, by kind

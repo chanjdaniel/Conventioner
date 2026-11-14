@@ -219,7 +219,7 @@ verify_user_indexes()
 
 
 def verify_organizer_session_indexes() -> None:
-    """Refuse to boot unless an organizer's sign-ins can be kept on the server (ADR 0028).
+    """Refuse to boot unless an organizer's sign-ins can be kept on the server (ADR 0029).
 
     Every sign-in is a record in ``organizer_sessions``; a TTL index removes one once it has ended,
     and an index by account serves ending all of an account's at once. Built here, so a process
@@ -549,7 +549,7 @@ def hold_a_restored_session_to_its_browser(_app: Flask, user: Any) -> None:
 
 @login_manager.request_loader
 def a_legacy_remembered_account(_request: Any) -> Any:
-    """The account a legacy `remember_token` cookie names, read for one release (ADR 0028).
+    """The account a legacy `remember_token` cookie names, read for one release (ADR 0029).
 
     The remember cookie of a sign-in made before sign-ins were kept on the server: Flask-Login asks
     here once the session has loaded no one and the browser holds no new remember cookie. Restored

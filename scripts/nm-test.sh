@@ -13,6 +13,12 @@
 #     ./scripts/nm-test.sh --real-data-only
 #     PYTHON_CMD=/path/to/python3.12 ./scripts/nm-test.sh
 #
+# A run checks the branch for real data, then runs the scripts' tests and the knowledge graph's
+# check, the back end's re-lock and pytest, the static checks of CI's frontend-lint-and-types job
+# (the pinned Node and npm, the lockfile, Prettier, ESLint, Stylelint, the type-check), Vitest, that
+# job's build, bundle budget and eval check, and Playwright on a stack of its own. CI alone runs
+# docker compose build, gitleaks, zizmor, actionlint, the knowledge graph's drift check and CodeQL.
+#
 # --skip-e2e runs every suite but Playwright, and so starts no stack and takes no end-to-end lock,
 # leaving Playwright to CI's required e2e shards.
 #
@@ -210,13 +216,33 @@ git diff --exit-code -- 'requirements*.txt'
 $PYTHON -m pytest tests/ -v
 echo "Backend tests: OK"
 
+# ── Frontend lint and types (hermetic) ─────────────────────────────────────
+
+echo ""
+echo "===== Frontend Lint and Types ====="
+
+# CI's frontend-lint-and-types job's steps, in its order, so a run fails where that job would; the
+# static checks come before the unit tests and the build, the cheapest failure first.
+cd "$REPO_ROOT/front-end"
+PINNED_NODE="v$(cat "$REPO_ROOT/.nvmrc")"
+FOUND_NODE="$(node --version 2>/dev/null)" || fail "Node not found on PATH; run nvm install"
+[[ "$FOUND_NODE" == "$PINNED_NODE" ]] || fail "Node is $FOUND_NODE, not $PINNED_NODE (.nvmrc); run nvm use"
+npm ci --engine-strict
+# The pinned npm writes the committed lockfile; what it wrote otherwise stays in the worktree to read.
+npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+git diff --exit-code -- package-lock.json ||
+  fail "the pinned npm writes front-end/package-lock.json otherwise (the diff above, left in the worktree); see docs/TECH_STACK.md#node-and-npm-are-pinned"
+npm run format:check
+npm run lint:check
+npm run lint:css
+npm run type-check
+echo "Frontend lint and types: OK"
+
 # ── Frontend unit tests (hermetic) ───────────────────────────────────────────
 
 echo ""
 echo "===== Frontend Unit Tests ====="
 
-cd "$REPO_ROOT/front-end"
-npm ci
 npm run test:unit
 echo "Frontend unit tests: OK"
 

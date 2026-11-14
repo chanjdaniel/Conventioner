@@ -1,4 +1,4 @@
-"""How long a sign-in lasts, the cookies that carry it, and what ends it on the server (ADR 0028).
+"""How long a sign-in lasts, the cookies that carry it, and what ends it on the server (ADR 0029).
 
 Signing in offers "Remember me" (E38/F14/S01). Unticked, the sign-in sets the session cookie
 only, which ends with the browser, and the server ends the sign-in 12 hours after it was made,

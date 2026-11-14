@@ -12,7 +12,7 @@ import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
  * lasts 30 days and signs the reopened browser back in. The 12 hours and the 30 days the server
  * holds each to are pytest's (`test_the_remember_cookie.py`), which can move the clock.
  *
- * The sign-in is kept on the server (ADR 0028), so signing out ends it there: a copy of the
+ * The sign-in is kept on the server (ADR 0029), so signing out ends it there: a copy of the
  * browser's cookies taken before is signed out with it.
  */
 

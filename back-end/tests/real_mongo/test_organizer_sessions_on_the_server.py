@@ -1,4 +1,4 @@
-"""An organizer's sign-ins kept on a real server (ADR 0028): signing out ends one, so a copy of the
+"""An organizer's sign-ins kept on a real server (ADR 0029): signing out ends one, so a copy of the
 browser's cookies is refused, and a password reset ends every one of the account's."""
 import hashlib
 

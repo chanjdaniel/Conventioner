@@ -35,7 +35,7 @@ describes:
   - back-end/app.py#a_legacy_remembered_account
   - back-end/app.py#forget_the_legacy_remember_cookie
   - back-end/organizer_sessions.py
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - T74
   - T109
@@ -47,6 +47,7 @@ sources:
   - T251
   - T273
   - T311
+  - T317
 ---
 
 # Security invariants
@@ -151,10 +152,10 @@ So the check runs on the PC, before anything leaves it, and CI is only the backs
 | [`.githooks/pre-commit`](../../../.githooks/pre-commit) | the staged lines, so an ignored export added with `git add -f`, or its rows pasted next to a tracked file, is refused                                                                    |
 | [`.githooks/pre-push`](../../../.githooks/pre-push)     | each commit the push sends that no remote-tracking branch already has, its lines and its message: the second net, for a commit made with the hooks skipped                               |
 | the gate's [`nm-test.sh`](../../../scripts/nm-test.sh)  | each commit since `origin/dev`, then every file of the tree at `HEAD`, since the gate pushes the branch: the gate's test step runs it with `--real-data-only`, these checks and no suite |
-| CI's `real-data` job                                    | the pull request's commits, then every file of the merge it checks out, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection   |
+| the real-data steps of CI's `real-data-and-workflows`   | the pull request's commits, then every file of the merge it checks out, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection   |
 
 **The gate's own commits are CI's to check.**
-Its document, lint and CI-fix steps commit after its test step has run `nm-test.sh`, and the gate pushes them from its own repository under `~/.no-mistakes/`, where `core.hooksPath` is not set, so neither the hooks nor `nm-test.sh` read them: CI's `real-data` job on the pull request is the only check they get.
+Its document, lint and CI-fix steps commit after its test step has run `nm-test.sh`, and the gate pushes them from its own repository under `~/.no-mistakes/`, where `core.hooksPath` is not set, so neither the hooks nor `nm-test.sh` read them: the real-data steps of CI's `real-data-and-workflows` on the pull request are the only check they get.
 
 All four run one checker, [`scripts/real_data_check.py`](../../../scripts/real_data_check.py).
 It fails an added line holding an email address outside the fixture domains (`example.com`, `example.org`, `example.net` and their subdomains, `*.test`, `*.example`, `*.invalid`, `*.localhost`, and the services' own in its `FIXTURE_DOMAINS`: the project's, Resend's test sender, the placeholder MongoDB host and commit trailers'), or a North American phone number written with separators outside the fictional 555-0100 to 555-0199.
@@ -207,7 +208,7 @@ Loopback counts as a secure context, so `Secure` leaves local development unaffe
 The settings sit together in [`app.py`](../../../back-end/app.py) under one comment; `HttpOnly` is Flask-Login's default for the remember cookie and is asserted rather than set.
 The remember cookie's `__Host-` prefix holds it to the API's host, as the vendor's is below: a browser takes it, and its deletion, only with `Secure`, `Path=/` and no `Domain`, so no `REMEMBER_COOKIE_DOMAIN` is set, and `RefusingLoginManager._clear_cookie` deletes it with the attributes it was set with, since Flask-Login's own deletion sends no `Secure` and a browser would refuse it.
 
-**A sign-in is kept on the server** ([ADR 0028](../../adr/0028-an-organizers-sign-in-is-kept-on-the-server.md)): both cookies carry a random secret, and `organizer_sessions` keeps only its SHA-256, beside the account, its login id and when the sign-in ends, so a copy of the database signs nobody in ([a sign-in is kept on the server](../data/users-and-email.md#a-sign-in-is-kept-on-the-server)).
+**A sign-in is kept on the server** ([ADR 0029](../../adr/0029-an-organizers-sign-in-is-kept-on-the-server.md)): both cookies carry a random secret, and `organizer_sessions` keeps only its SHA-256, beside the account, its login id and when the sign-in ends, so a copy of the database signs nobody in ([a sign-in is kept on the server](../data/users-and-email.md#a-sign-in-is-kept-on-the-server)).
 Sign out ends the browser's sign-in there, so a copy of its cookies stops working too; a new sign-in in the browser ends the one it held; Sign out everywhere and a password reset, which each replace the login id, and deleting the account end every one of the account's.
 The browser cannot change what it carries either way: the session is signed into its cookie with `SECRET_KEY`, or kept on the server behind a random id, and the remember cookie is signed with `SECRET_KEY` by Flask-Login's digest.
 

@@ -1,4 +1,4 @@
-"""An account's sign-in secrets move between their states only as the table says (ADR 0027).
+"""An account's sign-in secrets move between their states only as the table says (ADR 0028).
 
 Each test is one column of the table in ``account_secrets`` (an event) over every row (a state the
 kind's record can be in), driven through the module's functions on a users collection read and
