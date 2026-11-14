@@ -71,7 +71,8 @@ class TestTheCheckInKeepsItsTable:
         assert check_in(client).status_code == 200
         arrived = row_of(client)["checkedInAt"]
 
-        freed = client.delete(PLACEMENTS, json={"email": VENDOR, "date": DATE})
+        # Asked first, and confirmed, as the placement dialog does for a vendor who is here.
+        freed = client.delete(PLACEMENTS, json={"email": VENDOR, "date": DATE, "whileHere": True})
         assert freed.status_code == 200, freed.get_json()
         # Still listed: their arrival is not hidden once they hold no table.
         row = row_of(client)
@@ -97,7 +98,9 @@ class TestTheCheckInKeepsItsTable:
     def test_checking_in_again_at_a_new_seat_moves_the_record_to_it(self, client, world):
         on_its_days(world, VENDOR)
         check_in(client)
-        client.put(PLACEMENTS, json=placement(email=VENDOR, table_code="Hall A 2"))
+        moved = client.put(PLACEMENTS, json={
+            **placement(email=VENDOR, table_code="Hall A 2"), "whileHere": True})
+        assert moved.status_code == 200, moved.get_json()
 
         assert check_in(client).status_code == 200
 

@@ -99,10 +99,22 @@ function afterResults(entry: MarketHistoryEntry): string {
     : ', after results were published';
 }
 
-/** A placement's sentence: who made it, what its kind says, and the day it is for after them. */
+/**
+ * What a free, a move or a swap of a vendor who had checked in that day adds after its day (T318):
+ * that it was made while they were, once the organizer was asked. Nothing for an entry without
+ * `while_here`, so every older entry reads as it did.
+ */
+function whileHere(entry: MarketHistoryEntry): string {
+  return asDetail(entry.detail).while_here === true ? ', while they were checked in' : '';
+}
+
+/**
+ * A placement's sentence: who made it, what its kind says, and after them the day it is for, then
+ * what the entry says of when it was made: while the vendor was here, after results were published.
+ */
 function placement(entry: MarketHistoryEntry, context: ReaderContext): MarketHistoryPart[] {
   const { actor, detail, onDay, text } = sentence(entry, context);
-  const after = onDay(detail.date) + afterResults(entry);
+  const after = [onDay(detail.date), whileHere(entry), afterResults(entry)].join('');
   return [
     actor,
     ...PLACEMENT_WORDS[entry.kind as string](entry, context),

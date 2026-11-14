@@ -12,6 +12,9 @@ lifecycle (``assignment/lifecycle.py``, T316), which stores the assignment's sta
 - ``write_placement`` writes one vendor into one seat on one date.
 - ``remove_placement`` frees one vendor's seat on one date, and ``swap_placements`` trades two.
 
+Each of the three by hand asks first when it would free, move or swap a vendor who has checked in
+that day (``VendorIsHere``, T318), and goes ahead when asked again with ``whileHere: true``.
+
 Each asks the table's Assignment row (``Actions.ASSIGN``, E39/F01/S01), whose default is EDITOR, the
 same bar as every other market write and deliberately not stricter: an EDITOR can already rewrite
 the tiers, sections and table counts the whole assignment is computed from, so withholding "move
@@ -19,7 +22,7 @@ one vendor between two seats" protects nothing.
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from assignment.assignment import (
     NOTHING_TO_ASSIGN,
@@ -39,12 +42,14 @@ from datatypes import (
     table_code_for,
 )
 import api.applications as ApplicationsApi
+import api.attendance as AttendanceApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
 import assignment.lifecycle as Lifecycle
 import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError, ForbiddenError
+import essential_fields as EssentialFields
 import history as History
 from market_write import MarketChanged
 from tombstone import live
@@ -75,6 +80,59 @@ class SeatTakenError(PlacementError):
     """
 
     status = 409
+
+
+#: The ``code`` of the 409 a free, a move or a swap of a vendor who is here answers, which the
+#: placement dialog tells apart from a seat taken meanwhile (``isVendorHere``).
+VENDOR_IS_HERE = "vendor_is_here"
+
+
+class VendorIsHere(ConflictError):
+    """The change would free, move or swap a vendor who has checked in that day. A 409 that wrote
+    nothing, coded ``vendor_is_here``: the same request with ``whileHere: true`` goes ahead (T318).
+
+    A conflict with who is at the door, not with the market: nothing changed since the page read it,
+    so the screen asks and resends rather than reading the tables again. Asked by the server, not
+    only the screen, so a second organizer whose roster had not caught up is asked too.
+    """
+
+    def body(self) -> Dict[str, Any]:
+        return {"error": self.message, "code": VENDOR_IS_HERE}
+
+
+def _vendor_said(market_id: str, email: str) -> str:
+    """A vendor as a sentence names them: the name they chose, or the one on their identification,
+    or their address when the application gave neither."""
+    application = ApplicationsApi.find_application_by_email(market_id, email)
+    return EssentialFields.display_name((application or {}).get("form_data") or {}) or email
+
+
+def _ask_first_if_here(
+    market: Market, date: str, seats: List[VendorAssignmentResult], while_here: bool,
+) -> bool:
+    """Refuse with ``VendorIsHere`` when any vendor of ``seats`` has checked in on ``date``, unless
+    the request says ``while_here``; answer whether any had, which the history entry then says.
+
+    The sentence names each by the table their check-in was made at, and a record from before
+    check-ins kept a table (T318) as made at the seat held now, as the roster reads it. The check-in
+    is left where it was made: it records an arrival, and the roster shows where they stand.
+    """
+    here = []
+    for seat in seats:
+        record = AttendanceApi.checked_in_on(market.id, seat.email, date)
+        if record is not None:
+            here.append((_vendor_said(market.id, seat.email),
+                         record.get("table_code") or seat.table_code))
+    if here and not while_here:
+        day = _said_day(date)
+        if len(here) == 1:
+            [(name, table)] = here
+            raise VendorIsHere(f"{name} checked in at table {table} for {day}. "
+                               "Their check-in stays recorded there.")
+        (first, first_table), (second, second_table) = here
+        raise VendorIsHere(f"{first} checked in at table {first_table} and {second} at table "
+                           f"{second_table} for {day}. Their check-ins stay recorded there.")
+    return bool(here)
 
 
 def _seat_section(setup_object: SetupObject, table_code: str) -> Optional[SectionObject]:
@@ -315,6 +373,11 @@ def write_placement(
 ) -> Tuple[Dict[str, Any], int]:
     """Place one vendor in one seat on one date, replacing whatever they held that date.
 
+    A move of a vendor who has checked in that day to another table asks first (``VendorIsHere``)
+    unless ``while_here`` is true. Seating a vendor who holds no table that day asks nothing, a
+    vendor freed while here included: it moves nobody, and gives them the table the roster says
+    they lack.
+
     A vendor holds at most one seat per date, so a second placement on the same date moves them
     rather than giving them two. Whoever already sits in the target seat is left alone here: a
     seat contradiction is refused at pin time (E11/F02/S02), and trading two vendors is an
@@ -345,6 +408,9 @@ def write_placement(
     stored = market.assignment_object.vendor_assignments
     left = next((existing for existing in stored
                  if existing.email == placement.email and existing.date == placement.date), None)
+    moved = left is not None and left.table_code != placement.table_code
+    while_here = moved and _ask_first_if_here(
+        market, placement.date, [left], placement_data.get("while_here") is True)
     kept = [
         existing
         for existing in stored
@@ -355,7 +421,8 @@ def write_placement(
     Lifecycle.store(market, Lifecycle.Event.PLACE, kept,
                     assignment_date=market.assignment_object.assignment_date)
     History.record_placed(market_id, requesting_user, placement, left,
-                          after_results=Lifecycle.results_published(market))
+                          after_results=Lifecycle.results_published(market),
+                          while_here=while_here)
     PaymentsApi.seated_again(market_id, [(placement.email, placement.date)],
                              [(left.email, left.date)] if left else [], requesting_user)
 
@@ -364,6 +431,7 @@ def write_placement(
 
 def remove_placement(
     market_id: str, email: str, date: str, requesting_user: str, deduct_owed: bool = False,
+    while_here: bool = False,
 ) -> Tuple[Dict[str, Any], int]:
     """Free the seat one vendor holds on one date.
 
@@ -378,6 +446,10 @@ def remove_placement(
     ``deduct_owed`` is the free's question answered yes, "Also remove its $15.00 from what
     they owe?" (E44/F01/S02): the seat's line then owes $0 in the same change. It asks the row
     ``Actions.CHANGE_OWED`` too, before anything is freed.
+
+    Freeing a vendor who has checked in that day asks first (``VendorIsHere``) unless
+    ``while_here`` is true, before the line is kept or the seat freed, so the question writes
+    nothing; the deduction asked rides on the request asked again.
     """
     market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.ASSIGN)
     if deduct_owed:
@@ -402,6 +474,7 @@ def remove_placement(
         if existing.email == email and existing.date == date
     ]
     if freed:
+        here = _ask_first_if_here(market, date, freed[:1], while_here)
         # Before the seat goes, while the market still says what it cost: freeing a table changes
         # neither what the vendor owes nor what they paid (E44/F01/S01), and the deduction asked is
         # in the same write, so no stop after the seat leaves it free and its full amount owed.
@@ -430,7 +503,7 @@ def remove_placement(
         for placement in freed:
             History.record_freed(
                 market_id, requesting_user, email, date, placement.table_code,
-                after_results=Lifecycle.results_published(market),
+                after_results=Lifecycle.results_published(market), while_here=here,
             )
         kept_line.record_deduction()
     elif deduct_owed:
@@ -454,7 +527,8 @@ def _still_holds(market_id: str, email: str, date: str) -> bool:
 
 
 def swap_placements(
-    market_id: str, date: str, first_email: str, second_email: str, requesting_user: str
+    market_id: str, date: str, first_email: str, second_email: str, requesting_user: str,
+    while_here: bool = False,
 ) -> Tuple[Dict[str, Any], int]:
     """Trade two vendors' seats on one date. Either both change or neither does.
 
@@ -465,6 +539,9 @@ def swap_placements(
 
     This exists instead of a "move" that displaces whoever is already there. A move is how a
     vendor is silently unassigned; a swap says out loud that two people are changing places.
+
+    A swap of a vendor who has checked in that day, either of the two, asks first (``VendorIsHere``,
+    naming both when both are here) unless ``while_here`` is true.
     """
     market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.ASSIGN)
 
@@ -488,6 +565,7 @@ def swap_placements(
         _applicant_address(market, email)
 
     first, second = placements[held[first_email]], placements[held[second_email]]
+    here = _ask_first_if_here(market, date, [first, second], while_here)
     # The seat is everything about where they sit; only the vendor stays put. Flagged hand-placed
     # on both sides, because a swap is two deliberate placements.
     seat_fields = ("table_code", "table_choice", "section", "tier", "location")
@@ -509,6 +587,7 @@ def swap_placements(
         placements[held[first_email]],
         placements[held[second_email]],
         after_results=Lifecycle.results_published(market),
+        while_here=here,
     )
 
     # Both days were held, so a freed record on either is one a stopped free left, and goes.

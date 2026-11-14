@@ -1563,7 +1563,8 @@ def write_placement(market_id: str) -> Response:
     """Place one vendor in one seat on one date. Asks ``Actions.ASSIGN``.
 
     EDITOR by default, the same bar as every other market write: an EDITOR can already rewrite the
-    tiers, sections and table counts the whole assignment is computed from.
+    tiers, sections and table counts the whole assignment is computed from. A move of a vendor who
+    has checked in that day answers 409 ``vendor_is_here`` unless ``whileHere`` is true (T318).
     """
     data = json_object(required=True)
 
@@ -1591,7 +1592,8 @@ def get_history(market_id: str) -> Response:
 @app.route('/markets/<market_id>/placements/swap', methods=['POST'])
 @login_required
 def swap_placements(market_id: str) -> Response:
-    """Trade two vendors' seats on one date, atomically. Asks ``Actions.ASSIGN``."""
+    """Trade two vendors' seats on one date, atomically. Asks ``Actions.ASSIGN``. Either vendor
+    checked in that day answers 409 ``vendor_is_here`` unless ``whileHere`` is true (T318)."""
     data = json_object(required=False)
     emails = data.get("emails")
     if not isinstance(emails, list):
@@ -1602,6 +1604,7 @@ def swap_placements(market_id: str) -> Response:
         str(emails[0]) if len(emails) > 0 else "",
         str(emails[1]) if len(emails) > 1 else "",
         authenticated_email(),
+        while_here=data.get("whileHere") is True,
     )
     return jsonify(result), status_code
 
@@ -1612,7 +1615,8 @@ def remove_placement(market_id: str) -> Response:
     """Free the seat one vendor holds on one date. Asks ``Actions.ASSIGN``.
 
     The counterpart of the PUT above, and the reason no operation displaces an occupant:
-    freeing a seat first is safe, and mirrors what an organizer physically does.
+    freeing a seat first is safe, and mirrors what an organizer physically does. A vendor who has
+    checked in that day answers 409 ``vendor_is_here`` unless ``whileHere`` is true (T318).
     """
     data = json_object(required=False)
     result, status_code = PlacementsApi.remove_placement(
@@ -1621,6 +1625,7 @@ def remove_placement(market_id: str) -> Response:
         str(data.get("date") or ""),
         authenticated_email(),
         deduct_owed=data.get("deductOwed") is True,
+        while_here=data.get("whileHere") is True,
     )
     return jsonify(result), status_code
 

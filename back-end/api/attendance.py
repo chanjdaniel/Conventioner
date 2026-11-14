@@ -171,6 +171,17 @@ def ended_after_it_ran(market_doc: Dict[str, Any]) -> bool:
     return market_has_ended(market_doc) and market_ran(market_doc)
 
 
+def checked_in_on(market_id: str, vendor_email: str, date: str) -> Optional[Dict[str, Any]]:
+    """This vendor's check-in at this market on this date, or None: one record, read by the
+    normalised address, which is how a check-in is stored. The placement doors read it to ask
+    before they free, move or swap a vendor who is here (T318)."""
+    return attendance_collection.find_one({
+        "market_id": market_id,
+        "vendor_email": normalized_email(vendor_email),
+        "date": date,
+    })
+
+
 def check_ins_of(market_id: str, vendor_email: str) -> Dict[str, Optional[str]]:
     """When one vendor checked in at a market, ``{date: checked_in_at}``, for the dates they did."""
     return {
