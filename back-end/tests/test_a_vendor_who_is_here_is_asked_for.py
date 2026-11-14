@@ -39,7 +39,9 @@ SETUP = {**SETUP_OBJECT, "sections": [*SETUP_OBJECT["sections"], {
     "name": "Hall B", "location": {"name": "Main Hall"}, "tier": {"id": 1, "name": "Gold"},
     "count": 2,
 }]}
-ANA_HERE = ("Ana checked in at table Hall A 1 for Aug 1, 2026. "
+# "table <code>" is one run joined by no-break spaces, so a narrow dialog never leaves the code's
+# last word on a line alone, as the door's status does.
+ANA_HERE = ("Ana checked in at table\u00a0Hall\u00a0A\u00a01 for Aug 1, 2026. "
             "Their check-in stays recorded there.")
 
 
@@ -148,8 +150,9 @@ class TestWithoutWhileHereNothingIsWritten:
 
         assert answer.status_code == 409
         assert answer.get_json() == {
-            "error": ("Ana checked in at table Hall A 1 and Ben at table Hall A 2 for "
-                      "Aug 1, 2026. Their check-ins stay recorded there."),
+            "error": ("Ana checked in at table\u00a0Hall\u00a0A\u00a01 and Ben at "
+                      "table\u00a0Hall\u00a0A\u00a02 for Aug 1, 2026. Their check-ins stay recorded "
+                      "there."),
             "code": HERE_CODE,
         }
 
@@ -160,7 +163,7 @@ class TestWithoutWhileHereNothingIsWritten:
         answer = swap(client)
 
         assert answer.get_json() == {
-            "error": ("Ben checked in at table Hall A 2 for Aug 1, 2026. "
+            "error": ("Ben checked in at table\u00a0Hall\u00a0A\u00a02 for Aug 1, 2026. "
                       "Their check-in stays recorded there."),
             "code": HERE_CODE,
         }
@@ -172,7 +175,7 @@ class TestWithoutWhileHereNothingIsWritten:
         answer = free(client, CARA)
 
         assert answer.get_json()["error"] == (
-            "cara@example.com checked in at table Hall A 1 for Aug 1, 2026. "
+            "cara@example.com checked in at table\u00a0Hall\u00a0A\u00a01 for Aug 1, 2026. "
             "Their check-in stays recorded there.")
 
     def test_the_table_named_is_the_one_they_checked_in_at(self, client, world):

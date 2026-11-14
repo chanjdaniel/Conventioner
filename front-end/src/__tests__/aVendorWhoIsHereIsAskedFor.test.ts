@@ -324,6 +324,18 @@ describe('the seat’s dialog, asking', () => {
     ).toEqual(['door-here-1794628088744', '@example.test']);
   });
 
+  it('keeps the server’s “table <code>” run unbroken, beside an address too', () => {
+    // The server joins "table A 3" with no-break spaces; drawn through `EmailAddress`, they stay.
+    const sentence =
+      'door-here-1794628088744@example.test checked in at table A 3 for May 1, 2099. ' +
+      'Their check-in stays recorded there.';
+    const wrapper = theDialog({ question: { sentence, change: 'free' } });
+
+    expect(wrapper.get('[data-testid="placement-dialog-here"]').element.textContent?.trim()).toBe(
+      sentence,
+    );
+  });
+
   it.each([
     ['free', 'Free anyway', 'btn--destructive'],
     ['move', 'Move anyway', 'btn--primary'],

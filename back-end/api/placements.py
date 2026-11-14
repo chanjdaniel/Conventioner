@@ -127,11 +127,12 @@ def _ask_first_if_here(
         day = _said_day(date)
         if len(here) == 1:
             [(name, table)] = here
-            raise VendorIsHere(f"{name} checked in at table {table} for {day}. "
+            raise VendorIsHere(f"{name} checked in at {_table_run(table)} for {day}. "
                                "Their check-in stays recorded there.")
         (first, first_table), (second, second_table) = here
-        raise VendorIsHere(f"{first} checked in at table {first_table} and {second} at table "
-                           f"{second_table} for {day}. Their check-ins stay recorded there.")
+        raise VendorIsHere(f"{first} checked in at {_table_run(first_table)} and {second} at "
+                           f"{_table_run(second_table)} for {day}. Their check-ins stay recorded "
+                           "there.")
     return bool(here)
 
 
@@ -356,6 +357,13 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     if organization_dict:
         payload["organizationName"] = organization_dict.get("name")
     return payload, 200
+
+
+def _table_run(table_code: str) -> str:
+    """The words "table <code>" as one unbreakable run, its spaces no-break spaces, so a narrow
+    dialog never leaves the code's last word on a line alone ("table A", then "3"), as the door's
+    status does."""
+    return f"table {table_code}".replace(" ", "\u00a0")
 
 
 def _said_day(date: str) -> str:
