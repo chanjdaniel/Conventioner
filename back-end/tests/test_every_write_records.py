@@ -1009,6 +1009,24 @@ class TestWhatAnEntryHolds:
         assert entry["detail"]["rejected_by_rules"] == 0
         assert entry["detail"]["returned_by_rules"] == 0
 
+    def test_an_import_counts_the_automatic_rejection_it_returned(self, client, world):
+        """No rule meets the application a rule rejected any longer, so the import returns it."""
+        world.markets.doc = copy.deepcopy(_market_doc(phase=MarketPhase.APPLICATIONS))
+        world.applications.insert_one(_application(
+            "app-1", VENDOR, status="reviewer_rejected", form_data={"student": "No"},
+            verdict_by={"kind": "rule", "rule": "student"}, verdict_at="2026-10-02T00:00:00Z"))
+        row = ('2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,'
+               '"2026-08-01, 2026-08-08",2,Gold,half,,"Garden, Main Hall"')
+
+        response = client.post(f"/markets/{MARKET}/applications/import",
+                               json={"csvContent": _csv(row), "mapping": MAPPING})
+
+        assert response.status_code == 200, response.get_json()
+        assert response.get_json()["returnedByRules"] == 1
+        [entry] = world.history.documents
+        assert entry["detail"]["returned_by_rules"] == 1
+        assert world.applications.find_one({"id": "app-1"})["status"] == "open"
+
     def test_an_applicants_edit_holds_the_answers_it_changed_as_given(self, client, world):
         _applicant(first=False)(client, world)
 
