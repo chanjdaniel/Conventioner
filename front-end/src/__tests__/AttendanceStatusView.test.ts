@@ -136,17 +136,28 @@ function held<T>() {
 }
 
 /** Every roster read from here on answers with the next of `answers`, then the last forever. */
-function serveRoster(...answers: (() => Promise<unknown>)[]) {
+function serveRoster(...answers: ((config?: { timeout?: number }) => Promise<unknown>)[]) {
   let next = 0;
-  api.get.mockImplementation((url: string) => {
+  api.get.mockImplementation((url: string, config?: { timeout?: number }) => {
     if (url !== ROSTER_URL) return Promise.resolve({ data: {} });
     const answer = answers[Math.min(next, answers.length - 1)]!;
     next += 1;
-    return answer();
+    return answer(config);
   });
 }
 
 const offline = () => Promise.reject(new AxiosError('Network Error', 'ERR_NETWORK'));
+
+/** A read that never answers: as axios does, it fails only once the config's timeout runs out. */
+const stalled = (config?: { timeout?: number }) =>
+  new Promise((_resolve, reject) => {
+    if (config?.timeout) {
+      setTimeout(
+        () => reject(new AxiosError(`timeout of ${config.timeout}ms exceeded`, 'ECONNABORTED')),
+        config.timeout,
+      );
+    }
+  });
 
 let visibility: DocumentVisibilityState = 'visible';
 function setVisibility(state: DocumentVisibilityState) {
@@ -388,6 +399,33 @@ describe('when a read fails', () => {
 
     serveRoster(() => Promise.resolve(roster({ email: ANA, via: 'door_code' })));
     await vi.advanceTimersByTimeAsync(REREAD_MS);
+    expect(wrapper.find('[data-testid="attendance-refresh-error"]').exists()).toBe(false);
+    expect(status(wrapper, ANA)).toMatch(/^Scanned in at /);
+  });
+
+  it('a read that never answers is given up by the next re-read, and the clock and Refresh go on', async () => {
+    vi.useFakeTimers({
+      toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'Date'],
+    });
+    const wrapper = await open();
+    serveRoster(stalled);
+    const refreshButton = () => wrapper.get('[data-testid="attendance-refresh"]');
+    await refreshButton().trigger('click');
+    await flushPromises();
+    expect(api.get).toHaveBeenLastCalledWith(ROSTER_URL, { timeout: REREAD_MS });
+    expect(refreshButton().attributes('disabled')).toBeDefined();
+
+    await vi.advanceTimersByTimeAsync(REREAD_MS);
+    expect(wrapper.get('[data-testid="attendance-refresh-error"]').text()).toBe(
+      'Could not update. The roster is as it was last read.',
+    );
+    expect(wrapper.findAll('[data-testid="attendance-row"]')).toHaveLength(2);
+    expect(refreshButton().attributes('disabled')).toBeUndefined();
+
+    serveRoster(() => Promise.resolve(roster({ email: ANA, via: 'door_code' })));
+    const before = rosterReads();
+    await vi.advanceTimersByTimeAsync(REREAD_MS);
+    expect(rosterReads()).toBe(before + 1);
     expect(wrapper.find('[data-testid="attendance-refresh-error"]').exists()).toBe(false);
     expect(status(wrapper, ANA)).toMatch(/^Scanned in at /);
   });

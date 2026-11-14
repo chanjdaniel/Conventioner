@@ -298,6 +298,7 @@ async function read(): Promise<void> {
   try {
     const { data } = await api.get<{ dates: string[]; roster: RosterRow[] }>(
       `/markets/${encodeURIComponent(forMarket)}/attendance`,
+      { timeout: REREAD_MS },
     );
     if (mine !== asked) return;
     dates.value = data.dates ?? [];
