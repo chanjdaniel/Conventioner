@@ -114,6 +114,12 @@ test.describe('the import, on a later file', () => {
     request,
     expectAccessible,
   }) => {
+    // It keys 140 values one by one, two presses each, and every action takes longer as the
+    // machine's load rises. Under load the page's script, layout and style took under a second of
+    // the loop and its main thread's tasks most of it, flat from the first value to the last: a
+    // fixed count of actions whose cost follows the load, which the 30 seconds left no room for on
+    // a busy machine, and little on CI.
+    test.setTimeout(120_000);
     const marketId = await startFromFiveDay(page, request, { keepAll: true });
     const key = await sellingKey(request, marketId);
 
@@ -207,10 +213,10 @@ test.describe('the import, on a later file', () => {
     await expect(importer.valueFix(ignored).field).toHaveValue('Ignore this value');
     await expect(importer.unresolvedWarning).toContainText('144 values still need');
 
-    // The rest by the keys alone: the first row is "Ignore this value", one Enter away.
+    // The rest by the keys alone: the first row is "Ignore this value", one Enter away. `press`
+    // focuses the field before it presses.
     for (const value of values.slice(2)) {
       const other = importer.valueFix(value);
-      await other.field.focus();
       await other.field.press('ArrowDown');
       await other.field.press('Enter');
     }
