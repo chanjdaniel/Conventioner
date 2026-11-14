@@ -114,9 +114,11 @@ test.describe('the import, on a later file', () => {
     request,
     expectAccessible,
   }) => {
-    // It keys 140 values one by one, each two presses that are a round trip to the browser apiece,
-    // and a round trip slows with the machine's load while the page's own work stays under a second:
-    // the 30 seconds left no room on a busy machine, and little on CI.
+    // It keys 140 values one by one, two presses each, and every action takes longer as the
+    // machine's load rises. Under load the page's script, layout and style took under a second of
+    // the loop and its main thread's tasks most of it, flat from the first value to the last: a
+    // fixed count of actions whose cost follows the load, which the 30 seconds left no room for on
+    // a busy machine, and little on CI.
     test.setTimeout(120_000);
     const marketId = await startFromFiveDay(page, request, { keepAll: true });
     const key = await sellingKey(request, marketId);
