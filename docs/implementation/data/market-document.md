@@ -73,7 +73,7 @@ The glossary concepts: [Market](../../business/concepts/market.md), [Phase](../.
 
 **Market documents are stored camelCase, and that is the only spelling reads may name.**
 Every write camel-cases the whole document (`convert_keys_to_camel_case` in [`back-end/assignment/utils.py`](../../../back-end/assignment/utils.py), called by `create_market` and every named write), so `organization_id` is persisted as `organizationId`, and a hand-written filter on `organization_id` matches nothing.
-Anything touching a raw document or a Mongo filter goes through `market_documents.py`: `market_doc_key`, `market_doc_field`, `market_doc_filter`, `market_doc_set`, `market_doc_projection` and `market_from_document`, so the spelling is decided in one place.
+Anything touching a raw document or a Mongo filter goes through `market_documents.py`: `market_doc_key`, `market_doc_field`, `market_doc_filter`, `market_doc_projection` and `market_from_document`, so the spelling is decided in one place.
 
 **Do not add a read-time fallback that accepts both spellings.**
 Writes only refresh the camelCase key, so a legacy snake_case key holds a value that is stale for ever, and any filter matching it acts on data no write has refreshed since.

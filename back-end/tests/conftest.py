@@ -298,8 +298,8 @@ def reject_malformed_update(update):
 
     A fake that records the update without looking at it accepts things the driver rejects, and the
     suite is then green on a call that 500s in production. That is exactly how a double-wrapped
-    ``{"$set": market_doc_set(...)}`` reached a running stack: ``market_doc_set`` already returns
-    the operator document, so the value under ``$set`` was another ``$set``, and Mongo answers
+    ``$set`` reached a running stack: a helper that already returned the operator document was
+    wrapped in a second ``$set``, so the value under ``$set`` was another ``$set``, and Mongo answers
     "the dollar ($) prefixed field '$set' ... is not allowed".
     """
     if not isinstance(update, dict) or not update:
