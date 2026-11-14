@@ -2,7 +2,7 @@
 
 ``docs/STARTUP.md`` tells a developer to copy ``.env.example`` to ``.env``, and until this was wired
 up nothing loaded it - so every variable in it was set in a file the back end never opened. That was
-invisible while the app booted anyway; with the six boot requirements in place it means the
+invisible while the app booted anyway; with the eight boot requirements in place it means the
 documented onboarding path ends in a refusal naming the variable the developer has already set.
 
 The one process that must *not* read that file is this one. Two test modules import ``app``, whose

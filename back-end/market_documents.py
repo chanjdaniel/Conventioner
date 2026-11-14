@@ -277,11 +277,6 @@ def market_doc_field(document: Dict[str, Any], field: str, default: Any = None) 
     return document.get(market_doc_key(field), default)
 
 
-def market_doc_set(field: str, value: Any) -> Dict[str, Any]:
-    """``upsert`` a single persisted camelCase field onto a stored market document."""
-    return {"$set": {market_doc_key(field): value}}
-
-
 def market_doc_projection(fields: Sequence[str]) -> Dict[str, Any]:
     """Mongo projection over the persisted spellings of the named model fields."""
     return {market_doc_key(field): 1 for field in fields}

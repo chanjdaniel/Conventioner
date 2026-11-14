@@ -4,8 +4,9 @@
  *
  * Every seat is a control on a market that can change - an empty one is filled, an occupied one is
  * freed or traded, and a seat rather than a table is what a placement names (E11/F03/S01). On a
- * market that cannot change it is a record, and draws as text with nothing to press (bug 30). It
- * was six copies of a button in the page, and a record needs every one of them to know.
+ * market that cannot change it is a record, with no box and no Change (bug 30), and a held one's
+ * name still opens the drawer. It was six copies of a button in the page, and a record needs every
+ * one of them to know.
  *
  * Whoever holds it is a name that opens their drawer (E35/F01/S02), so a held seat is two controls
  * side by side, the name and Change, rather than one button - a button cannot hold another.
@@ -135,7 +136,7 @@ const emit = defineEmits<{ open: []; view: [] }>();
 
 /* Dashed for a seat with nobody in it, solid for one with somebody: the difference between an
    opening and a person is worth reading before any of the text is. A record keeps no box at all,
-   which is exactly how it says there is nothing here to press. */
+   which is exactly how it says the seat cannot be changed. */
 .seat-button.seat--vacant {
   border-style: dashed;
 }

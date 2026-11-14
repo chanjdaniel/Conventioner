@@ -10,7 +10,7 @@ describes:
   - back-end/api/markets.py#leave_out_every_answer
   - back-end/tests/test_csv_proposal.py
   - front-end/src/utils/exampleColumns.ts
-verified: 2026-11-11
+verified: 2026-11-14
 sources:
   - wayfinding/the-form-started-from-a-csv/03
   - wayfinding/the-form-started-from-a-csv/05
@@ -120,6 +120,7 @@ A column is read through the privacy view, answers at least 3 applicants gave (`
 Hosted TypeSafe settles the two judgements the rules leave, when a key is set ([ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md)).
 
 **The proposal marks no question required** ([no question is inferred required](../../business/rules/no-question-is-inferred-required.md)).
+A choice nearly everyone gave is a checkbox only when no other answer the privacy view holds is anything but an unticked word (`_a_choice_nearly_everyone_gave`, over the import's own `UNTICKED`), so a team's "Review" column of "Accepted" and a few "Rejected", added back with "Add from your file", is a Select of both, which the import stores as each row's verdict rather than all ticked ([the same rule](../../business/rules/no-question-is-inferred-required.md#where-it-is-kept)).
 
 **The rules are held to the hand-written answer key on the five corpus exports** ([`back-end/tests/test_csv_proposal.py`](../../../back-end/tests/test_csv_proposal.py), over [the Google Form corpus](../../../back-end/tests/test_data/README.md)): every column's kind, and every own question's type and options, written before any rule existed.
 Change a rule against that, not beside it; `test_csv_proposal_plan.py` does the same for the plan, and `test_csv_start.py` pins confirm.

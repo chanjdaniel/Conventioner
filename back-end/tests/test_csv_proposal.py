@@ -279,6 +279,27 @@ class TestWhatAColumnCarries:
         assert len(one_offs) > 100 and not any(o["keep"] for o in one_offs)
         assert all(o["count"] >= 3 for o in field["options"] if o["keep"])
 
+    def test_a_column_of_two_shared_answers_is_a_select_of_both(self):
+        """Nearly every row's "Review" is Accepted and a few are Rejected. As a tick-box, the
+        import would store Rejected as ticked too, and every row would read the same."""
+        field = self._column("five-day-grid", 0)["field"]
+        assert field["type"] == "select"
+        assert [o["value"] for o in field["options"] if o["keep"]] == ["Accepted", "Rejected"]
+
+    def test_a_choice_nearly_everyone_gave_beside_one_offs_is_a_checkbox(self):
+        headers = ["Email Address", "Our fair's mission is to give makers a place to sell"]
+        rows = [[f"p{i}@mail.test", "I support this mission"] for i in range(39)]
+        rows.append(["p39@mail.test", "Something else entirely"])
+        field = CsvProposal.proposal(headers, rows)["columns"][1]["field"]
+        assert field["type"] == "checkbox"
+
+    def test_a_choice_nearly_everyone_gave_beside_an_unticked_word_is_a_checkbox(self):
+        headers = ["Email Address", "Our fair's mission is to give makers a place to sell"]
+        rows = [[f"p{i}@mail.test", "I support this mission"] for i in range(100)]
+        rows += [[f"q{i}@mail.test", "No"] for i in range(3)]
+        field = CsvProposal.proposal(headers, rows)["columns"][1]["field"]
+        assert field["type"] == "checkbox"
+
     def test_each_applicants_answers_say_who_a_left_out_option_would_drop(self):
         """Indexes into the options, one list per applicant, so the ledger can count the applicants
         left with no answer for whichever options the organizer keeps."""

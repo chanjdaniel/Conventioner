@@ -35,7 +35,6 @@ from market_documents import (
     assert_market_key_migration_recorded,
     market_doc_field,
     market_doc_filter,
-    market_doc_set,
 )
 from migrate_market_keys import migrate
 
@@ -390,11 +389,3 @@ def test_market_doc_filter_names_the_persisted_key():
 
 def test_market_doc_filter_leaves_single_word_fields_alone():
     assert market_doc_filter("id", "m-1") == {"id": "m-1"}
-
-
-def test_market_doc_set_writes_the_persisted_key():
-    assert market_doc_set("organization_id", None) == {"$set": {"organizationId": None}}
-
-
-def test_market_doc_set_leaves_single_word_fields_alone():
-    assert market_doc_set("name", "x") == {"$set": {"name": "x"}}
