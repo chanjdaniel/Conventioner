@@ -154,7 +154,7 @@ The physical kind of a table, such as its size. A property of an **individual ta
 _Avoid_: Table choice (a different concept, below)
 
 **Table choice**:
-Whether a vendor wants a full table, a half table, or either. Not a preference about table *type*.
+Whether a vendor wants a full table, a half table, or either. Not a preference about table _type_.
 Stored as a code (`full`, `half`, `either`) and read back to a human as the sentence the applicant chose: "A whole table to myself", "Half a table, shared", "Either is fine".
 Those sentences are the name of the thing - the CSV importer matches an imported column against them, and the review queue prints them - so the pairing lives in one place per side (`TABLE_CHOICE_LABELS` in `back-end/essential_fields.py`, `TABLE_CHOICES` in `front-end/src/utils/essentialFields.ts`) and the two must stay in step.
 _Avoid_: Table size, table preference, showing the stored code to anyone
