@@ -21,6 +21,9 @@ describes:
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
   - back-end/assignment/assignment.py#vendors_to_show
   - front-end/src/views/ResultView.vue#runPlacementChange
+  - front-end/src/components/PlacementDialog.vue
+  - back-end/api/attendance.py#checked_in_on
+  - back-end/tests/test_a_vendor_who_is_here_is_asked_for.py
 verified: 2026-11-14
 sources:
   - wayfinding/readable-journey/08
@@ -52,6 +55,7 @@ sources:
   - T201
   - T277
   - T316
+  - T318
 ---
 
 # Placements
@@ -92,8 +96,8 @@ Each also hands the days held in the assignment it read: a freed record on such 
 
 **All four ask the table's Assignment row** ([the market's actions](market-actions.md)), whose default is EDITOR, the bar every other market write sets, and deliberately not stricter: an EDITOR already owns the tiers, sections and table counts the whole assignment is computed from, so withholding "move one vendor between two seats" protects nothing.
 Each loads its market through `_load_market_to_change`, so an archived market is refused.
-A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant, the seat and the day as the screens say it (`_said_day`, "May 1, 2099"), and offering another seat or the swap; a run outside its phase is an `AssignPhaseError` (409); a change that would land over another, or on a market that changed since the change read it, is a `MarketChanged` (409), below.
-After a 409 from a change, the Assignments page (`runPlacementChange` in [`ResultView.vue`](../../../front-end/src/views/ResultView.vue)) keeps the dialog open on the refusal and reads the tables again, so a seat taken meanwhile leaves the dialog's choices ([J19](../../business/flows/placing-by-hand.md#j19-move-a-vendor-to-an-empty-seat)).
+A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant, the seat and the day as the screens say it (`_said_day`, "May 1, 2099"), and offering another seat or the swap; a run outside its phase is an `AssignPhaseError` (409); a free, a move or a swap of a vendor who has checked in that day is a `VendorIsHere` (409), below; a change that would land over another, or on a market that changed since the change read it, is a `MarketChanged` (409), below.
+After a 409 from a change, the Assignments page (`runPlacementChange` in [`ResultView.vue`](../../../front-end/src/views/ResultView.vue)) keeps the dialog open on the refusal and reads the tables again, so a seat taken meanwhile leaves the dialog's choices ([J19](../../business/flows/placing-by-hand.md#j19-move-a-vendor-to-an-empty-seat)); a `VendorIsHere` it asks about instead, and reads nothing again.
 Each is a [client error](../conventions/an-exception-never-reaches-a-client.md) carrying that status.
 The routes catch nothing: each refusal reaches the handler with its own status and copy, and anything else answers the generic 500.
 Each reads its body with `json_object` ([a body that is not an object is refused in words](../conventions/an-exception-never-reaches-a-client.md)): a body that is not a JSON object answers `A JSON object is required`, 400, a placement with no body or an empty one `No data provided`, 400, and a swap or a freed seat with none is read as empty and refused by the API in its own words; a swap whose `emails` is not a list names no vendor, and is refused as such.
@@ -106,6 +110,16 @@ The whole-market PUT that once let a stale client copy move vendors on market da
 A move into an empty seat displaces nobody, so it is allowed, as one write: `write_placement` replaces the seat the vendor held that date, and its history entry names the table left.
 Placing into a taken seat is still refused while the organizer can see both vendors, and trading two seated vendors is still the swap, which says out loud that two people are changing places.
 A swap is atomic because three separate operations invite a half-finished state, and the half-finished state is a vendor standing at no table on market day.
+
+**A vendor who is here is asked about first** (T318).
+`write_placement` when it moves a vendor to another table, `remove_placement` when it frees a seat held, and `swap_placements` for either vendor, each read the vendor's check-in on that date (`checked_in_on` in [`back-end/api/attendance.py`](../../../back-end/api/attendance.py), by the normalised address) before anything is written, a free before it keeps the day's line.
+Without `whileHere: true` in the body, one found is refused with `VendorIsHere`, 409, `{"error": <sentence>, "code": "vendor_is_here"}`, writing nothing: no seat, no history entry, no owed line.
+The sentence names the vendor by `display_name`, or their address when the application gave no name, the table the check-in was made at (a record from before check-ins kept a table, as made at the seat held now), and the day as `_said_day` says it: "Alice checked in at table A3 for May 1, 2099. Their check-in stays recorded there."; a swap with both here names both, "... and Bob at table A4 for ...", ending "Their check-ins stay recorded there."
+With `whileHere: true` the change goes ahead as before, and the check-in is left where it was made: it records an arrival, and [the roster's states](attendance-and-door.md) show where the vendor stands since.
+Seating a vendor who holds no table that day asks nothing, one freed while here included: it moves nobody, and gives them the table the roster says they lack.
+The server asks, not only the screen, so a second organizer whose roster had not caught up with the door is asked too.
+The seat's dialog ([`PlacementDialog.vue`](../../../front-end/src/components/PlacementDialog.vue)) is told this 409 apart by its `code` (`isVendorHere` in [`front-end/src/utils/api.ts`](../../../front-end/src/utils/api.ts)) and asks with the server's sentence ([placing by hand](../../business/flows/placing-by-hand.md)); confirming sends the same request again with `whileHere: true`, a free's `deductOwed` with it.
+[`test_a_vendor_who_is_here_is_asked_for.py`](../../../back-end/tests/test_a_vendor_who_is_here_is_asked_for.py) holds each door's question through the routes: its sentence, that nothing is written, the free's deduction, the history's `while_here`, and the vendor not here, the check-in on another day and the seatless vendor seated again, none of them asked.
 
 **No change lands over another.**
 Each of the four reads the whole assignment and writes it back whole through `store` in [`back-end/assignment/lifecycle.py`](../../../back-end/assignment/lifecycle.py), so two changes at once would each store the assignment as it was before the other, and one would be lost without a word: two organizers moving two vendors into one empty seat both got a 200, and only one was seated, while the history recorded both moves.
@@ -167,6 +181,7 @@ A write sets `vendorAssignments`, `assignmentDate`, `state` and, for a run alone
 
 Every change here is recorded in [the market's history](../data/history.md), under the `assign` action: a placement, a freed seat, a swap, and a solver run as one entry, with how many placements it wrote and how many pins it kept.
 A placement, a free or a swap made while results are published (`Lifecycle.results_published`) records `after_results` in its entry, since that vendor's page had already told them where they sit.
+A free, a move or a swap of a vendor who had checked in that day, made once asked, records `while_here` in its entry (T318).
 
 ## Why
 

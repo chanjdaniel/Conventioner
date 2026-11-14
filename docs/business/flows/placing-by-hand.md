@@ -36,6 +36,7 @@ sources:
   - T283
   - T277
   - T316
+  - T318
 ---
 
 # Placing by hand
@@ -125,6 +126,8 @@ The vendor sits at the new table and their old seat is free, through the one wri
 A seat taken by someone else meanwhile is refused with the server's reason in the dialog, which stays open to choose again: the page reads the tables again, so the refused seat leaves "Move them to" and is no longer chosen.
 Any change to the tables, a placement, a move, a swap, a free or a run, that lands while someone else's change to them is being saved, or after the market moved on (archived, or, for a run, its results published), is refused with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers), and none of it is saved ([placements](../../implementation/modules/placements.md)).
 After either refusal the page reads the tables and the market again, and the seat's dialog stays open with the sentence, showing who sits where now.
+A move or a swap of a vendor who has checked in that day asks first, as a free does ([J8](#j8-free-a-seat)), with "Move anyway" or "Swap anyway"; a swap with both vendors here names both, "Alice checked in at table A3 and Bob at table A4 for May 1, 2099. Their check-ins stay recorded there." (T318).
+Seating a vendor who holds no table that day asks nothing, one freed while here included.
 Covered by:
 
 - `a-change-after-results-says-so.spec.ts`
@@ -137,9 +140,13 @@ Covered by:
 In the same dialog, "Free this seat" ("Freeing this seat leaves them with no table on this date until they are assigned again.").
 Freeing never changes what they owe by itself: the day keeps its line on their [Payment tab](vendor-drawer.md), still owed.
 Whoever may change the amount owed is also asked, naming what the day's line owes, "Also remove its $15.00 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, and not asked where it owes nothing; ticked, the day owes $0 once freed, so a vendor who paid reads paid more than owed (E44/F01/S02).
+Freeing a vendor who has checked in that day asks first (T318), whoever's screen it is, since the server asks: the dialog's choices give way to the server's sentence, "Alice checked in at table A3 for May 1, 2099. Their check-in stays recorded there.", with "Free anyway" beside Cancel, focus on Cancel, and nothing freed yet.
+"Free anyway" frees the seat, the deduction ticked included, and keeps the check-in, so the roster lists them under "Checked in, with no table on this date" ([the door](market-day-door.md)); Cancel closes the dialog, freeing nothing.
+Enter never answers the question.
 Covered by:
 
 - `a-change-after-results-says-so.spec.ts`
+- `a-vendor-who-is-here-is-asked-for.spec.ts`
 - `changing-owed-and-paid.spec.ts`
 - `placement-edit.spec.ts`
 
@@ -181,6 +188,7 @@ A vendor's drawer holds their placements on its History tab, among everything el
 Each entry leads with the market day it is about, "Every market day" on a run and on the rules, then says who made the change and what changed, naming each vendor by name with their email beside, and when: "e2e@example.com assigned <vendor> at Front 10 (Full Table)" (the table alone where no table choice was recorded), "e2e@example.com moved <vendor> from Back 1 to Front 10 (Full Table)" when they had a table that day, "e2e@example.com swapped <vendor> and <vendor> - now at Front 10 and Back 1", "e2e@example.com freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "e2e@example.com allocated tables: N assignments written, M pins preserved", and names nobody, so it is in no vendor's tab.
 A move recorded before the history kept the table left reads as an assignment.
 A change made while results are published says so after the day: a free and a move add ", after results were published: their vendor page had shown Back 1", naming the table the vendor's page had shown, and an assignment of an empty seat and a swap add ", after results were published" (T316).
+A free, a move or a swap made once asked about a vendor who had checked in adds ", while they were checked in" after the day, before any ", after results were published" (T318).
 Covered by:
 
 - `a-change-after-results-says-so.spec.ts`

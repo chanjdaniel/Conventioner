@@ -105,6 +105,7 @@ A check-in said only that a vendor came on a date, so a vendor checked in and th
 Each roster row's `state` is `expected` (a seat and no record), `here` (a record made at the seat held now, or a record with no `table_code`), `here_elsewhere` (a record made at another table, after a move or a swap) or `here_without_seat` (a record and no seat that day, after a free), and `checkedInTableCode` is the record's table (on a seated row, the seat's for a record with none); a `here_without_seat` row has `tableCode`, `tableChoice`, `section` and `location` null.
 "Did not come" is the page's wording of `expected` on a day that is over on the viewer's calendar, not a state: the server cannot know the market's time zone.
 The record itself is never moved: freeing, moving or swapping a vendor leaves it as it was, and the state says where they went.
+Freeing, moving or swapping a vendor who has a record that day asks first: the placement doors read it (`checked_in_on`, one record by the normalised address) and answer 409 `vendor_is_here` until asked again with `whileHere: true` ([placements](placements.md)).
 `check_in_counts` and the page's tally count seated rows only, so a vendor here with no table that day counts toward no day's "18/24".
 [`test_a_check_in_keeps_its_table.py`](../../../back-end/tests/test_a_check_in_keeps_its_table.py) holds each state through the route, the record's table, and the free and the move that once moved it.
 
