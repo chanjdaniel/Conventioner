@@ -32,6 +32,9 @@ import { StatsPage } from './pages/StatsPage';
  * 390px window, so the vendor drawer opened off screen. A leg per place that fits a phone; each also runs at
  * a desk, where nothing may move.
  *
+ * On Assignments a seat's vendor opens their drawer, inside the window as on every other page
+ * that holds it (T95 review note 5).
+ *
  * Vendors is one tap from the door's own list: the organizer looks a vendor up, reads every tab of
  * their drawer, takes their payment, and an Editor corrects an answer with Update info.
  *
@@ -414,6 +417,30 @@ for (const size of PHONE_AND_DESK) {
         'the Payment tab scrolls sideways',
       ).toBe(0);
       await expectFits(page, 'Payments, the drawer open');
+    });
+
+    test("Assignments: a seat opens its vendor's drawer in the window", async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const marketId = await aMarketThatIsOwed(request);
+      await page.goto(marketScreenPath(marketId, 'assignments'));
+      const seat = page.getByTestId('tables-seat-occupied').filter({ hasText: OWES });
+      await expect(seat).toBeVisible({ timeout: 15000 });
+      await expectFits(page, 'Assignments');
+
+      await press(seat.getByTestId('tables-seat-vendor'));
+      const drawer = page.getByTestId('vendors-detail-panel');
+      await expect(drawer.getByTestId('vendors-detail-email')).toHaveText(OWES);
+      await expect(drawer).toBeInViewport({ ratio: 1 });
+      await expectInside(drawer, 'the drawer');
+      expect(
+        await drawer
+          .getByTestId('vendors-detail-content')
+          .evaluate((el) => el.scrollWidth - el.clientWidth),
+        'the drawer scrolls sideways',
+      ).toBe(0);
+      await expectFits(page, 'Assignments, the drawer open');
     });
 
     test('Vendors: a vendor looked up, paid and corrected', async ({

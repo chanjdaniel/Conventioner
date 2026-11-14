@@ -67,6 +67,7 @@ A new dialog is built on it, never hand-rolled; a panel that slides in from a si
 Not every modal is a dialog on it.
 Three take the shell's parts rather than copying them: the [vendor drawer](../../business/flows/vendor-drawer.md), a panel beside the page; the door code's full screen ([`DoorCodeScreen.vue`](../../../front-end/src/components/DoorCodeScreen.vue), [attendance and the door](../modules/attendance-and-door.md)), which fills the window at the entrance where a dialog is a small window over the page; and [the app bar's sheet](../modules/app-bar.md#the-sheet-on-a-phone), a list of places hanging from the bar, which holds no form, title or actions for the shell to own and keeps the same contract with `useInertBehind`, `useEscapeToClose` and `useFocusGoesBack`.
 The door code's screen declares `role="dialog"` and `aria-modal` itself, and makes it true with `useModalRoot`, `useEscapeToClose` and `useFocusGoesBack`, so the page behind is inert, Escape closes it while it is on top, and focus opens on its Close and goes back to "Door code"; its one confirmation, New code, is an `AppDialog`, teleported beside it as a sibling.
+A window that declares `role="dialog"` itself stands on a `div`, as the vendor drawer's and `SidePanel`'s do: ARIA lets no `aside` take that role, which a screen reader may then announce as the landmark rather than the dialog, and [`rolesNotAllowed`](../../../front-end/e2e/helpers/allowedRoles.ts) asks axe's `aria-allowed-role` of each window alone, where it opens, a best practice the suite-wide check leaves out.
 
 ## The rules
 

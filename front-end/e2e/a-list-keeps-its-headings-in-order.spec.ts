@@ -9,8 +9,10 @@ import {
   transitionMarket,
 } from './helpers/seedPhaseMarket';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { marketScreenPath } from './helpers/marketScreens';
+import { rolesNotAllowed } from './helpers/allowedRoles';
 
 /**
  * A list's cards are headed one level under the page's title, so a screen reader's outline of the
@@ -203,4 +205,61 @@ test('the review heads a vendor just before their notes, open, in the drawer and
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'archived');
   await monitor.goto(marketId);
   await notesUnderTheCard();
+});
+
+/**
+ * The vendor drawer heads its tabs and a vendor's notes one level under its title, wherever it
+ * opens (T95 note 6): on Assignments from a seat, on Vendors, on Payments and at the door, each tab
+ * read under the notes, which the drawer opens; and it is a dialog by an element ARIA lets be one.
+ */
+test('the vendor drawer keeps its headings in order, and is a dialog, on every page that opens it', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const vendor = 'alice@example.com';
+  const { marketId } = await seedPublishedMarketWithAssignments(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const noted = await request.put(
+    `${BACKEND_URL}/markets/${marketId}/vendor-notes/${encodeURIComponent(vendor)}`,
+    { data: { note: 'Asked for a corner table' } },
+  );
+  expect(noted.ok(), await noted.text()).toBeTruthy();
+
+  const openers = {
+    assignments: () =>
+      page
+        .getByTestId('tables-seat-occupied')
+        .filter({ hasText: vendor })
+        .getByTestId('tables-seat-vendor'),
+    vendors: () => page.getByTestId('vendors-list-item').filter({ hasText: vendor }),
+    payments: () =>
+      page.getByTestId('payments-row').filter({ hasText: vendor }).getByTestId('payments-row-open'),
+    attendance: () =>
+      page
+        .getByTestId('attendance-row')
+        .filter({ hasText: vendor })
+        .getByTestId('attendance-vendor'),
+  } as const;
+  const drawer = page.getByTestId('vendors-detail-panel');
+  for (const [where, opener] of Object.entries(openers)) {
+    await page.goto(marketScreenPath(marketId, where as keyof typeof openers));
+    await expect(opener()).toBeVisible({ timeout: 15000 });
+    await opener().click();
+    await expect(drawer.getByTestId('vendors-detail-email')).toHaveText(vendor);
+    await expect(drawer.getByRole('heading', { level: 3, name: 'Your note' })).toBeVisible();
+    for (const tab of ['application', 'assignments', 'payment', 'history']) {
+      await drawer.getByTestId(`vendor-drawer-tab-${tab}`).click();
+      await expect(drawer.getByTestId(`vendor-drawer-tab-${tab}`)).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      expect(await headingsOutOfOrder(page), `${where}, the ${tab} tab`).toEqual([]);
+    }
+    // A dialog by an element that may be one, so it is announced as the dialog it is.
+    expect(await rolesNotAllowed(page, 'vendors-detail-panel'), `${where}, the drawer`).toEqual([]);
+  }
 });

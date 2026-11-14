@@ -69,7 +69,7 @@ watch(
       @click="emit('close')"
     ></div>
 
-    <aside
+    <div
       class="side-panel__window"
       :class="[`side-panel__window--${side}`, `side-panel__window--${width}`]"
       role="dialog"
@@ -104,7 +104,7 @@ watch(
           </div>
         </ScrollBox>
       </template>
-    </aside>
+    </div>
   </div>
 </template>
 
