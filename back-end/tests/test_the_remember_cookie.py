@@ -18,8 +18,9 @@ out ends it there, a new sign-in in the browser ends the one it held, and Sign o
 a password reset end every one of the account's, so a copy of the browser's cookies stops working
 too.
 
-Every sign-in starts a fresh session, by password, by code or by the remember cookie, in the signed
-cookie and in the store on disk alike, so no session cookie issued before it carries the sign-in.
+Every sign-in by password or by code starts a fresh session, in the signed cookie and in the store
+on disk alike, so no session cookie issued before it carries the new sign-in; a restore by the
+remember cookie empties the session it was sent too.
 
 For one release, a sign-in made before sign-ins were kept on the server still signs in: its id
 names the login id, the kind and the time, in the session or in the ``remember_token`` cookie. A
