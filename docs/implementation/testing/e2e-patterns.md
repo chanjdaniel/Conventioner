@@ -49,6 +49,7 @@ sources:
   - T284
   - T257
   - T315
+  - T337
 ---
 
 # E2E patterns
@@ -193,3 +194,7 @@ After the fix the same run passes 30 of 30 under the same load.
 
 **A held route makes a race certain.** A `page.route` handler that awaits a promise the test releases holds one read while the page goes on, which turns a suspected race into a yes or no, as the second test of [`undoing-a-verdict.spec.ts`](../../../front-end/e2e/undoing-a-verdict.spec.ts) does.
 Never unroute it with a request still held: unrouting lets the held request go on, and the test's later release then throws "Route is already handled".
+
+**A timeout in a long loop of actions may be the round trips, not the page.** Every Playwright action is at least one round trip to the browser, and each one slows as the machine's load rises, so a loop of hundreds outgrows the 30-second default on a busy machine while the page does almost nothing.
+To tell which it is, read the page's CDP `Performance.getMetrics` (from `page.context().newCDPSession(page)`, after `Performance.enable`) before and after the loop: where `ScriptDuration` and `LayoutDuration` stay small next to the loop's time, the time is the round trips, and the fix is a budget sized for them with `test.setTimeout`, as [`choices-at-scale.spec.ts`](../../../front-end/e2e/choices-at-scale.spec.ts)'s "finds a fix by typing among 129" has for its 140 values keyed one by one (T337).
+Drop an action the next one already does first, such as a `focus()` before a locator's `press`, which focuses the element itself.
