@@ -21,6 +21,7 @@ sources:
   - E38/F09/S01
   - E38/F15/S04
   - T202
+  - T318
   - T277
   - T316
 ---
@@ -42,7 +43,7 @@ Both read the stored assignment, so a vendor placed, swapped or freed by hand is
 
 1. Rail: "Publish market", the main button in Assignment.
 2. "Publish market?": "Publishing opens the market's days: every vendor you assigned checks in on their vendor page with the door code you show at the entrance, from Attendance. The tables they see are the ones you have now." and "A published market cannot be returned to an earlier phase."; focus starts on Cancel.
-3. Expect Market Days, landing on Attendance, and "Vendor page" with its address and "Copy" in the rail; the rail says "Check vendors in at the door."
+3. Expect Market Days, landing on Attendance, and "Vendor page" with its address and "Copy" in the rail; the rail says "Print each day's roster, then check vendors in at the door."
 
 Disabled before the click, with the rail naming the first blocker:
 
@@ -110,12 +111,20 @@ Covered by:
 2. "N of M checked in", and "All M", "Not yet N" (or "Did not come N" once the day is over or the market archived) and "Checked in N" to show one or the other.
 3. "Find a vendor" ("Name, email or table") narrows the list.
 4. Each vendor placed that day, by table: their name, a link at rest (link ink, underlined, a 44px target on a phone), which opens the [vendor drawer](vendor-drawer.md) and never checks them in; how and when they checked in ("Scanned in at 9:41 AM" for their own, with the door code, "9:41 AM by you" or by the organizer's address), or "Not yet"; and their notes under the row when they have some.
+   A vendor checked in and then moved or swapped reads where they checked in, "9:41 AM by you, at table North Wing 2", in an attention chip, so they are sent to their new table.
+   Under the day's seats, "Checked in, with no table on this date (<n>)" lists each vendor checked in and then freed, their table "No table", so a free never hides an arrival; they count toward no day's tally.
 5. While the market is in Market Days, "Check in" and "Undo" on each row check a vendor in at the door, for someone who may check vendors in.
+   "Check in" is offered on today and past days, so a tap missed in the rush is put right after, and never on a day to come, which the server refuses too: "That day has not begun yet, so nobody can be checked in for it."
    A Viewer is offered neither: they read the frame's "You can view this market but not change it. …", the rail's "Follow who has checked in at the door.", and each row ending at its status (E38/F15/S04).
 6. In Market Days, someone who may check vendors in opens "Door code" at the end of the dates' row: the market's name, its QR code, the code as "K7M 4QP" and "Scan with your phone's camera to check in", full screen, for the tablet or laptop that stands at the entrance.
    With no code yet it offers "Make a door code".
    "Print" prints the same poster on one page, and "New code" asks "Make a new door code? The current code and every printed poster of it stop working.", on Cancel, before it makes another; the code stays the same until then.
    A Viewer is offered no Door code, and the server refuses them the code.
+7. The roster reads itself again every 15 seconds while the page is in view, and at once when the tab comes back into view or the browser comes back online, so a vendor who scanned in, or another organizer's check-in, shows with no tap or reload.
+   "Updated just now" or "Updated N minutes ago" and "Refresh" stand before "Print roster" and "Door code", at the end of the dates' row; a read that fails keeps the rows and says "Could not update. The roster is as it was last read." under that row.
+   Taps on several rows' Check in go through at once, each row showing its check-in as soon as the server answers.
+8. "Print roster", in the dates' row for anyone who reads Attendance, prints the chosen date's roster on paper, the door's fallback when the venue's network or the app fails: the market's name, the date in words, "<N> vendors", "Printed <date> at <time>", then every vendor of the date by table, their name with their address under it, and when they came or an empty box to tick, whatever "Show" and "Find a vendor" leave on screen; vendors checked in with no table that day print under their own heading.
+   In Market Days, on today or a date to come, a note over the roster asks for it: "If the venue's network fails, a printed roster still works. Print this day's roster before the doors open."
 
 It lists everyone expected on the day, so it shows who is missing; "Nobody is assigned on this date." on a date with nobody.
 It works at a phone's width, as only the other organizer screens that fit a phone do ([attendance and the door](../../implementation/modules/attendance-and-door.md#sharp-edges)), and there its rows keep a gutter at both sides rather than running to the card's edges (T15).
@@ -127,6 +136,8 @@ Covered by:
 - `the-door-code.spec.ts`
 - `the-door-keeps-its-own-day.spec.ts`
 - `the-door-on-market-day.spec.ts`
+- `the-door-stays-fresh.spec.ts`
+- `the-roster-prints.spec.ts`
 
 ## The rules it obeys
 

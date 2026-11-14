@@ -216,8 +216,8 @@ def _reopened(client):
 
 
 def _copied(client):
-    """A fresh client holding a copy of every cookie the browser holds, sent from the same
-    address and browser, so the session protection cannot tell it apart."""
+    """A fresh client holding a copy of every cookie the browser holds, sent with the same
+    browser string, so the session protection cannot tell it apart."""
     copy_of = app_module.app.test_client()
     for name in ("session", REMEMBER_COOKIE, LEGACY_REMEMBER_COOKIE):
         kept = client.get_cookie(name)

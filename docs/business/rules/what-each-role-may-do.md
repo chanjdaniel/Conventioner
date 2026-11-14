@@ -46,6 +46,7 @@ sources:
   - T263
   - T283
   - T274
+  - T318
   - T315
 ---
 
@@ -178,7 +179,7 @@ See [the organization document](../../implementation/data/organization-document.
   [The market frame](../../implementation/modules/market-frame.md) says `readOnlyReason` once, under the rail, on every page of the market, so a page whose controls are gone is never taken for broken; a page says only its own lock (T15).
   [The phase rail](../../implementation/modules/phase-rail.md) offers no move to someone the Move the phase row refuses, and still says where the market stands.
   It offers a remedy or a step, and its refused move's panel a remedy's link, only on the answer for the action that remedy or step takes, which [the guards](../../implementation/modules/guards.md) name with each blocker and [the market guide](../../implementation/modules/market-guide.md) with each phase's step: an Editor on a draft missing its dates is offered "Pick market dates", a Viewer is not (T142).
-  Where the step itself, or the remedy of what refuses it, is one they may not take, the rail says what they may do instead: at the door a Viewer reads "Follow who has checked in at the door.", not "Check vendors in at the door.", and on a draft missing its dates "The market is being planned. Read its plan on Market Setup.", not the blocker's "Pick them on Market Setup." (E38/F15/S04).
+  Where the step itself, or the remedy of what refuses it, is one they may not take, the rail says what they may do instead: at the door a Viewer reads "Follow who has checked in at the door.", not "Print each day's roster, then check vendors in at the door.", and on a draft missing its dates "The market is being planned. Read its plan on Market Setup.", not the blocker's "Pick them on Market Setup." (E38/F15/S04).
 - **A market keeps the rows it differs on**, in its `permissions`, and every check and the market read ask the market's row where it holds one (`minimum_role`); its owner sets or resets a row through `PUT` and `DELETE /markets/:id/permissions/<action>`, or resets every row through `DELETE /markets/:id/permissions`, each change an entry in [the market's history](../../implementation/data/history.md) with its role before and after.
   [`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins that a market without rows reads every default, that an Editor's check-in is refused where "Check vendors in" asks for an Admin and allowed on another market, and each refusal of the write: anyone but the owner (an organization admin included), a fixed row, an unknown row, a role not one of the four, an archived market.
 - **Everyone who may read the market reads its table, and everyone who may read its history every change to it**, in Manage market's Permissions dialog, and only the owner changes it there ([setting who may do what](../flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what), E39/F01/S04).

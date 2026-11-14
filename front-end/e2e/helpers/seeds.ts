@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import type { APIRequestContext } from '@playwright/test';
 import { decideReviewSetup } from './decideReviewSetup';
+import { mongoEval } from './mongo';
 import { savePlan } from './savePlan';
 import {
   approvedVendorApplication,
@@ -21,6 +22,36 @@ import { saveApplicationForm } from './saveApplicationForm';
 // Still to come: a market leaves draft only with dates that have not passed (E31/F01/S01). A Friday,
 // as the date it replaced was.
 export const SEED_MARKET_DATE = '2099-05-01';
+
+/**
+ * Vendors checked in on market days still to come, each record stored as the door stores it, at
+ * the table the vendor holds that day, by `by`.
+ *
+ * The door takes no check-in for a day that has not begun anywhere (T318), and a seeded market's
+ * days are in 2099, so a spec of what check-ins count (Stats) stores them here. A spec of the door
+ * itself checks in through the door, on `calendarToday()`.
+ */
+export function recordCheckIns(
+  marketId: string,
+  checkIns: { vendorEmail: string; date: string }[],
+  by: string,
+): void {
+  mongoEval(`
+    const marketId = ${JSON.stringify(marketId)};
+    const market = db.markets.findOne({ id: marketId }, { assignmentObject: 1 });
+    const seats = (market.assignmentObject || {}).vendorAssignments || [];
+    for (const one of ${JSON.stringify(checkIns)}) {
+      const email = one.vendorEmail.toLowerCase();
+      const seat = seats.find((row) => row.email.toLowerCase() === email && row.date === one.date);
+      if (!seat) throw new Error('No seat for ' + email + ' on ' + one.date);
+      db.attendance.insertOne({
+        market_id: marketId, vendor_email: email, date: one.date, table_code: seat.tableCode,
+        checked_in_at: new Date().toISOString(), checked_in_by: ${JSON.stringify(by)},
+        checked_in_via: null,
+      });
+    }
+  `);
+}
 
 /**
  * The least a market needs to leave draft (E31/F01/S01): a date still to come, a location, and a

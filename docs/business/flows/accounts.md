@@ -25,6 +25,7 @@ sources:
   - T311
   - T315
   - T338
+  - T318
 ---
 
 # Accounts
@@ -99,7 +100,7 @@ Covered by:
 
 1. At `/login`, Sign in tab, enter email and password, choose "Sign in".
    "Remember me" under the password is unticked: the sign-in then ends when the browser closes, and at the latest 12 hours after it; ticked, it lasts 30 days from signing in, however the browser is used.
-   Either way it lasts only as long as the browser's address and the browser stay the same: a phone that moves from the venue's wifi to cellular is signed out, an E47 follow-up ([the cookies](../../implementation/conventions/security-invariants.md#the-cookies)).
+   Either way it is held to the browser, not the network: a phone that moves from the venue's wifi to cellular stays signed in, and the same cookies in another browser are refused (T318, [the cookies](../../implementation/conventions/security-invariants.md#the-cookies)).
 2. Expect the Markets list (`/markets`), or the page the address carried in `next` (E38/F11/S01).
 3. Choose "Sign out" in the app bar ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
    Sign out ends the sign-in on the server, so a copy of the browser's cookies taken before is signed out with it ([a sign-in is kept on the server](../../implementation/data/users-and-email.md#a-sign-in-is-kept-on-the-server)).
@@ -124,6 +125,7 @@ Each form says one line at a time, the newer replacing the older, and says what 
 
 Covered by:
 
+- `a-changed-network-keeps-the-organizer-signed-in.spec.ts`
 - `a-failure-says-what-to-do.spec.ts`
 - `auth.spec.ts`
 - `remember-me.spec.ts`

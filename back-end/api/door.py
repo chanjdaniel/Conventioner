@@ -31,7 +31,7 @@ from tombstone import live
 from market_write import write_market
 from utils.email import frontend_url
 
-NOT_PUBLISHED = "Vendors are checked in once the market is published."
+NOT_PUBLISHED = AttendanceApi.NOT_PUBLISHED
 NO_DOOR_CODE_YET = "A door code is made once the market is published."
 
 #: No 0, O, 1 or I, which a vendor typing the code from a poster would mistake for each other.
@@ -48,7 +48,9 @@ def _market_on_its_days(market_id: str, requesting_user: str):
 def check_in(
     market_id: str, vendor_email: str, date: str, requesting_user: str,
 ) -> Tuple[Dict[str, Any], int]:
-    """Record that a vendor is here on this date, made by ``requesting_user``."""
+    """Record that a vendor is here on this date, made by ``requesting_user``: any market date
+    that has begun somewhere, so a tap missed in the rush is corrected after, and never one that
+    has not (``AttendanceApi.day_has_begun``, refused in ``record_attendance``)."""
     if _market_on_its_days(market_id, requesting_user) is None:
         return {"error": NOT_PUBLISHED}, 409
     return AttendanceApi.record_attendance(

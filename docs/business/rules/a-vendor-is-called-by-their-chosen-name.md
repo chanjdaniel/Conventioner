@@ -12,6 +12,7 @@ sources:
   - wayfinding/the-order-of-the-work/04
   - E13
   - E19/F02/S01
+  - T318
   - E35/F03/S02
   - E19
   - E38/F03/S01
@@ -53,7 +54,7 @@ The Vendors and Payments pages and the export find them by the name on their ide
 - `display_name` in [`back-end/essential_fields.py`](../../../back-end/essential_fields.py) is the one statement of which name: the preferred name if given, else the full name.
   [Essential fields](../../implementation/modules/essential-fields.md) owns both questions and their validation.
 - `vendor_names_for_market` in [`back-end/api/applications.py`](../../../back-end/api/applications.py) serves it as `vendorNames`, address to name, lowercased, and only for applications that hold a name; [the application document](../../implementation/data/application-document.md) is where the answers live.
-- [`front-end/src/components/VendorIdentity.vue`](../../../front-end/src/components/VendorIdentity.vue) draws the name over the address on every screen that names a vendor from the served names, and [`front-end/src/utils/vendorIdentity.ts`](../../../front-end/src/utils/vendorIdentity.ts) holds the fallback and the search (`vendorHeadline`, `vendorMatches`).
+- [`front-end/src/components/VendorIdentity.vue`](../../../front-end/src/components/VendorIdentity.vue) draws the name over the address on every screen that names a vendor from the served names, each address through `EmailAddress.vue`, so it breaks only before its "@" or a dot (T318), and [`front-end/src/utils/vendorIdentity.ts`](../../../front-end/src/utils/vendorIdentity.ts) holds the fallback and the search (`vendorHeadline`, `vendorMatches`).
   A screen that holds the answers themselves rather than the served names reads the name with `applicantName` and draws it over the address the same way ([essential fields](../../implementation/modules/essential-fields.md)).
 - `back-end/tests/test_preferred_name.py` and `front-end/src/__tests__/vendorIdentity.test.ts` pin it.
 

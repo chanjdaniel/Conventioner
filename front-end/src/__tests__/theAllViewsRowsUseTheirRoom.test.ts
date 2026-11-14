@@ -14,6 +14,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import ApplicationsAll from '@/components/application/ApplicationsAll.vue';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
+import { FULL_NAME_KEY } from '@/utils/essentialFields';
 import { answersRefusing } from './support/servedAnswers';
 
 const fetchMarketApplications = vi.fn();
@@ -105,5 +106,20 @@ describe('the All view’s rows', () => {
     const leading = wrapper.findAll('.all-leading');
     expect(leading.map((cell) => cell.text())).toEqual(['Pins', '']);
     expect(wrapper.find('.all-list').classes()).not.toContain('all-list-no-leading');
+  });
+
+  it('break an address only before its “@” or a dot, never at a hyphen', async () => {
+    const named = {
+      ...application('door-comes-1794628088744'),
+      formData: { [FULL_NAME_KEY]: 'Ann Example' },
+    } as Application;
+    fetchMarketApplications.mockResolvedValue([named, application('door-here-1794628088744')]);
+    const wrapper = await allView({ market: market([]) });
+
+    const parts = (selector: string) =>
+      wrapper.findAll(`${selector} .email-address`).map((part) => part.text());
+    // A named applicant's address under the name, and a nameless one's in the name's place.
+    expect(parts('.all-email')).toEqual(['door-comes-1794628088744', '@vendor.test']);
+    expect(parts('.all-name')).toEqual(['door-here-1794628088744', '@vendor.test']);
   });
 });

@@ -60,6 +60,7 @@ sources:
   - T277
   - T316
   - T315
+  - T318
 ---
 
 # The market write
@@ -211,6 +212,7 @@ A migration that reaches the markets collection by a name the walk does not read
 `installMarketChanged()` in [`front-end/src/stores/market.ts`](../../../front-end/src/stores/market.ts), installed from `main.ts` beside the session's interceptor, re-reads the open market through the store's `refresh`, so every screen reading [the market store](market-store.md) follows.
 
 The Tables page reads the market from the store, but its grid and an open vendor's details are reads of their own, so on that refusal from a placement it reads those again, as after a success, and the sentence stands in the seat dialog's error line (`runPlacementChange` in [`front-end/src/views/ResultView.vue`](../../../front-end/src/views/ResultView.vue)).
+Beside it, `isVendorHere(err)` is the placements' other coded 409, `vendor_is_here`, a free, a move or a swap of a vendor who has checked in that day: nothing changed, so the page reads nothing again and the dialog asks with the sentence ([placements](placements.md)).
 
 The form tab ([F2](../../business/flows/form-tab.md#f2-custom-questions)) keeps the `formRevision` its form read answered, sends it with Save and with the unasked-essentials toggle, and takes the one each save answers.
 On a 409, the market changed or the form locked, it shows the server's sentence where a save's error shows and reads the form again, so the questions on screen are the ones stored, with their revision for the next save (`rereadAfterARefusal` in [`MarketFormTab.vue`](../../../front-end/src/components/market/MarketFormTab.vue)).

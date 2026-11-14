@@ -13,6 +13,7 @@ import { withUser } from './helpers/withUser';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { UpdateInfoDialog } from './pages/UpdateInfoDialog';
+import { calendarToday } from './helpers/vendorSignIn';
 
 /**
  * Every screen offers a control on the table's answer for the action it takes (E39/F01/S02).
@@ -74,11 +75,13 @@ test.beforeAll(async ({ request }) => {
     { intakeMode: 'form' },
   ));
 
+  // On its day, today: the door offers no check-in for a day that has not begun (T318).
   ({ marketId: markets.marketDays } = await seedPublishedMarketWithAssignments(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+    { marketDate: calendarToday() },
   ));
 
   // The seeds sign the request in as the owner, who gives each person their role on each market.
