@@ -132,7 +132,7 @@ test('an Editor is offered no verdict on a card someone decided first', async ({
         }
       });
       for (const key of ['a', 'r', 's']) await other.keyboard.press(key);
-      await expect(other.getByTestId('follow-up')).toHaveCount(0);
+      await expect(other.getByTestId('follow-up-window')).toHaveCount(0);
       await expect(card.status).toHaveText('Approved');
       expect(verdicts).toEqual([]);
     },

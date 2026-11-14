@@ -173,7 +173,7 @@ describe('a card someone else decided first', () => {
     for (const key of ['a', 'r', 's']) await press(key);
 
     expect(reviewApplication).toHaveBeenCalledTimes(1);
-    expect(document.body.querySelector('[data-testid="follow-up"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="follow-up-window"]')).toBeNull();
     // Still the refused card, saying who decided it.
     expect(wrapper.find('[data-testid="app-monitor-changed"]').exists()).toBe(true);
   });
