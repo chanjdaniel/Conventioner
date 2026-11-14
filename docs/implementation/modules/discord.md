@@ -204,7 +204,7 @@ It confirms first, by the role's name and how many vendors hold a seat on any da
 ## The values, and a deployment without them
 
 **`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` are optional, and never a boot requirement.**
-They defend nothing the product serves without them, so they are not among the [boot check's](../conventions/security-invariants.md#the-boot-check) eight: any one missing turns Discord off, as `TYPESAFE_API_KEY` turns TypeSafe off.
+They defend nothing the product serves without them, so they are not among the [boot check's](../conventions/security-invariants.md#the-boot-check) requirements: any one missing turns Discord off, as `TYPESAFE_API_KEY` turns TypeSafe off.
 Each is read through `configured_secret` when asked for (`credentials()`), never at import, so a blank or a published placeholder is no value.
 The market read serves `discordSetUp`, and without it the card says "Discord is not set up on this Conventioner." and offers nothing; a route that needs Discord answers that sentence as a 503.
 The redirect registered in the Developer Portal is `FRONTEND_URL` + `/discord/connected` for each deployment: `https://conventioner.io/discord/connected`, and `http://127.0.0.1:5173/discord/connected` for the primary checkout's stack.
