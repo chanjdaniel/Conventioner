@@ -154,7 +154,7 @@ The physical kind of a table, such as its size. A property of an **individual ta
 _Avoid_: Table choice (a different concept, below)
 
 **Table choice**:
-Whether a vendor wants a full table, a half table, or either. Not a preference about table *type*.
+Whether a vendor wants a full table, a half table, or either. Not a preference about table _type_.
 Stored as a code (`full`, `half`, `either`) and read back to a human as the sentence the applicant chose: "A whole table to myself", "Half a table, shared", "Either is fine".
 Those sentences are the name of the thing - the CSV importer matches an imported column against them, and the review queue prints them - so the pairing lives in one place per side (`TABLE_CHOICE_LABELS` in `back-end/essential_fields.py`, `TABLE_CHOICES` in `front-end/src/utils/essentialFields.ts`) and the two must stay in step.
 _Avoid_: Table size, table preference, showing the stored code to anyone
@@ -200,3 +200,17 @@ The organizer's ordered rules for who gets assigned first when demand exceeds ta
 
 **Max assignments per vendor**:
 The organizer's ceiling on how many days any one vendor may be assigned, bounded by the market's own date count. A hard limit set by the market, distinct from the vendor's own `max dates` answer; the effective cap is the lower of the two.
+
+### Accounts
+
+**Sign-in secret**:
+What a mail carries to an organizer's account so they can sign in or settle the account: its sign-in code, reset link or verification link.
+The server keeps one record of a sign-in secret, never the secret itself but its hash, in one of four states: being mailed, live, used or discarded.
+_Avoid_: token, OTP, as names of the record
+See [the sign-in secrets](docs/implementation/data/users-and-email.md#the-sign-in-secrets).
+
+**Sign-in**:
+One signed-in browser of an organizer, by password or by code, with "Remember me" or without it.
+The server keeps a record of each sign-in, ended by Sign out, by a new sign-in in the same browser, by Sign out everywhere, by a password reset or by deleting the account, and at the end of its 12 hours or 30 days.
+_Avoid_: session, for the product's term, since Flask's session is one carrier of it
+See [a sign-in is kept on the server](docs/implementation/data/users-and-email.md#a-sign-in-is-kept-on-the-server).

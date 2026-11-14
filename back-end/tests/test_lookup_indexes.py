@@ -4,6 +4,8 @@ The ids of markets, organizations and users were indexed only where ``migrate_to
 every database created since scanned whole collections for its most common reads; a 314-row import
 took 12 seconds against 25,000 applications.
 """
+import pytest
+
 from lookup_indexes import LOOKUP_INDEXES, ensure_lookup_indexes
 
 
@@ -58,6 +60,16 @@ def test_a_persons_organizations_are_found_by_an_index_in_either_shape():
 
 def test_the_login_id_every_request_loads_the_account_by_is_among_them():
     assert ("login_id",) in LOOKUP_INDEXES["users"]
+
+
+@pytest.mark.parametrize("fields", [
+    ("secrets.reset.hash",), ("password_reset_token",),
+    ("secrets.verify.hash",), ("verification_token",),
+], ids=lambda fields: fields[0])
+def test_a_link_is_found_by_an_index_in_either_shape(fields):
+    """A reset or verification link opened is found by its hash, and for one release by the field
+    that held it as mailed (``account_secrets.find_link``)."""
+    assert fields in LOOKUP_INDEXES["users"]
 
 
 def test_an_index_already_on_the_same_fields_is_left_alone_whatever_its_options():

@@ -6,6 +6,7 @@ that signs in takes its count back, so an organizer who signs in all day is neve
 only wrong tries pile up. A refusal answers 429 with a sentence that says the wait, under the key
 the route's other answers use, and ``Retry-After``.
 """
+import copy
 import os
 import sys
 import threading
@@ -15,15 +16,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import mongo_matches, mongo_project, skip_without_real_dependencies
+from conftest import mongo_matches, mongo_project, mongo_update, skip_without_real_dependencies
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 skip_without_real_dependencies()
 
+import account_secrets
 import app as app_module
 import api.users as UsersApi
 import sign_in_limits
+from sign_in_secrets import live_code, live_link, stored_code, stored_link
 
 
 ACCOUNT_EMAIL = "fixture-organizer@example.com"
@@ -65,16 +68,17 @@ class Users:
                 return mongo_project(dict(doc), projection)
         return None
 
-    def find_one_and_update(self, query, update, return_document=None):
+    def find_one_and_update(self, query, update, return_document=None, **_options):
         self.reads.append(query)
         with self._lock:
             for doc in self.docs:
                 if mongo_matches(doc, query):
+                    before = copy.deepcopy(doc)
                     self._apply(doc, update)
-                    return dict(doc)
+                    return copy.deepcopy(doc if return_document else before)
         return None
 
-    def update_one(self, query, update):
+    def update_one(self, query, update, **_options):
         with self._lock:
             for doc in self.docs:
                 if mongo_matches(doc, query):
@@ -83,10 +87,12 @@ class Users:
         return SimpleNamespace(matched_count=0, modified_count=0)
 
     def _apply(self, doc, update):
-        doc.update(update.get("$set", {}))
-        for field, amount in update.get("$inc", {}).items():
-            doc[field] = doc.get(field, 0) + amount
-        self.most_code_tries = max(self.most_code_tries, doc.get("otp_attempts") or 0)
+        # In place, so a test holding an account sees what the write left.
+        after = mongo_update(doc, update)
+        doc.clear()
+        doc.update(after)
+        code = (doc.get("secrets") or {}).get("code") or {}
+        self.most_code_tries = max(self.most_code_tries, code.get("tries") or 0)
 
     def account(self, email):
         return next(doc for doc in self.docs if doc["email"] == email)
@@ -130,9 +136,11 @@ def users(monkeypatch):
 
 @pytest.fixture
 def clock(monkeypatch):
-    """The server's clock, held at the start of a window until a test moves it."""
+    """The server's clock, the limits' and the sign-in secrets' alike, held at the start of a
+    window until a test moves it."""
     now = {"at": WINDOW_STARTS}
     monkeypatch.setattr(UsersApi, "_now", lambda: now["at"].timestamp())
+    monkeypatch.setattr(account_secrets, "now", lambda: now["at"])
     return now
 
 
@@ -331,8 +339,12 @@ CODE_REFUSED = (429, {"msg": TOO_MANY_SIGN_INS}, "900")
 
 
 def _issue_code(users, email, code=CODE):
-    users.account(email).update(
-        {"otp": code, "otp_expires": CODE_EXPIRES.isoformat(), "otp_attempts": 0})
+    """A code mailed to ``email`` at the start of the window."""
+    users.account(email)["secrets"] = {"code": live_code(code, CODE_EXPIRES)}
+
+
+def _code(users, email):
+    return stored_code(users.account(email))
 
 
 @pytest.fixture
@@ -351,9 +363,9 @@ def _enter_code(client, email, code, caller=CALLER):
 
 @pytest.fixture
 def code_comparisons(monkeypatch):
-    """Every comparison of a code, as ``api.users`` reaches ``secrets.compare_digest``."""
+    """Every comparison of a code, as ``account_secrets`` reaches ``secrets.compare_digest``."""
     compared = []
-    real = UsersApi.secrets
+    real = account_secrets.secrets
 
     def spy(a, b):
         compared.append((a, b))
@@ -365,7 +377,7 @@ def code_comparisons(monkeypatch):
         def __getattr__(self, name):
             return getattr(real, name)
 
-    monkeypatch.setattr(UsersApi, "secrets", Secrets())
+    monkeypatch.setattr(account_secrets, "secrets", Secrets())
     return compared
 
 
@@ -510,7 +522,7 @@ class TestACodesTriesAreCountedInOneUpdate:
         assert len(code_comparisons) <= 5
         assert coded.most_code_tries <= 5
         assert answers == [401] * 10
-        assert coded.account(ACCOUNT_EMAIL)["otp"] is None
+        assert _code(coded, ACCOUNT_EMAIL)["state"] == account_secrets.DISCARDED
 
     def test_the_fifth_wrong_code_answers_as_the_others_and_discards_the_code_in_silence(
         self, client, coded, clock,
@@ -518,9 +530,9 @@ class TestACodesTriesAreCountedInOneUpdate:
         answers = [_answer(_enter_code(client, ACCOUNT_EMAIL, WRONG_CODE)) for _ in range(5)]
 
         assert answers == [(401, {"msg": WRONG_CODE_SAYS}, None)] * 5
-        account = coded.account(ACCOUNT_EMAIL)
-        assert (account["otp"], account["otp_attempts"]) == (None, 0)
-        assert account["otp_expires"] == CODE_EXPIRES.isoformat()
+        code = _code(coded, ACCOUNT_EMAIL)
+        assert (code["state"], code["tries"]) == (account_secrets.DISCARDED, 5)
+        assert code["next_allowed_at"] == NEXT_CODE_AT
 
         asked = client.post("/request-otp", json={"email": ACCOUNT_EMAIL},
                             environ_base={"REMOTE_ADDR": CALLER})
@@ -547,7 +559,8 @@ class TestACodesTriesAreCountedInOneUpdate:
         consume = coded.update_one
 
         def consumed_first(query, update):
-            coded.account(ACCOUNT_EMAIL).update({"otp": None, "otp_expires": None})
+            _code(coded, ACCOUNT_EMAIL).update(
+                {"state": account_secrets.USED, "next_allowed_at": None})
             return consume(query, update)
 
         monkeypatch.setattr(coded, "update_one", consumed_first)
@@ -783,9 +796,7 @@ def hashes_made(monkeypatch):
 def resettable(mail):
     """The account, with a reset link sent an hour from expiring."""
     account = mail.users.account(ACCOUNT_EMAIL)
-    account["password_reset_token"] = RESET_TOKEN
-    account["password_reset_token_expires"] = (
-        datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    account["secrets"] = {"reset": live_link(RESET_TOKEN, WINDOW_STARTS + timedelta(hours=1))}
     return account
 
 
@@ -837,7 +848,7 @@ class TestAPasswordLongerThanBcryptReadsIsRefused:
     def test_a_password_of_72_bytes_resets(self, client, resettable, clock, password):
         assert _reset(client, password).status_code == 200
 
-        assert resettable["password_reset_token"] is None
+        assert stored_link(resettable)["state"] == account_secrets.USED
         assert _sign_in(client, ACCOUNT_EMAIL, password).status_code == 200
 
     @pytest.mark.parametrize("ask", [_sign_up, _reset], ids=["sign-up", "reset"])

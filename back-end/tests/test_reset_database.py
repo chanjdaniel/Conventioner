@@ -6,6 +6,7 @@ then pointed at markets that no longer existed.
 """
 from api.applicant_auth import APPLICANT_LOGIN_CHALLENGES_COLLECTION
 from lookup_indexes import LOOKUP_INDEXES
+from organizer_sessions import SESSIONS_COLLECTION
 from reset_database import APP_COLLECTIONS, PRESERVED
 
 
@@ -15,6 +16,12 @@ def test_every_collection_the_app_looks_documents_up_in_is_cleared():
 
 def test_applicant_sign_in_codes_are_cleared():
     assert APPLICANT_LOGIN_CHALLENGES_COLLECTION in APP_COLLECTIONS
+
+
+def test_organizer_sign_ins_are_cleared():
+    # A sign-in names its account by id and login id, so one kept across a reset names an account
+    # the seed no longer has.
+    assert SESSIONS_COLLECTION in APP_COLLECTIONS
 
 
 def test_the_migration_markers_the_back_end_needs_to_boot_are_kept():

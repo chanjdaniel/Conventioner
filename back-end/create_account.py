@@ -23,6 +23,7 @@ from typing import Any
 
 from flask_bcrypt import Bcrypt
 
+import account_secrets
 from utils.email_address import normalized_email
 
 bcrypt = Bcrypt()
@@ -59,27 +60,16 @@ def create_account(users: Any, email: str, password: str) -> str:
         "password": bcrypt.generate_password_hash(password).decode("utf-8"),
         "organizations": [],
         "email_verified": True,
-        "verification_token": None,
-        "verification_token_expires": None,
-        "password_reset_token": None,
-        "password_reset_token_expires": None,
-        "otp": None,
-        "otp_expires": None,
-        "otp_attempts": 0,
     })
     return account_id
 
 
 def verify_account(users: Any, email: str) -> None:
-    """Mark an existing account verified, as clicking its verification link would."""
+    """Mark an existing account verified, as clicking its verification link would: its link is
+    ended with it (``account_secrets.verify_by_hand``)."""
     address = _address(email)
-    if not users.find_one({"email": address}):
+    if not account_secrets.verify_by_hand(users, address):
         raise AccountError(f"No account for {address}.")
-    users.update_one({"email": address}, {"$set": {
-        "email_verified": True,
-        "verification_token": None,
-        "verification_token_expires": None,
-    }})
 
 
 def main(argv=None) -> int:

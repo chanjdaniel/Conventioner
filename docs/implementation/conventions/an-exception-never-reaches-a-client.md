@@ -91,7 +91,6 @@ describes:
   - front-end/src/utils/sessionEnded.ts
   - front-end/src/utils/pageFailed.ts
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
-  - front-end/e2e/a-request-too-large-to-carry.spec.ts
   - back-end/app.py#vendor_check_in
   - back-end/app.py#vendor_undo_check_in
   - back-end/api/applicant_auth.py#_send_code_email
@@ -101,6 +100,7 @@ describes:
   - back-end/api/markets.py#take_move
   - back-end/utils/captcha.py#verify_recaptcha
   - back-end/tests/test_captcha.py
+  - front-end/e2e/a-request-too-large-to-carry.spec.ts
   - back-end/host_limits.py
   - back-end/tests/test_the_hosts_request_limit.py
 verified: 2026-11-13
@@ -118,6 +118,7 @@ sources:
   - T263
   - T273
   - T274
+  - T311
   - T315
 ---
 
@@ -327,6 +328,7 @@ It clears `localStorage` and the market store, as signing out does, and goes to 
 It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself, through `keepsTheSession`) and from any `/public/...` request, which carries no organizer session (a vendor signs in on their own vendor page, where they also check in), and any 401 while the page is public.
 The request still fails as it would have, so the screen's own catch runs too.
 `aSessionThatEnded.test.ts` holds each of those exemptions, the sign-in endpoints' included, though no screen sends them through `api` today.
+Sign out everywhere (`signOutEverywhere`, [the app bar](../modules/app-bar.md#sign-out-everywhere)) posts through `api`, so its 401 is a session that ended, told as one; done, it goes to `/login?everywhere=1`, where the sign-in page says "You are signed out on every device." in that line's place (`loginAddress`'s `everywhere` in [`signInNext.ts`](../../../front-end/src/utils/signInNext.ts)).
 
 **A write over a market that changed** answers `MarketChanged`'s 409, which `isMarketChanged` in `api.ts` tells apart by its `code`.
 A second response interceptor, `installMarketChanged` in [`front-end/src/stores/market.ts`](../../../front-end/src/stores/market.ts), installed from `main.ts` beside the session's, re-reads the open market on it, and the screen's own catch shows the server's sentence through `getApiErrorMessage`, as any refusal's ([the market write](../modules/market-write.md#on-the-screen)).

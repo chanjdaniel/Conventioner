@@ -196,6 +196,22 @@ class TestSignedInAsYourself:
         assert response.status_code == 200
         assert ATTACKER not in collection.docs
 
+    def test_deleting_your_account_ends_every_sign_in_of_it(
+            self, client, users, organizer_sessions):
+        import organizer_sessions as OrganizerSessions
+
+        leaving, staying = "fixture-leaving@example.com", "fixture-staying@example.com"
+        users(_user(leaving), _user(staying))
+        for remembered in (True, False):
+            OrganizerSessions.start(_id_of(leaving), "fixture-login-id", remembered)
+        someone_elses = OrganizerSessions.start(_id_of(staying), "fixture-other-login-id", True)
+        _signed_in_as(client, leaving)
+
+        assert _delete(client, leaving).status_code == 200
+
+        assert [kept["user_id"] for kept in organizer_sessions.documents] == [_id_of(staying)]
+        assert OrganizerSessions.recall(someone_elses) is not None
+
     def test_a_spoofed_header_is_ignored_rather_than_obeyed(self, client, users):
         """The header is not an authorization input any more, so it changes nothing."""
         collection = users(_user(ATTACKER), _user(VICTIM))

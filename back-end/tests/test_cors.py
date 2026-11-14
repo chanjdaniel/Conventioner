@@ -1,9 +1,10 @@
 """Which websites may spend an organizer's session cookie, and what happens when nobody has said.
 
-The session cookie is ``SameSite=None``, so the browser attaches it to cross-site XHR, and the API
-answers with ``Access-Control-Allow-Credentials: true``. The origin list is therefore the whole of
-the control: with no list, flask-cors reflects the caller's own ``Origin`` back at it, and every
-website an organizer visits can read and write the organizer API as them.
+The browser attaches the session cookie (``SameSite=Lax``) to XHR from any page on the API's site,
+and a vendor's remember cookie (``SameSite=None``) to cross-site XHR too, and the API answers with
+``Access-Control-Allow-Credentials: true``. The origin list decides which of those pages may read
+the answers: with no list, flask-cors reflects the caller's own ``Origin`` back at it, and every
+page the cookies ride from can read and write the API as whoever is signed in.
 """
 
 import re
@@ -60,7 +61,7 @@ def _allow_origin_for(origin, monkeypatch, **env):
 class TestTheOriginList:
     def test_a_deployment_refuses_to_guess(self, deployed):
         """Unset is not "allow everyone", it is "nobody has said" - and the reflect-any-origin
-        reading of that is the organizer API handed to every website an organizer visits."""
+        reading of that is the API handed to every page its cookies ride from."""
         with pytest.raises(CorsConfigError) as exc:
             allowed_origins()
 

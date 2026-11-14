@@ -23,6 +23,7 @@ sources:
   - T274
   - T283
   - T309
+  - T311
   - T315
 ---
 
@@ -71,8 +72,8 @@ The server is `REAL_MONGODB_URI`, a full connection string.
   The fakes [`tests/conftest.py`](../../../back-end/tests/conftest.py) installs at import are recorded in its `IMPORT_TIME_STAND_INS` with the value each replaced, and binding puts that value back first.
   Binding fails the test when a handle on another client, or an object of a class a test file defines, is still in a back-end module.
   Every binding is a `monkeypatch.setattr`, so each attribute is its import-time value again after the test.
-- The package's conftest names the three suite-wide autouse fakes again (`applications`, `market_records`, `sign_in_attempts`), so pytest resolves them to the nearer definitions, which hand back the bound real collections.
-  Since every test uses those three, every test in the package runs on its own bound database.
+- The package's conftest names the four suite-wide autouse fakes again (`applications`, `market_records`, `sign_in_attempts`, `organizer_sessions`), so pytest resolves them to the nearer definitions, which hand back the bound real collections.
+  Since every test uses those four, every test in the package runs on its own bound database.
 
 ## The fixtures
 
@@ -149,6 +150,7 @@ Each test's name says what it proves.
 
 The writes that hold what they read beyond these races are run the same way, each in its own file named for what it proves: [`test_the_market_write.py`](../../../back-end/tests/real_mongo/test_the_market_write.py) (what `write_market` holds and answers), [`test_a_judged_write_lands_only_on_the_market_it_judged.py`](../../../back-end/tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py), [`test_every_held_write_is_refused_on_a_changed_market.py`](../../../back-end/tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py), [`test_roles_written_per_person.py`](../../../back-end/tests/real_mongo/test_roles_written_per_person.py), [`test_an_assignment_write_holds_the_market_it_read.py`](../../../back-end/tests/real_mongo/test_an_assignment_write_holds_the_market_it_read.py), [`test_the_form_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_form_holds_its_revision.py) and [`test_the_plan_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_plan_holds_its_revision.py).
 What each one holds is [the market write](../modules/market-write.md).
+An organizer's sign-in secrets are run the same way in [`test_the_sign_in_secret_races.py`](../../../back-end/tests/real_mongo/test_the_sign_in_secret_races.py): five code requests at once mail one code, five right codes at once sign in once, five uses of one reset link at once reset once, and five uses of one verification link at once verify once ([the sign-in secrets](../data/users-and-email.md#the-sign-in-secrets)).
 [`real_mongo/test_a_deletion_leaves_a_tombstone.py`](../../../back-end/tests/real_mongo/test_a_deletion_leaves_a_tombstone.py) cuts a market's and an organization's deletion at each step, a step's function or a collection method raising once, and sends the same request again, and lands a deletion, or its tombstone, between an applicant's save, an import or a market's creation and its read, by `interleave` ([market deletion](../modules/market-deletion.md#the-tombstone)).
 
 The lease tests set `review_team`'s clock rather than wait for a lease to run out.

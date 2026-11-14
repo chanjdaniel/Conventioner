@@ -1,10 +1,11 @@
 """Which state-changing requests this deployment takes, by where the browser says they came from.
 
 CORS decides which origins may *read* a response; it does not stop a request from being sent. A
-plain form post goes without a preflight, and the session cookie is ``SameSite=None``, so the
-browser attaches it to that post whatever page sent it. So a write is checked for where it came
-from before its route runs, against the same list CORS answers from (``utils.cors``), so there is
-one list of the app's origins.
+plain form post goes without a preflight, and the browser attaches the session cookie,
+``SameSite=Lax``, to one sent from any page on the API's site, and a vendor's remember cookie,
+``SameSite=None``, to one sent from any page at all. So a write is checked for where it came from
+before its route runs, against the same list CORS answers from (``utils.cors``), so there is one
+list of the app's origins.
 
 The decision is OWASP's Fetch Metadata check with its ``Origin`` fallback:
 

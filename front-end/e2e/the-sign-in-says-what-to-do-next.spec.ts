@@ -8,6 +8,7 @@ import {
   SPACE_SCALE,
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
+import { forgetSignInCode, plantSignInCode, storedAccountLinkHash } from './helpers/accountSecrets';
 import { mongoEval } from './helpers/mongo';
 import { ROOM_IN_WINDOW_WAIT_MS, waitForRoomInWindow } from './helpers/signInWindow';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
@@ -44,11 +45,6 @@ const WIDTHS = [
 
 function uniqueEmail(): string {
   return `e2e-sign-in-words-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-
-/** One field of the user's document, read straight from Mongo. */
-function userField(email: string, field: string): string {
-  return mongoEval(`print(db.users.findOne({email: ${JSON.stringify(email)}}).${field})`);
 }
 
 /** The sign-in card as drawn: nothing past the window, clipped or drawn over, and no "log in". */
@@ -89,8 +85,8 @@ for (const { name, viewport } of WIDTHS) {
       request,
     }) => {
       const email = uniqueEmail();
-      // The sign-up leaves the account unverified and makes a link of its own, read below
-      // before the resend so the resend's new link tells from it.
+      // The sign-up leaves the account unverified and makes a link of its own, whose hash is read
+      // below before the resend so the resend's new link tells from it.
       const created = await request.post('/api/register', {
         data: { email, password: PASSWORD, captcha_token: 'e2e' },
       });
@@ -104,15 +100,15 @@ for (const { name, viewport } of WIDTHS) {
         await expect(login.resendVerificationButton).toHaveText('Send the link again');
         await expectItSaysItWell(page);
 
-        const before = userField(email, 'verification_token');
+        const before = storedAccountLinkHash(email, 'verify');
         await login.resendVerificationButton.click();
         await expect(login.successMessage).toHaveText(RESENT);
         await expect(login.errorMessage).toBeHidden();
         await expect(login.resendVerificationButton).toHaveCount(0);
         // A new link was made for the address, which the stack's mail would have carried.
-        const after = userField(email, 'verification_token');
+        const after = storedAccountLinkHash(email, 'verify');
+        expect(after).toMatch(/^[0-9a-f]{64}$/);
         expect(after).not.toBe(before);
-        expect(after.length).toBeGreaterThanOrEqual(10);
         await expectItSaysItWell(page);
       } finally {
         deleteUser(email);
@@ -222,13 +218,7 @@ for (const { name, viewport } of WIDTHS) {
       await login.otpEmailInput.fill(TEST_USER.email);
       await login.otpSubmitButton.click();
       await expect(login.otpSuccessMessage).toHaveText(CODE_SENT);
-      const setCode = (code: string | null, expires: string | null) =>
-        mongoEval(
-          `db.users.updateOne({ email: ${JSON.stringify(TEST_USER.email)} }, ` +
-            `{ $set: { otp: ${JSON.stringify(code)}, otp_expires: ${JSON.stringify(expires)}, ` +
-            `otp_attempts: 0 } })`,
-        );
-      setCode('246810', new Date(Date.now() + 5 * 60_000).toISOString());
+      plantSignInCode(TEST_USER.email, '246810');
       try {
         await login.otpCodeInput.fill('135791');
         await login.otpSubmitButton.click();
@@ -238,7 +228,7 @@ for (const { name, viewport } of WIDTHS) {
         await expectItSaysItWell(page);
       } finally {
         // No code left behind for the next spec to be refused by.
-        setCode(null, null);
+        forgetSignInCode(TEST_USER.email);
       }
     });
   });

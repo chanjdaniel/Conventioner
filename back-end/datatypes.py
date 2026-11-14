@@ -963,10 +963,14 @@ class User(BaseModel):
     password: str
     organizations: List[str]  # Organization ids (uuids)
     email_verified: bool = False
+    # The account's sign-in secrets by kind, each one record kept hashed; ``account_secrets`` is
+    # their only reader and writer.
+    secrets: Dict[str, Any] = {}
     verification_token: Optional[str] = None
     verification_token_expires: Optional[str] = None
     password_reset_token: Optional[str] = None
     password_reset_token_expires: Optional[str] = None
+    # The code's fields before ``secrets``, read for one release (``account_secrets._upgrade``).
     otp: Optional[str] = None
     otp_expires: Optional[str] = None
     otp_attempts: int = 0

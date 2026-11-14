@@ -16,6 +16,7 @@ sources:
   - T205
   - T263
   - T284
+  - T311
   - T317
 ---
 
@@ -272,7 +273,7 @@ delete), market role management (add user with role, change role, remove user),
 assignment CSV export (download and verify columns), and publishing a market
 (verify the market's vendor page, where its vendors check in, is reachable). Tier-3 authentication and robustness
 journeys (`auth.spec.ts`) cover new-user registration, the full password reset
-flow (including reading the real reset token from MongoDB), posting an assignment
+flow (with a reset link planted in MongoDB), posting an assignment
 and login/OTP error states. The organization-required suite
 (`new-market-org.spec.ts`) covers the rule that every market must be created in an
 organization: it asserts that `POST /markets` rejects a payload with no
@@ -390,9 +391,12 @@ stack (`scripts/th-compose.sh`) defaults it to `true` (pass `DISABLE_EMAIL=false
 The primary checkout's plain `docker compose up` does not, so export it in the shell that
 brings that stack up: without it the password-reset test in `auth.spec.ts` answers 500 from
 the unconfigured mailer. The password-reset E2E test does
-not read the reset link from an email - it reads the token directly from MongoDB
-(through `mongoEval` in `front-end/e2e/helpers/mongo.ts`, which runs `mongosh` in the container
-named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
+not read the reset link from an email, and cannot read it from MongoDB, which keeps only its
+hash: after asking for a link it plants one it knows with `plantAccountLink` in
+`front-end/e2e/helpers/accountSecrets.ts`, as the verification specs plant a verification link
+and `plantSignInCode` plants a code (through
+`mongoEval` in `front-end/e2e/helpers/mongo.ts`, which runs `mongosh` in the container named by
+`E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 
 ### A fake Discord
 

@@ -8,6 +8,7 @@ import {
   SPACE_SCALE,
   TYPE_SCALE,
 } from './helpers/layoutDetectors';
+import { newAccountLink, plantAccountLink, storedAccountLinkHash } from './helpers/accountSecrets';
 import { mongoEval } from './helpers/mongo';
 import { EmailVerificationPage } from './pages/EmailVerificationPage';
 
@@ -83,8 +84,8 @@ for (const { name, viewport } of WIDTHS) {
       request,
     }) => {
       const email = uniqueEmail();
-      // The sign-up leaves the account unverified and makes a link of its own, read below
-      // before the resend so the resend's new link tells from it.
+      // The sign-up leaves the account unverified and makes a link of its own, whose hash is read
+      // below before the resend so the resend's new link tells from it.
       const created = await request.post('/api/register', {
         data: { email, password: PASSWORD, captcha_token: 'e2e' },
       });
@@ -99,7 +100,7 @@ for (const { name, viewport } of WIDTHS) {
         await expect(page.getByText(/Redirecting/)).toHaveCount(0);
         await expectItIsDrawnWell(page);
 
-        const before = userField(email, 'verification_token');
+        const before = storedAccountLinkHash(email, 'verify');
         await verification.sendTheLinkAgain(email);
         await expect(verification.resentMessage).toHaveText(RESENT);
         await expect(verification.errorMessage).toBeHidden();
@@ -109,10 +110,13 @@ for (const { name, viewport } of WIDTHS) {
         await expect(verification.backLink).toBeFocused();
         await expectItIsDrawnWell(page);
 
-        // A new link was made for the address, which the stack's mail would have carried.
-        const token = userField(email, 'verification_token');
-        expect(token).not.toBe(before);
-        expect(token.length).toBeGreaterThanOrEqual(10);
+        // A new link was made for the address, which the stack's mail would have carried; it is
+        // kept only as its hash, so a link the spec knows stands in for it.
+        const after = storedAccountLinkHash(email, 'verify');
+        expect(after).toMatch(/^[0-9a-f]{64}$/);
+        expect(after).not.toBe(before);
+        const token = newAccountLink();
+        plantAccountLink(email, 'verify', token);
 
         // Past the pause a verification takes, the page has not moved and never said it would.
         await page.clock.runFor(PAST_THE_PAUSE_MS);
