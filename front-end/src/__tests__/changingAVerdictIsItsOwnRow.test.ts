@@ -147,15 +147,44 @@ describe('a card someone else decided first', () => {
   });
 
   async function refusedCard(changes: boolean) {
+    reviewApplication.mockClear();
+    // Unmounted after each test: the card's keys listen on the window.
     const wrapper = mount(ApplicationMonitor, {
       props: { market: market(changes), visible: true },
+      attachTo: document.body,
     });
+    opened = wrapper;
     await flushPromises();
     await wrapper.get('[data-testid="app-monitor-reject-button"]').trigger('click');
     await flushPromises();
     expect(wrapper.find('[data-testid="app-monitor-changed"]').exists()).toBe(true);
+    expect(reviewApplication).toHaveBeenCalledTimes(1);
     return wrapper;
   }
+
+  async function press(key: string) {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+    await flushPromises();
+  }
+
+  it('takes no verdict key on it from someone the change row refuses', async () => {
+    const wrapper = await refusedCard(false);
+
+    for (const key of ['a', 'r', 's']) await press(key);
+
+    expect(reviewApplication).toHaveBeenCalledTimes(1);
+    expect(document.body.querySelector('[data-testid="follow-up"]')).toBeNull();
+    // Still the refused card, saying who decided it.
+    expect(wrapper.find('[data-testid="app-monitor-changed"]').exists()).toBe(true);
+  });
+
+  it('takes a verdict key on it from someone it lets change one', async () => {
+    await refusedCard(true);
+
+    await press('a');
+
+    expect(reviewApplication).toHaveBeenCalledTimes(2);
+  });
 
   it('offers no verdict on it to someone the change row refuses', async () => {
     const wrapper = await refusedCard(false);
