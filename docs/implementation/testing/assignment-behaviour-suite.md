@@ -5,7 +5,7 @@ describes:
   - back-end/tests/test_assignment_behaviour.py
   - back-end/tests/test_solver_vendor_input.py
   - back-end/tests/test_assignment_invariants.py
-verified: 2026-11-11
+verified: 2026-11-14
 sources:
   - wayfinding/november-2026-dry-run/07
   - E02/F01/S02
@@ -26,7 +26,7 @@ The glossary concepts: [Assignment](../../business/concepts/assignment.md) and [
 - `VendorWant` describes one vendor in the domain's terms (dates they can attend, tiers they accept, flat or per date, table choice, partner, a personal limit, a section ranking) and becomes a `SolverVendor`; no application, no database.
 - `market_for` builds the plan (two dates, a Gold and a Silver section of two tables each, a ceiling of four, a half-table share of 100% unless a case says otherwise), and `assign(wants, pins=, held=, ...)` runs `assign_market` over it.
 - `pin` writes a hand-placed row, which is all a pin is; `placements`, `seat_of` and `dates_for` read the result, and `seats_held_twice` names every seat two vendors hold, a "Full Table" counting as both seats.
-- A case about the market's own applications appends documents to the `applications` fixture of `tests/conftest.py`, the fake collection every back-end test runs on, rather than reaching Mongo.
+- A case about the market's own applications appends documents to the `applications` fixture of `tests/conftest.py`, the fake collection the default back-end suite runs on, rather than reaching Mongo (`tests/real_mongo/` puts the real collection in its place).
 
 ## What it pins
 
