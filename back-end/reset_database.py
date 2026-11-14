@@ -30,6 +30,7 @@ APP_COLLECTIONS = (
     'applicant_login_challenges',
     'sign_in_attempts',
     'organizer_sessions',
+    'vendor_remembered_sign_ins',
     'floorplan_templates',
     'source_data',
     # Missed until 2026-10-03, so every reset left the trail of who moved whom, and the record of

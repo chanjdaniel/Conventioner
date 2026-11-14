@@ -7,6 +7,7 @@ then pointed at markets that no longer existed.
 from api.applicant_auth import APPLICANT_LOGIN_CHALLENGES_COLLECTION
 from lookup_indexes import LOOKUP_INDEXES
 from organizer_sessions import SESSIONS_COLLECTION
+from remembered_sign_ins import REMEMBERED_SIGN_INS_COLLECTION
 from reset_database import APP_COLLECTIONS, PRESERVED
 
 
@@ -22,6 +23,12 @@ def test_organizer_sign_ins_are_cleared():
     # A sign-in names its account by id and login id, so one kept across a reset names an account
     # the seed no longer has.
     assert SESSIONS_COLLECTION in APP_COLLECTIONS
+
+
+def test_vendor_remembered_sign_ins_are_cleared():
+    # A reset empties the remembered sign-ins too, so no device stays signed in to a market the
+    # seed no longer has.
+    assert REMEMBERED_SIGN_INS_COLLECTION in APP_COLLECTIONS
 
 
 def test_the_migration_markers_the_back_end_needs_to_boot_are_kept():
