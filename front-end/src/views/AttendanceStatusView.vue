@@ -744,6 +744,7 @@ watch(marketId, openMarket, { immediate: true });
 }
 
 .door-list {
+  container: door-list / inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -819,16 +820,23 @@ watch(marketId, openMarket, { immediate: true });
   font-size: var(--text-sm);
 }
 
-/* A phone at the door: the vendor on top, where they sit and whether they came beneath, and the
-   button within a thumb's reach on the right. Where they sit and whether they came share a line of
-   their own, the status at its end, or under it when both do not fit: in the action's column a wide
-   status ("9:44 AM by ...") squeezed the vendor's line and broke the address mid-word. The gutter
-   narrows but stays on both sides: without it the rows ran to the card's edges. */
+/* The gutter narrows on a phone but stays on both sides: without it the rows ran to the card's
+   edges. */
 @media (width <= 640px) {
   .door {
     padding: var(--space-4);
   }
+}
 
+/* A row too narrow for the desk's four columns, a phone's or a tablet's: the vendor on top, where
+   they sit and whether they came beneath, and the button within a thumb's reach on the right. Where
+   they sit and whether they came share a line of their own, the status at its end, or under it when
+   both do not fit: in the action's column a wide status ("9:44 AM by ...") squeezed the vendor's
+   line and broke the address mid-word. By the list's width, not the window's: at 768px the desk's
+   columns left the vendor's a third of the row, and the address broke inside its domain (T318).
+   60rem is the table's 14rem, room for an address's longer half, a check-in's status with its
+   table, the action's 7rem and the gaps. */
+@container door-list (width < 60rem) {
   .door-row {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
