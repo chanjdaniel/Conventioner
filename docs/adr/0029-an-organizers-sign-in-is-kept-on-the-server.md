@@ -7,9 +7,10 @@ describes:
   - back-end/api/users.py#_sign_in
   - back-end/app.py#a_legacy_remembered_account
   - back-end/tests/test_the_remember_cookie.py
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - T311
+  - T338
 status: accepted
 ---
 
@@ -39,10 +40,10 @@ How the record is read and what ends it are in [users, and the one spelling of a
 ## As built
 
 - `start`, `recall`, `end` and `end_all` are the module's four operations, with a `now()` of its own that tests move; `SIGN_IN_LIFETIME` (12 hours) and `REMEMBERED_SIGN_IN_LIFETIME` (30 days) moved there from `api/users.py`.
-- In [`api/users.py`](../../back-end/api/users.py), `_sign_in` ends the browser's earlier sign-in, both the one its session names and the one its remember cookie names, then starts one; `signed_in_account` recalls the record, or reads a legacy sign-in id; `logout` ends the browser's sign-in, then clears both cookies; `logout_everywhere` replaces the login id, calls `end_all`, then clears both cookies; `reset_password` and `delete_user` call `end_all`.
+- In [`api/users.py`](../../back-end/api/users.py), `_sign_in` ends the browser's earlier sign-in, both the one its session names and the one its remember cookie names, then starts a fresh session (`start_a_fresh_session`, [the cookies](../implementation/conventions/security-invariants.md#the-cookies)) and starts one; `signed_in_account` recalls the record, or reads a legacy sign-in id; `logout` ends the browser's sign-in, then clears both cookies; `logout_everywhere` replaces the login id, calls `end_all`, then clears both cookies; `reset_password` and `delete_user` call `end_all`.
 - In [`app.py`](../../back-end/app.py), `a_legacy_remembered_account` is the request loader for the old cookie, and `RefusingLoginManager._clear_cookie` deletes the remember cookie with `Secure`, which Flask-Login's own deletion leaves out and a browser needs to accept the deletion of a `__Host-` cookie.
 - The session protection ("strong") is unchanged.
-- [`back-end/tests/test_the_remember_cookie.py`](../../back-end/tests/test_the_remember_cookie.py) holds the lifetimes, the cookies' attributes, what ends a sign-in for a copy of the cookies, and the old shapes.
+- [`back-end/tests/test_the_remember_cookie.py`](../../back-end/tests/test_the_remember_cookie.py) holds the lifetimes, the cookies' attributes, what ends a sign-in for a copy of the cookies, a fresh session at every sign-in in each session store, and the old shapes.
 
 ## Consequences
 
