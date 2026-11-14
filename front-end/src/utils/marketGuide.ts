@@ -421,7 +421,8 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
       allocation === 'none' ? 'Read the rules on Settings.' : 'Read the assignments.'
     }`,
   }),
-  // Once it has run, what is left is archiving it.
+  // Each day's roster printed first, the door's fallback when the venue's network fails (T318);
+  // once it has run, what is left is archiving it.
   [MarketPhase.MarketDays]: ({ ended }) =>
     ended
       ? {
@@ -433,7 +434,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
       : {
           page: 'attendance',
           action: MarketAction.CheckIn,
-          statement: 'Check vendors in at the door.',
+          statement: "Print each day's roster, then check vendors in at the door.",
           onlooker: 'Follow who has checked in at the door.',
         },
   // One that never ran has nothing to show but its plan.

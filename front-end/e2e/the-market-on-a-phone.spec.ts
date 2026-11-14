@@ -17,6 +17,7 @@ import { withUser } from './helpers/withUser';
 import {
   allocateThenFreeEverySeat,
   publishResults,
+  recordCheckIns,
   SEED_MARKET_DATE,
   seedMarketWithVendors,
   seedPublishedMarketWithAssignments,
@@ -202,10 +203,7 @@ async function aMarketAtTheDoor(request: APIRequestContext): Promise<string> {
   const marketId = await aMarketThatIsOwed(request, { asks: true });
   await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
   await call(request, 'post', `/markets/${marketId}/transition`, { toPhase: 'market_days' });
-  await call(request, 'post', `/markets/${marketId}/attendance`, {
-    vendorEmail: PAID,
-    date: SEED_MARKET_DATE,
-  });
+  recordCheckIns(marketId, [{ vendorEmail: PAID, date: SEED_MARKET_DATE }], TEST_USER.email);
   return marketId;
 }
 

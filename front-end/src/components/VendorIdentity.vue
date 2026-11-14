@@ -14,8 +14,13 @@
  * `display_name` in `back-end/essential_fields.py`, beside the contract that defines both keys,
  * and handed here already resolved (E19/F02/S01). The review card is the one surface that shows
  * both, labelled: deciding about a person is not the same as scanning a list.
+ *
+ * The address, and a headline that is the address, are drawn by `EmailAddress`, so a column too
+ * narrow for them breaks them before the "@" or a dot: drawn as plain text, the door's rows broke
+ * them after a hyphen and inside the domain (T318).
  */
 import { computed } from 'vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import { vendorHeadline, vendorName, type VendorNames } from '@/utils/vendorIdentity';
 
 const props = defineProps<{
@@ -29,10 +34,12 @@ const named = computed(() => vendorName(props.email, props.names) !== '');
 
 <template>
   <span class="vendor-identity" data-testid="vendor-identity">
-    <span class="vendor-identity-name" data-testid="vendor-identity-name">{{ headline }}</span>
-    <span v-if="named" class="vendor-identity-email" data-testid="vendor-identity-email">
-      {{ email }}
-    </span>
+    <span class="vendor-identity-name" data-testid="vendor-identity-name"
+      ><EmailAddress :words="headline"
+    /></span>
+    <span v-if="named" class="vendor-identity-email" data-testid="vendor-identity-email"
+      ><EmailAddress :words="email ?? ''"
+    /></span>
   </span>
 </template>
 

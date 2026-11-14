@@ -32,6 +32,7 @@ sources:
   - T270
   - T201
   - T315
+  - T318
 ---
 
 # Payments, and what a vendor owes
@@ -68,6 +69,7 @@ Every free keeps the line, before results are published too (Daniel chose this o
 
 **Freeing a table asks** (Q26: "when we remove a table, promp the user to ask if it should also dedudct from amount owed"): whoever may change the amount owed is asked in the placement dialog, beside "Free this seat", "Also remove its $15.00 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, naming what the day's line owes, set by hand or calculated, read from the vendor's account as the dialog opens; a line that owes nothing asks nothing.
 Ticked, the free sends `deductOwed: true`, and `remove_placement` asks the row "Change the amount owed" before it frees anything, then writes the line's $0, marked `by_free`, in the same upsert that keeps the freed line, before the seat goes (`keep_freed_line` with `deduct`); the amount paid is untouched, so a vendor who paid reads paid more than owed, a refund to issue.
+A free of a vendor who has checked in that day is asked about first, before the line is kept, so the question writes no line; "Free anyway" sends the same `deductOwed` again with `whileHere: true` (T318, [placements](../modules/placements.md)).
 That write, and an unticked free's write of its freed line too, lands only while the day's amount by hand is still the one the free read, so an Admin's amount set in between is the one kept as `replaced`, never written over: the free reads the day again, up to three times, and then frees nothing and is refused, 409, "What this vendor owes for that day changed as the seat was freed, so nothing was freed. Try again." (`OwedChangedUnderFree`); with no record read, a record created since is refused by the unique index, and the free reads again the same way.
 The "owed set" entry it records once the seat is freed runs from what the line owed as the request read it, while the seat was held, to 0, and reads nothing again.
 So no stop after the seat leaves the day freed and owing its full amount.

@@ -28,11 +28,9 @@ export const NO_ORG_USER = {
 export const BACKEND_URL = process.env.BACKEND_URL || stack().backendURL;
 
 /**
- * The API at the address the app's own pages call it, for a call made with a page's cookies
- * (`page.request`). The back end holds a session to the client that signed in ("strong" session
- * protection), and its own port is another client to it than the page, so a call there with the
- * page's session is refused as signed out (E38/F14/S01, T177). A request context of its own may
- * call `BACKEND_URL`.
+ * The API at the address the app's own pages call it, through the dev server's proxy, for a call
+ * made with a page's cookies (`page.request`), so it reaches the back end as the page's own calls
+ * do (E38/F14/S01). A request context of its own may call `BACKEND_URL`.
  */
 export const APP_API = '/api';
 

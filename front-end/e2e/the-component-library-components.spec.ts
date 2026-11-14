@@ -31,6 +31,7 @@ const COMPONENTS = [
   'BarLedger',
   'FileDropZone',
   'ScrollBox',
+  'ListFreshness',
 ];
 
 /**
@@ -114,6 +115,28 @@ eachWindow('the existing components entry', (size) => {
     await expect(
       page.getByRole('region', { name: 'Chosen', exact: true }).getByTestId('read-out'),
     ).toHaveText('Chose: sign-out');
+  });
+
+  test('ListFreshness says how old a list is, in each state, and asks for a read', async ({
+    page,
+  }) => {
+    await openEntry(page, 'components');
+    const press = inTheWindow(size).press;
+
+    await expect(page.getByTestId('library-freshness-never-updated')).toHaveCount(0);
+    await expect(page.getByTestId('library-freshness-now-updated')).toHaveText('Updated just now');
+    await expect(page.getByTestId('library-freshness-minutes-updated')).toHaveText(
+      'Updated 5 minutes ago',
+    );
+    await expect(page.getByTestId('library-freshness-refreshing-refresh')).toBeDisabled();
+    await expect(page.getByTestId('library-freshness-failed-refresh-error')).toHaveText(
+      'Could not update. The roster is as it was last read.',
+    );
+
+    await press(page.getByTestId('library-freshness-failed-refresh'));
+    await expect(
+      page.getByRole('region', { name: 'Refresh, pressed', exact: true }).getByTestId('read-out'),
+    ).toHaveText('Asked to read again: 1 time');
   });
 
   test('its drop zone reads out the file it takes, and takes none while reading one', async ({

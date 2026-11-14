@@ -64,7 +64,7 @@ import AppDialog from '@/components/AppDialog.vue';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import ListFrame from '@/components/ListFrame.vue';
-import ListFreshness from '@/components/application/ListFreshness.vue';
+import ListFreshness from '@/components/ListFreshness.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
 import SearchPicker from '@/components/SearchPicker.vue';
@@ -550,6 +550,7 @@ async function decideSelection() {
 <template>
   <div class="all-view" data-testid="applications-all">
     <ListFreshness
+      testid="applications"
       :readAt="readAt"
       :refreshing="refreshing || saving"
       :failed="refreshError"
@@ -795,10 +796,12 @@ async function decideSelection() {
               @click="drawer.open(app.applicantEmail)"
             >
               <span class="all-who">
-                <span class="all-name" data-testid="applications-all-name">{{
-                  nameOf(app) || app.applicantEmail
-                }}</span>
-                <span v-if="nameOf(app)" class="all-email">{{ app.applicantEmail }}</span>
+                <span class="all-name" data-testid="applications-all-name"
+                  ><EmailAddress :words="nameOf(app) || app.applicantEmail"
+                /></span>
+                <span v-if="nameOf(app)" class="all-email"
+                  ><EmailAddress :words="app.applicantEmail"
+                /></span>
               </span>
               <span v-if="leadingShown" class="all-leading">{{ leading(app) }}</span>
               <span class="all-state">

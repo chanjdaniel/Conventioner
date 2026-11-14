@@ -29,6 +29,7 @@ sources:
   - T207
   - T260
   - T263
+  - T318
   - T277
   - T316
 ---
@@ -101,7 +102,7 @@ In Draft the form comes before Review setup: while the form has none of the orga
 | Assignment, nothing run       | "Set the rules and allocate tables.", and with tables assigned by hand alone "Set the rules and allocate tables. The tables you assigned by hand are kept."                             | as the online path                                                                                                      |
 | Assignment, run               | "Check the assignments, then publish the market: that opens check-in with the door code, and cannot be undone."                                                                         | as the online path                                                                                                      |
 | Assignment, results published | "Results are published, so the assignments are settled. Publish the market to open check-in with the door code; that cannot be undone."                                                 | as the online path                                                                                                      |
-| Market Days                   | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened."                                             | as the online path                                                                                                      |
+| Market Days                   | "Print each day's roster, then check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened."               | as the online path                                                                                                      |
 | Archived                      | "Archived: the record of what happened stays on its vendor page." for a market that ran, else "Archived: this market is the record of what happened."                                   | as the online path                                                                                                      |
 
 Someone whose role the step is not reads instead what they may do there, and is led to it: a Viewer in Draft reads "The market is being planned. Read its plan on Market Setup.", in the stage what the stage is and "Read where each application stands." (on the Google Form path, "each response"), in Assignment that tables are not allocated yet or are, or that results are published, at the door "Follow who has checked in at the door.", and once every date has passed "The market has run. Who came is on Attendance." (E38/F15/S04).
