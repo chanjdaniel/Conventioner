@@ -4,8 +4,9 @@
  * only before its "@" or before a dot, never at a hyphen inside a name (T137 review note 7, T181).
  * The history's table and sentences, the review's warnings, reviewer lines, error lines and reviewed
  * rows, the door code's line of who made it, the rows of Manage market and Manage organization, the
- * rows and chips of a chooser of a market's team, and every dialog's title draw their addresses with
- * it.
+ * rows and chips of a chooser of a market's team, every dialog's title, the All view's rows, the
+ * seat's dialog and `VendorIdentity`, a vendor's name and address wherever a screen names them,
+ * draw their addresses with it.
  *
  * Each address is one word in the accessible name, and a copy of it is the address: every piece is
  * an inline span, so nothing is added between them, and the break before a piece is a zero-width

@@ -10,6 +10,7 @@ verified: 2026-11-10
 sources:
   - T202
   - T191
+  - T318
 status: accepted
 ---
 
@@ -57,7 +58,11 @@ Its rules, each pinned at the HTTP seam (`test_the_door_code.py`, `test_a_vendor
 - No market read, Markets list entry, history entry or log carries it: it is stored as `doorCode` on the market document, left out of every read (`NEVER_SERVED_FIELDS` in `market_documents.py`), and a new code's history entry says only whether it replaced one.
 - A check-in needs the vendor's own sign-in for that market, `market_days`, a seat for them on that date, and that date within one day of the server's UTC date; the code is compared only after all of those, so a sign-in with no seat cannot probe it, and every refusal writes nothing.
 - Its undo takes no code, but the same sign-in, phase and window: on that day it takes back the check-in stored for them, theirs or one an organizer made, and never a past day's.
-- Tries are bounded in 15 minutes: 60 wrong door codes per caller (`check-in:caller`), so a venue's shared address checks every vendor in, 10 check-ins per signed-in address (`check-in:address`), and the undo counts nothing; a remembered sign-in's resume, 300 per caller (`resume:caller`), counted before its cookie is read ([`back-end/sign_in_limits.py`](../../back-end/sign_in_limits.py)).
+- Tries are bounded in 15 minutes: 10 check-ins per signed-in address (`check-in:address`), right code or wrong, and the undo counts nothing; a remembered sign-in's resume, 300 per caller (`resume:caller`), counted before its cookie is read ([`back-end/sign_in_limits.py`](../../back-end/sign_in_limits.py)).
+  Amended 2026-11-14 (T318): the check-in counted wrong door codes per caller too, 60 in 15 minutes (`check-in:caller`), read before the code was compared, and that count was dropped.
+  A venue's wifi is one caller for every vendor on it, so a stale poster after a new code, or many vendors' typos, refused every vendor at the venue, right codes included, for up to 15 minutes.
+  What bounds a guess now is the per-address count, behind the vendor's sign-in for this market and a seat on a day within one of the server's: 960 tries a day for one address against 32^6 codes, about one in a million a day.
+  Counters it left under `check-in:caller` are never read again and expire by the TTL index, with no migration.
 
 **A sign-in code takes up to five tries within ten minutes.**
 After the fifth wrong try it is cancelled, the page says so, and only "Send a new code" is offered; a wrong try says only that someone asked for a code for that address in the last ten minutes, which anyone can make true by asking, so nothing says whether an address applied.

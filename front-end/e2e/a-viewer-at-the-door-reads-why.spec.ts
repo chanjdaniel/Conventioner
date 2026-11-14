@@ -1,9 +1,10 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { SEED_MARKET_DATE, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 import { LoginPage } from './pages/LoginPage';
+import { calendarToday } from './helpers/vendorSignIn';
 
 /**
  * A Viewer at the door reads why they cannot check vendors in (E38/F15/S04).
@@ -77,11 +78,13 @@ async function signIn(page: Page, person: { email: string; password: string }, w
 test.beforeAll(async ({ request }) => {
   ensureVerifiedUser(VIEWER.email, VIEWER.password);
   ensureVerifiedUser(EDITOR.email, EDITOR.password);
+  // On its day, today: the door offers no check-in for a day that has not begun (T318).
   ({ marketId } = await seedPublishedMarketWithAssignments(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+    { marketDate: calendarToday() },
   ));
   // The seed leaves the owner's session on `request`: they give each person their role, and check
   // one vendor in, so the door has a row an Undo would stand on.
@@ -95,7 +98,7 @@ test.beforeAll(async ({ request }) => {
     expect(res.ok(), await res.text()).toBeTruthy();
   }
   const checkIn = await request.post(`${BACKEND_URL}/markets/${marketId}/attendance`, {
-    data: { vendorEmail: HERE, date: SEED_MARKET_DATE },
+    data: { vendorEmail: HERE, date: calendarToday() },
   });
   expect(checkIn.ok(), await checkIn.text()).toBeTruthy();
 });
@@ -149,7 +152,9 @@ for (const size of SIZES) {
       await expect(door.row(NOT_YET)).toBeVisible({ timeout: 15000 });
 
       await expect(door.readOnly).toHaveCount(0);
-      await expect(page.getByTestId('phase-rail-next')).toHaveText('Check vendors in at the door.');
+      await expect(page.getByTestId('phase-rail-next')).toHaveText(
+        "Print each day's roster, then check vendors in at the door.",
+      );
 
       const checkIn = door.row(NOT_YET).getByTestId('attendance-check-in');
       const undo = door.row(HERE).getByTestId('attendance-undo');

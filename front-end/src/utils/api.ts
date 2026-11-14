@@ -212,6 +212,23 @@ export function isMarketChanged(err: unknown): boolean {
   );
 }
 
+/** The `code` of the placement doors' 409 for a vendor who has checked in that day (`VendorIsHere`). */
+export const VENDOR_IS_HERE_CODE = 'vendor_is_here';
+
+/**
+ * Whether a failed request is a free, a move or a swap the server asked about first, because a
+ * vendor it changes has checked in that day (`back-end/api/placements.py`, T318): a 409 whose body's
+ * `code` is `vendor_is_here`. It stored nothing and nothing changed, so the screen asks with the
+ * server's sentence and sends the same request again with `whileHere: true`.
+ */
+export function isVendorHere(err: unknown): boolean {
+  if (!axios.isAxiosError(err) || err.response?.status !== 409) return false;
+  const data: unknown = err.response.data;
+  return (
+    !!data && typeof data === 'object' && (data as { code?: unknown }).code === VENDOR_IS_HERE_CODE
+  );
+}
+
 /**
  * Run `handler` when a request answers that the market changed under it (`isMarketChanged`). The
  * request still fails as it would have, so the screen's own catch runs too and shows the sentence.

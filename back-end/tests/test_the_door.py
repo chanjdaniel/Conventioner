@@ -7,8 +7,7 @@ who was expected where.
 """
 import pytest
 
-from conftest import FakeMarketsCollection, stored_market
-from test_attendance_api import FakeAttendanceCollection
+from conftest import FakeApplicationsCollection, FakeMarketsCollection, stored_market
 
 import api.applications as ApplicationsApi
 import api.attendance as AttendanceApi
@@ -66,7 +65,7 @@ def door(monkeypatch):
         seat("cy@example.com", D1, "A 1", "Half Table (Right)"),
         seat("ana@example.com", D2, "B 5", section="B", location="South Wing"),
     ]))
-    attendance = FakeAttendanceCollection()
+    attendance = FakeApplicationsCollection()
 
     def permission(user, _market, role, _org=None):
         state["asked"].append(role)
@@ -124,7 +123,7 @@ class TestAnOrganizerChecksAVendorIn:
         result, status = DoorApi.check_in("market-123", "ben@example.com", D1, "door@example.com")
 
         assert status == 200, result
-        stored = door["attendance"].docs[0]
+        stored = door["attendance"].documents[0]
         assert (stored["vendor_email"], stored["date"]) == ("ben@example.com", D1)
         assert stored["checked_in_by"] == "door@example.com"
         assert MarketRole.EDITOR in door["asked"]
@@ -133,7 +132,7 @@ class TestAnOrganizerChecksAVendorIn:
         DoorApi.check_in("market-123", "ben@example.com", D1, "door@example.com")
         AttendanceApi.record_attendance("market-123", "ben@example.com", D1)
 
-        assert door["attendance"].docs[0]["checked_in_by"] is None
+        assert door["attendance"].documents[0]["checked_in_by"] is None
 
     def test_an_organizer_can_undo_it(self, door):
         DoorApi.check_in("market-123", "ben@example.com", D1, "door@example.com")
@@ -141,20 +140,20 @@ class TestAnOrganizerChecksAVendorIn:
         result, status = DoorApi.undo_check_in("market-123", "ben@example.com", D1, "door@example.com")
 
         assert status == 200, result
-        assert door["attendance"].docs == []
+        assert door["attendance"].documents == []
 
     def test_a_vendor_not_placed_that_day_cannot_be_checked_in(self, door):
         result, status = DoorApi.check_in("market-123", "ben@example.com", D2, "door@example.com")
 
         assert status == 404
-        assert door["attendance"].docs == []
+        assert door["attendance"].documents == []
 
     def test_someone_who_cannot_edit_the_market_is_refused(self, door):
         door["granted"] = False
 
         with pytest.raises(ForbiddenError):
             DoorApi.check_in("market-123", "ben@example.com", D1, "viewer@example.com")
-        assert door["attendance"].docs == []
+        assert door["attendance"].documents == []
 
     @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.APPLICATIONS])
     def test_nobody_is_checked_in_before_the_market_is_published(self, door, phase):
@@ -164,7 +163,7 @@ class TestAnOrganizerChecksAVendorIn:
 
         assert status == 409
         assert "published" in result["error"]
-        assert door["attendance"].docs == []
+        assert door["attendance"].documents == []
 
     def test_an_archived_market_s_record_is_not_changed(self, door):
         door["markets"].doc["phase"] = MarketPhase.ARCHIVED.value

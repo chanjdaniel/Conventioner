@@ -14,7 +14,9 @@ describes:
   - back-end/app.py#get_door_code
   - back-end/app.py#make_door_code
   - front-end/src/views/AttendanceStatusView.vue
+  - front-end/src/components/ListFreshness.vue
   - front-end/src/components/DoorCodeScreen.vue
+  - front-end/src/components/DoorRosterPrint.vue
   - front-end/src/utils/doorCode.ts
   - front-end/src/utils/qrDrawing.ts
   - front-end/src/components/vendorPage/VendorCheckIn.vue
@@ -22,7 +24,7 @@ describes:
   - front-end/src/utils/fitsAPhone.ts
   - back-end/app.py#verify_attendance_indexes
   - front-end/e2e/one-record-for-a-vendors-day.spec.ts
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
@@ -45,6 +47,7 @@ sources:
   - T270
   - T201
   - T274
+  - T318
 ---
 
 # Attendance and the door
@@ -54,8 +57,9 @@ Who comes on market day, recorded at two doors: the vendor's own check-in, on th
 
 ## The collection
 
-One document per `(market_id, vendor_email, date)`, stored snake_case, upserted by `record_attendance` with `checked_in_at` (ISO 8601 UTC, the latest check-in), `checked_in_by` (the organizer's address, or None for the vendor's own) and `checked_in_via` (`door_code` for the vendor's own, else None).
-A check-in made on the public check-in page before it was removed has `checked_in_by` None and no `checked_in_via`.
+One document per `(market_id, vendor_email, date)`, stored snake_case, upserted by `record_attendance` with `table_code` (the table code of the seat the vendor held when it was made, T318), `checked_in_at` (ISO 8601 UTC, the latest check-in), `checked_in_by` (the organizer's address, or None for the vendor's own) and `checked_in_via` (`door_code` for the vendor's own, else None).
+Checking in again updates the table with the time, so a vendor checked in again at a new seat is recorded there.
+A check-in made on the public check-in page before it was removed has `checked_in_by` None and no `checked_in_via`, and one made before T318 has no `table_code`: it is read as made at the seat the vendor holds now, which is the answer a stored table would give, so nothing was migrated.
 The vendor's address is normalised (`utils/email_address.normalized_email`) on every write and lookup.
 Undoing a check-in deletes its document: nothing else was changed by it.
 The collection goes with the market when it is deleted.
@@ -66,7 +70,7 @@ The one document per vendor's day is the database's to hold, not the upsert's (T
 An upsert with no unique index behind it can insert twice when two land at once, so without the index two organizers at the door, or an organizer's tap and the vendor's own door-code check-in, could leave two records: one Undo would take one away and leave the vendor reading as here, and the history would hold two arrivals.
 
 - `ensure_attendance_indexes` builds `attendance_vendor_day_unique`, unique on `(market_id, vendor_email, date)`, through [`unique_indexes.py`](../../../back-end/unique_indexes.py), and `app.py`'s `verify_attendance_indexes` refuses to boot without it, naming any duplicates by market id, date and record id, never by address ([OPERATIONS.md](../../OPERATIONS.md#when-the-back-end-refuses-to-boot)).
-- `record_attendance` runs its upsert once more on a `DuplicateKeyError`, which then lands on the winner's record; a second refusal goes on as the error it is.
+- `record_attendance` writes by `find_one_and_update(..., upsert=True, return_document=BEFORE)`, so it knows whether it inserted the record and what it replaced, and runs it once more on a `DuplicateKeyError`, which then lands on the winner's record; a second refusal goes on as the error it is.
   MongoDB itself retries such an upsert when its query is equality on the unique index's fields, so the retry is the fallback when the server does not.
 - Only the call whose upsert inserted the record writes the "checked in" entry, so two racing check-ins write one.
 - The index's prefix serves a vendor's check-ins, so `attendance` has no lookup index of its own in [the lookup indexes](../data/lookup-indexes.md); a database that already held the old `(market_id, vendor_email)` one keeps it, which is harmless.
@@ -79,26 +83,46 @@ An upsert with no unique index behind it can insert twice when two land at once,
 | `POST /public/markets/<slug>/vendor/check-in`   | the vendor, signed in, with the live door code             | their own check-in for `date`, `{date, doorCode}`                                      |
 | `DELETE /public/markets/<slug>/vendor/check-in` | the vendor, signed in                                      | the undo of their check-in for `date`, within a day of the server's date, no door code |
 | `GET /markets/<id>/attendance`                  | the Read row: any role                                     | the roster                                                                             |
-| `POST`/`DELETE /markets/<id>/attendance`        | the Check vendors in row: EDITOR by default                | the organizer's check-in, or its undo                                                  |
+| `POST`/`DELETE /markets/<id>/attendance`        | the Check vendors in row: EDITOR by default                | the organizer's check-in for a day that has begun, or its undo                         |
 | `GET /markets/<id>/door-code`                   | the Check vendors in row                                   | the door code, `{code, madeAt, madeBy, url}`, or `{code: null}`                        |
 | `POST /markets/<id>/door-code`                  | the Check vendors in row, in `market_days`, never archived | a new door code, which ends the old one                                                |
 
 ## Sharp edges
 
 **Attendance is a roster off the stored assignment.**
-`GET /markets/:id/attendance` serves `{dates, roster}`: every vendor the stored assignment places on each date, with `checkedInAt`, `checkedInBy` and `checkedInVia` (`attendance_roster`).
+`GET /markets/:id/attendance` serves `{dates, roster}`: every vendor the stored assignment places on each date, with `state`, `checkedInTableCode`, `checkedInAt`, `checkedInBy` and `checkedInVia` (`attendance_roster`), and after a date's seated rows, a row for each check-in of that date whose vendor holds no seat on it.
 Never derive who is expected from check-in records: that list is who came, and it is how the page could not say who was missing on a day of 80 vendors (known gap 3).
 The roster, the vendor's own read and the check-in all read the same stored rows, so who is expected where can never disagree with where a vendor is sent; the public lookup once ran the solver afresh and sent a vendor moved by hand to their old seat (bug 1).
 A row's status says who checked the vendor in: "Scanned in at 9:41 AM" for the vendor's own (`checkedInVia: door_code`), "9:41 AM by you" or "by <organizer>" for an organizer's, and the time alone for one made on the old public page.
 A vendor's own check-in times are `check_ins_of`, which the vendor page's own read uses, so each seat a vendor reads carries when they checked in to it ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)); whether a market ran is `market_ran`.
 The Stats tab's Check-in is `check_in_counts`, beside the roster: the same stored rows and attendance records, counted per date as the door's "18/24" counts them and with `came`, the vendors in on any date, but reading no names and sending no row ([who has come](../../business/flows/stats.md#n6-see-who-has-come)).
 
-**A check-in needs a stored placement for that vendor on that date** (`seated_on`), or it is a 404.
+**A check-in needs a stored placement for that vendor on that date** (`seat_on`, the stored row or None; `seated_on` asks whether there is one), or it is a 404.
 A placement is dated by the market date itself, so no reader maps anything back to a date.
+
+**A check-in keeps its table, and the roster says where each vendor stands** (T318, [the roster states](../../../CONTEXT.md#at-the-door)).
+A check-in said only that a vendor came on a date, so a vendor checked in and then freed vanished from the roster while their record stayed, and once seated again elsewhere read as checked in, with the old time, at a table they never reached (T277's report, section 4.9).
+Each roster row's `state` is `expected` (a seat and no record), `here` (a record made at the seat held now, or a record with no `table_code`), `here_elsewhere` (a record made at another table, after a move or a swap) or `here_without_seat` (a record and no seat that day, after a free), and `checkedInTableCode` is the record's table (on a seated row, the seat's for a record with none); a `here_without_seat` row has `tableCode`, `tableChoice`, `section` and `location` null.
+"Did not come" is the page's wording of `expected` on a day that is over on the viewer's calendar, not a state: the server cannot know the market's time zone.
+The record itself is never moved: freeing, moving or swapping a vendor leaves it as it was, and the state says where they went.
+Freeing, moving or swapping a vendor who has a record that day asks first: the placement doors read it (`checked_in_on`, one record by the normalised address) and answer 409 `vendor_is_here` until asked again with `whileHere: true` ([placements](placements.md)).
+`check_in_counts` and the page's tally count seated rows only, so a vendor here with no table that day counts toward no day's "18/24".
+[`test_a_check_in_keeps_its_table.py`](../../../back-end/tests/test_a_check_in_keeps_its_table.py) holds each state through the route, the record's table, and the free and the move that once moved it.
+
+**A check-in or its undo holds the market's phase** (T318).
+The record lives in `attendance` and the phase on the market, so no one write holds both, the race [ADR 0024](../../adr/0024-a-market-write-holds-what-it-read.md)'s last consequence leaves to compensation.
+`record_attendance` and `undo_attendance` read the market themselves (`live`) and refuse outside `market_days`, archived with "This market has ended, so check-in is closed." (409) and otherwise "Vendors are checked in once the market is published." (409); then they write, and read the phase again (`_closed_since`).
+A market no longer in its days by then gets the write taken back, with no history entry and the archived refusal (or "Market not found", 404, for one gone since): an inserted record deleted (held to the time this call wrote, so another call's is left to it), an updated one put back to the fields it had, a deleted one inserted again; a check-in of that day which landed in between keeps the day's one record.
+So neither door's check-in nor its undo lands on a market archived a moment before, and the archived record of who came stays whole.
+
+**Both doors keep one "today": the server's UTC date, a day either side of which is today somewhere on Earth** (`day_has_begun` and `within_the_window`, in `api/attendance.py`).
+The organizer's check-in takes any market date no later than the server's UTC date plus one, so a tap missed in the rush is corrected after, and refuses a later one with 409, "That day has not begun yet, so nobody can be checked in for it." (in `record_attendance`, after the seat check); its undo takes any date.
+The vendor's door keeps its window, a day either side of the server's UTC date.
+The page's "today" stays the viewer's calendar day (`calendarToday`), so the page offers Check in only on a chosen date no later than it, never inviting the refusal; Undo stays wherever there is a record.
 
 **A vendor checks themselves in only signed in, and only with the door code** ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 The check-in was a public page at `/<slug>/check-in`, where anyone with the market's address typed any vendor's email, read their seats and checked them in or out, so a check-in proved nothing; it, its read and its four public endpoints are gone, and answer 404.
-`api/vendor_check_in.py` wants the vendor page's Bearer token (401 without), counts every try against `check-in:address` (10 in 15 minutes) by the token's address, refuses a caller already past 60 wrong codes in 15 minutes (`check-in:caller`, read before the code is compared, so a right guess after them is refused too) and counts each wrong code against it, a right code never, so a vendor at home cannot guess the code ([`sign_in_limits`](../../../back-end/sign_in_limits.py), beside the sign-in's own bounds in [a vendor signs in before they have applied](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)), and goes through the vendor page gate (`vendor_page_market_by_slug`), so a market with no vendor page answers exactly as a slug that names nothing.
+`api/vendor_check_in.py` wants the vendor page's Bearer token (401 without), counts every try, right code or wrong, against `check-in:address` (10 in 15 minutes) by the token's address and counts nothing per caller, so a venue's shared wifi never refuses one vendor's right code for others' wrong ones, while a vendor at home cannot guess the code ([`sign_in_limits`](../../../back-end/sign_in_limits.py), beside the sign-in's own bounds in [a vendor signs in before they have applied](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)), and goes through the vendor page gate (`vendor_page_market_by_slug`), so a market with no vendor page answers exactly as a slug that names nothing.
 Then, each with its own sentence and writing nothing: a token for another market (403, "Your sign-in is for a different market. Please sign in again."), an archived market (409, "This market has ended, so check-in is closed."), any phase before `market_days` (409, "Check-in opens when the market's days begin."), no seat for them on `date` (404, "You have no table on this date."), a `date` more than a day from the server's UTC date (409, "Check-in is open on the day itself."), so a code read today cannot check them in for next week while "today" is still in reach in every time zone, and a code that is not the live one (403, "That isn't this market's door code. Check it, or ask at the door.").
 The code is compared in `api/door.py` (`door_code_matches`), upper-cased with its spaces and dashes dropped, in constant time, so the live code never leaves that module; a market with no code yet matches nothing.
 It writes through `record_attendance` with `checked_in_by` None and `checked_in_via: door_code`; the undo takes no door code, only the vendor's sign-in, `market_days` and a date within the same one-day window, counting nothing against a limit, and takes back their check-in for the date, whoever made it, so an organizer's check-in today may be undone by the vendor but no past day's by anyone but an organizer.
@@ -115,16 +139,45 @@ It works alike on both kinds of market: a Google Form market's vendor page opens
 [`checkin.spec.ts`](../../../front-end/e2e/checkin.spec.ts) walks the door: the organizer makes the code, a vendor opens its `url` signed out, signs in and lands checked in, and the roster says "Scanned in"; a new code makes the old `url` refuse; a typed code and its Undo; a scan with no table today; and the old endpoints' 404.
 
 **An organizer checks a vendor in through `api/door.py`**: the table's Check vendors in row ([the market's actions](market-actions.md)), EDITOR by default, the bar every market write sets, so a door volunteer is added to the market as an editor.
-It loads through the change loader (`_load_market_to_change`), so an archived market's record is never changed, and refuses with a 409 outside `market_days`.
+It loads through the change loader (`_load_market_to_change`), so an archived market's record is never changed, and refuses with a 409 outside `market_days`; `record_attendance` and `undo_attendance` then hold the phase on their own reads (above).
 It writes through `record_attendance`, which stamps `checked_in_by`, so the two doors record alike, and a vendor checking in again after an organizer did is no longer credited to the organizer.
 `_door_write` catches nothing: a market that does not exist answers 404, an archived one or a person the row refuses 403 with its sentence, and one that cannot be read `Invalid market data`, 400, each raised by the change loader ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)); a body that is not a JSON object is `A JSON object is required`, 400.
-A vendor checking in on another day than today is not refused, and no screen suggests it.
+An organizer checking a vendor in on a past market date is not refused, and on one to come is (above).
 
-**The page offers Check in and Undo only in Market Days, to someone who may check vendors in, and a row offering neither ends at its status** (`door-row--read`).
+**The roster stays fresh by itself** (T318).
+It was read on load and after the organizer's own tap, so a vendor who scanned themselves in, or another organizer's check-in, showed only after this organizer's next tap or a reload, and "who is missing" was stale at exactly the moment it was asked.
+Attendance reads its roster again every 15 seconds while the page is in view (`REREAD_MS`), and at once when the tab comes back into view or the browser comes back online; hidden, it reads nothing, and the clock never asks for a read while one is out.
+A read that has not answered in `REREAD_MS` is given up (its own axios `timeout`, not the shared instance's) and fails as any read does, so a stalled request on the venue's wifi never stops the clock or holds Refresh disabled.
+Every read takes a number from one counter as it is asked, and its answer lands only if nothing newer was asked or landed since, so two reads answering out of order never show a vendor just checked in as not here; a dropped answer changes nothing on screen, its error included.
+A check-in or its undo shows on its row from the server's answer at once (`checkedInAt` from the answer, `checkedInBy` the signed-in address and `state` `here` at the row's own table, or all three cleared and `state` `expected`; an undone row with no seat goes), counts as newer than every read in flight, and a re-read follows; each row is held busy only while its own write is out, so taps on several rows all go through.
+The top row ends with [`ListFreshness`](../../../front-end/src/components/ListFreshness.vue) (`attendance-updated`, `attendance-refresh`) before Print roster and Door code: when the roster was last read, ageing on screen, and Refresh.
+A re-read or a Refresh that fails keeps the rows and says "Could not update. The roster is as it was last read." on a line under the top row, until a read lands: between Refresh and Door code it pushed Door code onto a line of its own on a phone; a first read that fails is still the page that could not be read, with Try again.
+There is no offline copy and no queue of taps.
+`AttendanceStatusView.test.ts` holds each of these, and [`the-door-stays-fresh.spec.ts`](../../../front-end/e2e/the-door-stays-fresh.spec.ts) a vendor's own check-in showing on the open roster once `page.clock` runs 15 seconds, and a re-read that fails.
+
+**The roster prints whole, and the door is asked to print it** (T318).
+Paper is the door's only fallback when the venue's network or the back end fails, and nothing prompted the organizer to keep one.
+"Print roster" (`attendance-print`) stands in the top row after Refresh, before Door code where that is offered, for anyone who reads Attendance whenever the market has dates, in every phase the page opens in, and calls `window.print()`.
+[`DoorRosterPrint.vue`](../../../front-end/src/components/DoorRosterPrint.vue), rendered by Attendance and hidden on screen, is what prints: the market's name, the chosen date in words, "<N> vendors" (the date's seats, as its tally counts them), "Printed <date> at <time>" (stamped again on the window's `beforeprint`, so a print from the browser's menu is current too), then a table of every row of the date in the roster's order, by table: Table, Vendor (the name, and the address under it; the address alone when there is no name) and Here (the row's status when checked in, else an empty box to tick); the date's `here_without_seat` rows print in a second table under "Checked in, with no table on this date (<n>)".
+It takes the date's rows from the roster itself, not the rows on screen, so the Show toggle and the search never leave a vendor off the paper; notes are not printed.
+It is teleported to `body`, beside the app, and its print rules sit in its scoped block, as the door code's do (below); only the rule hiding the app is global, and it holds only while the door code's screen is not open, so that screen's poster still prints alone.
+In Market Days, on a chosen date that is today or later on the viewer's calendar, a `.note` over the day's tally asks for it (`attendance-print-note`): "If the venue's network fails, a printed roster still works. Print this day's roster before the doors open."; on a past date or an archived market there is nothing left to print for.
+[The rail](market-guide.md) asks too: "Print each day's roster, then check vendors in at the door."
+`aRosterPrintsWhole.test.ts` holds the sheet with a filter and a search on, `AttendanceStatusView.test.ts` the button and when the note shows, and [`the-roster-prints.spec.ts`](../../../front-end/e2e/the-roster-prints.spec.ts) the sheet under print emulation at 1440: the app hidden, every vendor of the day with a filter on, nothing past the page's width, and a Letter and an A4 PDF whose first page opens on the market's name (read by `e2e/helpers/pdfText.ts`).
+
+**The page words each roster state** (T318).
+`here` reads as it always has, in a positive chip; `here_elsewhere` reads "<status>, at table <checkedInTableCode>" in an attention chip, so the organizer sends the vendor to their new table, "table <checkedInTableCode>" one run joined by no-break spaces, so neither the chip nor the printed column leaves the code's last word on a line alone; `here_without_seat` rows are listed after the date's seated rows under "Checked in, with no table on this date (<n>)" (`attendance-unseated-heading`), their table "No table", their chip the status in attention, with Undo for whoever may check in.
+The date's tally, its "checked in / expected" and the Show toggles count seated rows only, as the Stats tab does; a `here_without_seat` row shows under All and Checked in, never under Not yet.
+`AttendanceStatusView.test.ts` holds each, and Check in offered by date.
+
+**The page offers Check in and Undo only in Market Days, to someone who may check vendors in, Check in only on today and past days, and a row offering neither ends at its status** (`door-row--read`).
 At a desk each row's last column, 7rem, holds the action; for someone offered none it is dropped, since the empty column left each status about 130px short of the row's edge (E38/F15/S04).
 On a phone the vendor's line holds only the vendor and the action, and the table and the status share a line of their own under it (`door-place`), the status at its end or, when both do not fit, under the table: in the action's column a wide status ("9:44 AM by" an address) squeezed the vendor's line and broke their address mid-word.
 So the vendor comes first in the row's markup, and at a desk each cell is placed in its column, the table first.
+Which of the two a row takes is the list's width, not the window's: a container query (`door-list`, below 60rem) gives a tablet's row the phone's layout, since at 768px the desk's four columns left the vendor a third of the row and broke their address inside its domain (T318).
+A vendor's name and address are drawn by `VendorIdentity`, whose address breaks only before its "@" or a dot (`EmailAddress`); drawn as plain text, it broke after a hyphen on a phone.
 [`a-viewer-at-the-door-reads-why.spec.ts`](../../../front-end/e2e/a-viewer-at-the-door-reads-why.spec.ts) holds both widths for a Viewer and an Editor, every address on one line.
+[`the-door-at-three-widths.spec.ts`](../../../front-end/e2e/the-door-at-three-widths.spec.ts) walks the door at 390x844 under a phone's emulation, at 768x1024 as a tablet and at 1440x900: a check-in and its undo, the freshness line and Refresh, the print note and Print roster, a vendor here at another table and one here with no table, each row inside the window with its address whole, the row layout each width takes, and the layout sweep's gating findings, the phone's 44px targets among them.
 
 **An archived market that ran is still served, as a record** ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).
 Its vendor page's read says it has `ended` (`ended_after_it_ran`), and each vendor's own read carries their seats and when they checked in, so the page shows the record and takes no check-in; a check-in there answers 409 with "This market has ended, so check-in is closed.".

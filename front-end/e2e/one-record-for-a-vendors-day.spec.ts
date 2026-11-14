@@ -3,6 +3,7 @@ import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { mongoEval } from './helpers/mongo';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { marketScreenPath } from './helpers/marketScreens';
+import { calendarToday } from './helpers/vendorSignIn';
 
 /**
  * One vendor's day is one record, and the database holds it so (T270).
@@ -24,7 +25,8 @@ import { marketScreenPath } from './helpers/marketScreens';
  * Proved here because the stack's MongoDB is the one real database CI runs; the back end's own
  * suite runs on fakes, which hold no index.
  */
-const ON_THE_DAY = '2099-05-02';
+/** Today: the door takes no check-in for a day that has not begun (T318). */
+const ON_THE_DAY = calendarToday();
 const EDITOR = { email: 'e2e-one-record-editor@example.com', password: 'e2epassword123' };
 
 function count(collection: string, filter: Record<string, string>): number {

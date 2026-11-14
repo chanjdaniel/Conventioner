@@ -4,6 +4,7 @@ kind: convention
 describes:
   - back-end/app.py#check_public_endpoint_defenses
   - back-end/app.py#configure_public_endpoint_defenses
+  - back-end/app.py#browser_identifier
   - back-end/app.py#RefusingLoginManager
   - back-end/app.py#hold_a_restored_session_to_its_browser
   - back-end/utils/deployment.py
@@ -17,6 +18,7 @@ describes:
   - back-end/utils/email.py
   - back-end/tests/test_public_endpoint_defenses.py
   - back-end/tests/test_the_remember_cookie.py
+  - back-end/tests/test_a_changed_network_keeps_the_session.py
   - back-end/tests/test_the_request_origin_check.py
   - back-end/tests/test_security_headers.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
@@ -48,6 +50,7 @@ sources:
   - T273
   - T311
   - T317
+  - T318
 ---
 
 # Security invariants
@@ -231,8 +234,10 @@ It ends for good on Sign out, on any resume it cannot pass (both delete the docu
 It names one market, so remembering a vendor at one changes nothing at another.
 The vendor's token still lives in the tab's `sessionStorage` for 30 minutes; the cookie only spares the code, which is why a long-lived token in `localStorage`, readable by any injected script, was rejected.
 
-**A session is held to the client that signed in**: Flask-Login's `session_protection = "strong"` refuses a request whose client, its address and browser, is not the one the session recorded.
+**A session is held to the browser that signed in, not its network** ([ADR 0030](../../adr/0030-an-organizers-session-is-held-to-the-browser.md)): Flask-Login's `session_protection = "strong"` refuses a request whose client is not the one the session recorded, and the app names the client by its browser string alone, `browser_identifier()` in [`app.py`](../../../back-end/app.py), where Flask-Login names it by its address and browser together.
+So a phone that moves from a venue's wifi to its cellular network stays signed in (T318).
 It applies in both stores, and to a session made permanent too, which Flask-Login's own "strong" would only mark not fresh.
+A session stamped with Flask-Login's identifier before T318 is taken from the address and browser it names and stamped anew in the same answer, so the deploy signed nobody out; that carry-over may go once T318's release has been live for 30 days, since a remembered sign-in's session cookie lasts as long as its sign-in.
 A session the remember cookie restores records its client too (`hold_a_restored_session_to_its_browser` in [`app.py`](../../../back-end/app.py)), and so does one the old `remember_token` restores for the release: Flask-Login's restore does not, so until E38/F14/S01 a remembered browser was signed back in for one request and then signed out, its cookie deleted.
 
 **A refused request ends no sign-in** (T177): `RefusingLoginManager` in [`app.py`](../../../back-end/app.py) answers a request from another client as signed out, and leaves the session, the remember cookie and the sign-in's document as they were for the browser that signed in.
@@ -241,8 +246,8 @@ In the store on disk (the stack, CI, a container host) the deletion is on the se
 In the cookie store (production's `SESSION_TYPE=null`, [operations](../../OPERATIONS.md#configuration-and-secrets)) the deletion travels in the answer, so it signed out only a browser that read it.
 The session was permanent until E38/F14/S01, so "strong" only marked it not fresh; after it, E2E sessions in CI ended mid-test with that request's marks: an unchanged cookie answered 401 after an aborted request, with no cookie set.
 That cause is proven on a local stack and inferred for CI from those marks, which a stored session lost another way would leave too; the failures in CI stopped before a probe caught one.
-A copied session cookie is still refused at every request.
-So is a browser whose address changes, a phone moving from a venue's wifi to its cellular network among them, until it is back on the first address or signs in again; Daniel kept "strong" (2026-11-01), and that sign-out is an E47 (account security) follow-up.
+A session cookie copied to another browser is still refused at every request; one copied with its browser string works from any address until its sign-in ends, as a copied remember cookie does, and Sign out everywhere ends it.
+[`test_a_changed_network_keeps_the_session.py`](../../../back-end/tests/test_a_changed_network_keeps_the_session.py) holds the changed network, another browser, a remembered sign-in and the carry-over.
 
 ## Where a write comes from
 

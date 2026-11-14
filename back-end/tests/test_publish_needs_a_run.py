@@ -8,8 +8,7 @@ never ran. Publish results and the move to market days now wait for a run.
 """
 import pytest
 
-from conftest import mongo_matches
-from test_attendance_api import FakeAttendanceCollection
+from conftest import FakeApplicationsCollection, mongo_matches
 from test_back_to_review import (  # noqa: F401 (world and runs are fixtures)
     DAY, MARKET, _application, _market, runs, world,
 )
@@ -38,7 +37,7 @@ def market(world, monkeypatch):
         {**_application(), "id": "app-2", "applicant_email": OTHER,
          "form_data": {"shop": "Kiln"}},
     ]
-    monkeypatch.setattr(AttendanceApi, "attendance_collection", FakeAttendanceCollection())
+    monkeypatch.setattr(AttendanceApi, "attendance_collection", FakeApplicationsCollection())
     monkeypatch.setattr(ApplicantsApi, "authenticate_request",
                         lambda _header: {"market_id": MARKET, "email": OTHER})
     return markets

@@ -6,9 +6,14 @@
  * another table (a move, one write, so the vendor never stands at no table); two vendors trade
  * seats atomically; or a seat is freed. Nothing here puts a vendor into a seat somebody holds:
  * that is how a vendor is silently unassigned on market day.
+ *
+ * A free, a move or a swap of a vendor who has checked in that day is asked about first by the
+ * server (T318): the dialog then shows its sentence with "Free anyway", "Move anyway" or "Swap
+ * anyway" beside Cancel, and the page sends the change again when it is pressed.
  */
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import { vendorLabel, vendorOption } from '@/utils/personChoice';
 import { type VendorNames } from '@/utils/vendorIdentity';
@@ -70,6 +75,12 @@ const props = defineProps<{
    * says where they sit, so the dialog says what a change here does to it.
    */
   resultsOut?: boolean;
+  /**
+   * The server's question about a change of a vendor who has checked in that day (T318): its
+   * sentence, and which change it asks about, which names the button that goes ahead. Null asks
+   * nothing.
+   */
+  question?: { sentence: string; change: 'free' | 'move' | 'swap' } | null;
 }>();
 
 const emit = defineEmits<{
@@ -81,6 +92,8 @@ const emit = defineEmits<{
   move: [payload: { tableCode: string; seat: Seat }];
   /** Open the occupant's drawer (E35/F01/S02): who they are, before deciding what to do. */
   view: [];
+  /** Go ahead with the change the server asked about, the vendor being here (T318). */
+  anyway: [];
   close: [];
 }>();
 
@@ -236,6 +249,10 @@ const primaryEnabled = computed(() =>
   props.mode === 'place' ? canPlace.value : occupiedPrimary.value.enabled,
 );
 
+/** The button that goes ahead with the change the server asked about. */
+const ANYWAY_LABELS = { free: 'Free anyway', move: 'Move anyway', swap: 'Swap anyway' } as const;
+const anywayLabel = computed(() => (props.question ? ANYWAY_LABELS[props.question.change] : ''));
+
 /**
  * What Enter does here (E20/F01/S03). Each mode has exactly one primary action at a time - the
  * placement, or the move or swap chosen - and it is the form's submit, so Enter runs it through
@@ -245,6 +262,9 @@ const primaryEnabled = computed(() =>
  * Enter must never be the way a vendor loses their table.
  */
 function submitPrimary() {
+  // The question's answer is a press of its button, never Enter: for a free, Enter would be the
+  // way a vendor who is here loses their table.
+  if (props.question) return;
   if (props.mode === 'place') {
     if (!canPlace.value) return;
     emit('place', { email: chosenEmail.value, seat: chosenSeat.value });
@@ -397,8 +417,8 @@ function findsToMove(option: PickerOption, words: string): boolean {
     testid="placement-dialog"
     size="wide"
     scroll="body"
-    :confirm-label="primaryLabel"
-    :confirm-disabled="!primaryEnabled"
+    :confirm-label="question ? anywayLabel : primaryLabel"
+    :confirm-disabled="question ? busy : !primaryEnabled"
     :error="errorMessage"
     @close="emit('close')"
     @submit="submitPrimary"
@@ -408,7 +428,12 @@ function findsToMove(option: PickerOption, words: string): boolean {
       ><span v-if="tier">, {{ tier }}</span>
     </p>
 
-    <template v-if="mode === 'place'">
+    <!-- In place of the choices, which were made: the server's sentence is the whole question. -->
+    <p v-if="question" class="placement-question" data-testid="placement-dialog-here">
+      <EmailAddress :words="question.sentence" />
+    </p>
+
+    <template v-else-if="mode === 'place'">
       <!-- Grouped, never filtered (claims-and-room 05): overriding an answer stays possible, it
            just is not mixed in with the vendors this seat fits, and a search narrows each group
            without hiding one. -->
@@ -454,7 +479,9 @@ function findsToMove(option: PickerOption, words: string): boolean {
     <template v-else>
       <div class="placement-occupant-row">
         <p class="placement-occupant">
-          <strong data-testid="placement-dialog-occupant">{{ label(occupantEmail) }}</strong>
+          <strong data-testid="placement-dialog-occupant"
+            ><EmailAddress :words="label(occupantEmail)"
+          /></strong>
           holds this seat.
         </p>
         <button
@@ -550,7 +577,7 @@ function findsToMove(option: PickerOption, words: string): boolean {
         data-testid="placement-dialog-swap-warning"
       >
         <div v-for="side in swapWarnings" :key="side.email" :data-vendor-email="side.email">
-          <p class="placement-swap-name">{{ label(side.email) }}</p>
+          <p class="placement-swap-name"><EmailAddress :words="label(side.email)" /></p>
           <ul class="placement-warnings">
             <li v-for="warning in side.warnings" :key="warning">{{ warning }}</li>
           </ul>
@@ -564,8 +591,9 @@ function findsToMove(option: PickerOption, words: string): boolean {
       <label v-if="deduction" class="placement-radio placement-deduct">
         <input v-model="deductOwed" type="checkbox" data-testid="placement-dialog-deduct" />
         <span
-          >Also remove its {{ deduction.amount }} from what {{ deduction.name }} owes? (Cancelled
-          before the deadline: a refund may be due.)</span
+          >Also remove its {{ deduction.amount }} from what
+          <EmailAddress :words="deduction.name" /> owes? (Cancelled before the deadline: a refund
+          may be due.)</span
         >
       </label>
     </template>
@@ -576,13 +604,14 @@ function findsToMove(option: PickerOption, words: string): boolean {
       class="placement-results-out"
       data-testid="placement-dialog-results-out"
     >
-      {{ resultsOutNote }}
+      <EmailAddress :words="resultsOutNote" />
     </p>
 
     <!--
       Its own footer, because the occupied mode has a destructive action beside the primary one.
       The primary is `type="submit"`, so Enter reaches it and nothing else here; in the occupied
-      mode it follows the action chosen, Move them or Swap seats.
+      mode it follows the action chosen, Move them or Swap seats. A question has no submit: its
+      button goes ahead only when pressed.
     -->
     <template #actions>
       <button
@@ -594,7 +623,17 @@ function findsToMove(option: PickerOption, words: string): boolean {
         Cancel
       </button>
       <button
-        v-if="mode === 'occupied'"
+        v-if="question"
+        type="button"
+        :class="['btn', question.change === 'free' ? 'btn--destructive' : 'btn--primary']"
+        :disabled="busy"
+        data-testid="placement-dialog-anyway"
+        @click="emit('anyway')"
+      >
+        {{ anywayLabel }}
+      </button>
+      <button
+        v-else-if="mode === 'occupied'"
         type="button"
         class="btn btn--destructive"
         :disabled="busy"
@@ -604,7 +643,7 @@ function findsToMove(option: PickerOption, words: string): boolean {
         Free this seat
       </button>
       <button
-        v-if="mode === 'place'"
+        v-if="!question && mode === 'place'"
         type="submit"
         class="btn btn--primary"
         :disabled="!canPlace"
@@ -613,7 +652,7 @@ function findsToMove(option: PickerOption, words: string): boolean {
         {{ placeLabel }}
       </button>
       <button
-        v-else
+        v-else-if="!question"
         type="submit"
         class="btn btn--primary"
         :disabled="!occupiedPrimary.enabled"
@@ -678,6 +717,14 @@ function findsToMove(option: PickerOption, words: string): boolean {
   color: var(--mm-text-muted);
 }
 
+/* The question is the dialog's whole body then, so it reads as the body's text, not an aside. */
+.placement-question {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--mm-black);
+}
+
 /* Not a muted aside: the vendor has been told, and this says what a change does to that. The
    attention block the app draws a state that asks for care in (`ReviewSetupDecision.vue`). */
 .placement-results-out {
@@ -723,5 +770,12 @@ function findsToMove(option: PickerOption, words: string): boolean {
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--mm-black);
+}
+
+/* The base reset sets every element's weight, so a name's address, drawn by `EmailAddress` in spans
+   of its own, would not take the bold of the name around it. */
+.placement-occupant strong :deep(*),
+.placement-swap-name :deep(*) {
+  font-weight: 600;
 }
 </style>

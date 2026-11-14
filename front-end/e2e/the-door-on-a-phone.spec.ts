@@ -6,6 +6,7 @@ import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 import { MarketsPage } from './pages/MarketsPage';
 import { TablesPage } from './pages/TablesPage';
+import { calendarToday } from './helpers/vendorSignIn';
 
 /**
  * The door's journey, on the phone in an organizer's hand and at a desk (T142, T82 re-check note 8).
@@ -101,12 +102,13 @@ for (const size of PHONE_AND_DESK) {
       authenticatedPage: page,
       request,
     }) => {
+      // On its day, today: the door offers no check-in for a day that has not begun (T318).
       const seed = await seedPublishedMarketWithAssignments(
         request,
         BACKEND_URL,
         TEST_USER.email,
         TEST_USER.password,
-        { intakeMode: 'form', vendors: VENDORS },
+        { intakeMode: 'form', vendors: VENDORS, marketDate: calendarToday() },
       );
 
       // The market, found on /markets.

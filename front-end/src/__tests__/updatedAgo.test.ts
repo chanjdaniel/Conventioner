@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { updatedAgo } from '@/utils/updatedAgo';
-import ListFreshness from '@/components/application/ListFreshness.vue';
+import ListFreshness from '@/components/ListFreshness.vue';
 
 const READ = Date.parse('2026-11-18T09:00:00Z');
 const after = (seconds: number) => updatedAgo(READ, READ + seconds * 1000);
@@ -36,7 +36,7 @@ describe('ListFreshness', () => {
     vi.useFakeTimers();
     vi.setSystemTime(READ);
     const wrapper = mount(ListFreshness, {
-      props: { readAt: READ, refreshing: false, failed: '' },
+      props: { readAt: READ, refreshing: false, failed: '', testid: 'applications' },
     });
     expect(wrapper.get('[data-testid="applications-updated"]').text()).toBe('Updated just now');
 
@@ -49,7 +49,7 @@ describe('ListFreshness', () => {
 
   it('asks for a refresh, and says when one failed', async () => {
     const wrapper = mount(ListFreshness, {
-      props: { readAt: READ, refreshing: false, failed: '' },
+      props: { readAt: READ, refreshing: false, failed: '', testid: 'applications' },
     });
     await wrapper.get('[data-testid="applications-refresh"]').trigger('click');
     expect(wrapper.emitted('refresh')).toHaveLength(1);
