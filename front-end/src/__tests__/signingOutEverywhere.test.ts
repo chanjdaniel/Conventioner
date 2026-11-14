@@ -132,7 +132,7 @@ describe('the dialog', () => {
     expect(window.getAttribute('role')).toBe('dialog');
     expect(window.textContent).toContain('Sign out everywhere?');
     expect(window.textContent).toContain(
-      'This signs you out on every device and browser, this one too.',
+      'This signs out every device and browser, including this one.',
     );
     expect(confirm().textContent?.trim()).toBe('Sign out everywhere');
     expect(document.activeElement).toBe(byTestid('sign-out-everywhere-cancel-button'));

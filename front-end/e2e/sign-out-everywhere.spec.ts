@@ -132,7 +132,7 @@ for (const size of PHONE_AND_DESK) {
       await openSignOutEverywhere(page, size);
       const { dialog, confirm, cancel } = theDialog(page);
       await expect(dialog).toContainText(
-        'This signs you out on every device and browser, this one too.',
+        'This signs out every device and browser, including this one.',
       );
       await expect(confirm).toHaveText('Sign out everywhere');
       if (size.phone) await window.expectInside(dialog, 'the dialog');

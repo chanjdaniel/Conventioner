@@ -56,7 +56,7 @@ async function confirm() {
     @submit="confirm"
   >
     <p class="sign-out-everywhere-text">
-      This signs you out on every device and browser, this one too.
+      This signs out every device and browser, including this one.
     </p>
   </AppDialog>
 </template>
@@ -66,7 +66,8 @@ async function confirm() {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
-  /* At a desk's narrow dialog the sentence otherwise leaves "too." alone on its second line. */
-  text-wrap: pretty;
+  /* At a desk the sentence fits one line. On a phone, balance splits it into two even lines rather
+     than leaving a short last one. */
+  text-wrap: balance;
 }
 </style>
