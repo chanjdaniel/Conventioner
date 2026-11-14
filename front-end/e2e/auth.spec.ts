@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, LoginPage, PasswordResetPage } from './fixtures';
-import { mongoEval } from './helpers/mongo';
+import { newAccountLink, plantAccountLink } from './helpers/accountSecrets';
 import { deleteUser } from './helpers/deleteUser';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
@@ -103,29 +103,26 @@ test.describe('Authentication journeys', () => {
       });
     });
 
-    test('completes full reset flow using real token from DB', async ({ page, request }) => {
+    test('completes the full reset flow with a planted reset link', async ({ page, request }) => {
       const email = uniqueEmail();
 
       // Step 1: Make a verified account, as the fixture users are made.
       ensureVerifiedUser(email, REGISTER_PASSWORD);
 
       try {
-        // Step 2: Request a password reset via the back-end API to
-        // store a real token in MongoDB.
+        // Step 2: Request a password reset via the back-end API.
         const resetReqRes = await request.post('/api/request-password-reset', {
           data: { email },
           headers: { 'Content-Type': 'application/json' },
         });
         expect(resetReqRes.ok()).toBeTruthy();
 
-        // Step 3: Read the reset token directly from MongoDB.
-        const token = mongoEval(
-          `print(db.users.findOne({email: ${JSON.stringify(email)}}).password_reset_token)`,
-        );
-        expect(token).toBeTruthy();
-        expect(token.length).toBeGreaterThanOrEqual(10);
+        // Step 3: The account keeps only the link's hash, so plant a link the spec knows in
+        // place of the one mailed.
+        const token = newAccountLink();
+        plantAccountLink(email, 'reset', token);
 
-        // Step 4: Navigate to the reset page with the real token, signed out, the way the
+        // Step 4: Navigate to the reset page with the link, signed out, the way the
         // person the email went to arrives. `/check-session` is deliberately not stubbed: it
         // answering 401 is the condition this page has to survive (E26/F01/S01).
 

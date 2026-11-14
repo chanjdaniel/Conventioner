@@ -24,6 +24,8 @@ sources:
   - T283
   - T309
   - T318
+  - T311
+  - T315
 ---
 
 # The real-MongoDB suite
@@ -71,8 +73,8 @@ The server is `REAL_MONGODB_URI`, a full connection string.
   The fakes [`tests/conftest.py`](../../../back-end/tests/conftest.py) installs at import are recorded in its `IMPORT_TIME_STAND_INS` with the value each replaced, and binding puts that value back first.
   Binding fails the test when a handle on another client, or an object of a class a test file defines, is still in a back-end module.
   Every binding is a `monkeypatch.setattr`, so each attribute is its import-time value again after the test.
-- The package's conftest names the three suite-wide autouse fakes again (`applications`, `market_records`, `sign_in_attempts`), so pytest resolves them to the nearer definitions, which hand back the bound real collections.
-  Since every test uses those three, every test in the package runs on its own bound database.
+- The package's conftest names the four suite-wide autouse fakes again (`applications`, `market_records`, `sign_in_attempts`, `organizer_sessions`), so pytest resolves them to the nearer definitions, which hand back the bound real collections.
+  Since every test uses those four, every test in the package runs on its own bound database.
 
 ## The fixtures
 
@@ -145,11 +147,12 @@ Each test's name says what it proves.
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Two phase moves from one phase land one                     | two `apply_phase_transition` calls from one read, the same move out of Draft twice or two moves out of Applications: one lands, the other raises `PhaseChangedUnderRequest` naming the phase the winner moved to, and the phase history gains one entry, the winner's                                                                                              |
 | Back to review and Publish results are never both taken     | Back to review and `publish_results` from one read, at once ten times over, and once with each writing first: one is refused (`MoveBlockedUnderRequest` with the `results_not_published` blocker, or Publish's `MarketChanged`), and the market never stands in Applications with its results published                                                            |
-| Two assignment writes from one revision land one            | two `_store_vendor_assignments` calls from one revision, on a counted revision, on revision 0 and on an assignment with no revision yet: one lands with the revision counted up once, the other raises `MarketChanged`, and the stored rows and date are the winner's                                                                                              |
+| Two assignment writes from one revision land one            | two `lifecycle.store` runs from one revision, on a counted revision, on revision 0 and on an assignment with no revision yet: one lands with the revision counted up once, the other raises `MarketChanged`, and the stored rows, date, state and `madeFrom` are the winner's                                                                                      |
 | The dealing lease is held by one deal at a time, and lapses | 10 `_hold` calls at once, on a market with a team and on one that never had one, leave one holding it; a held lease refuses 10 deals a second before it lapses, and one of 10 takes it a second after; `_let_go` by a deal whose lease lapsed and was taken leaves the market unchanged, and so does `_let_go` on a market nobody holds, with a team and with none |
 
 The writes that hold what they read beyond these races are run the same way, each in its own file named for what it proves: [`test_the_market_write.py`](../../../back-end/tests/real_mongo/test_the_market_write.py) (what `write_market` holds and answers), [`test_a_judged_write_lands_only_on_the_market_it_judged.py`](../../../back-end/tests/real_mongo/test_a_judged_write_lands_only_on_the_market_it_judged.py), [`test_every_held_write_is_refused_on_a_changed_market.py`](../../../back-end/tests/real_mongo/test_every_held_write_is_refused_on_a_changed_market.py), [`test_roles_written_per_person.py`](../../../back-end/tests/real_mongo/test_roles_written_per_person.py), [`test_an_assignment_write_holds_the_market_it_read.py`](../../../back-end/tests/real_mongo/test_an_assignment_write_holds_the_market_it_read.py), [`test_the_form_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_form_holds_its_revision.py) and [`test_the_plan_holds_its_revision.py`](../../../back-end/tests/real_mongo/test_the_plan_holds_its_revision.py).
 What each one holds is [the market write](../modules/market-write.md).
+An organizer's sign-in secrets are run the same way in [`test_the_sign_in_secret_races.py`](../../../back-end/tests/real_mongo/test_the_sign_in_secret_races.py): five code requests at once mail one code, five right codes at once sign in once, five uses of one reset link at once reset once, and five uses of one verification link at once verify once ([the sign-in secrets](../data/users-and-email.md#the-sign-in-secrets)).
 [`real_mongo/test_a_deletion_leaves_a_tombstone.py`](../../../back-end/tests/real_mongo/test_a_deletion_leaves_a_tombstone.py) cuts a market's and an organization's deletion at each step, a step's function or a collection method raising once, and sends the same request again, and lands a deletion, or its tombstone, between an applicant's save, an import or a market's creation and its read, by `interleave` ([market deletion](../modules/market-deletion.md#the-tombstone)).
 
 The lease tests set `review_team`'s clock rather than wait for a lease to run out.
@@ -175,15 +178,15 @@ A free's write also holds the amount by hand it read, a field beyond the index, 
 
 ## An organization's people
 
-Each change to a person's place in an organization is one write conditional on the places it judged, and handing the organization on is one write filtered on the giver being owner ([the organization's people](../modules/organization-people.md#every-write-holds-what-it-judged)).
+Each change to a person's place in an organization is one write conditional on the places it judged, and transferring the organization's ownership is one write filtered on the giver being owner ([the organization's people](../modules/organization-people.md#every-write-holds-what-it-judged)).
 [`real_mongo/test_an_organizations_people_on_the_server.py`](../../../back-end/tests/real_mongo/test_an_organizations_people_on_the_server.py) runs each losing branch on real threads, over an organization with a people map and over one stored before it.
 Each thread judges on its own read, through `organization_people.next_people` wrapped to meet the other thread once it has judged, so the writes meet on the server after both reads.
 
-| Guarantee                                                                     | Tests                                                                                                                                                                                                                                  |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| An add member judged before that person is handed the organization is refused | the admin's `add_member` judges; the owner then adds that person as an admin and hands them the organization; the add answers `OrganizationChanged`, and the new owner is not in `members`                                             |
-| Two transfers by the owner land one                                           | two `transfer` calls from one read, to an admin and to a member: one lands, the other answers `OrganizationChanged`, and the old owner is an admin                                                                                     |
-| A transfer to an admin keeps the mirror beside an add admin                   | a `transfer` to an admin and an `add_admin` from one read, each writing first in turn: the second answers `OrganizationChanged`, so an admin added is never dropped from `admins`, which the transfer sets whole from the list as read |
+| Guarantee                                                                                | Tests                                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An add member judged before that person is given the organization's ownership is refused | the admin's `add_member` judges; the owner then adds that person as an admin and transfers ownership to them; the add answers `OrganizationChanged`, and the new owner is not in `members`                                             |
+| Two transfers by the owner land one                                                      | two `transfer` calls from one read, to an admin and to a member: one lands, the other answers `OrganizationChanged`, and the old owner is an admin                                                                                     |
+| A transfer to an admin keeps the mirror beside an add admin                              | a `transfer` to an admin and an `add_admin` from one read, each writing first in turn: the second answers `OrganizationChanged`, so an admin added is never dropped from `admins`, which the transfer sets whole from the list as read |
 
 After each, the organization parses with one owner, and its lists are an exact mirror of its map.
 

@@ -165,7 +165,11 @@ export async function seedFormlessPhaseMarket(
  * being loosened.
  *
  * Written straight into Mongo because computing a real assignment needs a whole market plan, and
- * these tests are about the phase machine rather than about placement.
+ * these tests are about the phase machine rather than about placement. It is stored as a run (T316):
+ * `state: "run"` beside its rows, with the legacy `madeFrom` marker an allocation made before runs
+ * recorded what they were made from carries, which reads as current. The phase walks reach market
+ * days by the legacy road through offers, where no route publishes results, so a seed stands in for
+ * the run and the publish both.
  */
 export function seedStoredAssignment(marketId: string, emails: string[] = ['walk-a@example.com']) {
   const vendorAssignments = emails.map((email, index) => ({
@@ -179,6 +183,6 @@ export function seedStoredAssignment(marketId: string, emails: string[] = ['walk
   }));
 
   mongoEval(
-    `db.markets.updateOne({id:${JSON.stringify(marketId)}}, {$set:{"assignmentObject.vendorAssignments": ${JSON.stringify(vendorAssignments)}}})`,
+    `db.markets.updateOne({id:${JSON.stringify(marketId)}}, {$set:{"assignmentObject.vendorAssignments": ${JSON.stringify(vendorAssignments)}, "assignmentObject.state": "run", "assignmentObject.madeFrom": {legacy: "before-fingerprints"}}})`,
   );
 }

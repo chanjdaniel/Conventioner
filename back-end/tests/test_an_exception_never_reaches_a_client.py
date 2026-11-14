@@ -1384,6 +1384,7 @@ DELETED = SimpleNamespace(deleted_count=1)
 # answer: a body read anywhere on that path is then caught.
 READS_NO_BODY = [
     ("post", "/logout", []),
+    ("post", "/logout-everywhere", []),
     ("delete", "/organizations/<org_id>", [(OrgsApi, "delete_organization", DELETED)]),
     ("delete", "/organizations/<org_id>/users/<user_id>", [(OrgsApi, "remove_org_user", True)]),
     ("delete", "/markets/<market_id>/roles/<user_id>", [(MarketsApi, "remove_market_role", True)]),

@@ -75,6 +75,7 @@ PUBLIC = {
 
 CALLERS_OWN = {
     ("POST", "/logout"): "ends the caller's own session",
+    ("POST", "/logout-everywhere"): "ends every sign-in of the caller's own account",
     ("GET", "/check-session"): "says who the caller is",
     ("POST", "/delete-user"): "deletes the caller's own account, and refuses any other",
     ("GET", "/csv-proposal/typesafe"): "says whether a start from a CSV may use TypeSafe",

@@ -47,6 +47,7 @@ sources:
   - T283
   - T274
   - T318
+  - T315
 ---
 
 # What each role may do
@@ -55,7 +56,7 @@ A Viewer reads a market and changes nothing; an Editor changes the plan, the for
 A reviewer chosen for the review decides any application whatever their role, their own share first and someone else's after a warning on the card; who may be chosen is the table's row.
 Each screen offers each person only what their role lets them do, and the server decides it.
 **Every check reads one table**: each action is a row saying the lowest role that may take it, and the roles below are the rows' built-in defaults ([the market's actions](../../implementation/modules/market-actions.md)).
-**A market's owner may change its rows, and only its owner**: each row's role on that market, or back to its default; fixed rows (reading the market, managing admins, handing it on, deleting it, and changing the table itself) change for nobody, and every change is recorded with who made it and when ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)).
+**A market's owner may change its rows, and only its owner**: each row's role on that market, or back to its default; fixed rows (reading the market, managing admins, transferring its ownership, deleting it, and changing the table itself) change for nobody, and every change is recorded with who made it and when ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)).
 So the lists below are what a market allows until its owner says otherwise.
 
 **Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
@@ -131,7 +132,7 @@ Everything an Editor may, and:
 Everything an Admin may, and:
 
 - manage admins
-- hand the market on
+- transfer the market's ownership
 - delete the market
 
 ### A chosen reviewer, and where a role comes from
@@ -141,17 +142,17 @@ They change no verdict already given (the change row stays on top of the giving 
 A Viewer who is not chosen reads the review and decides nothing.
 
 Whoever creates a market is its owner, and a market has exactly one.
-**A market's owner may hand it on** (T283), from "Hand this market on" in Manage market, to anyone who has access to it, a role of their own or a place in its organization: one write makes that person its Owner and the old owner an Admin, so the market never has two owners or none, and its history records it ([handing a market on](../flows/ending-and-managing-a-market.md#l4a-hand-the-market-on)).
-It is the fixed row "Hand the market on", the owner's alone, and an archived market takes it, since an archived market still needs someone who can delete it.
-**An account that owns a market is not deleted** (T283): the deletion is refused, naming the market, until its owner hands it on or deletes it, so every market keeps an owner whose account exists ([deleting an account](../../implementation/data/users-and-email.md#deleting-an-account)); an account that is an Admin, Editor or Viewer of a market is deleted, its role entry left in the market's roles.
+**A market's owner may transfer its ownership** (T283), from "Transfer ownership" in Manage market, to anyone who has access to it, a role of their own or a place in its organization: one write makes that person its Owner and the old owner an Admin, so the market never has two owners or none, and its history records it ([transferring a market's ownership](../flows/ending-and-managing-a-market.md#l4a-transfer-ownership)).
+It is the fixed row "Transfer ownership", the owner's alone, and an archived market takes it, since an archived market still needs someone who can delete it.
+**An account that owns a market is not deleted** (T283): the deletion is refused, naming the market, until its owner transfers its ownership or deletes it, so every market keeps an owner whose account exists ([deleting an account](../../implementation/data/users-and-email.md#deleting-an-account)); an account that is an Admin, Editor or Viewer of a market is deleted, its role entry left in the market's roles.
 **An organization's owner and admins are Admin on every market it holds, and a member is Viewer.**
 Each person holds one place in an organization; one stored before its people were one map, its owner also listed among its admins or members, is read with the owner winning, so it grants its people their roles as any other does ([one map of people](../../implementation/data/organization-document.md#one-map-of-people), T283).
-**Only the organization's owner changes someone's place in it**: from their row in Manage organization, after a confirmation, an admin is made a member, who then reads its markets instead of running them, and a member an admin; the owner's own place changes only when the organization is handed on, to one of its admins or members, the old owner staying on as an admin ([B3a](../flows/organizations.md#b3a-make-an-admin-a-member-or-a-member-an-admin), [B6](../flows/organizations.md#b6-transfer-ownership)).
+**Only the organization's owner changes someone's place in it**: from their row in Manage organization, after a confirmation, an admin is made a member, who then reads its markets instead of running them, and a member an admin; the owner's own place changes only when ownership of the organization is transferred, to one of its admins or members, the old owner staying on as an admin ([B3a](../flows/organizations.md#b3a-make-an-admin-a-member-or-a-member-an-admin), [B6](../flows/organizations.md#b6-transfer-ownership)).
 "Add admin" of a member makes them an admin; adding someone to the place they hold says they already hold it; and a change that met someone else's change to the same people is refused with a sentence saying so, the organization shown as it now stands ([the organization's people](../../implementation/modules/organization-people.md)).
 A market may also give a person a role of its own; both are held, and the higher one counts: Owner (4) > Admin (3) > Editor (2) > Viewer (1).
 So an organization admin once given Viewer on one market is still Admin there, and a member given Editor on one market edits it.
 Manage market lists each person once at the role that counts and says when it comes from the organization ("Admin, through <organization>"); the organization's people are named only to a reader who belongs to it or may give and take Editor and Viewer roles there, and anyone else reads the market's own roles ([managing who has access](../flows/ending-and-managing-a-market.md#l3-manage-who-has-access), E38/F12/S01).
-**Nobody is a market's Owner through its organization**: deleting a market, managing its admins and handing it on stay with the one person who owns it.
+**Nobody is a market's Owner through its organization**: deleting a market, managing its admins and transferring its ownership stay with the one person who owns it.
 Anyone outside the organization who changes a market, a door volunteer included, needs a role on that market (Manage market).
 **An organization's owner and admins do not change a market's own rows**: they hold Admin there, and the table is its owner's.
 **They set the organization's default instead** (E39/F02/S01, Daniel, Q22: "org admins can", "copy"): each market created in the organization starts with its rows, copied, and a later change reaches only the markets created after it, or one whose owner copies the default again ([the organization's default table](../../implementation/data/organization-document.md#its-default-table)).
@@ -186,7 +187,7 @@ See [the organization document](../../implementation/data/organization-document.
   An organizer route learns who is asking from the signed-in session, through `authenticated_email()` ([`back-end/utils/identity.py`](../../../back-end/utils/identity.py)), and a role is looked up for that address alone; no server source reads a caller's identity from a request header.
   [`back-end/tests/test_session_is_the_identity.py`](../../../back-end/tests/test_session_is_the_identity.py) walks the header attack that once read and rejected another organizer's applications, and refuses any server source that reads an identity header again (E07).
 - **Adding a person never changes a role.**
-  `add_market_role` refuses an address that already has a role on the market, so a role changes only through `update_market_role`, which refuses any change to the owner and lets only the owner change an Admin; adding once overwrote the role, so any Admin, and with T15 any organization admin, could demote the owner and leave the market with nobody to delete or hand it over.
+  `add_market_role` refuses an address that already has a role on the market, so a role changes only through `update_market_role`, which refuses any change to the owner and lets only the owner change an Admin; adding once overwrote the role, so any Admin, and with T15 any organization admin, could demote the owner and leave the market with nobody to delete it or transfer its ownership.
 - **Two role changes at once never undo each other** (T274).
   Each gives, changes or takes the one person it names, and is refused, with [the market write's one sentence](../../implementation/modules/market-write.md#what-it-answers), when that person's role or the requester's own moved since it was read, or the market moved to another phase; so an admin taking someone's access while another gives a third person access both land, and the history's "access taken" stays true.
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's read-only line and its answer for moving the phase; `every-screen-asks-the-table.spec.ts` walks a Viewer, an Editor and an Admin through Market Setup, Applications (the vendor drawer's "Update info" among them), the Assignment tab and Attendance.

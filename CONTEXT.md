@@ -21,6 +21,11 @@ One event, run by an organization over one or more days.
 _Avoid_: Event, show, convention
 See [Market](docs/business/concepts/market.md).
 
+**Transfer ownership**:
+The Owner of a market makes someone with access its Owner and stays on it as an Admin; an organization's owner does the same for one of its admins or members, by the API alone today.
+_Avoid_: Hand on, hand over
+See [Transfer ownership](docs/business/flows/ending-and-managing-a-market.md#l4a-transfer-ownership).
+
 **Phase**:
 Where a market is in its lifecycle: `draft`, `applications`, `assignment`, `offers`, `market_days`, `archived`. The single source of truth for a market's state. `applications` is the one stage where applications arrive and are reviewed at once, shown as Review on a Google Form market and Applications on one whose vendors apply on its page; whether it is taking applications is a fact about its form, not a phase.
 _Avoid_: Status, stage, state (all used for other things; `isDraft` in particular is derived from phase, never set)
@@ -149,7 +154,7 @@ The physical kind of a table, such as its size. A property of an **individual ta
 _Avoid_: Table choice (a different concept, below)
 
 **Table choice**:
-Whether a vendor wants a full table, a half table, or either. Not a preference about table *type*.
+Whether a vendor wants a full table, a half table, or either. Not a preference about table _type_.
 Stored as a code (`full`, `half`, `either`) and read back to a human as the sentence the applicant chose: "A whole table to myself", "Half a table, shared", "Either is fine".
 Those sentences are the name of the thing - the CSV importer matches an imported column against them, and the review queue prints them - so the pairing lives in one place per side (`TABLE_CHOICE_LABELS` in `back-end/essential_fields.py`, `TABLE_CHOICES` in `front-end/src/utils/essentialFields.ts`) and the two must stay in step.
 _Avoid_: Table size, table preference, showing the stored code to anyone
@@ -180,6 +185,13 @@ _Avoid_: Placed, unplaced, seated
 What the solver produces for the whole market: every assignment it makes in one run. "Allocate tables" runs it; assignments made by hand are kept, and new **assignment rules** take effect only when tables are allocated again.
 _Avoid_: Assignment, assignment results, "run the assignment"
 
+**Pins only**:
+An assignment made of tables assigned by hand, with no table allocation run yet; results cannot be published on it.
+_Avoid_: "a run", "allocated"
+
+**Changed since results**:
+An assignment changed by hand after Publish results, so some vendor's page now says something other than it said when results were published.
+
 **Assignment rules**:
 The organizer's inputs to the solver: the **Priority**, the **Max assignments per vendor**, and how many of a section's tables may be split between half-table vendors. What the organizer sets before allocating tables, as distinct from the **table allocation** it produces.
 
@@ -209,3 +221,17 @@ _Avoid_: Guest list, attendance list (that was only who came)
 Where one vendor stands at the door on one date: **expected** (a seat and no check-in), **here** (a check-in made at the seat they hold), **here at another table** (a check-in made at a table they no longer hold, after a move or a swap), or **here with no table** (a check-in and no seat that day, after a free).
 "Did not come" is how the page words expected once the day is over on the viewer's calendar, or the market is archived.
 _Avoid_: "Checked in" alone for here at another table, which hides where they went
+
+### Accounts
+
+**Sign-in secret**:
+What a mail carries to an organizer's account so they can sign in or settle the account: its sign-in code, reset link or verification link.
+The server keeps one record of a sign-in secret, never the secret itself but its hash, in one of four states: being mailed, live, used or discarded.
+_Avoid_: token, OTP, as names of the record
+See [the sign-in secrets](docs/implementation/data/users-and-email.md#the-sign-in-secrets).
+
+**Sign-in**:
+One signed-in browser of an organizer, by password or by code, with "Remember me" or without it.
+The server keeps a record of each sign-in, ended by Sign out, by a new sign-in in the same browser, by Sign out everywhere, by a password reset or by deleting the account, and at the end of its 12 hours or 30 days.
+_Avoid_: session, for the product's term, since Flask's session is one carrier of it
+See [a sign-in is kept on the server](docs/implementation/data/users-and-email.md#a-sign-in-is-kept-on-the-server).

@@ -92,7 +92,7 @@ const roleChange = ref<
   | null
 >(null);
 const roleChangeBusy = ref(false);
-/** Whether "Hand this market on" is asking whom to, until it lands or is cancelled (T283). */
+/** Whether "Transfer ownership" is asking whom to, until it lands or is cancelled (T283). */
 const handingOn = ref(false);
 const handOnBusy = ref(false);
 const handOnError = ref('');
@@ -190,11 +190,11 @@ const grantableRoles = computed(() =>
   GIVEN_ROLES.filter((role) => canManageRoles(marketData.value, role)),
 );
 
-/** Handing a market on is the table's "Hand the market on" row, its Owner's alone (T283). */
+/** Transferring a market's ownership is the table's "Transfer ownership" row, its Owner's alone (T283). */
 const canHandOn = computed(() => mayTake(marketData.value, MarketAction.HandOnMarket));
 
 /**
- * Whether anyone but the person looking has access, so there is someone to hand the market on to:
+ * Whether anyone but the person looking has access, so there is someone to transfer ownership to:
  * only the Owner sees the section, so that person is the Owner.
  */
 const anyoneToHandOnTo = computed(() =>
@@ -396,12 +396,15 @@ async function handleRename() {
   }
 }
 
+/** Said of a transfer of ownership refused without a sentence of its own. */
+const OWNERSHIP_NOT_TRANSFERRED = 'Ownership was not transferred.';
+
 function askToHandOn() {
   handOnError.value = '';
   handingOn.value = true;
 }
 
-/** Cancel, Escape and the backdrop change nothing; the shell gives focus back to "Hand on". */
+/** Cancel, Escape and the backdrop change nothing; the shell gives focus back to "Transfer ownership". */
 function cancelHandOn() {
   if (handOnBusy.value) return;
   handingOn.value = false;
@@ -410,8 +413,8 @@ function cancelHandOn() {
 
 /**
  * Confirmed: the person chosen becomes the Owner and this person an Admin, in one write. The market
- * is re-read, as every write here re-reads it, so "Hand this market on" goes, since this person no
- * longer owns it, and Users with access shows both new roles; focus goes to that list, as "Hand on"
+ * is re-read, as every write here re-reads it, so "Transfer ownership" goes, since this person no
+ * longer owns it, and Users with access shows both new roles; focus goes to that list, as its button
  * is gone. A refusal stays in the dialog; one saying the market changed under it re-reads the
  * market behind it, as a removal's does, and so does one saying the person chosen has no access,
  * since the read the choice came from is stale: they then drop out of the choices.
@@ -423,7 +426,7 @@ async function handleHandOn(userId: string) {
   try {
     await api.post(`/markets/${encodeURIComponent(marketData.value.id)}/hand-on`, { userId });
   } catch (err) {
-    handOnError.value = getApiErrorMessage(err, 'The market was not handed on.');
+    handOnError.value = getApiErrorMessage(err, OWNERSHIP_NOT_TRANSFERRED);
     if (isMarketChanged(err) || getApiErrorStatus(err) === 400) await fetchMarket(false);
     handOnBusy.value = false;
     return;
@@ -754,7 +757,7 @@ async function closeAddUser() {
       </section>
 
       <section v-if="canHandOn" class="section" data-testid="manage-market-hand-on">
-        <h3>Hand this market on</h3>
+        <h3>Transfer ownership</h3>
         <template v-if="anyoneToHandOnTo">
           <p class="section-line" data-testid="manage-market-hand-on-line">
             Make someone with access its Owner. You stay on it as an Admin.
@@ -765,7 +768,7 @@ async function closeAddUser() {
             data-testid="manage-market-hand-on-button"
             @click="askToHandOn"
           >
-            Hand on
+            Transfer ownership
           </button>
         </template>
         <p v-else class="section-line" data-testid="manage-market-hand-on-nobody">

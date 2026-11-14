@@ -9,12 +9,13 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - T254
   - T251
   - T263
   - T273
+  - T317
 ---
 
 # Technology Stack
@@ -46,7 +47,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Flask-Login 0.6.3** - User session management
   - Handles user authentication state
   - Session-based authentication (not JWT)
-  - A login id identifies the account, not its address ([users and email](implementation/data/users-and-email.md#the-session-names-the-account-by-its-login-id))
+  - A login id identifies the account, not its address ([users and email](implementation/data/users-and-email.md#a-sign-in-is-kept-on-the-server))
 - **Flask-Bcrypt 1.0.1** - Password hashing
   - Secure password storage using bcrypt
   - Password verification for login
@@ -59,7 +60,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **MongoDB 8.0 in production, 7 locally and in CI** - NoSQL document database
   - Primary data storage
   - The local stack and CI run `mongo:7` while production runs 8.0, for the reason in [the MongoDB version](implementation/testing/real-mongo-suite.md#the-mongodb-version)
-  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `vendor_remembered_sign_ins`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
+  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `vendor_remembered_sign_ins`, `organizer_sessions`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
   - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
 
@@ -90,7 +91,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### Utilities
 
-- **Python's `secrets`** - Email verification and password reset tokens, and sign-in codes
+- **Python's `secrets`** - Email verification and password reset links, and sign-in codes, each stored only as its hash (`back-end/account_secrets.py`)
 - **PyJWT 2.15** - The applicant's sign-in token, signed with `SECRET_KEY`
 - **Cryptography 50** - Lets the local stack's `flask run --cert=adhoc` make its certificate; no module imports it
 - **Requests 2.34** - HTTP library
@@ -110,7 +111,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Flask-Session 0.8.0** - Server-side session storage
   - Session store selected by `SESSION_TYPE`, which has no default: `filesystem` (local disk) on a container or VM, `null` (signed cookie only, no server-side store) on a serverless host
   - A sign-in lasts 12 hours, or 30 days with "Remember me", counted from signing in and enforced by the server ([the cookies](implementation/conventions/security-invariants.md#the-cookies)); the session cookie ends with the browser
-  - The session and remember-me cookies are `SameSite=None`, so they are always `Secure` and `HttpOnly` - not configurable ([the cookies](implementation/conventions/security-invariants.md#the-cookies))
+  - The session and remember-me cookies are `SameSite=Lax`, `Secure` and `HttpOnly` - not configurable, since the front end and the API are on one site ([the cookies](implementation/conventions/security-invariants.md#the-cookies))
 
 ### Testing
 
@@ -203,6 +204,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 - **ESLint 10.13.0** - JavaScript/TypeScript linter
   - Code quality enforcement
+  - `npm run lint` fixes what it can; `npm run lint:check` verifies without fixing and refuses a warning as it does an error, and CI's `frontend-lint-and-types` and `scripts/nm-test.sh` run it
   - Vue-specific linting rules from `eslint-plugin-vue` 10 (its `flat/essential` set, plus `vue/no-v-html` as an error, so no template renders raw HTML)
 - **minimatch 11, held by `overrides` in `front-end/package.json`** - the glob matcher under ESLint, typescript-eslint and `@vue/test-utils`'s js-beautify, all development-only
   - Each of them still asks for minimatch 10, so the override holds every copy at `^11.0.8`, the line that has upstream's hardening
@@ -280,11 +282,10 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 1. User submits registration form with CAPTCHA verification
 2. Backend validates CAPTCHA token
 3. Password is hashed with bcrypt; one longer than 72 bytes, which bcrypt does not read, is refused (400) and makes no account
-4. User account created with `email_verified: false`
-5. Verification token generated and stored; it expires in 1 hour
-6. Verification email sent via Resend
-7. User clicks verification link in email
-8. Email verified, account activated
+4. User account created with `email_verified: false`, holding its verification link's SHA-256, never the link; the link expires in 1 hour, and asking again replaces it at once
+5. Verification email sent via Resend
+6. User clicks verification link in email
+7. Email verified, account activated; the link verifies once
 
 ### Login Methods
 
@@ -306,10 +307,10 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 ### Password Reset
 
 1. User requests password reset
-2. Reset token generated and stored
+2. Reset link generated, and only its SHA-256 stored
 3. Reset link sent via Resend email
 4. Token expires in 1 hour; another reset is refused (429) until an hour after it expired, and past five requests per address or thirty per caller in 15 minutes every request is refused (429 with the wait)
-5. User sets new password
+5. User sets new password; the link is used once, the address is marked verified, and a sign-in code asked for before ends
 6. Password hashed and stored; one longer than 72 bytes is refused (400) as at registration
 
 ## Security Features
@@ -319,7 +320,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - **CAPTCHA Protection**: reCAPTCHA v3 on registration
 - **Rate Limiting**: every sign-in, code, reset-link, verification-link and sign-up request, counted per address and per caller in the database (`back-end/sign_in_limits.py`), before the account is looked up; a try that signs in is taken back; OTP and password reset requests also wait on the last
 - **Token Expiration**: Time-limited tokens for verification and reset
-- **Secure Sessions**: HTTP-only, `Secure`, `SameSite=None` cookies, signed with a `SECRET_KEY` that has no fallback
+- **Secure Sessions**: HTTP-only, `Secure`, `SameSite=Lax` cookies, signed with a `SECRET_KEY` that has no fallback
 - **CORS Protection**: An explicit origin allowlist (`CORS_ALLOWED_ORIGINS`); `*` is refused, because the session cookie is credentialed
 - **Boot-Time Defenses**: The app refuses to start unless every variable its public surface rests on is configured (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment))
 - **Input Validation**: Pydantic models for type safety

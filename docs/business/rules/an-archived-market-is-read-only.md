@@ -18,12 +18,13 @@ sources:
   - T263
   - T257
   - T283
+  - T315
 ---
 
 # An archived market is read-only
 
 Nothing in an archived market can be changed, by anyone, whatever their role: its plan, form, applications' verdicts, seats, highlights, rules, phase, and what each vendor owes and paid are the record of what happened.
-Who may see the record, who owns it, and whether to keep it, are still decided: roles change, the market may be handed on, and it may be deleted.
+Who may see the record, who owns it, and whether to keep it, are still decided: roles change, the market's ownership may be transferred, and it may be deleted.
 
 **Serves:** [The door on market day](../intents/the-door-on-market-day.md).
 
@@ -31,11 +32,11 @@ Who may see the record, who owns it, and whether to keep it, are still decided: 
 
 An archived market is finished ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), and one that ran keeps its vendor page as the record of its market days.
 A change after the fact would make that record say something that never happened.
-Roles, handing it on and deletion are decisions about the record, not changes to it.
+Roles, transferring its ownership and deletion are decisions about the record, not changes to it.
 
 ## Who may
 
-Nobody changes it; an owner or admin still manages its roles, and its owner may hand it on or delete it.
+Nobody changes it; an owner or admin still manages its roles, and its owner may transfer its ownership or delete it.
 Anyone the table lets read it or its history still does ([reading the market's history](../flows/reading-the-markets-history.md)): an archived market still takes the reading rows, and reading changes nothing.
 Its table of who may do what is part of the record too, and its owner no longer changes it (E39/F01/S03).
 

@@ -491,6 +491,9 @@ def results_are_out(market_doc: Dict[str, Any]) -> bool:
     its vendors are seated and at the door (ADR 0022), so reaching the market days counts too. A
     form market cannot reach them unpublished. Reads what ``vendor_page_market_by_slug`` adds to
     its caller's projection, so a document it served answers this.
+
+    It asks whether applicants were told, which is the flag. Where the assignment itself stands,
+    published or changed since, is the lifecycle owner's (``assignment.lifecycle.allocation``).
     """
     return bool(market_doc_field(market_doc, "results_published")) or _reached_market_days(market_doc)
 

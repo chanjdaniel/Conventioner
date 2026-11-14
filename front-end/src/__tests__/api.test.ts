@@ -31,6 +31,19 @@ describe('api client', () => {
     expect(handlers).toHaveLength(0);
   });
 
+  it('adds no request transformer but the size refusal, which can set a header as an interceptor can', async () => {
+    const { default: axios } = await import('axios');
+    const { api } = await import('@/utils/api');
+
+    const ownTransforms = [axios.defaults.transformRequest].flat();
+    const transforms = [api.defaults.transformRequest].flat();
+
+    expect(transforms.slice(0, -1)).toEqual(ownTransforms);
+    expect(transforms.map((transform) => transform?.name).slice(-1)).toEqual([
+      'refuseWhatTheHostWould',
+    ]);
+  });
+
   it('does not read the stored user, so a tampered localStorage changes no request', async () => {
     const getItemMock = vi.fn().mockReturnValue('"attacker@example.com"');
     vi.stubGlobal('localStorage', { getItem: getItemMock });
@@ -125,6 +138,23 @@ describe('what a failed request says', () => {
     ).toBe('Only an Editor may do this.');
   });
 
+  it("names a 413 the page can read with no sentence, a proxy's, as too large to carry", async () => {
+    const { getApiErrorMessage } = await import('@/utils/api');
+
+    for (const data of ['Request Entity Too Large', '<html>', undefined]) {
+      expect(
+        getApiErrorMessage(await failure(413, data), 'The import could not be completed.'),
+      ).toBe('This was larger than the 4.5 MB one request can carry.');
+    }
+  });
+
+  it("keeps a 413's own sentence, as the floorplan upload words it", async () => {
+    const { getApiErrorMessage } = await import('@/utils/api');
+
+    const own = 'This file is larger than 4 MB.';
+    expect(getApiErrorMessage(await failure(413, { error: own }), 'x')).toBe(own);
+  });
+
   it("says the screen's fallback for a 4xx with no sentence", async () => {
     const { getApiErrorMessage } = await import('@/utils/api');
 
@@ -139,5 +169,87 @@ describe('what a failed request says', () => {
     expect(getApiErrorMessage(new Error('boom'), 'The verdict was not saved.')).toBe(
       'The verdict was not saved.',
     );
+  });
+});
+
+/**
+ * A body over the host's 4.5 MB is refused before it is sent (T315). In production the host refuses
+ * such a body itself, before the back end runs, with a 413 that carries no CORS header, so the
+ * browser hides it from the page and the organizer would be told they seem to be offline.
+ */
+describe("a body over the host's limit", () => {
+  const LIMIT = 4_500_000;
+  const TOO_LARGE = 'This was larger than the 4.5 MB one request can carry.';
+  const sends = () =>
+    vi.fn(async (config: unknown) => ({
+      data: {},
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    }));
+
+  it('is refused before it is sent, and said as too large, not as a lost connection', async () => {
+    const { api, getApiErrorMessage, getApiErrorStatus } = await import('@/utils/api');
+    const adapter = sends();
+
+    const failed = await api
+      .post('/markets/m/applications/import/inspect', { csvContent: 'x'.repeat(LIMIT) }, {
+        adapter,
+      } as never)
+      .then(
+        () => null,
+        (err: unknown) => err,
+      );
+
+    expect(adapter).not.toHaveBeenCalled();
+    expect(getApiErrorMessage(failed, 'The import could not be completed.')).toBe(TOO_LARGE);
+    expect(getApiErrorStatus(failed)).toBeNull();
+  });
+
+  it('sends a body of exactly the limit, as JSON carries it', async () => {
+    const { api } = await import('@/utils/api');
+    const adapter = sends();
+
+    // `{"c":"..."}` is eight bytes around the text.
+    await api.post('/x', { c: 'x'.repeat(LIMIT - 8) }, { adapter } as never);
+
+    expect(adapter).toHaveBeenCalledOnce();
+    expect(String((adapter.mock.calls[0]![0] as { data: string }).data)).toHaveLength(LIMIT);
+  });
+
+  it('counts the bytes the text is sent as, not its characters', async () => {
+    const { api } = await import('@/utils/api');
+    const adapter = sends();
+
+    // Each é is two bytes in UTF-8: 2,250,000 of them are 4,500,000 bytes, and the JSON around
+    // them eight more, though the text is barely half the limit in characters.
+    const failed = await api.post('/x', { c: 'é'.repeat(LIMIT / 2) }, { adapter } as never).then(
+      () => null,
+      (err: unknown) => err,
+    );
+
+    expect(adapter).not.toHaveBeenCalled();
+    expect(failed).not.toBeNull();
+  });
+
+  it('refuses a form whose file passes the limit, and sends one within it', async () => {
+    const { api, getApiErrorMessage } = await import('@/utils/api');
+    const adapter = sends();
+    const form = (bytes: number) => {
+      const data = new FormData();
+      data.append('file', new Blob([new Uint8Array(bytes)]), 'plan.png');
+      return data;
+    };
+
+    const failed = await api.post('/floorplans/upload', form(LIMIT + 1), { adapter } as never).then(
+      () => null,
+      (err: unknown) => err,
+    );
+    expect(getApiErrorMessage(failed, 'x')).toBe(TOO_LARGE);
+    expect(adapter).not.toHaveBeenCalled();
+
+    await api.post('/floorplans/upload', form(4_000_000), { adapter } as never);
+    expect(adapter).toHaveBeenCalledOnce();
   });
 });

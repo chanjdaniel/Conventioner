@@ -16,6 +16,7 @@ not build is a decision about data, and it belongs with the guarantee, not with 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+import account_secrets
 import db_config
 from api.applications import APPLICATIONS_COLLECTION
 from deletion_trail import DELETION_TRAIL_COLLECTION
@@ -55,9 +56,8 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
     USERS_COLLECTION: [
         ("id",),
         # The email is not here: `api.users.ensure_user_indexes` builds it UNIQUE (E32/F03/S04).
-        ("verification_token",),
-        ("password_reset_token",),
-        # The session and the remember-me cookie name the account by it, so it is read every request.
+        *((field,) for field in account_secrets.LOOKUP_FIELDS),
+        # Every signed-in request loads the account by it, from its sign-in's record.
         ("login_id",),
     ],
     APPLICATIONS_COLLECTION: [

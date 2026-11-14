@@ -503,7 +503,7 @@ An organizer who has forgotten their password cannot set a new one, which locks 
 
 1. Signed out, at `/login` choose "Forgot password?", enter an account's email, "Send Reset Link".
 2. Open the reset link (`/reset-password?token=<token>`) in a fresh tab, still signed out.
-   Locally the token can be read from `users.password_reset_token` in Mongo, as `auth.spec.ts` does.
+   Locally a known link can be planted with `plantAccountLink` from `front-end/e2e/helpers/accountSecrets.ts`, as `auth.spec.ts` does.
 
 **Expected:** the "set a new password" form.
 

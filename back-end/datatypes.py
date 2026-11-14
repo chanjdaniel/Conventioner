@@ -638,17 +638,49 @@ class AssignmentStatistics(BaseModel):
         return normalized
 
 
+class AssignmentState(str, Enum):
+    """Where a market's assignment stands, as stored (T316, ``assignment/lifecycle.py``).
+
+    Written only by the assignment lifecycle, beside the rows it describes.
+    """
+
+    #: No row is stored, and no table allocation has been run.
+    NONE = "none"
+    #: Only tables assigned by hand are stored: no table allocation has been run yet.
+    PINNED = "pinned"
+    #: A table allocation has been run; ``madeFrom`` records what it was made from.
+    RUN = "run"
+
+
 class AssignmentObject(BaseModel):
     vendor_assignments: List[VendorAssignmentResult] = []
     assignment_date: str = ""  # When the assignment was performed
     assignment_statistics: Optional[AssignmentStatistics] = None
     # What the run read, one fingerprint per group (E22/F03/S01, ``assignment/made_from.py``).
-    # Written only by a run; None on an assignment made before it existed.
+    # Written only by a run; None on an assignment made before it existed, which the migration
+    # gives the legacy marker (``assignment.lifecycle.LEGACY_MADE_FROM``).
     made_from: Optional[Dict[str, str]] = None
     # How many times the rows have been written; each write is conditional on the count it read,
     # so two changes at once never store one over the other (``api/placements.py``). 0 on an
     # assignment written before it existed.
     revision: int = 0
+    # Where the assignment stands (T316). None on a market no write or migration has given one,
+    # which ``assignment.lifecycle.state_of`` reads by its rows and ``madeFrom``.
+    state: Optional[AssignmentState] = None
+    # The ``revision`` Publish results stood on (T316); None before results are published, and on
+    # a market published before it was recorded.
+    published_revision: Optional[int] = None
+
+    @field_validator("state", mode="before")
+    @classmethod
+    def _unknown_state_is_absent(cls, value):
+        """A state this build does not know (a later release's, read after a rollback) reads as
+        absent, so the read derives it from the rows rather than failing the market."""
+        known = {state.value for state in AssignmentState}
+        if isinstance(value, AssignmentState) or value is None or value in known:
+            return value
+        logger.warning("Stored assignment state %r is unknown; read by the rows", value)
+        return None
 
 
 class MappingAuthor(str, Enum):
@@ -931,10 +963,14 @@ class User(BaseModel):
     password: str
     organizations: List[str]  # Organization ids (uuids)
     email_verified: bool = False
+    # The account's sign-in secrets by kind, each one record kept hashed; ``account_secrets`` is
+    # their only reader and writer.
+    secrets: Dict[str, Any] = {}
     verification_token: Optional[str] = None
     verification_token_expires: Optional[str] = None
     password_reset_token: Optional[str] = None
     password_reset_token_expires: Optional[str] = None
+    # The code's fields before ``secrets``, read for one release (``account_secrets._upgrade``).
     otp: Optional[str] = None
     otp_expires: Optional[str] = None
     otp_attempts: int = 0

@@ -161,7 +161,7 @@ test.describe('Unsaved questions ask before they are dropped', () => {
     await addAQuestion(page);
 
     await page.getByTestId('app-bar-account-button').click();
-    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    await page.getByRole('menuitem', { name: 'Sign out', exact: true }).click();
     await expect(page).toHaveURL(/\/login/);
     await expect(question(page)).toBeHidden();
   });

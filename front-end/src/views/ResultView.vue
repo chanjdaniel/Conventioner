@@ -25,8 +25,7 @@ import { useVendorDetails } from '@/utils/vendorDetails';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
-import { hasAssignment } from '@/utils/marketPage';
-import { canAssignIn } from '@/utils/assignPhase';
+import { hasAssignment, resultsAreOut, settledBy } from '@/utils/marketPage';
 import ResultSummary from '@/components/ResultSummary.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
@@ -87,12 +86,21 @@ const orphanedSeats = computed(
 );
 
 /**
- * The tables are the result, so before one is stored they are drawn only where a run can happen:
- * there they are where a vendor is pinned before the first run (E11/F02/S01), as the summary says.
- * Anywhere else a grid of empty tables would read as an assignment that came out empty
- * (E31/F03/S05).
+ * The tables are the result, so before one is stored they are drawn only where a run can happen,
+ * by the server's word (`assignRefusalReason`, T316): there they are where a vendor is pinned before
+ * the first run (E11/F02/S01), as the summary says. Anywhere else a grid of empty tables would read
+ * as an assignment that came out empty (E31/F03/S05).
+ *
+ * Once results are published with every seat freed, or in a market left in Offers with none
+ * stored, no run may happen, but a seat is still given here by hand, so the tables are drawn to
+ * whoever may assign, as the summary says (T316).
  */
-const tablesShown = computed(() => hasAssignment(market.value) || canAssignIn(market.value?.phase));
+const tablesShown = computed(() => {
+  const shown = market.value;
+  if (!shown) return false;
+  if (hasAssignment(shown) || !shown.assignRefusalReason) return true;
+  return settledBy(shown) !== null && mayTake(shown, MarketAction.Assign);
+});
 
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
@@ -712,6 +720,7 @@ function swapSeats(withEmail: string): void {
       :busy="placementBusy"
       :errorMessage="placementError"
       :deduction="deduction"
+      :resultsOut="resultsAreOut(market?.allocation)"
       @place="placeVendor"
       @free="freeSeat"
       @swap="swapSeats"

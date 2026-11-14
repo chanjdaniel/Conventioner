@@ -5,13 +5,14 @@ describes:
   - back-end/utils/request_body.py
   - back-end/tests/test_a_request_value_is_a_string.py
   - back-end/tests/test_a_body_sets_only_its_fields.py
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - T66
   - T74
   - T85
   - T169
   - T251
+  - T315
 ---
 
 # A request value is a string before it reaches a query
@@ -30,14 +31,14 @@ It never raises, so each handler keeps its own words and status, and answers Non
 - the applicant sign-in (`back-end/api/applicant_auth.py`) answers its one same 200 for a code request and its one same 401 for a verify, so a wrong type tells a caller nothing a missing value does not;
 - a vendor's own check-in and its undo (`back-end/api/vendor_check_in.py`) answer a date or a door code that is not a string as a missing one: no table on that date or not this market's door code, and, for the undo, `date is required`, 400;
 - creating and renaming an organization (`back-end/app.py`) answer 400 for a name that is not a string or is blank;
-- adding an organization's admin or member, handing on its ownership, and adding or changing someone's market role (`back-end/app.py`) answer their "required" 400 for an address or a role that is not a string;
+- adding an organization's admin or member, transferring its ownership, and adding or changing someone's market role (`back-end/app.py`) answer their "required" 400 for an address or a role that is not a string;
 - saving a floorplan to a market and placing its tables (`back-end/api/floorplans_save.py`, `back-end/api/floorplans_placement.py`) answer 400 for the market id they name;
 - creating and updating a floorplan template (`back-end/api/floorplans_templates.py`) answer 400 for an `organizationId` that is neither a string nor null.
 
 The body itself is read with `json_object()` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), which every route in `back-end/app.py` that reads its body in the view calls, and the vendor's own check-in too; it refuses one that is not a JSON object before any value is read from it ([an exception never reaches a client](an-exception-never-reaches-a-client.md)).
 The floorplan templates' create and update read theirs with it too; saving a floorplan to a market refuses such a body in the same words, and registration answers it as a missing address and password.
 
-A tick box is read with `flag_field(body, key)` from the same module, true only for JSON `true`, so the string `"true"` or a `1` reads as unticked: the organizer's "Remember me" at `/login` and `/login-otp` is one ([users and email](../data/users-and-email.md#the-session-names-the-account-by-its-login-id)).
+A tick box is read with `flag_field(body, key)` from the same module, true only for JSON `true`, so the string `"true"` or a `1` reads as unticked: the organizer's "Remember me" at `/login` and `/login-otp` is one ([users and email](../data/users-and-email.md#a-sign-in-is-kept-on-the-server)).
 
 An address read this way still goes through `normalized_email()` ([users, and the one spelling of an address](../data/users-and-email.md)), which spells it as stored.
 

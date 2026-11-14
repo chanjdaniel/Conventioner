@@ -14,7 +14,10 @@ describes:
   - back-end/api/attendance.py#ensure_attendance_indexes
   - back-end/payments.py#ensure_payment_indexes
   - back-end/migrations/check_vendor_day_duplicates.py
-verified: 2026-11-11
+  - back-end/migrations/migrate_assignment_state.py
+  - back-end/host_limits.py
+  - back-end/organizer_sessions.py#ensure_organizer_session_indexes
+verified: 2026-11-14
 sources:
   - E32/F03/S03
   - T15
@@ -27,6 +30,10 @@ sources:
   - T255
   - T270
   - T307
+  - T277
+  - T316
+  - T315
+  - T317
 ---
 
 # Operations
@@ -104,7 +111,7 @@ What a person may do is decided per organization and per market:
 | ------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
 | Organization owner, admin | Manage organization (Organizations page)                     | **Admin** on every market the organization holds - never the market's owner                            |
 | Organization member       | Manage organization (Organizations page)                     | **Viewer** on every market the organization holds                                                      |
-| Market owner              | creating the market, or being handed it by the owner         | everything, including roles, handing the market on and deletion                                        |
+| Market owner              | creating the market, or the owner transferring its ownership | everything, including roles, transferring ownership and deletion                                       |
 | Market admin              | Manage market, or being the organization's owner or an admin | phase moves, importing, publishing results, adding editors and viewers, plus everything an editor does |
 | Market editor             | Manage market                                                | the plan, the form, verdicts on applications, placements, and checking vendors in at the door          |
 | Market viewer             | Manage market, or organization membership                    | reading                                                                                                |
@@ -193,6 +200,10 @@ Until it runs, that release reads each market as the script would leave it and i
 The release carrying T283 keeps an organization's people in one map: once it is deployed, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_organization_people.py --dry-run` ([`migrate_organization_people.py`](../back-end/migrations/migrate_organization_people.py)), then without `--dry-run`.
 The dry run is the read-only count of how many organizations do not parse on the release before (an owner also an admin or a member), and it writes nothing.
 It prints each organization's id and name; only its counts go into the team's records, never a name or an id.
+The release carrying T316 stores each market's assignment state, and Publish results the revision it stood on: once it is deployed, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_assignment_state.py --dry-run` ([`migrate_assignment_state.py`](../back-end/migrations/migrate_assignment_state.py)), which names each market it would change by id and what it would set, and counts them, then without `--dry-run`, and again after any roll-forward past a rollback.
+Until it runs, that release reads each market's state off its rows by the same rule ([the assignment's lifecycle](implementation/modules/assignment-lifecycle.md)), so nothing refuses to boot, and running it changes nothing a market shows.
+A market that changed between the script's read and its write on three tries is listed as skipped, and running it again sets it.
+A market whose stored assignment does not parse is left alone and listed by id; the app cannot read it either, and the script never changes it.
 
 ### When the back end refuses to boot
 
@@ -204,6 +215,8 @@ The back end checks the database as it starts and refuses to serve one it cannot
 - one attendance record per vendor's day, `attendance_vendor_day_unique` ([`api/attendance.py`](../back-end/api/attendance.py), through [`unique_indexes.py`](../back-end/unique_indexes.py));
 - one owed record per vendor's day, `amounts_owed_vendor_day_unique` ([`payments.py`](../back-end/payments.py), through [`unique_indexes.py`](../back-end/unique_indexes.py));
 - one payment per press of Record, `payments_request_key_unique` ([`payments.py`](../back-end/payments.py), through [`unique_indexes.py`](../back-end/unique_indexes.py)).
+
+It refuses too when it cannot build the indexes an organizer's sign-ins rest on, in `organizer_sessions` ([`organizer_sessions.py`](../back-end/organizer_sessions.py)), which carry no unique rule.
 
 Every request then answers 500 `FUNCTION_INVOCATION_FAILED`, and the log says which check refused and what to run (Vercel, the back-end project, Logs).
 Each refusal below names its fix; take a `mongodump` first (above) when the fix writes.
@@ -271,6 +284,10 @@ The log names Mongo's error by its type and code only, never its words, since a 
 These are applicants' sign-in codes, used once and expiring within ten minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
 The third holds vendors' remembered sign-ins ("Remember me" on the vendor page); its one index is the TTL index `remembered_sign_in_ttl`, so drop a conflicting index of that name (`db.vendor_remembered_sign_ins.dropIndex('<name>')`) and keep the documents, whose loss only makes each remembered vendor enter a code once more.
 
+**"Could not build the indexes on organizer_sessions"**.
+The log names Mongo's error by its type and code only: 85 or 86 is an index of the same name with other options or keys, or another index on `expires_at` without the expiry, which the TTL index cannot stand beside.
+The collection holds organizers' sign-ins ([ADR 0029](adr/0029-an-organizers-sign-in-is-kept-on-the-server.md)), and its indexes are the TTL index `organizer_session_ttl` on `expires_at` and `organizer_session_user` on `user_id`, so drop the conflicting index (`db.organizer_sessions.dropIndex('<name>')`) and keep the documents, then redeploy; anything else is the database's own trouble (reachability, the user's rights, Atlas's status).
+
 **"Refusing to start: ... are not as a deployment needs them"**, naming variables.
 A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)), remove each local-development switch it names ([a deployed host refuses local switches](RELEASING.md#a-deployed-host-refuses-local-switches)), and redeploy.
 
@@ -310,8 +327,9 @@ Every stack's back-end container sets `MONGODB_HOST=mongodb`, so `scripts/th-com
 
 In short (the detail is [RELEASING.md](RELEASING.md)):
 
-- Changes reach `dev` by PR; `dev` requires ten checks, `CodeQL` among them, and `main` six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
-- Promote a commit whose `dev` CI is green: `git fetch origin && git push origin <sha>:main`.
+- Changes reach `dev` by PR; `dev` requires nine checks, `CodeQL` among them, and `main` six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
+- Promote a commit whose `dev` CI is green with the Promote workflow, giving it the commit's full sha: Actions, Promote, Run workflow, from `dev`, or `gh workflow run promote.yml --ref dev -f commit=<sha>`; never push to `main` by hand, which its rulesets refuse.
+  It refuses a commit whose `dev` Test run has not passed, that is not on `dev`, or that `main` is not an ancestor of, then fast-forwards `main` to it ([how a promotion proves itself](RELEASING.md#how-a-promotion-proves-itself)).
   The Test workflow runs on `main`; once it is green, start the Deploy workflow by hand (Actions, Deploy, Run workflow, from `main`, or `gh workflow run deploy.yml --ref main`), which refuses a commit whose Test run has not passed, builds both projects without giving them a domain and proves each serves this commit, then promotes the back end, waits until `api.conventioner.io` serves the commit, promotes the front end and waits for `conventioner.io` ([how a deploy proves itself](RELEASING.md#how-a-deploy-proves-itself)).
   Nothing deploys by itself: no push, merge or PR reaches Vercel.
   Watch it under Actions; a failed run's summary says what production serves now and what to do.
@@ -361,6 +379,24 @@ Turned on 2026-11-10:
 | GitHub                             | failed workflow runs only                                                                                | email, and GitHub Mobile push                         |
 | Atlas, project `conventioner-prod` | Data Size above 4 GB (the Flex cluster's cap is 5 GB), and connections above 80% of the configured limit | email                                                 |
 | Atlas, the organization            | "Credit card is about to expire"                                                                         | email                                                 |
+
+## The host's limits
+
+Vercel's functions hold every request to limits of their own ([Vercel's function limits](https://vercel.com/docs/functions/limitations)), whatever the back end allows:
+
+- A request body over 4.5 MB is refused 413 `FUNCTION_PAYLOAD_TOO_LARGE` before Flask sees it, so the answer carries none of the back end's CORS headers, and the browser hides it from the app, which reads it as a failed connection.
+- A response body over 4.5 MB fails too, unless it is streamed.
+- An invocation is stopped at 300 seconds, the Hobby plan's default and maximum, and answers 504 `FUNCTION_INVOCATION_TIMEOUT`.
+
+What the product holds under them:
+
+- The back end's own `MAX_CONTENT_LENGTH` is the host's 4.5 MB, read as 4,500,000 bytes ([`back-end/host_limits.py`](../back-end/host_limits.py)), so a local stack refuses what production refuses; a larger body is answered 413 "This was larger than the 4.5 MB one request can carry." ([an exception never reaches a client](implementation/conventions/an-exception-never-reaches-a-client.md#the-handlers)).
+- The app's API client refuses any request body over 4.5 MB before it is sent, "This was larger than the 4.5 MB one request can carry.", so the host's own 413 is never met ([what the organizer reads](implementation/conventions/an-exception-never-reaches-a-client.md#what-the-organizer-reads)).
+- A floorplan upload's file is held to 4 MB (`floorplan_limits.MAX_UPLOAD_BYTES`), refused 413 by the upload route itself ([the layout](implementation/modules/floorplan-placement.md)).
+- A responses file for the import or the start from a CSV is held to 4 MB as the request carries it, its JSON escapes counted, and refused in the browser before it is sent ([the CSV import](implementation/modules/csv-import.md), [starting from a Google Form](business/flows/starting-from-a-google-form.md)).
+
+What it does not hold: the applications list is read whole, so its response passes 4.5 MB somewhere between about 1,800 and 3,000 applications, by how long their answers are, and from then on every read of the list fails, stopping the review (T244 Q33).
+It held at 359 applications in that run; paging the list on the server is the structural work that would move the wall.
 
 ## Incidents
 

@@ -14,8 +14,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from conftest import (  # noqa: E402
-    COMPLETE_PLAN, mongo_matches, reject_malformed_update, sessions_load_through_get_user,
-    skip_without_real_dependencies,
+    COMPLETE_PLAN, mongo_matches, mongo_update, reject_malformed_update,
+    sessions_load_through_get_user, skip_without_real_dependencies,
 )
 
 skip_without_real_dependencies()
@@ -35,17 +35,10 @@ MARKET = "market-1"
 FIELDS = [{"key": "shop", "label": "Shop", "type": "text"}]
 
 
-def _set_path(doc, key, value):
-    head, _, tail = key.partition(".")
-    if not tail:
-        doc[key] = value
-        return
-    _set_path(doc.setdefault(head, {}), tail, value)
-
-
 class Markets:
-    """One market, written as Mongo writes it: a filter that misses writes nothing, and ``$set`` and
-    ``$push`` land in the document, so a read after a move reads the move."""
+    """One market, written as Mongo writes it: a filter that misses writes nothing, and the update
+    lands in the document as ``conftest.mongo_update`` applies it (a revision counted up
+    included), so a read after a move reads the move."""
 
     def __init__(self, doc):
         self.doc = doc
@@ -63,10 +56,9 @@ class Markets:
             between(self.doc)
         if not mongo_matches(self.doc, query):
             return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
-        for key, value in update.get("$set", {}).items():
-            _set_path(self.doc, key, value)
-        for key, value in update.get("$push", {}).items():
-            self.doc.setdefault(key, []).extend(value.get("$each", [value]))
+        after = mongo_update(self.doc, update)
+        self.doc.clear()
+        self.doc.update(after)
         return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
 
     def find_one_and_update(self, query, update, **kwargs):
@@ -319,7 +311,8 @@ def _seat(email, table, hand_placed=False):
 @pytest.fixture
 def runs(world, monkeypatch):
     """The solver runs for real over the approved applications the review left, as a run reads
-    them: each application named in ``approved`` stands for one vendor of the plan's one day."""
+    them: each approved application, but a vendor added by hand, stands for one vendor of the
+    plan's one day."""
     import api.placements as PlacementsApi
     import assignment.made_from as MadeFrom
     from assignment.vendor_input import SolverVendor
@@ -334,7 +327,9 @@ def runs(world, monkeypatch):
                 custom_answers={}, submitted_at=doc["submitted_at"],
             )
             for doc in world.applications.documents
+            # A vendor added by hand is seated by hand, never by the run (``vendor_input``).
             if doc["status"] == ApplicationStatus.REVIEWER_APPROVED.value
+            and not doc.get("added_by")
         ]
 
     monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: approved())

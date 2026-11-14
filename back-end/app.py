@@ -7,6 +7,7 @@ from utils.env_file import load_env_file
 load_env_file()
 
 import api.users as UsersApi
+import organizer_sessions as OrganizerSessions
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.layouts as LayoutsApi
@@ -19,6 +20,7 @@ import api.discord_connection as DiscordConnectionApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
+import host_limits as HostLimits
 import typesafe_client as TypeSafe
 import market_stats as MarketStats
 import api.attendance as AttendanceApi
@@ -37,7 +39,7 @@ from api.floorplans_templates import floorplans_templates_bp
 from api.floorplans_save import floorplans_save_bp
 
 from typing import Any, Dict, List, NamedTuple, Optional
-from flask import Flask, request, jsonify, make_response, Response, session
+from flask import Flask, g, request, jsonify, make_response, Response, session
 from flask_login import (
     LoginManager,
     current_user,
@@ -46,6 +48,9 @@ from flask_login import (
     logout_user,
     session_protected,
     user_loaded_from_cookie,
+    user_loaded_from_request,
+    user_logged_in,
+    user_logged_out,
 )
 from flask_bcrypt import Bcrypt
 from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, Organization, VerdictGiver
@@ -211,6 +216,23 @@ def verify_user_indexes() -> None:
 
 
 verify_user_indexes()
+
+
+def verify_organizer_session_indexes() -> None:
+    """Refuse to boot unless an organizer's sign-ins can be kept on the server (ADR 0029).
+
+    Every sign-in is a record in ``organizer_sessions``; a TTL index removes one once it has ended,
+    and an index by account serves ending all of an account's at once. Built here, so a process
+    that cannot hold them says so before it takes a request.
+    """
+    try:
+        OrganizerSessions.ensure_organizer_session_indexes()
+    except OrganizerSessions.OrganizerSessionIndexError as e:
+        logger.critical("Refusing to start: %s", e)
+        raise
+
+
+verify_organizer_session_indexes()
 
 
 def verify_attendance_indexes() -> None:
@@ -418,30 +440,42 @@ def configure_public_endpoint_defenses(
 
 app = Flask(__name__)
 
-# How long a sign-in lasts (E38/F14/S01): the two lengths are `UsersApi`'s, and the user loader
-# refuses a sign-in older than its own. The session cookie ends with the browser in either store
-# (flask-session's own default is a lasting cookie); a store on disk keeps a session for an
-# unremembered sign-in's length from its last change. The remember-me cookie expires when a
-# remembered sign-in ends, and use does not extend it.
+# How long a sign-in lasts (E38/F14/S01): the two lengths are `organizer_sessions`', and each
+# sign-in's record there ends it at its own. The session cookie ends with the browser in either
+# store (flask-session's own default is a lasting cookie); a store on disk keeps a session for an
+# unremembered sign-in's length from its last change. The remember cookie expires when a
+# remembered sign-in ends, and use does not extend it. Its `__Host-` prefix holds it to this host:
+# a browser takes it, and its deletion, only with Secure, `Path=/` and no Domain, so none is set
+# and `RefusingLoginManager` deletes it with the attributes it was set with.
 app.config["SESSION_PERMANENT"] = False
 app.config["PERMANENT_SESSION_LIFETIME"] = UsersApi.SIGN_IN_LIFETIME
+# A session is written only when a request changed it. flask-session's store on disk otherwise
+# writes every request's session back as that request read it, so a read in flight while the
+# browser signed in again wrote back the sign-in the new one had ended, and signed the browser out.
+# The cookie store writes an unchanged session only when it is permanent, which none is.
+app.config["SESSION_REFRESH_EACH_REQUEST"] = False
+app.config["REMEMBER_COOKIE_NAME"] = UsersApi.REMEMBER_COOKIE
+app.config["REMEMBER_COOKIE_PATH"] = "/"
 app.config["REMEMBER_COOKIE_DURATION"] = UsersApi.REMEMBERED_SIGN_IN_LIFETIME
 app.config["REMEMBER_COOKIE_REFRESH_EACH_REQUEST"] = False
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-# Not configurable, for the session cookie, the remember-me cookie and a vendor's remember cookie
-# alike: a SameSite=None cookie is one the browser attaches to cross-site requests, and browsers
-# only accept such a cookie when it is also Secure - so an environment variable that could turn
-# this off would not "allow plain HTTP", it would ship a cookie the browser drops, or sends in the
-# clear where it does not. Loopback counts as a secure context, so local dev is unaffected. The
-# remember-me cookie is HttpOnly by Flask-Login's default. A vendor's remember cookie,
-# `__Host-vendor_remember_<market id>` (`remembered_sign_ins`, ADR 0022), is set by that module from
-# the three VENDOR_REMEMBER_COOKIE_ keys below, HttpOnly so no script on the vendor page reads it;
-# its prefix makes a browser refuse it without Secure.
+# None of it is configurable. The session cookie and the remember cookie are SameSite=Lax, so a
+# browser sends them only on a request from this site, or on a top-level GET navigation to the API
+# from another site. Lax holds because every front end that signs in is on the API's site:
+# `conventioner.io` and `api.conventioner.io` are one site (a site ignores the subdomain and the
+# port), and the local and E2E stacks are one origin, the front end reaching the API through its
+# `/api` proxy. A front end on another site cannot sign in: a browser keeps neither cookie from its
+# answers. Both are Secure, which loopback satisfies as a secure context, so local dev is
+# unaffected; the remember cookie is HttpOnly by Flask-Login's default. A vendor's remember cookie,
+# `__Host-vendor_remember_<market id>` (`remembered_sign_ins`, ADR 0022), stays SameSite=None, which
+# a browser takes only on a Secure cookie; that module sets it from the three
+# VENDOR_REMEMBER_COOKIE_ keys below, HttpOnly so no script on the vendor page reads it, and its
+# prefix makes a browser refuse it without Secure.
 app.config["SESSION_COOKIE_SECURE"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["REMEMBER_COOKIE_SECURE"] = True
-app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
+app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
 app.config["VENDOR_REMEMBER_COOKIE_SECURE"] = True
 app.config["VENDOR_REMEMBER_COOKIE_SAMESITE"] = "None"
 app.config["VENDOR_REMEMBER_COOKIE_HTTPONLY"] = True
@@ -450,7 +484,8 @@ configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
 install_error_answers(app)
 install_security_headers(app)
 
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload limit
+# The host's own limit, so a local stack refuses what production refuses (host_limits.py).
+app.config["MAX_CONTENT_LENGTH"] = HostLimits.MAX_REQUEST_BODY_BYTES
 
 bcrypt = Bcrypt(app)
 
@@ -480,6 +515,20 @@ class RefusingLoginManager(LoginManager):
         session_protected.send(app)
         return True
 
+    def _clear_cookie(self, response: Response) -> None:
+        """Delete the remember cookie with the attributes it was set with.
+
+        Flask-Login deletes it with its name, path and domain only, and a browser refuses the
+        deletion of a `__Host-` cookie that is not Secure, so the cookie would outlive sign-out in
+        the browser.
+        """
+        config = app.config
+        response.delete_cookie(
+            config["REMEMBER_COOKIE_NAME"], path=config["REMEMBER_COOKIE_PATH"],
+            secure=config["REMEMBER_COOKIE_SECURE"], httponly=True,
+            samesite=config["REMEMBER_COOKIE_SAMESITE"],
+        )
+
 
 login_manager = RefusingLoginManager()
 login_manager.init_app(app)
@@ -496,6 +545,48 @@ def hold_a_restored_session_to_its_browser(_app: Flask, user: Any) -> None:
     and "Remember me" lasted one request (E38/F14/S01). Recorded here, the way `login_user` does.
     """
     session["_id"] = login_manager._session_identifier_generator()
+
+
+@login_manager.request_loader
+def a_legacy_remembered_account(_request: Any) -> Any:
+    """The account a legacy `remember_token` cookie names, read for one release (ADR 0029).
+
+    The remember cookie of a sign-in made before sign-ins were kept on the server: Flask-Login asks
+    here once the session has loaded no one and the browser holds no new remember cookie. Restored
+    into the session as Flask-Login's own restore does, and held to the browser by
+    `hold_a_restored_session_to_its_browser`; a replaced login id ends it, and a sign-in or sign-out
+    deletes the cookie (`forget_the_legacy_remember_cookie`).
+    """
+    restored = UsersApi.legacy_remembered_account(
+        request.cookies.get(UsersApi.LEGACY_REMEMBER_COOKIE))
+    if restored is None:
+        return None
+    sign_in, account = restored
+    session["_user_id"] = sign_in
+    session["_fresh"] = False
+    return account
+
+
+user_loaded_from_request.connect(hold_a_restored_session_to_its_browser, app)
+
+
+@user_logged_in.connect_via(app)
+@user_logged_out.connect_via(app)
+def _a_sign_in_or_out_forgets_the_legacy_cookie(_app: Flask, **_extra: Any) -> None:
+    g.forget_the_legacy_remember_cookie = True
+
+
+@app.after_request
+def forget_the_legacy_remember_cookie(response: Response) -> Response:
+    """Delete a legacy `remember_token` the browser sent, once this request signed in or out, so
+    it cannot bring a sign-in back."""
+    if (g.get("forget_the_legacy_remember_cookie")
+            and UsersApi.LEGACY_REMEMBER_COOKIE in request.cookies):
+        response.delete_cookie(
+            UsersApi.LEGACY_REMEMBER_COOKIE, path="/", secure=True, httponly=True,
+            samesite=app.config["REMEMBER_COOKIE_SAMESITE"],
+        )
+    return response
 
 
 app.register_blueprint(floorplans_bp, url_prefix="/floorplans")
@@ -556,6 +647,11 @@ def login() -> Response:
 @login_required
 def logout() -> Response:
     return UsersApi.logout(logout_user)
+
+@app.route('/logout-everywhere', methods=['POST'])
+@login_required
+def logout_everywhere() -> Response:
+    return UsersApi.logout_everywhere(current_user, logout_user)
 
 @app.route('/check-session', methods=['GET'])
 @login_required
@@ -769,8 +865,8 @@ def change_org_place(org_id: str, user_id: str) -> Response:
 @app.route('/organizations/<org_id>/transfer', methods=['POST'])
 @login_required
 def transfer_org_ownership(org_id: str) -> Response:
-    """Hand the organization on to one of its admins or members: its owner's to do. The body is
-    ``{"new_owner_email": "<address>"}``."""
+    """Transfer the organization's ownership to one of its admins or members: its owner's to do.
+    The body is ``{"new_owner_email": "<address>"}``."""
     data = json_object(required=True)
 
     new_owner_email = string_field(data, 'new_owner_email')
@@ -829,15 +925,18 @@ def update_market_role(market_id: str, user_id: str) -> Response:
         return jsonify({"error": "Failed to update role"}), 400
     return jsonify({"message": "Role updated successfully"}), 200
 
+#: Said of a transfer of ownership that names no one to transfer it to.
+CHOOSE_WHO_TO_TRANSFER_TO = "Choose who to transfer ownership to."
+
 @app.route('/markets/<market_id>/hand-on', methods=['POST'])
 @login_required
 def hand_on_market(market_id: str) -> Response:
-    """Hand the market on (T283): body ``{"userId": "<id>"}``, someone with access, who becomes
-    its Owner while the requester, its Owner, stays on it as an Admin. Answers the market as the
-    market read serves it to the requester now."""
+    """Transfer the market's ownership (T283): body ``{"userId": "<id>"}``, someone with access,
+    who becomes its Owner while the requester, its Owner, stays on it as an Admin. Answers the
+    market as the market read serves it to the requester now."""
     user_id = string_field(json_object(required=False), 'userId')
     if not user_id:
-        return jsonify({"error": "Choose who to hand this market on to."}), 400
+        return jsonify({"error": CHOOSE_WHO_TO_TRANSFER_TO}), 400
     requester = authenticated_email()
     MarketsApi.hand_on_market(market_id, user_id, requester)
     return jsonify({"market": MarketsApi.get_market_for_user(requester, market_id)}), 200

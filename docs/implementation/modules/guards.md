@@ -10,7 +10,7 @@ describes:
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
   - front-end/src/utils/blockerLink.ts
-verified: 2026-11-11
+verified: 2026-11-14
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -32,6 +32,9 @@ sources:
   - T263
   - T274
   - T257
+  - T277
+  - T316
+  - T315
 ---
 
 # The guards and the phase move
@@ -68,19 +71,21 @@ A guard that sets a `resolution_link` sets the `resolution_action` its remedy ta
 | Pick market dates, Change the dates, Add a location, Add tables, Give every tier tables, Fix the price groups | `setup`                | `change-setup`        |
 | Open the layout                                                                                               | `layout/<location id>` | `change-setup`        |
 | Allocate tables (`AssignmentComputedGuard`, `AssignmentNotBeforeReviewGuard`, `NoApprovedApplicationsGuard`)  | `settings`             | `assign`              |
+| Assign tables (`AssignmentComputedGuard`, nobody seated where a run is refused)                               | `assignments`          | `assign`              |
 | Publish results                                                                                               | `applications`         | `publish-results`     |
 | Finish deciding                                                                                               | `applications`         | `give-verdicts`       |
 | Import responses                                                                                              | `import`               | `import-applications` |
 | Decide what reviewers read first                                                                              | `form?step=review`     | `change-form`         |
 | Decide the automatic rejections                                                                               | `form?step=review`     | `change-form`         |
 
-"Open the layout" is the one link that names which of a market's pages of a kind it leads to: the layout of the location whose tables are in no section, never the market's bare `layout`, which redirects to its first location's.
+"Open the layout" is the one link that names which of a market's pages of a kind it leads to: the layout of the location whose tables are in no section (`LayoutTablesHaveSectionsGuard`), or of the location holding a section of a tier without tables (`EveryTierHasTablesGuard`), never the market's bare `layout`, which redirects to its first location's.
+A laid-out location's sections count its layout's tables, and Market Setup shows their counts read-only, so when the plan's first tier without tables has a section there, `EveryTierHasTablesGuard` says that tier alone, naming its first such section and its location, and leads to that layout (T315); otherwise its Market Setup line, "Give every tier tables", names only the tiers with no section in a laid-out location, the others said once those are fixed; and a market with no tables at all whose sections lie in one is sent to the first such section's layout too.
 A link without an action, or an action without a link, is refused at construction.
 That the action is a row of the table is held by `TestEveryRemedyNamesTheActionItTakes` in [`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py), not at construction, so a renamed row fails the build rather than answering the organizer with a 500.
 
 **`_validate_registry()` runs at import and refuses tables that disagree**, so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
 It refuses an edge naming a phase `MarketPhase` lacks, guards on an edge that is not in `VALID_TRANSITIONS`, entry invariants for a phase no edge enters, and an edge into a phase that does not carry all of that phase's entry invariants.
-An entry invariant is what makes a rule hold of every market in the phase rather than only on the route its author thought of: `market_days` requires a stored assignment, no orphaned pin, no run made before the review was last reopened and published results, on both paths ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), on both edges into it.
+An entry invariant is what makes a rule hold of every market in the phase rather than only on the route its author thought of: `market_days` requires a table allocation with someone seated (tables assigned by hand alone are none), no orphaned pin, no run made before the review was last reopened and published results, on both paths ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), on both edges into it.
 
 **A guard reads the market's state, never its phase.**
 `test_no_guard_reads_the_phase` ([`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py)) pins it, so a judgement made before a write, as the first import's below, means what it says.
@@ -117,7 +122,7 @@ A new market starts at `draft` ([a new market](../data/market-document.md#a-new-
 The market write's refusal, `MarketChanged`, is answered in the rail's terms from the market it carries: a request that finds the market moved under it gets `PhaseChangedUnderRequest`, a `ConflictError` whose `body()` is the endpoint's 409: `phase_changed`, the phase it is in now, the phase asked for, and one blocker telling the organizer to reload.
 A move whose guard read a fact another write changes without moving the phase holds that fact at its value as read too (`_what_the_move_stood_on` names the keys): Back to review holds `resultsPublished`, which its guard read unset, since Publish results writes it in place ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)), and Open applications holds the form's revision, `formRevision`, and the plan's, `planRevision`, since its guards judged the form and the plan as read and a form or a plan save writes them without moving the phase ([the form's revision](market-write.md#the-forms-revision), [the plan's revision](market-write.md#the-plans-revision)).
 When the phase stayed and that fact changed, the request gets `MoveBlockedUnderRequest`, a 409 shaped as the guards' own, `preconditions_not_met` with the blockers the move meets now, or, when they all pass on the market as it now stands, one blocker `market_changed` saying the market changed and to reload, so the rail never shows a refusal with no reason.
-The endpoint catches nothing: that 409, `MoveUnavailable`'s 400 and a market deleted under it (404) reach the [registered handler](../conventions/an-exception-never-reaches-a-client.md#the-two-handlers), and only the guards' own 409 is built by the endpoint.
+The endpoint catches nothing: that 409, `MoveUnavailable`'s 400 and a market deleted under it (404) reach the [registered handler](../conventions/an-exception-never-reaches-a-client.md#the-handlers), and only the guards' own 409 is built by the endpoint.
 Do not add a second copy of that write: the endpoint carried one until E26, which is how stamps drift.
 
 **Leaving draft finalizes the form.**
@@ -126,6 +131,12 @@ Do not add a second copy of that write: the endpoint carried one until E26, whic
 **`offers` is deadlocked, and kept.**
 `assignment -> offers` waits on `NoApprovedApplicationsGuard`, and nothing writes the statuses that would clear it; it is a post-MVP phase off the rail's spine, and `market_days` is reached from `assignment` directly.
 Its entry invariant is the warning `AssignmentComputedGuard` heeds: a guard must wait on something the product actually writes.
+
+**The assignment's guards ask its lifecycle owner.**
+`AssignmentComputedGuard` asks the assignment's lifecycle owner ([`back-end/assignment/lifecycle.py`](../../../back-end/assignment/lifecycle.py), [the assignment's lifecycle](assignment-lifecycle.md)) where the allocation stands, as `ResultsPublishedGuard` and `ResultsNotPublishedGuard` ask it whether results are out, without judging whether a run is out of date, so no guard reads the phase: it refuses nothing allocated, tables assigned by hand alone, and an allocation with no row (T316).
+With no row where a run is refused, once results are out or in a market left in Offers, its remedy is "Assign tables" on `assignments`, where a seat is still given by hand.
+Its words and remedy are the lifecycle owner's (`assignment/lifecycle.py#unallocated_refusal`), which reads the phase so that no guard does; its verdict is the same in every phase.
+The three entry invariants on `market_days` about the assignment (`assignment_computed`, `assignment_after_review`, `results_published`) stay one guard per condition, so the rail names the one that stands; together they pass exactly when the owner's `may_go_live` holds, which `back-end/tests/test_the_allocation_table.py` checks over every allocation.
 
 **`take_move` records the move in [the market's history](../data/history.md)** once it is taken (`move-phase`, the phase before and after, by whoever made it); the phase history stays the state the guards read.
 

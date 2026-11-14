@@ -463,7 +463,7 @@ def _stop_applications(client, world):
 def _publish(client, world):
     world.market(MarketPhase.ASSIGNMENT, intakeMode="form")
     world.patch(ApplicantsApi, "market_serves_applicants", lambda _doc: True)
-    world.patch(ApplicantsApi, "publish_results_refusal", lambda _market: None)
+    world.patch(ApplicantsApi, "publish_results_refusal", lambda _market, **_kw: None)
     return client.post(f"/markets/{MARKET}/publish-results")
 
 

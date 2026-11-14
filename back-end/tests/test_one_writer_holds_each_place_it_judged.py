@@ -10,7 +10,7 @@ the people map, the write holds its three lists as read and folds the map in. Ev
 
 A write that met another change answers 404 when the organization, or the person being removed, is
 gone, and otherwise ``OrganizationChanged``, a 409 in the spec's words: an "Add member" judged
-before the owner handed the organization to that same person used to land the new owner in
+before the owner transferred ownership to that same person used to land the new owner in
 ``members``, an organization that did not parse (the planner's probe on ``dev`` at ``279afc56``).
 
 Driven through the module's public functions and the Flask client, over the shared organizations
@@ -123,8 +123,8 @@ def places(doc):
 
 
 def owner_adds_and_hands_on_to_new():
-    """The owner adds NEW and hands them the organization: a transfer goes only to one of its
-    people (ticket 04), so on ``dev``, which handed it to anyone, it was the transfer alone."""
+    """The owner adds NEW and transfers ownership to them: a transfer goes only to one of its
+    people (ticket 04), so on ``dev``, which transferred it to anyone, it was the transfer alone."""
     OrgsApi.add_org_admin(ORG, NEW.email, OWNER.email)
     OrgsApi.transfer_org_ownership(ORG, OWNER.email, NEW.email)
 
@@ -169,7 +169,7 @@ CELLS = [
     (Event.REMOVE, OWNER, "admin", None),
     (Event.REMOVE, ADMIN, "admin", (ForbiddenError, "Only owner can remove admins")),
     (Event.REMOVE, ADMIN, "owner",
-     (BadRequestError, "Cannot remove organization owner. Transfer ownership first.")),
+     (BadRequestError, "They own this organization, so they can't be removed from it.")),
     (Event.CHANGE_TO_ADMIN, OWNER, None, (NotFoundError, NO_LONGER_IN_THE_ORGANIZATION)),
     (Event.CHANGE_TO_ADMIN, OWNER, "member", "admin"),
     (Event.CHANGE_TO_ADMIN, OWNER, "admin", "admin"),
@@ -368,7 +368,7 @@ def test_an_add_the_table_refuses_says_why_and_writes_nothing(
 
 
 @pytest.mark.parametrize("target,status,sentence", [
-    (OWNER.id, 400, "Cannot remove organization owner. Transfer ownership first."),
+    (OWNER.id, 400, "They own this organization, so they can't be removed from it."),
     (NEW.id, 404, NO_LONGER_IN_THE_ORGANIZATION),
     # An id from the address that no map holds is not in it, never a path the server builds.
     ("a.b", 404, NO_LONGER_IN_THE_ORGANIZATION),
@@ -435,9 +435,14 @@ def test_a_place_change_by_anyone_but_the_owner_is_a_403(
     assert stored.writes == [] and recorded == []
 
 
+#: Said of the owner's own place, in the words a person reads (``THE_OWNERS_PLACE``).
+OWNERS_PLACE_SAID = (
+    "The owner's place changes only when ownership of the organization is transferred.")
+
+
 @pytest.mark.parametrize("target,body,status,sentence", [
-    (OWNER.id, {"place": "member"}, 400, THE_OWNERS_PLACE),
-    (OWNER.id, {"place": "admin"}, 400, THE_OWNERS_PLACE),
+    (OWNER.id, {"place": "member"}, 400, OWNERS_PLACE_SAID),
+    (OWNER.id, {"place": "admin"}, 400, OWNERS_PLACE_SAID),
     (NEW.id, {"place": "admin"}, 404, NO_LONGER_IN_THE_ORGANIZATION),
     ("a.b", {"place": "member"}, 404, NO_LONGER_IN_THE_ORGANIZATION),
     ("$where", {"place": "member"}, 404, NO_LONGER_IN_THE_ORGANIZATION),
@@ -542,8 +547,8 @@ WRITES = [
      {"$set": {"people.user-member": "admin"}, "$addToSet": {"admins": MEMBER.id},
       "$pull": {"members": MEMBER.id}},
      {OWNER.id: "owner", ADMIN.id: "admin", MEMBER.id: "admin"}),
-    # Handed on: one write filtered on the giver being owner; to an admin, ``admins`` is set
-    # whole with the giver where the new owner stood, so the list as read is held too.
+    # Ownership transferred: one write filtered on the giver being owner; to an admin, ``admins``
+    # is set whole with the giver where the new owner stood, so the list as read is held too.
     (lambda: OrganizationPeople.transfer(ORG, OWNER.email, MEMBER.email),
      {"id": ORG, "people.user-owner": "owner", "people.user-member": "member"},
      {"$set": {"people.user-owner": "admin", "people.user-member": "owner", "owner": MEMBER.id},
@@ -795,7 +800,7 @@ def test_a_transfer_copies_the_organization_onto_the_new_owners_account(stored, 
 
 
 def test_two_transfers_judged_on_one_read_land_once(stored, recorded):
-    # Two of the owner's tabs hand the organization to two people: the second meets the first,
+    # Two of the owner's tabs transfer ownership to two people: the second meets the first,
     # whose giver is no longer its owner, and stores nothing.
     stored.before_write = lambda: OrganizationPeople.transfer(ORG, OWNER.email, ADMIN.email)
 

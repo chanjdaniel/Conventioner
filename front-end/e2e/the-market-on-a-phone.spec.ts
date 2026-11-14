@@ -15,6 +15,7 @@ import { savePlan } from './helpers/savePlan';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import {
+  allocateThenFreeEverySeat,
   publishResults,
   recordCheckIns,
   SEED_MARKET_DATE,
@@ -136,9 +137,13 @@ async function aMarketToPublish(request: APIRequestContext): Promise<string> {
 
 /**
  * A priced market in assignment: Alice and Bob each hold a Gold table ($35); Bob has paid, Alice
- * still owes.
+ * still owes. `asks` writes the vendors' answers to the form's choice question first, before the
+ * tables are allocated, since answers changed after a run leave it out of date (T316).
  */
-async function aMarketThatIsOwed(request: APIRequestContext): Promise<string> {
+async function aMarketThatIsOwed(
+  request: APIRequestContext,
+  options: { asks?: boolean } = {},
+): Promise<string> {
   const { marketId } = await seedMarketWithVendors(
     request,
     BACKEND_URL,
@@ -166,6 +171,10 @@ async function aMarketThatIsOwed(request: APIRequestContext): Promise<string> {
   for (const toPhase of ['applications', 'assignment']) {
     await call(request, 'post', `/markets/${marketId}/transition`, { toPhase });
   }
+  if (options.asks) askWhatTheySell(marketId);
+  // The door's market publishes its results, which waits for tables to be allocated (T316): the
+  // seats are hand edits of a run.
+  await allocateThenFreeEverySeat(request, BACKEND_URL, marketId);
   for (const [email, table] of [
     [OWES, 'North Wing 1'],
     [PAID, 'North Wing 2'],
@@ -191,8 +200,7 @@ async function aMarketThatIsOwed(request: APIRequestContext): Promise<string> {
  * checked in at the door, so Stats draws every section, the money and the check-in among them.
  */
 async function aMarketAtTheDoor(request: APIRequestContext): Promise<string> {
-  const marketId = await aMarketThatIsOwed(request);
-  askWhatTheySell(marketId);
+  const marketId = await aMarketThatIsOwed(request, { asks: true });
   await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
   await call(request, 'post', `/markets/${marketId}/transition`, { toPhase: 'market_days' });
   recordCheckIns(marketId, [{ vendorEmail: PAID, date: SEED_MARKET_DATE }], TEST_USER.email);

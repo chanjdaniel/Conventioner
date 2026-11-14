@@ -543,6 +543,7 @@ test.describe('an automatic rejection, on the question of 129 answers', () => {
     await page.evaluate(() => window.scrollTo(0, 0));
     await expectAccessible('a rule of several answers, its list open');
     // No walk of the screens reaches a question this long, and the audit above leaves contrast out.
+    await expect(new ApplicationFormPage(page).loading).toBeHidden();
     expect((await sweep(page)).failures, 'the rule has text below AA').toEqual([]);
 
     // Read again, as chips and nothing else.
@@ -581,6 +582,7 @@ test.describe('an automatic rejection, on the question of 129 answers', () => {
       await expect(fixed.field).toHaveCount(0);
       await expect(fixed.chipRemoves).toHaveCount(0);
       await expect(viewerPage.getByTestId('rejection-rule-add')).toHaveCount(0);
+      await expect(new ApplicationFormPage(viewerPage).loading).toBeHidden();
       expect((await sweep(viewerPage)).failures, 'the fixed rule has text below AA').toEqual([]);
     });
   });
@@ -1163,9 +1165,28 @@ test.describe('an applicant on a question of many options', () => {
       TEST_USER.password,
       { fields: LONG_QUESTIONS, setupObject: planSetupObject([DATE]), draft: true },
     );
+    // The form's own read held, so its loading line stands still to be measured: the preview is
+    // painted from the copy the market holds while the server's is read, and a sweep in that
+    // window met the line at 4.23:1 on its beige.
+    let answerTheRead!: () => void;
+    const held = new Promise<void>((resolve) => (answerTheRead = resolve));
+    await page.route(
+      (url) => url.pathname.endsWith(`/markets/${market.marketId}/application-form`),
+      async (route) => {
+        if (route.request().method() !== 'GET') return route.fallback();
+        await held;
+        await route.fallback();
+      },
+    );
     await page.goto(`${marketSetupPath(market.marketId, 'form')}?step=preview`);
     const form = new ApplicationFormPage(page);
     await expect(form.preview).toBeVisible({ timeout: 15000 });
+    await expect(form.loading).toHaveText('Loading the application form...');
+    expect((await sweep(page)).failures, 'the loading line is below AA').toEqual([]);
+
+    // Answered: the line goes, and what follows measures the page a person reads.
+    answerTheRead();
+    await expect(form.loading).toBeHidden();
 
     for (const key of ['wares', 'clubs']) {
       const question = form.previewLongQuestion(key);

@@ -23,7 +23,6 @@ const Host = defineComponent({
     dialog: { type: Object as PropType<DialogProps>, default: () => ({}) },
     tray: { type: Boolean, default: false },
     actions: { type: Boolean, default: false },
-    heading: { type: Boolean, default: false },
   },
   setup(props, { expose }) {
     const open = ref(false);
@@ -61,12 +60,6 @@ const Host = defineComponent({
             ...(props.actions
               ? { actions: () => h('button', { 'data-testid': 'people-reset' }, 'Reset') }
               : {}),
-            ...(props.heading
-              ? {
-                  title: () =>
-                    h('span', { 'data-testid': 'people-heading' }, ['Choose ', h('em', 'people')]),
-                }
-              : {}),
           },
         ),
       ]);
@@ -91,13 +84,8 @@ interface HostState {
 }
 
 /** Opens the dialog as a user does: focus on the opener, then a click on it. */
-async function openFromTheButton(
-  dialog: DialogProps = {},
-  tray = false,
-  actions = false,
-  heading = false,
-) {
-  wrapper = mount(Host, { attachTo: document.body, props: { dialog, tray, actions, heading } });
+async function openFromTheButton(dialog: DialogProps = {}, tray = false, actions = false) {
+  wrapper = mount(Host, { attachTo: document.body, props: { dialog, tray, actions } });
   const opener = byTestId('opener')!;
   opener.focus();
   opener.click();
@@ -242,6 +230,60 @@ describe('with `closeDisabled`', () => {
   });
 });
 
+/*
+ * A dialog that disables its confirm while it saves, without holding its closes (Record payment,
+ * T315): pressing the confirm drops the focus to `<body>`, and a refusal enables it again with the
+ * dialog open and its error shown, so the shell answers that as it answers a hold's end.
+ */
+describe('with `confirmDisabled` ending', () => {
+  it('the confirm enabled again with the focus on the body puts the focus inside the window', async () => {
+    await openFromTheButton({ confirmDisabled: true });
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+
+    await wrapper!.setProps({ dialog: { confirmDisabled: false, error: 'That did not save.' } });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('people-find'));
+  });
+
+  /*
+   * The field is also the first safe control, so Cancel is the case that tells a focus left alone
+   * from one moved there.
+   */
+  it.each(['people-find', 'people-cancel-button'])(
+    'a confirm that toggles as a field is typed leaves the focus on %s',
+    async (testid) => {
+      await openFromTheButton({ confirmDisabled: true });
+      const focused = byTestId(testid)!;
+      focused.focus();
+
+      await wrapper!.setProps({ dialog: { confirmDisabled: false } });
+      await flushPromises();
+      await wrapper!.setProps({ dialog: { confirmDisabled: true } });
+      await flushPromises();
+      await wrapper!.setProps({ dialog: { confirmDisabled: false } });
+      await flushPromises();
+
+      expect(document.activeElement).toBe(focused);
+    },
+  );
+
+  it('the confirm enabled again with the focus in a dialog over it leaves it there', async () => {
+    await openFromTheButton({ confirmDisabled: true });
+    const over = document.createElement('div');
+    over.setAttribute('role', 'dialog');
+    over.innerHTML = '<button data-testid="over-button">Done</button>';
+    document.body.append(over);
+    byTestId('over-button')!.focus();
+
+    await wrapper!.setProps({ dialog: { confirmDisabled: false } });
+    await flushPromises();
+
+    expect(document.activeElement).toBe(byTestId('over-button'));
+  });
+});
+
 describe('its title', () => {
   it('is the `title` string, which also names the dialog', async () => {
     await openFromTheButton();
@@ -249,12 +291,23 @@ describe('its title', () => {
     expect(byTestId('people-window')?.getAttribute('aria-label')).toBe('Choose people');
   });
 
-  it('draws a `title` slot when given, the string still naming the dialog', async () => {
-    await openFromTheButton({}, false, false, true);
+  it('draws an address in it so it breaks only before its "@" or a dot, the string naming the dialog', async () => {
+    const words = 'Remove e2e-remove-hyphen-name@example.com from this organization?';
+    await openFromTheButton({ title: words });
     const title = document.querySelector('.dialog-title')!;
-    expect(title.querySelector('[data-testid="people-heading"] em')?.textContent).toBe('people');
-    expect(title.textContent).toBe('Choose people');
-    expect(byTestId('people-window')?.getAttribute('aria-label')).toBe('Choose people');
+    expect(title.textContent).toBe(words);
+    expect([...title.querySelectorAll('.email-address')].map((half) => half.textContent)).toEqual([
+      'e2e-remove-hyphen-name',
+      '@example.com',
+    ]);
+    expect([...title.querySelectorAll('.email-address-break')].map((p) => p.textContent)).toEqual([
+      '@example',
+      '.com',
+    ]);
+    expect(
+      [...title.querySelectorAll('.email-address-held')].map((run) => run.textContent),
+    ).toEqual(['-r', '-h', '-n']);
+    expect(byTestId('people-window')?.getAttribute('aria-label')).toBe(words);
   });
 });
 

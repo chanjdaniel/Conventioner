@@ -1,23 +1,25 @@
-"""The single writer of a market's assignment.
+"""The routes that change a market's assignment.
 
 ``assignmentObject.vendorAssignments`` is what check-in reads at the door, so anything that
 writes it decides where a vendor stands on the day. Until E11 there was no writer at all: the
 organizer's browser fetched a computed assignment from ``GET /markets/<id>/assignment`` and PUT
 the whole market back, which meant *any* market PUT carrying a stale client copy could overwrite
 an assignment wholesale - with no manual editing involved. That PUT is gone (E21/F03/S06), and the
-two functions here are the only things that may change it:
+functions here are the only things that may change it, each writing through the assignment's
+lifecycle (``assignment/lifecycle.py``, T316), which stores the assignment's state beside its rows:
 
 - ``run_assignment`` runs the solver and stores the result, replacing the browser's fetch-then-PUT.
 - ``write_placement`` writes one vendor into one seat on one date.
+- ``remove_placement`` frees one vendor's seat on one date, and ``swap_placements`` trades two.
 
-Both ask the table's Assignment row (``Actions.ASSIGN``, E39/F01/S01), whose default is EDITOR, the
+Each asks the table's Assignment row (``Actions.ASSIGN``, E39/F01/S01), whose default is EDITOR, the
 same bar as every other market write and deliberately not stricter: an EDITOR can already rewrite
 the tiers, sections and table counts the whole assignment is computed from, so withholding "move
 one vendor between two seats" protects nothing.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from assignment.assignment import (
     NOTHING_TO_ASSIGN,
@@ -40,11 +42,11 @@ import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
+import assignment.lifecycle as Lifecycle
 import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError, ForbiddenError
 import history as History
-from market_documents import market_doc_key
-from market_write import MarketChanged, document_as_read, write_market
+from market_write import MarketChanged
 from tombstone import live
 from utils.email_address import normalized_email
 
@@ -172,50 +174,6 @@ def _placement_for(
     )
 
 
-def _store_vendor_assignments(
-    market: Market,
-    vendor_assignments: List[VendorAssignmentResult],
-    assignment_date: str,
-    made_from: Optional[Dict[str, str]] = None,
-) -> None:
-    """Write the placements, and nothing else, onto the market as this request read it.
-
-    Statistics are never persisted - every read derives them fresh - so only the fields that are
-    the assignment itself are set. A ``$set`` of those keys rather than of the whole
-    ``assignmentObject`` keeps a stale ``assignmentStatistics`` from being resurrected by a write.
-
-    The rows are the whole assignment as this request read it and changed it, so the write
-    (``write_market``) lands only while the market is still in the phase it was read in and the
-    stored ``revision`` is still the one read, and counts one more. Otherwise another change landed
-    in between, and this one is refused with ``MarketChanged`` rather than stored over it: two
-    organizers moving two vendors into one empty seat at once both got a 200, and one move was
-    lost; a placement judged on a market's days landed on the market archived a moment before.
-    The revision is read from the stored document, which a run's solver does not touch.
-
-    ``made_from`` is what a solver run read (E22/F03/S01), and only a run passes it: a hand
-    placement is an edit to the result, not an input, so it leaves the fingerprint alone. A run
-    also holds ``resultsPublished`` as read, so an allocation never lands after Publish results
-    told applicants the one before it.
-    """
-    written: Dict[str, Any] = {
-        "assignmentObject.vendorAssignments": [
-            convert_keys_to_camel_case(placement.model_dump()) for placement in vendor_assignments
-        ],
-        "assignmentObject.assignmentDate": assignment_date,
-        "assignmentObject.assignmentStatistics": None,
-    }
-    holds = []
-    if made_from is not None:
-        written["assignmentObject.madeFrom"] = made_from
-        holds.append(market_doc_key("results_published"))
-    assignment_key = market_doc_key("assignment_object")
-    # An assignment written before the count existed has none, and one a market was created with
-    # holds 0: ``write_market`` matches either for 0 or None.
-    read_revision = (document_as_read(market).get(assignment_key) or {}).get("revision")
-    write_market(market, {"$set": written}, holds=holds,
-                 revisions={f"{assignment_key}.revision": read_revision})
-
-
 # The one phase the assignment runs in, and the whole of what this rule says (E10/F03/S02).
 #
 # It deliberately does not repeat the rules around it: `assignment` carries the entry invariant
@@ -232,8 +190,9 @@ ASSIGN_PHASE = MarketPhase.ASSIGNMENT
 def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     """Why the assignment cannot be run in this phase, or None.
 
-    Mirrored by ``front-end/src/utils/assignPhase.ts``, which lets the button say no before it is
-    pressed. Each message names an action available from the phase the organizer is actually in.
+    Served through ``assign_refusal`` as ``assignRefusalReason``, which the screens read rather
+    than keep a copy of (T316), so the button says no before it is pressed. Each message names an
+    action available from the phase the organizer is actually in.
     """
     if phase is ASSIGN_PHASE:
         return None
@@ -267,9 +226,10 @@ RESULTS_PUBLISHED_REFUSAL = (
 
 def assign_refusal(market: Market) -> Optional[str]:
     """Why this market's assignment cannot be run now, or None (E36/F04/S02): its phase, or its
-    published results. Served as ``assignRefusalReason``, so the Assign button says no first."""
+    published results, as the lifecycle owner reads them (T316). Served as
+    ``assignRefusalReason``, so the Assign button says no first."""
     return assign_phase_refusal(market.phase) or (
-        RESULTS_PUBLISHED_REFUSAL if market.results_published else None
+        RESULTS_PUBLISHED_REFUSAL if Lifecycle.results_published(market) else None
     )
 
 
@@ -309,11 +269,10 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     assigned_market = assign_market(market, vendors)
     assignment = assigned_market.assignment_object
 
-    _store_vendor_assignments(
-        market,
-        assignment.vendor_assignments,
-        assignment.assignment_date,
-        MadeFrom.fingerprint(market.setup_object, vendors, market.phase_history),
+    Lifecycle.store(
+        market, Lifecycle.Event.RUN, assignment.vendor_assignments,
+        assignment_date=assignment.assignment_date,
+        made_from=MadeFrom.fingerprint(market.setup_object, vendors, market.phase_history),
     )
     History.record_assignment_run(
         market_id,
@@ -393,8 +352,10 @@ def write_placement(
     ]
     kept.append(placement)
 
-    _store_vendor_assignments(market, kept, market.assignment_object.assignment_date)
-    History.record_placed(market_id, requesting_user, placement, left)
+    Lifecycle.store(market, Lifecycle.Event.PLACE, kept,
+                    assignment_date=market.assignment_object.assignment_date)
+    History.record_placed(market_id, requesting_user, placement, left,
+                          after_results=Lifecycle.results_published(market))
     PaymentsApi.seated_again(market_id, [(placement.email, placement.date)],
                              [(left.email, left.date)] if left else [], requesting_user)
 
@@ -448,7 +409,8 @@ def remove_placement(
         kept_line = PaymentsApi.keep_freed_line(market, email, date, requesting_user,
                                                 deduct=deduct_owed)
         try:
-            _store_vendor_assignments(market, kept, market.assignment_object.assignment_date)
+            Lifecycle.store(market, Lifecycle.Event.FREE, kept,
+                            assignment_date=market.assignment_object.assignment_date)
         except MarketChanged:
             # Refused, so the line goes back as it was: while the seat is still held, a freed record
             # left behind would come back as the line once that seat went some other way than a
@@ -467,7 +429,8 @@ def remove_placement(
             raise
         for placement in freed:
             History.record_freed(
-                market_id, requesting_user, email, date, placement.table_code
+                market_id, requesting_user, email, date, placement.table_code,
+                after_results=Lifecycle.results_published(market),
             )
         kept_line.record_deduction()
     elif deduct_owed:
@@ -535,7 +498,8 @@ def swap_placements(
         **{field: getattr(first, field) for field in seat_fields}, "hand_placed": True,
     })
 
-    _store_vendor_assignments(market, placements, market.assignment_object.assignment_date)
+    Lifecycle.store(market, Lifecycle.Event.PLACE, placements,
+                    assignment_date=market.assignment_object.assignment_date)
     # One entry, because it was one action: a trade recorded as two placements reads as two
     # unrelated decisions a week later.
     History.record_swapped(
@@ -544,6 +508,7 @@ def swap_placements(
         date,
         placements[held[first_email]],
         placements[held[second_email]],
+        after_results=Lifecycle.results_published(market),
     )
 
     # Both days were held, so a freed record on either is one a stopped free left, and goes.

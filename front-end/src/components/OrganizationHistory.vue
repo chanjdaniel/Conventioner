@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * The organization's own changes, newest first: Manage organization's History section
- * (E40/F02/S01). Its people, its name, ownership handed on, the markets created in it or deleted
+ * (E40/F02/S01). Its people, its name, ownership transferred, the markets created in it or deleted
  * and its floorplan templates, worded as the market's history words them and read a page at a
  * time in a box of its own, as `MarketHistory.vue` reads; an organization's changes are few, so it
  * is not filtered.

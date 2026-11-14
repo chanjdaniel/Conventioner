@@ -25,7 +25,7 @@ import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate, oneLine } from '@/utils/utils';
 import { firstImportBlockers, importRefusal, takesNoImport } from '@/utils/importPhase';
 import BlockerPanel from '@/components/BlockerPanel.vue';
-import { readCsvFile } from '@/utils/csvFile';
+import { IMPORT_FILE_TOO_LARGE, readCsvFile } from '@/utils/csvFile';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ChoiceField from '@/components/ChoiceField.vue';
 import type { PickerGroup, PickerOption } from '@/components/SearchPicker.vue';
@@ -176,11 +176,15 @@ const enteredReview = ref(false);
  * the market into Review, so `firstImport` reads false by the done step, which redid nothing.
  */
 const importedFirst = ref(false);
-/** The page's heading: what this import is, or on the done step what it was. */
+/**
+ * The page's heading: what this import is, or on the done step what it was. Redo import is Review's
+ * alone, as the rail offers it: past review a market offers none, so its refused page is named as a
+ * draft's refused first import is (T315).
+ */
 const heading = computed(() =>
-  (step.value === 'done' ? importedFirst.value : firstImport.value)
-    ? 'Import responses'
-    : 'Redo import',
+  (step.value === 'done' ? !importedFirst.value : marketPhase.value === MarketPhase.Applications)
+    ? 'Redo import'
+    : 'Import responses',
 );
 
 /**
@@ -213,6 +217,20 @@ const step = ref<Step>('upload');
 const refused = computed(
   () => step.value === 'upload' && Boolean(marketId.value) && !takingApplications.value,
 );
+
+/**
+ * The refusal's heading, its reason in a few words. An archived market is said by its phase before
+ * the role refusal: the served refusals put the archived sentence before every changing row's own,
+ * the Owner's import among them, so the role heading would blame a role that is not the reason (T315).
+ */
+const refusalHeading = computed(() => {
+  if (marketPhase.value === MarketPhase.Archived) return 'An archived market takes no imports';
+  if (roleRefusal.value) return 'Importing into this market is not yours to do';
+  if (takesNoImport(market.value)) return "Vendors apply on this market's page";
+  return firstImport.value
+    ? 'This market is not ready for its first import'
+    : 'This market is not taking applications right now';
+});
 
 /**
  * Leave the wizard for the market it belongs to. Nothing is written until the final confirm, so on
@@ -650,11 +668,11 @@ const mapsToCount = computed(() => targets.value.length + 2);
  * Take one file, whichever way it arrived.
  *
  * A file picked and a file dragged land here alike; anything that is not a CSV, by its name or by
- * what it holds, is refused here rather than parsed into a wall of nonsense columns, and the
- * upload step stays for another file (`readCsvFile`).
+ * what it holds, is refused here rather than parsed into a wall of nonsense columns, as is a file
+ * too large to send, and the upload step stays for another file (`readCsvFile`).
  */
 async function acceptFile(file: File) {
-  const read = await readCsvFile(file);
+  const read = await readCsvFile(file, IMPORT_FILE_TOO_LARGE);
   if ('error' in read) {
     error.value = read.error;
     return;
@@ -1024,17 +1042,7 @@ watch(marketId, () => {
 
       <!-- Not taking applications: say so instead of offering a file picker. -->
       <section v-if="refused" class="import-panel" data-testid="import-wrong-phase">
-        <h2>
-          {{
-            roleRefusal
-              ? 'Importing into this market is not yours to do'
-              : takesNoImport(market)
-                ? "Vendors apply on this market's page"
-                : firstImport
-                  ? 'This market is not ready for its first import'
-                  : 'This market is not taking applications right now'
-          }}
-        </h2>
+        <h2>{{ refusalHeading }}</h2>
         <BlockerPanel
           v-if="market && firstImportWaitsOn.length"
           :blockers="firstImportWaitsOn"

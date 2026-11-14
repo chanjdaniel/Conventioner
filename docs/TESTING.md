@@ -5,7 +5,7 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - E34/F03/S02
   - E35/F02/S01
@@ -16,6 +16,8 @@ sources:
   - T205
   - T263
   - T284
+  - T311
+  - T317
 ---
 
 # Testing Conventioner
@@ -186,8 +188,8 @@ cd front-end
 npm run test:unit
 ```
 
-Tests cover the API client (it sends credentials and attaches no request interceptor, so no
-identity can be smuggled onto a request) and
+Tests cover the API client (it sends credentials, attaches no request interceptor and adds no
+request transformer but the size refusal, so no identity can be smuggled onto a request) and
 `parseMarketFromApi()` (`market.test.ts`), which keeps everything the server sends about a
 market - the phase, the application form, the intake mode, the form lock and every key of the
 plan, `floorplans` included - since every screen reads the parsed market and the plan's autosave
@@ -271,7 +273,7 @@ delete), market role management (add user with role, change role, remove user),
 assignment CSV export (download and verify columns), and publishing a market
 (verify the market's vendor page, where its vendors check in, is reachable). Tier-3 authentication and robustness
 journeys (`auth.spec.ts`) cover new-user registration, the full password reset
-flow (including reading the real reset token from MongoDB), posting an assignment
+flow (with a reset link planted in MongoDB), posting an assignment
 and login/OTP error states. The organization-required suite
 (`new-market-org.spec.ts`) covers the rule that every market must be created in an
 organization: it asserts that `POST /markets` rejects a payload with no
@@ -319,6 +321,7 @@ plus the organization-less user `e2e-noorg@example.com` (change via `NO_ORG_EMAI
 
 Every attempt that fails keeps its Playwright trace, and so does every retry, passing or not (`trace: 'retain-on-failure-and-retries'`), so a local run with no retries keeps one too.
 A failed attempt's trace is `front-end/test-results/<test>/trace.zip`, and a retry's is in the same name's directory with `-retry1` or `-retry2` after it; a page of a second user's context (`withUser()`) is in the same trace as the test's own page.
+A failed attempt also keeps its video (`video.webm`) and its final screenshot (`test-failed-1.png`) beside its trace, and an attempt that passes keeps neither (`video: 'retain-on-failure'`, `screenshot: 'only-on-failure'`), so a flaky test's failed first attempt has both while its passing retry has only its trace.
 Open one with `npx playwright show-trace <path>` from `front-end/`, or from the HTML report (`npx playwright show-report`), which lists every attempt with its own trace.
 On CI a failed shard uploads `front-end/playwright-report/` and `front-end/test-results/` as the artifact `playwright-artifacts-shard-<n>`, kept 7 days; a flaky test fails its shard, so its failing attempt's trace is there too ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
 A rerun empties `test-results/` before it starts, so read or copy a failure's output first, or give the rerun an output directory of its own with `--output=<a new directory>`.
@@ -388,9 +391,12 @@ stack (`scripts/th-compose.sh`) defaults it to `true` (pass `DISABLE_EMAIL=false
 The primary checkout's plain `docker compose up` does not, so export it in the shell that
 brings that stack up: without it the password-reset test in `auth.spec.ts` answers 500 from
 the unconfigured mailer. The password-reset E2E test does
-not read the reset link from an email - it reads the token directly from MongoDB
-(through `mongoEval` in `front-end/e2e/helpers/mongo.ts`, which runs `mongosh` in the container
-named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
+not read the reset link from an email, and cannot read it from MongoDB, which keeps only its
+hash: after asking for a link it plants one it knows with `plantAccountLink` in
+`front-end/e2e/helpers/accountSecrets.ts`, as the verification specs plant a verification link
+and `plantSignInCode` plants a code (through
+`mongoEval` in `front-end/e2e/helpers/mongo.ts`, which runs `mongosh` in the container named by
+`E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 
 ### A fake Discord
 
@@ -406,7 +412,7 @@ Connecting through the card skips Discord's approval screen under it, and connec
 
 Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`.
 [CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which checks
-branch protection requires (ten on `dev`, `CodeQL` among them, and six on `main`), why a flaky test fails the build, and what the no-mistakes gate
+branch protection requires (nine on `dev`, `CodeQL` among them, and six on `main`, `real-data-and-workflows` on both), why a flaky test fails the build, and what the no-mistakes gate
 runs through `scripts/nm-test.sh` (the real-data checks alone, since CI runs every suite before a merge).
 
 ## Stack limits

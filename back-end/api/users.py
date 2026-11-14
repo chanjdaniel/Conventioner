@@ -1,27 +1,23 @@
-import math
 import secrets
 import time
 import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional, Tuple
-from flask import current_app, request, jsonify, session
+from flask import request, jsonify, session
 from flask_login import UserMixin
-from flask_login.config import COOKIE_NAME
+from flask_login.utils import decode_cookie
 from datatypes import MarketRole, OrganizationRole, User, organization_people_of
 from db_config import get_database
-from utils.tokens import (
-    generate_verification_token, generate_reset_token, generate_otp,
-    get_token_expiry, get_otp_expiry, verify_token_expiry
-)
 from utils.email import (
     send_account_exists_email, send_verification_email, send_password_reset_email, send_otp_email
 )
 from utils.captcha import verify_recaptcha
-from datetime import datetime, timedelta, timezone
-from pymongo import ReturnDocument
+from datetime import datetime, timezone
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from utils.email_address import normalized_email
 from utils.request_body import flag_field, json_object, string_field
+import account_secrets
+import organizer_sessions
 import sign_in_limits
 
 db = get_database()
@@ -83,17 +79,19 @@ def ensure_user_indexes() -> None:
         ) from None
 
 
-#: How long a sign-in without "Remember me" lasts (E38/F14/S01): a market day. Its session cookie
-#: ends with the browser, and the server refuses it this long after signing in, since a browser
-#: that restores its tabs restores its session cookies too.
-SIGN_IN_LIFETIME = timedelta(hours=12)
+#: How long a sign-in lasts without "Remember me", and with it (``organizer_sessions``).
+SIGN_IN_LIFETIME = organizer_sessions.SIGN_IN_LIFETIME
+REMEMBERED_SIGN_IN_LIFETIME = organizer_sessions.REMEMBERED_SIGN_IN_LIFETIME
 
-#: How long a sign-in with "Remember me" lasts, from signing in: use does not extend it, so a lost
-#: laptop is signed out within a month. The remember-me cookie expires then, and the server
-#: refuses it then too, whatever the browser kept.
-REMEMBERED_SIGN_IN_LIFETIME = timedelta(days=30)
+#: The remember cookie an organizer's sign-in sets (``app.py``'s ``REMEMBER_COOKIE_NAME``): its
+#: ``__Host-`` prefix holds it to the API's host.
+REMEMBER_COOKIE = "__Host-organizer_remember"
 
-#: The kinds of sign-in a sign-in id names, and how long each lasts.
+#: The remember cookie the sign-ins made before they were kept on the server set, read for one
+#: release (``legacy_remembered_account``) and deleted by every sign-in and sign-out.
+LEGACY_REMEMBER_COOKIE = "remember_token"
+
+#: The kinds of sign-in a legacy sign-in id names, and how long each lasts.
 _LIFETIMES = {"s": SIGN_IN_LIFETIME, "r": REMEMBERED_SIGN_IN_LIFETIME}
 
 #: What a refused sign-in says (E38/F14/S02), in the sign-in screen's words, each with what to do
@@ -114,16 +112,30 @@ CODE_EXPIRED = "That code has expired."
 NEXT_CODE_LATER = "You can ask for a new code in {wait}."
 NEXT_CODE_NOW = "Ask for a new one."
 
+#: What a code request answers once the code is mailed, and for an address with no account alike.
+CODE_SENT = "If an account exists for that address, a sign-in code has been sent to it."
+
 #: When another reset link may be asked for: ``{wait}`` is what is left of the account's wait, which
-#: ends an hour after its last link expired (``RESET_WAIT``).
+#: ends an hour after its last link expired (``account_secrets.RESET_WAIT``).
 NEXT_RESET_LATER = "You can ask for another reset link in {wait}."
 
-#: How many tries reach one code before it is discarded.
-CODE_TRIES = 5
-#: How long after a code expires the account may ask for the next.
-CODE_WAIT = timedelta(hours=1)
-#: How long after a reset link expires the account may ask for the next.
-RESET_WAIT = timedelta(hours=1)
+#: What a reset-link request says whether or not the address has an account.
+RESET_SENT = "If an account exists, a password reset email has been sent"
+
+#: What a reset by a link that is not live says: never mailed, used, replaced, or used meanwhile.
+RESET_INVALID = "Invalid reset token"
+
+#: What a verification resend says once the link is mailed, or while another is being mailed.
+VERIFICATION_SENT = "Verification email sent"
+
+#: What a verification resend says for an address with no account.
+VERIFICATION_NO_ACCOUNT = "If an account exists, a verification email has been sent"
+
+#: What a verification resend, or a verification link, says of an address already verified.
+ALREADY_VERIFIED = "Email already verified"
+
+#: What a verification link that is not live says: never mailed, used, replaced, or used meanwhile.
+VERIFY_INVALID = "Invalid verification token"
 
 #: What a sign-in past its limit says (``sign_in_limits``), ``{wait}`` being the time left of the
 #: limit's window; the password form puts "Forgot password?" beside it.
@@ -243,80 +255,22 @@ def _limit_clock() -> datetime:
     return datetime.fromtimestamp(_now(), tz=timezone.utc)
 
 
-def _moment(stored: Any) -> Optional[datetime]:
-    """A stored ISO moment (a code's ``otp_expires``), read as UTC; None when there is none."""
-    if not isinstance(stored, str):
-        return None
-    try:
-        moment = datetime.fromisoformat(stored.replace('Z', '+00:00'))
-    except ValueError:
-        return None
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
-
-
-def _wait_after(expires: Any, wait: timedelta, now: datetime) -> Optional[int]:
-    """The whole seconds left of ``wait`` after the stored moment ``expires``, or None when none is
-    left or nothing is stored."""
-    expired_at = _moment(expires)
-    if expired_at is None:
-        return None
-    left = (expired_at + wait - now).total_seconds()
-    return math.ceil(left) if left > 0 else None
-
-
-def _code_wait(otp_expires: Any, now: datetime) -> Optional[int]:
-    """The whole seconds left until the account may ask for another code, or None when it may now:
-    one code at a time, until an hour after the last one expired (``CODE_WAIT``)."""
-    return _wait_after(otp_expires, CODE_WAIT, now)
-
-
-#: The field holding the secret a mail names, of each kind of mail ``_put_back`` puts back.
-_MAILED_SECRETS = ("otp", "password_reset_token", "verification_token")
-
-
-def _put_back(email: str, written: Dict[str, Any], previous: dict) -> None:
-    """Puts back what a request stored for a mail that could not be sent, so that the account may
-    ask again at once and a link already in its inbox keeps working.
-
-    ``written`` is what the request set, its secret among it (``_MAILED_SECRETS``), and ``previous``
-    the account as the request read it; each written field gets back what the account held, an
-    absent one read as None. Only while the account still holds the secret the request wrote: a
-    newer code or link another request stored meanwhile is left. The request's counts are not taken
-    back, since they count requests whether or not a mail went.
-    """
-    held = {field: written[field] for field in _MAILED_SECRETS if field in written}
-    users_collection.update_one(
-        {"email": email, **held},
-        {"$set": {field: previous.get(field) for field in written}},
-    )
-
-
-def _next_code(otp_expires: Any, now: datetime) -> str:
-    """When a new code may be asked for, in the words a refused code ends with."""
-    wait = _code_wait(otp_expires, now)
+def _next_code(wait: Optional[int]) -> str:
+    """When a new code may be asked for, ``wait`` seconds from now or at once, in the words a
+    refused code ends with."""
     if wait is None:
         return NEXT_CODE_NOW
     return NEXT_CODE_LATER.format(wait=sign_in_limits.wait_in_words(wait))
-
-
-def _sign_in_id(login_id: str, remembered: bool, signed_in_at: float) -> str:
-    """What the session and the remember-me cookie carry: the account, the kind and the time.
-
-    ``<login id>.<s|r>.<whole seconds since the epoch>``. The session is signed into its cookie with
-    the app's ``SECRET_KEY`` by Flask, or kept on the server behind a random id by flask-session;
-    the remember-me cookie is signed with ``SECRET_KEY`` by Flask-Login's digest. So a browser can
-    change none of it.
-    """
-    return f"{login_id}.{'r' if remembered else 's'}.{int(signed_in_at)}"
 
 
 # users
 class AuthUser(UserMixin):
     """A signed-in account.
 
-    The session and the remember-me cookie name it by a sign-in id (`_sign_in_id`), which holds its
-    login id, not its address: a password reset replaces the login id, so every session and
-    remember-me cookie issued before the reset stops loading the account.
+    The session and the remember cookie name it by its sign-in (``sign_in``): the secret whose hash
+    keys its record in ``organizer_sessions``, or for one release a legacy sign-in id
+    (``_legacy_account``). Either loads the account by its login id, so the one write that replaces
+    the login id, a password reset's or Sign out everywhere's, ends every sign-in issued before.
     """
 
     def __init__(self, user: User, sign_in: Optional[str] = None):
@@ -349,16 +303,22 @@ def get_user_by_login_id(login_id):
     return None
 
 
-def signed_in_account(sign_in):
-    """The account a session or remember-me cookie names, or None: the app's user loader.
+def is_legacy_sign_in(sign_in) -> bool:
+    """Whether ``sign_in`` has a legacy sign-in id's shape, ``<login id>.<s|r>.<seconds>``.
 
-    None for a sign-in as old as its kind's length (`SIGN_IN_LIFETIME`, or
-    `REMEMBERED_SIGN_IN_LIFETIME` when remembered), counted from signing in, and for an id of any
-    other shape: every session and remember-me cookie issued before sign-ins carried their time
-    named the bare login id, and is not read.
+    A secret holds no ``.`` (``secrets.token_urlsafe``), so the two shapes cannot be confused.
     """
-    if not isinstance(sign_in, str):
-        return None
+    return isinstance(sign_in, str) and "." in sign_in
+
+
+def _legacy_account(sign_in: str):
+    """The account a legacy sign-in id names, or None, read for one release.
+
+    ``<login id>.<s|r>.<whole seconds since the epoch>``, as sign-ins were named before they were
+    kept on the server: None once it is as old as its kind's length (``SIGN_IN_LIFETIME``, or
+    ``REMEMBERED_SIGN_IN_LIFETIME`` when remembered), and for an id of any other shape, the bare
+    login id that came before it among them.
+    """
     parts = sign_in.rsplit(".", 2)
     if len(parts) != 3:
         return None
@@ -368,17 +328,71 @@ def signed_in_account(sign_in):
         return None
     if _now() - int(signed_in_at) >= lifetime.total_seconds():
         return None
-    account = get_user_by_login_id(login_id)
+    return get_user_by_login_id(login_id)
+
+
+def signed_in_account(sign_in):
+    """The account a session or remember cookie names, or None: the app's user loader.
+
+    A secret is recalled from ``organizer_sessions``: None once its sign-in has ended (signed out,
+    replaced by a sign-in in the browser, ended by Sign out everywhere, a reset or the account's
+    deletion, or past the end its record holds), and None when its account's login id is no
+    longer the one the record was made under. For one release a legacy sign-in id is read too
+    (``_legacy_account``).
+    """
+    if not isinstance(sign_in, str) or not sign_in:
+        return None
+    if is_legacy_sign_in(sign_in):
+        account = _legacy_account(sign_in)
+    else:
+        recalled = organizer_sessions.recall(sign_in)
+        if recalled is None:
+            return None
+        user_id, login_id = recalled
+        account = get_user_by_login_id(login_id)
+        if account is not None and account.id != user_id:
+            return None
     if account is not None:
         account.sign_in = sign_in
     return account
 
 
+def legacy_remembered_account(cookie: Optional[str]):
+    """``(sign_in, account)`` for the legacy ``remember_token`` cookie, or None, read for one
+    release: the sign-in id it carries, so the caller can restore the session, and its account.
+
+    ``cookie`` is the cookie's value, signed by Flask-Login's digest; only a legacy sign-in id in
+    it is read.
+    """
+    sign_in = decode_cookie(cookie) if isinstance(cookie, str) and cookie else None
+    if not is_legacy_sign_in(sign_in):
+        return None
+    account = _legacy_account(sign_in)
+    if account is None:
+        return None
+    account.sign_in = sign_in
+    return sign_in, account
+
+
+def end_this_browsers_sign_ins() -> None:
+    """End, on the server, every sign-in this request's browser holds, whoever's it is: the one its
+    session names and the one its remember cookie names. A legacy sign-in has no record to end;
+    replacing the login id is what ends it."""
+    held = [session.get("_user_id")]
+    remembered = request.cookies.get(REMEMBER_COOKIE)
+    if remembered:
+        held.append(decode_cookie(remembered))
+    for sign_in in dict.fromkeys(held):
+        if isinstance(sign_in, str) and sign_in and not is_legacy_sign_in(sign_in):
+            organizer_sessions.end(sign_in)
+
+
 def _sign_in(login_user, user_doc, remember: bool):
     """Sign the account in for one of the two lengths, giving it a login id at its first sign-in.
 
-    The login id is written only where none is stored, then read back, so two first sign-ins at
-    once agree on one.
+    The sign-in the browser held before is ended first, whoever's it was; the new one is kept on
+    the server (``organizer_sessions``) under the account's login id. The login id is written only
+    where none is stored, then read back, so two first sign-ins at once agree on one.
     """
     if not user_doc.get("login_id"):
         users_collection.update_one(
@@ -391,9 +405,11 @@ def _sign_in(login_user, user_doc, remember: bool):
             raise RuntimeError("an account's login id was not stored at its first sign-in")
         user_doc["login_id"] = stored["login_id"]
 
+    end_this_browsers_sign_ins()
     user_doc.pop('_id', None)
     auth_user = AuthUser(
-        User(**user_doc), sign_in=_sign_in_id(user_doc["login_id"], remember, _now())
+        User(**user_doc),
+        sign_in=organizer_sessions.start(user_doc["id"], user_doc["login_id"], remember),
     )
     if remember:
         login_user(auth_user, remember=True, duration=REMEMBERED_SIGN_IN_LIFETIME)
@@ -401,7 +417,7 @@ def _sign_in(login_user, user_doc, remember: bool):
         login_user(auth_user, remember=False)
         # A browser remembered by an earlier sign-in is not once this one chose otherwise:
         # Flask-Login deletes the cookie on the way out, as it does at sign-out.
-        if current_app.config.get("REMEMBER_COOKIE_NAME", COOKIE_NAME) in request.cookies:
+        if REMEMBER_COOKIE in request.cookies:
             session["_remember"] = "clear"
 
     user_data = {
@@ -490,8 +506,25 @@ def login(bcrypt, login_user):
     return jsonify({"message": SIGN_IN_DOES_NOT_MATCH}), 401
 
 def logout(logout_user):
+    """Sign out: end this browser's sign-in on the server, so a copy of its cookies stops working
+    too, then clear both cookies."""
+    end_this_browsers_sign_ins()
     logout_user()
     return jsonify({"message": "Logged out"}), 200
+
+
+def logout_everywhere(current_user, logout_user):
+    """Sign out everywhere: end every sign-in of the account, this browser's with it, then clear
+    both cookies.
+
+    The one write that replaces the login id ends every sign-in issued before, a legacy one
+    included, as a reset's does; ending every record of the account's sign-ins is the clean-up
+    after it. A failed write is the error handler's 500, and leaves the person signed in.
+    """
+    users_collection.update_one({"id": current_user.id}, {"$set": {"login_id": _new_login_id()}})
+    organizer_sessions.end_all(current_user.id)
+    logout_user()
+    return jsonify({"message": "Signed out everywhere"}), 200
 
 def check_session(current_user):
     return jsonify({"email": current_user.email}), 200
@@ -549,82 +582,71 @@ def register_user_with_captcha(bcrypt):
     if users_collection.find_one({"email": email}):
         return _answer_a_taken_address(email)
 
-    verification_token = generate_verification_token()
-    verification_token_expires = get_token_expiry(hours=1)
-
-    # Create user document
+    # The account is stored holding its verification link, being mailed.
+    account_id = str(uuid.uuid4())
+    issued, holding_the_link = account_secrets.issue_with_a_new_account(
+        account_secrets.VERIFY, account_id)
     user_doc = {
-        "id": str(uuid.uuid4()),
+        "id": account_id,
         "email": email,
         "password": hashed_password,
         "organizations": [],
         "email_verified": False,
-        "verification_token": verification_token,
-        "verification_token_expires": verification_token_expires,
-        "password_reset_token": None,
-        "password_reset_token_expires": None,
-        "otp": None,
-        "otp_expires": None,
-        "otp_attempts": 0
+        **holding_the_link,
     }
-    
+
     result = _insert_unless_taken(user_doc)
     if result is None:
         return _answer_a_taken_address(email)
 
     if result.inserted_id:
-        # Send verification email
-        email_sent = send_verification_email(email, verification_token)
-        if not email_sent:
+        if not send_verification_email(email, issued.secret):
             # Email failed - rollback user creation to prevent orphaned unverified accounts
             users_collection.delete_one({"_id": result.inserted_id})
             return _sign_up_send_failed()
 
+        account_secrets.accepted(users_collection, account_secrets.VERIFY, issued)
         return _signed_up()
     else:
         return jsonify({"msg": "Failed to register user"}), 500
 
 
 def verify_email():
-    """Verify user's email with token."""
+    """Verify the address by the mailed link (``account_secrets.use_verification_link``).
+
+    The link is read first only to tell an expired link from one that is not there; using it is
+    one write found by the live link, so a link used meanwhile is answered as one that is not
+    there.
+    """
     data = json_object(required=False)
     token = string_field(data, "token")
 
     if not token:
         return jsonify({"msg": "Verification token required"}), 400
 
-    # Find user with matching token
-    user_doc = users_collection.find_one({"verification_token": token})
-    
-    if not user_doc:
-        return jsonify({"msg": "Invalid verification token"}), 400
-
-    # Check if token has expired
-    expires_at = user_doc.get("verification_token_expires")
-    if not verify_token_expiry(expires_at):
+    found = account_secrets.find_link(users_collection, account_secrets.VERIFY, token)
+    if found is account_secrets.Link.INVALID:
+        return jsonify({"msg": VERIFY_INVALID}), 400
+    if found is account_secrets.Link.EXPIRED:
         return jsonify({"msg": "Verification token has expired"}), 400
 
-    # Check if already verified
-    if user_doc.get("email_verified", False):
-        return jsonify({"msg": "Email already verified"}), 400
-
-    # Update user to verified
-    users_collection.update_one(
-        {"email": user_doc["email"]},
-        {
-            "$set": {
-                "email_verified": True,
-                "verification_token": None,
-                "verification_token_expires": None
-            }
-        }
-    )
+    already = account_secrets.use_verification_link(users_collection, token)
+    if already is None:
+        return jsonify({"msg": VERIFY_INVALID}), 400
+    if already:
+        return jsonify({"msg": ALREADY_VERIFIED}), 400
 
     return jsonify({"msg": "Email verified successfully"}), 200
 
 
 def resend_verification_email():
-    """Resend verification email to user, bounded per caller and per address (``_Bounds``)."""
+    """Mail the verification link again, bounded per caller and per address (``_Bounds``).
+
+    A new link replaces the last, and may be asked for at once (``account_secrets.VERIFY``), but
+    while another request's link is being mailed the request mails none and answers as sent, since
+    one link is on its way. A link the provider refused is unset, so no link is left live: the one
+    mailed before was replaced when this one was issued.
+    """
     now = _limit_clock()
     refused = _VERIFICATION_LINK.caller_refusal(now)
     if refused:
@@ -640,39 +662,36 @@ def resend_verification_email():
     if refused:
         return refused
 
-    # Find user
     user_doc = users_collection.find_one({"email": email})
-    
     if not user_doc:
         # Don't reveal if user exists for security
-        return jsonify({"msg": "If an account exists, a verification email has been sent"}), 200
+        return jsonify({"msg": VERIFICATION_NO_ACCOUNT}), 200
 
-    # Check if already verified
     if user_doc.get("email_verified", False):
-        return jsonify({"msg": "Email already verified"}), 400
+        return jsonify({"msg": ALREADY_VERIFIED}), 400
 
-    # Generate new verification token
-    verification_token = generate_verification_token()
-    verification_token_expires = get_token_expiry(hours=1)
+    issued = account_secrets.issue(users_collection, account_secrets.VERIFY, user_doc)
+    if issued is None:
+        return jsonify({"msg": VERIFICATION_NO_ACCOUNT}), 200
+    if isinstance(issued, account_secrets.Wait):
+        return jsonify({"msg": VERIFICATION_SENT}), 200
 
-    # Update user with new token
-    written = {
-        "verification_token": verification_token,
-        "verification_token_expires": verification_token_expires,
-    }
-    users_collection.update_one({"email": email}, {"$set": written})
-
-    # Send verification email; the link already in the inbox keeps working if it could not be sent
-    email_sent = send_verification_email(email, verification_token)
-    if not email_sent:
-        _put_back(email, written, user_doc)
+    if not send_verification_email(email, issued.secret):
+        account_secrets.refused(users_collection, account_secrets.VERIFY, issued)
         return jsonify({"msg": "Failed to send verification email"}), 500
 
-    return jsonify({"msg": "Verification email sent"}), 200
+    account_secrets.accepted(users_collection, account_secrets.VERIFY, issued)
+    return jsonify({"msg": VERIFICATION_SENT}), 200
 
 
 def request_password_reset():
-    """Request password reset link, bounded per caller and per address (``_Bounds``)."""
+    """Mail a reset link, bounded per caller and per address (``_Bounds``).
+
+    One link at a time (``account_secrets``): refused until an hour after the last mailed link
+    expired, two hours after it was mailed, unless it was used, which clears its wait. The link is
+    issued in one write, so of two requests at once one mails a link and the other is answered the
+    wait. A link the provider refused is unset, so the next request may ask again at once.
+    """
     now = _limit_clock()
     refused = _RESET_LINK.caller_refusal(now)
     if refused:
@@ -688,42 +707,35 @@ def request_password_reset():
     if refused:
         return refused
 
-    # Find user
     user_doc = users_collection.find_one({"email": email})
-    
     if not user_doc:
         # Don't reveal if user exists for security
-        return jsonify({"msg": "If an account exists, a password reset email has been sent"}), 200
+        return jsonify({"msg": RESET_SENT}), 200
 
-    # One link at a time: refused until an hour after the last link expired (two hours after it was
-    # sent), unless that link was used, which clears its expiry.
-    wait = _wait_after(user_doc.get("password_reset_token_expires"), RESET_WAIT, now)
-    if wait is not None:
+    issued = account_secrets.issue(users_collection, account_secrets.RESET, user_doc)
+    if issued is None:
+        return jsonify({"msg": RESET_SENT}), 200
+    if isinstance(issued, account_secrets.Wait):
         return jsonify(
-            {"msg": NEXT_RESET_LATER.format(wait=sign_in_limits.wait_in_words(wait))}), 429
+            {"msg": NEXT_RESET_LATER.format(wait=sign_in_limits.wait_in_words(issued.seconds))}), 429
 
-    # Generate reset token
-    reset_token = generate_reset_token()
-    reset_token_expires = get_token_expiry(hours=1)
-
-    # Update user with reset token
-    written = {
-        "password_reset_token": reset_token,
-        "password_reset_token_expires": reset_token_expires,
-    }
-    users_collection.update_one({"email": email}, {"$set": written})
-
-    # Send password reset email; if it could not be sent, the next request may ask again at once
-    email_sent = send_password_reset_email(email, reset_token)
-    if not email_sent:
-        _put_back(email, written, user_doc)
+    if not send_password_reset_email(email, issued.secret):
+        account_secrets.refused(users_collection, account_secrets.RESET, issued)
         return jsonify({"msg": "Failed to send password reset email"}), 500
 
-    return jsonify({"msg": "If an account exists, a password reset email has been sent"}), 200
+    account_secrets.accepted(users_collection, account_secrets.RESET, issued)
+    return jsonify({"msg": RESET_SENT}), 200
 
 
 def reset_password(bcrypt):
-    """Reset password with reset token."""
+    """Reset the password by the mailed link (``account_secrets.use_reset_link``).
+
+    The link is read first only to tell an expired link from one that is not there; the reset is
+    one write found by the live link, so of two uses at once one resets and the other is answered
+    as a link that is not there. The write verifies the address, ends the account's code and
+    verification link, and replaces the login id, which signs out every session and remember
+    cookie issued before; every record of the account's sign-ins is then ended.
+    """
     data = json_object(required=False)
     token = string_field(data, "token")
     new_password = string_field(data, "new_password")
@@ -737,39 +749,32 @@ def reset_password(bcrypt):
     if _longer_than_bcrypt_reads(new_password):
         return jsonify({"msg": PASSWORD_TOO_LONG}), 400
 
-    # Find user with matching token
-    user_doc = users_collection.find_one({"password_reset_token": token})
-    
-    if not user_doc:
-        return jsonify({"msg": "Invalid reset token"}), 400
-
-    # Check if token has expired
-    expires_at = user_doc.get("password_reset_token_expires")
-    if not verify_token_expiry(expires_at):
+    found = account_secrets.find_link(users_collection, account_secrets.RESET, token)
+    if found is account_secrets.Link.INVALID:
+        return jsonify({"msg": RESET_INVALID}), 400
+    if found is account_secrets.Link.EXPIRED:
         return jsonify({"msg": "Reset token has expired"}), 400
 
-    # Hash new password
     hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
 
-    # Update user password and clear reset token. A new login id signs out every session and
-    # remember-me cookie issued before the reset.
-    users_collection.update_one(
-        {"email": user_doc["email"]},
-        {
-            "$set": {
-                "password": hashed_password,
-                "password_reset_token": None,
-                "password_reset_token_expires": None,
-                "login_id": _new_login_id(),
-            }
-        }
-    )
+    account_id = account_secrets.use_reset_link(users_collection, token, hashed_password,
+                                                _new_login_id())
+    if account_id is None:
+        return jsonify({"msg": RESET_INVALID}), 400
+    organizer_sessions.end_all(account_id)
 
     return jsonify({"msg": "Password reset successfully"}), 200
 
 
 def request_otp():
-    """Request OTP for passwordless login, bounded per caller and per address (``_Bounds``)."""
+    """Mail a sign-in code, bounded per caller and per address (``_Bounds``).
+
+    One code at a time (``account_secrets``): refused until an hour after the last mailed code
+    expired, unless it was used, which clears its wait; a code five wrong tries discarded keeps its
+    wait. The code is issued in one write, so of two requests at once one mails a code and the other
+    is answered the wait. A code the provider refused is unset, so the next request may ask again
+    at once.
+    """
     now = _limit_clock()
     refused = _CODE_REQUEST.caller_refusal(now)
     if refused:
@@ -785,47 +790,36 @@ def request_otp():
     if refused:
         return refused
 
-    # Find user
     user_doc = users_collection.find_one({"email": email})
-    
     if not user_doc:
         # Don't reveal if user exists for security
-        return jsonify({"msg": "If an account exists for that address, a sign-in code has been sent to it."}), 200
+        return jsonify({"msg": CODE_SENT}), 200
 
-    # Check if email is verified
     if not user_doc.get("email_verified", False):
         return jsonify({"msg": SIGN_IN_VERIFY_FIRST}), 403
 
-    # One code at a time: refused until an hour after the last code expired, unless it was used,
-    # which clears its expiry. A code five wrong tries discarded keeps its wait.
-    wait = _code_wait(user_doc.get("otp_expires"), now)
-    if wait is not None:
+    issued = account_secrets.issue(users_collection, account_secrets.CODE, user_doc)
+    if issued is None:
+        return jsonify({"msg": CODE_SENT}), 200
+    if isinstance(issued, account_secrets.Wait):
         return jsonify(
-            {"msg": NEXT_CODE_LATER.format(wait=sign_in_limits.wait_in_words(wait))}), 429
+            {"msg": NEXT_CODE_LATER.format(wait=sign_in_limits.wait_in_words(issued.seconds))}), 429
 
-    # Generate OTP
-    otp = generate_otp()
-    otp_expires = get_otp_expiry(minutes=5)
-
-    # Update user with OTP
-    written = {"otp": otp, "otp_expires": otp_expires, "otp_attempts": 0}
-    users_collection.update_one({"email": email}, {"$set": written})
-
-    # Send OTP email; if it could not be sent, the next request may ask again at once
-    email_sent = send_otp_email(email, otp)
-    if not email_sent:
-        _put_back(email, written, user_doc)
+    if not send_otp_email(email, issued.secret):
+        account_secrets.refused(users_collection, account_secrets.CODE, issued)
         return jsonify({"msg": "The sign-in code could not be sent. Please try again."}), 500
 
-    return jsonify({"msg": "If an account exists for that address, a sign-in code has been sent to it."}), 200
+    account_secrets.accepted(users_collection, account_secrets.CODE, issued)
+    return jsonify({"msg": CODE_SENT}), 200
 
 
 def login_with_otp(login_user):
     """The code sign-in, bounded per caller and per address (``_Bounds``) as the password is.
 
-    A try is counted on the code in the same update that reads it, so no more than ``CODE_TRIES``
-    tries ever reach one code, even when they arrive at once; a right code takes its try back,
-    whether it signs in or answers that the address needs verifying first.
+    A try is counted on the code in the same write that finds it (``account_secrets.try_code``),
+    so no more than ``account_secrets.CODE_TRIES`` tries ever reach one code, even when they arrive
+    at once; a right code takes its try back, whether it signs in or answers that the address needs
+    verifying first.
     """
     now = _limit_clock()
     refused = _CODE_SIGN_IN.caller_refusal(now)
@@ -843,40 +837,20 @@ def login_with_otp(login_user):
     if refused:
         return refused
 
-    # No account, no code, or a code whose tries are all counted: nothing for this try to reach.
-    user_doc = users_collection.find_one_and_update(
-        {"email": email, "otp": {"$ne": None}, "otp_attempts": {"$lt": CODE_TRIES}},
-        {"$inc": {"otp_attempts": 1}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if not user_doc:
+    # No account, no live code, a code whose tries are all counted, or not the code: alike.
+    tried = account_secrets.try_code(users_collection, email, otp)
+    if tried.outcome is account_secrets.Tried.WRONG:
         return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
+    if tried.outcome is account_secrets.Tried.EXPIRED:
+        return jsonify({"msg": f"{CODE_EXPIRED} {_next_code(tried.wait)}"}), 400
 
-    stored_otp = user_doc["otp"]
-    if not secrets.compare_digest(stored_otp.encode("utf-8"), otp.encode("utf-8")):
-        if user_doc["otp_attempts"] >= CODE_TRIES:
-            # The last try discards the code, and keeps its expiry, which holds back the next
-            # code. It answers as every wrong code does, with an account or without.
-            users_collection.update_one(
-                {"email": email, "otp": stored_otp}, {"$set": {"otp": None, "otp_attempts": 0}}
-            )
-        return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
-
-    expires_at = _moment(user_doc.get("otp_expires"))
-    if expires_at is None or expires_at <= now:
-        next_code = _next_code(user_doc.get("otp_expires"), now)
-        return jsonify({"msg": f"{CODE_EXPIRED} {next_code}"}), 400
-
+    user_doc = tried.account
     if not user_doc.get("email_verified", False):
         _CODE_SIGN_IN.take_back(email, now)
         return jsonify({"msg": SIGN_IN_VERIFY_FIRST}), 403
 
-    # Consumed only if it is still this code: of two right tries, one signs in.
-    consumed = users_collection.update_one(
-        {"email": email, "otp": stored_otp},
-        {"$set": {"otp": None, "otp_expires": None, "otp_attempts": 0}},
-    )
-    if consumed.modified_count != 1:
+    # Used only if it is still this code: of two right tries, one signs in.
+    if not account_secrets.use_code(users_collection, user_doc):
         return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
 
     _CODE_SIGN_IN.take_back(email, now)
@@ -917,6 +891,11 @@ def get_user_raw(email: str) -> Optional[dict]:
     return None
 
 
+#: Said of an account that is the Owner of markets, naming them: its Owner transfers each market's
+#: ownership or deletes it first, as Manage market offers.
+OWNS_MARKETS = "Transfer or delete {markets} before deleting this account."
+
+
 def delete_user(authenticated_email: str):
     """Delete the authenticated user's own account.
 
@@ -935,7 +914,7 @@ def delete_user(authenticated_email: str):
 
     The Owner of a market is refused for the same reason, beside the organization refusal (T283): a
     market's Owner is the only person who may delete it, manage its admins and change who may do
-    what on it, so every market keeps an Owner whose account exists. Handing the market on
+    what on it, so every market keeps an Owner whose account exists. Transferring its ownership
     (``POST /markets/<id>/hand-on``) or deleting it is something its Owner may do, and then this
     succeeds. A role below Owner on a market is not ownership, and the deletion goes ahead.
     """
@@ -982,8 +961,7 @@ def delete_user(authenticated_email: str):
                 f"Transfer ownership of {', '.join(org_names)} before deleting this account.")
             refusal["ownedOrganizations"] = org_names
         if market_names:
-            sentences.append(
-                f"Hand on or delete {', '.join(market_names)} before deleting this account.")
+            sentences.append(OWNS_MARKETS.format(markets=', '.join(market_names)))
             refusal["ownedMarkets"] = market_names
         return jsonify({"msg": " ".join(sentences), **refusal}), 409
 
@@ -994,6 +972,7 @@ def delete_user(authenticated_email: str):
         # place in every organization they were an admin or a member of (T283).
         if user_id_to_delete:
             OrganizationPeople.forget(user_id_to_delete)
+            organizer_sessions.end_all(user_id_to_delete)
         return jsonify({"msg": "User deleted successfully"}), 200
 
     return jsonify({"msg": "Failed to delete user"}), 500

@@ -6,10 +6,10 @@ hermetic; unset while ``REAL_MONGODB_REQUIRED`` is true, as CI's backend job set
 fails, so CI can never skip the suite in silence. A server that is not a loopback test server is
 refused before any connection (``harness.server_refusal``).
 
-The three suite-wide fakes of ``tests/conftest.py`` are named again here, so inside this package
-pytest resolves ``applications``, ``market_records`` and ``sign_in_attempts`` to the real
-collections and installs no fake; and since those three are used by every test, every test here
-runs on its own bound database.
+The four suite-wide fakes of ``tests/conftest.py`` are named again here, so inside this package
+pytest resolves ``applications``, ``market_records``, ``sign_in_attempts`` and
+``organizer_sessions`` to the real collections and installs no fake; and since those four are used
+by every test, every test here runs on its own bound database.
 """
 import copy
 import uuid
@@ -91,6 +91,14 @@ def sign_in_attempts(real_db):
 
 
 @pytest.fixture
+def organizer_sessions(real_db):
+    """The real organizers' sign-ins, in place of the suite-wide fake."""
+    import organizer_sessions as OrganizerSessions
+
+    return OrganizerSessions.sessions_collection
+
+
+@pytest.fixture
 def boot_indexes(real_db, monkeypatch):
     """Every index the boot builds, built on this test's database by the boot's own functions."""
     harness.build_boot_indexes(monkeypatch)
@@ -143,6 +151,26 @@ def market_in(real_db, signed_in):
         return document
 
     return make
+
+
+@pytest.fixture
+def allocated(real_db):
+    """``allocated(market, rows, revision=1)``: store ``rows`` on the stored ``market`` as one table
+    allocation left them (T316): state ``run``, made from the market's inputs as they stand, so
+    Publish results reads it as current; returns the assignment object stored."""
+    from conftest import made_from_now, stored_assignment
+    from market_documents import MARKETS_COLLECTION
+
+    def store(market, rows, revision=1):
+        markets = real_db[MARKETS_COLLECTION]
+        assignment = stored_assignment(
+            "run", rows, made_from=made_from_now(markets.find_one({"id": market["id"]})),
+            revision=revision)
+        markets.update_one({"id": market["id"]}, {"$set": {"assignmentObject": assignment}})
+        market["assignmentObject"] = assignment
+        return assignment
+
+    return store
 
 
 @pytest.fixture

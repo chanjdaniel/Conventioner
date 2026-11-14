@@ -9,11 +9,12 @@ describes:
   - front-end/src/__tests__/theImportAsksBeforeItDropsAMapping.test.ts
   - front-end/e2e/the-import-asks-before-it-drops-a-mapping.spec.ts
   - front-end/e2e/a-layout-saves-once.spec.ts
-verified: 2026-11-12
+verified: 2026-11-13
 sources:
   - T271
   - T244
   - T257
+  - T311
 ---
 
 # Unsaved work asks before it is dropped
@@ -27,7 +28,7 @@ The form builder kept unsaved questions in the open tab, and opening Plan, a lin
 - **A reload or closing the tab**: a `beforeunload` listener, while the screen is mounted, calls `preventDefault()` and sets `returnValue` when `unsaved()` answers true, so the browser asks in its own words; nothing of the app's can be shown there.
 - **A move in the app**, with `inApp` (the default): the router's `onBeforeRouteLeave`, and `onBeforeRouteUpdate` for a move to another path of the same route, since Market Setup's pages are one route with a `:page` param.
   It asks while `unsaved()` answers true, and the router reads the answer as "go on" or "stay".
-- **Never asked**: a move that changes only the query or the hash, which stays on the work (the form's `?step=`), and a move to the sign-in page (route name `login`): a sign-out and an ended session forget the session before they move, so nothing could be saved from the page any more.
+- **Never asked**: a move that changes only the query or the hash, which stays on the work (the form's `?step=`), and a move to the sign-in page (route name `login`): a sign-out, Sign out everywhere and an ended session forget the session before they move, so nothing could be saved from the page any more.
 
 `unsaved` is read when someone tries to leave, never cached, so the screen states its own rule once.
 The guards only reach a component a routed view rendered, so a unit test of a screen using them mounts it under a `RouterView` on a real router, or adds `onBeforeRouteLeave` and `onBeforeRouteUpdate` to its `vue-router` mock.

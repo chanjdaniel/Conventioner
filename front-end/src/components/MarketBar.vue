@@ -16,14 +16,7 @@ import type { Market } from '@/assets/types/datatypes';
 import ScrollBox from '@/components/ScrollBox.vue';
 import { marketPath } from '@/utils/market';
 import { currentPage, intakeModeOf, pageForTab, pathTabLabel } from '@/utils/marketGuide';
-import {
-  TAB_LABELS,
-  hasAssignment,
-  pageOfRoute,
-  tabOf,
-  tabsFor,
-  type MarketTab,
-} from '@/utils/marketPage';
+import { TAB_LABELS, pageOfRoute, tabOf, tabsFor, type MarketTab } from '@/utils/marketPage';
 
 const props = defineProps<{ market: Market | null }>();
 const route = useRoute();
@@ -31,8 +24,7 @@ const route = useRoute();
 /** The page or flow this route is, read off the route rather than told by each screen. */
 const here = computed(() => pageOfRoute(route.name, route.params));
 
-const assigned = computed(() => hasAssignment(props.market));
-const current = computed(() => currentPage(props.market?.phase, assigned.value));
+const current = computed(() => currentPage(props.market?.phase, props.market?.allocation));
 const activeTab = computed(() => (here.value ? tabOf(here.value) : null));
 
 /** The same seven tabs in every phase (E31/F03/S02, E45/F01/S01, E46/F01/S02). */
@@ -40,7 +32,10 @@ const tabs = computed((): MarketTab[] => tabsFor());
 const path = computed(() => intakeModeOf(props.market));
 
 function linkFor(tab: MarketTab): string {
-  return marketPath(props.market!.id, pageForTab(tab, props.market?.phase, assigned.value));
+  return marketPath(
+    props.market!.id,
+    pageForTab(tab, props.market?.phase, props.market?.allocation),
+  );
 }
 </script>
 

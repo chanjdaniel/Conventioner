@@ -8,7 +8,7 @@ import SignInMessage from '@/components/SignInMessage.vue';
 import { SESSION_ENDED_MESSAGE } from '@/utils/api';
 import { executeRecaptcha } from '@/utils/captcha';
 import { refusedSignIn, resentLink, type SignInNotice } from '@/utils/signInNotice';
-import { safeNext } from '@/utils/signInNext';
+import { SIGNED_OUT_EVERYWHERE_MESSAGE, safeNext } from '@/utils/signInNext';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
@@ -22,6 +22,8 @@ const route = useRoute();
 const afterSignIn = computed(() => safeNext(route.query.next) ?? '/markets');
 /** Brought here by a session that ended mid-work, which is said rather than left to guess. */
 const sessionEnded = computed(() => route.query.ended === '1');
+/** Brought here by Sign out everywhere, which is said in the place of the line above. */
+const signedOutEverywhere = computed(() => route.query.everywhere === '1');
 
 // Mode: 'login' | 'register' | 'otp'
 type Mode = 'login' | 'register' | 'otp';
@@ -324,7 +326,20 @@ const submitOTPLogin = async () => {
 
 <template>
   <AuthCard>
-    <p v-if="sessionEnded" class="session-ended" role="status" data-testid="login-session-ended">
+    <p
+      v-if="signedOutEverywhere"
+      class="session-ended"
+      role="status"
+      data-testid="login-signed-out-everywhere"
+    >
+      {{ SIGNED_OUT_EVERYWHERE_MESSAGE }}
+    </p>
+    <p
+      v-else-if="sessionEnded"
+      class="session-ended"
+      role="status"
+      data-testid="login-session-ended"
+    >
       {{ SESSION_ENDED_MESSAGE }}
     </p>
     <!--

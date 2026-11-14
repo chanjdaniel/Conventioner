@@ -9,14 +9,14 @@ never "log in":
   the screen offers to send the link again. The code sign-in and asking for a code answer the same.
 - A code for an address with no account answers as a wrong code does, at every try.
 """
+import copy
 import os
 import sys
-from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
 
-from conftest import mongo_matches, mongo_project, skip_without_real_dependencies
+from conftest import mongo_matches, mongo_project, mongo_update, skip_without_real_dependencies
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -24,6 +24,7 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.users as UsersApi
+from sign_in_secrets import live_code
 import sign_in_limits
 
 
@@ -48,35 +49,31 @@ class Accounts:
             return mongo_project(dict(self.doc), projection)
         return None
 
-    def find_one_and_update(self, query, update, return_document=None):
+    def find_one_and_update(self, query, update, return_document=None, **_options):
         if not mongo_matches(self.doc, query):
             return None
+        before = self.doc
         self._apply(update)
-        return dict(self.doc)
+        return copy.deepcopy(self.doc if return_document else before)
 
-    def update_one(self, query, update):
+    def update_one(self, query, update, **_options):
         if not mongo_matches(self.doc, query):
             return SimpleNamespace(matched_count=0, modified_count=0)
         self._apply(update)
         return SimpleNamespace(matched_count=1, modified_count=1)
 
     def _apply(self, update):
-        self.doc.update(update.get("$set", {}))
-        for field, amount in update.get("$inc", {}).items():
-            self.doc[field] = self.doc.get(field, 0) + amount
+        self.doc = mongo_update(self.doc, update)
 
 
 def _account(verified: bool):
-    in_an_hour = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     return {
         "id": "fixture-user-id",
         "email": FIXTURE_EMAIL,
         "password": app_module.bcrypt.generate_password_hash(FIXTURE_PASSWORD).decode("utf-8"),
         "organizations": [],
         "email_verified": verified,
-        "otp": FIXTURE_OTP,
-        "otp_expires": in_an_hour,
-        "otp_attempts": 0,
+        "secrets": {"code": live_code(FIXTURE_OTP)},
     }
 
 
@@ -202,7 +199,7 @@ def test_every_wrong_code_answers_alike_with_an_account_or_without(client, verif
     its code in silence, so it and the tries after it answer as an address with no code does."""
     tries = sign_in_limits.ORGANIZER_CODE_PER_ADDRESS.attempts
     assert _wrong_codes(client, NO_ACCOUNT_EMAIL, tries) == _wrong_codes(client, FIXTURE_EMAIL, tries)
-    assert verified.doc["otp"] is None
+    assert verified.doc["secrets"]["code"]["state"] == "discarded"
 
 
 # The password is checked whether or not the address has an account.

@@ -18,6 +18,7 @@ from pymongo.errors import AutoReconnect, DuplicateKeyError
 import api.payments as PaymentsApi
 from client_errors import ConflictError
 import api.placements as PlacementsApi
+import assignment.lifecycle as Lifecycle
 import history as History
 import payments as Payments
 from datatypes import MarketPhase, VendorAssignmentResult
@@ -274,7 +275,7 @@ class TestAFreeLeavesTheRightAmount:
     @pytest.mark.parametrize("deduct_owed", [False, True])
     def test_a_free_whose_seat_write_fails_leaves_nothing_a_run_could_surface(
             self, admin, stores, market, monkeypatch, deduct_owed):  # noqa: F811
-        stop_once(monkeypatch, PlacementsApi, "_store_vendor_assignments")
+        stop_once(monkeypatch, Lifecycle, "store")
 
         with pytest.raises(Stopped):
             PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=deduct_owed)
@@ -293,7 +294,7 @@ class TestAFreeLeavesTheRightAmount:
     def test_a_failed_seat_write_leaves_an_amount_an_admin_set_as_it_was(
             self, admin, stores, monkeypatch):  # noqa: F811
         PaymentsApi.set_amount_owed(MARKET, ANA, SUN, {"cents": 1000}, ADMIN)
-        stop_once(monkeypatch, PlacementsApi, "_store_vendor_assignments")
+        stop_once(monkeypatch, Lifecycle, "store")
 
         with pytest.raises(Stopped):
             PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=True)
@@ -308,13 +309,13 @@ class TestAFreeLeavesTheRightAmount:
         """A store can reach the database and the answer be lost on the way back: the seat is
         free then, so the line kept for it is the day's, and putting it back would leave the day
         owing nothing for a table the vendor gave back, with no freed line to retry from."""
-        stored = PlacementsApi._store_vendor_assignments
+        stored = Lifecycle.store
 
         def landed_then_lost(*args, **kwargs):
             stored(*args, **kwargs)
             raise AutoReconnect("the answer never came back")
 
-        monkeypatch.setattr(PlacementsApi, "_store_vendor_assignments", landed_then_lost)
+        monkeypatch.setattr(Lifecycle, "store", landed_then_lost)
 
         with pytest.raises(AutoReconnect):
             PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=deduct_owed)
@@ -333,7 +334,7 @@ class TestAFreeLeavesTheRightAmount:
             monkeypatch.setattr(markets, "find_one", stop)
             raise Stopped()
 
-        monkeypatch.setattr(PlacementsApi, "_store_vendor_assignments", lost_with_the_database)
+        monkeypatch.setattr(Lifecycle, "store", lost_with_the_database)
 
         with pytest.raises(Stopped):
             PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=True)

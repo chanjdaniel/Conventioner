@@ -1,4 +1,4 @@
-"""A market's Owner hands the market on to someone who has access to it (T283).
+"""A market's Owner transfers its ownership to someone who has access to it (T283).
 
 ``POST /markets/<market_id>/hand-on`` with ``{"userId": "<id>"}``: one write makes that person the
 Owner and the old Owner an Admin, holding both people's roles as read (``write_market``), and the
@@ -48,9 +48,9 @@ PEOPLE = (OWNER, ADMIN, EDITOR, VIEWER, ORG_OWNER, ORG_MEMBER, STRANGER)
 
 ROLES = {OWNER.id: "owner", ADMIN.id: "admin", EDITOR.id: "editor", VIEWER.id: "viewer"}
 ONLY_TO_SOMEONE_WITH_ACCESS = {
-    "error": "You can hand this market only to someone who has access to it."}
-CHOOSE_WHO = {"error": "Choose who to hand this market on to."}
-ONLY_THE_OWNER = {"error": "Only the market's owner may hand this market on to someone else."}
+    "error": "You can transfer ownership only to someone who has access to this market."}
+CHOOSE_WHO = {"error": "Choose who to transfer ownership to."}
+ONLY_THE_OWNER = {"error": "Only the market's owner may transfer this market's ownership to someone else."}
 
 
 class Markets(FakeMarketsCollection):
@@ -151,7 +151,7 @@ class TestHandingItOn:
         served = response.get_json()["market"]
         assert served["id"] == MARKET_ID
         assert served["actionRefusals"]["hand-on-market"] is not None, (
-            "the old Owner, now an Admin, may no longer hand it on")
+            "the old Owner, now an Admin, may no longer transfer its ownership")
         assert served["actionRefusals"]["delete-market"] is not None
         assert {(person["email"], person["role"]) for person in served["peopleWithAccess"]} >= {
             (OWNER.email, "admin"), (ADMIN.email, "owner")}
@@ -266,7 +266,7 @@ class TestToWhom:
 
 class TestAMarketThatChanged:
     def test_a_second_hand_on_on_the_same_read_is_refused(self, market, history):
-        # The Owner hands it to the Admin from one tab; between the other tab's read and its write
+        # The Owner transfers it to the Admin from one tab; between the other tab's read and its write
         # the first lands, so the second meets the Owner's role changed and stores nothing.
         market.before_write = lambda: MarketsApi.hand_on_market(MARKET_ID, ADMIN.id, OWNER.email)
 

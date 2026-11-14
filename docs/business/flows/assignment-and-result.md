@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/ResultSummary.vue
   - front-end/src/components/application/PublishResults.vue
   - front-end/src/utils/download.ts
-verified: 2026-11-12
+verified: 2026-11-14
 sources:
   - brain-dump/2026-10-19#16
   - brain-dump/2026-10-19#18
@@ -45,6 +45,8 @@ sources:
   - T253
   - T263
   - T284
+  - T277
+  - T316
 ---
 
 # The assignment and its result
@@ -62,7 +64,10 @@ An organizer's result is who sits where, which is the tables; so Assignments is 
 Assignments fits a phone, since the vendor drawer's "Change assignment" at the door leads there: its figures stack, its filters wrap, a half table's two seats stand one under the other, and every seat's control is a thumb's target (T142).
 Allocating tables lands on Assignments.
 Allocating tables again asks nothing: every hand assignment is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-allocate-tables-again-keeping-hand-assignments)), and in Assignment nothing has yet been sent to anyone.
-Before the first run Assignments, Vendors and Payments say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
+Before the first run Assignments, Vendors and Payments say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the server refuses a run, why, in its words (`assignRefusalReason`); where a run can still happen the tables are drawn below it, so a seat can be given first.
+Once results are published and every seat has been freed, Assignments says instead "Nobody has a table. Results are published, so tables are not allocated again: assign each one below by hand." and draws the tables for whoever may assign (without the last clause, and no tables, for anyone else).
+A market left in Offers with nothing stored reads the same with "The table allocation for this market is settled, so tables are not allocated again" in place of the results' clause (`marketPage.ts#settledBy`, T316), since the server's refusal there points at Assignments itself.
+That the allocation is settled is the server's word, not the phase's: the page reads it off the served going-live blocker, `assignment_computed`, whose remedy there is "Assign tables" on Assignments rather than "Allocate tables" on Settings.
 
 How the solver assigns vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
 
@@ -159,7 +164,7 @@ When the rules, the plan or the approved applications change after a run, a note
 Changing an input does not unassign anyone until the run is repeated, and a hand placement is not a change.
 The plan settles on leaving Draft and the verdicts on entering Assignment, so in Assignment it is the rules an organizer changes; the plan changes after a run only in the database, as specs do.
 The approved applications change after a run when the organizer goes Back to review and changes a verdict; going back says so in a sentence of its own, "The review was reopened after tables were allocated.", whether or not a verdict changed, and results and going live wait for tables allocated again ([ADR 0021](../../adr/0021-the-review-reopens-until-results-are-published.md)).
-The note shows only in Assignment, where running again is possible.
+The note shows only in Assignment, where running again is possible, and exactly when the served `allocation` is `stale`, the word Publish results is refused on ([the assignment's lifecycle](../../implementation/modules/assignment-lifecycle.md)).
 Covered by:
 
 - `a-reopened-review-waits-for-a-new-run.spec.ts`
@@ -181,7 +186,7 @@ Covered by:
 **Status:** Works (re-walked live on 2026-10-03; where and when it is offered, and what a vendor reads, changed since, read from the code as of E36/F04 and E36/F05: `back-end/api/applicants.py`, `results-wait-for-the-allocation.spec.ts`).
 On both paths, from the Applications page, above both of the review's views ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)); on a Google Form market it is also what opens the vendor page ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
 
-1. "Publish results", beside "Vendors read whether they have a table on the market's vendor page. No email is sent.", is shown from Assignment on, and offered once a current run is stored; until then it is disabled and says why ("Allocate tables first: …", "The table allocation is out of date. Allocate tables again before publishing, …").
+1. "Publish results", beside "Vendors read whether they have a table on the market's vendor page. No email is sent.", is shown from Assignment on, and offered once a current run is stored; until then it is disabled and says why ("Allocate tables first: …", with tables assigned by hand alone "Only tables assigned by hand are stored. Allocate tables first: allocating keeps them and assigns every other approved vendor, …", "The table allocation is out of date. Allocate tables again before publishing, …").
    Before Assignment the Applications page shows no Publish results at all, not even a disabled one.
    In Assignment the rail leads there: Publish market is disabled with "Vendors have not been told whether they have a table. Publish the results before the market goes live." and "Publish results" as the main button.
 2. "Publish results" asks first: 'N vendors will read "You have a table". M will read "You did not get assigned".', "Vendors read their result on the market's vendor page. No email is sent, so share the page's address with them.", the page's address with Copy ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)), and "Publishing cannot be undone, and tables cannot be allocated again after it: assignments change only by hand."
