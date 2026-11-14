@@ -119,6 +119,7 @@ from utils.session_storage import (
     install_session_storage,
     keeps_sessions_on_disk,
     session_backend,
+    start_a_fresh_session,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -573,13 +574,20 @@ login_manager.session_protection = "strong"
 
 @user_loaded_from_cookie.connect_via(app)
 def hold_a_restored_session_to_its_browser(_app: Flask, user: Any) -> None:
-    """Hold a session the remember-me cookie restored to the browser that restored it.
+    """Hold a session the remember-me cookie restored to the browser that restored it, in a fresh
+    session.
 
     "strong" refuses a session whose client identifier is not the one it holds
     (`RefusingLoginManager`); a sign-in records the identifier (`login_user`), but Flask-Login's
     restore from the cookie does not, so the session it restored was refused at its next request
     and "Remember me" lasted one request (E38/F14/S01). Recorded here, the way `login_user` does.
+
+    The restore is a sign-in, so it starts a fresh session as one does (`start_a_fresh_session`),
+    keeping only what the restore wrote: Flask-Login writes it into the session the browser sent.
     """
+    restored = {key: session[key] for key in ("_user_id", "_fresh") if key in session}
+    start_a_fresh_session()
+    session.update(restored)
     session["_id"] = login_manager._session_identifier_generator()
 
 
