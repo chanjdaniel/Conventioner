@@ -4,6 +4,7 @@ import { TablesPage } from './pages/TablesPage';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 import { namelessControls } from './helpers/accessibleNames';
+import { calendarToday } from './helpers/vendorSignIn';
 
 /**
  * A vendor who never applied, added by hand on the day (E36/F03/S01).
@@ -16,13 +17,14 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
   authenticatedPage: page,
   request,
 }) => {
-  // A market whose vendors apply on its page, so the walk-in can sign in on it too.
+  // A market whose vendors apply on its page, so the walk-in can sign in on it too; on its day,
+  // today, as the door checks nobody in for a day that has not begun (T318).
   const { marketId, marketSlug } = await seedPublishedMarketWithAssignments(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
-    { intakeMode: 'form' },
+    { intakeMode: 'form', marketDate: calendarToday() },
   );
 
   await page.goto(marketScreenPath(marketId, 'vendors'));

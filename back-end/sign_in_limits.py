@@ -4,9 +4,9 @@ Every sign-in endpoint is public: the applicant's code sign-in, the organizer's 
 sign-ins and the requests that mail an organizer a code or a link, the sign-up among them, and the
 vendor's check-in at the door. A request that sends an email, left unbounded, could flood
 any address with mail, spending the sender's money and reputation; a sign-in try is a guess at a
-password or a code. Every limit here is counted per address and per caller, small enough to stop
-that and far above what a vendor or an organizer who mistypes or asks again ever reaches. Where a
-try that signs in is taken back (``take_back_attempt``), only wrong tries pile up.
+password or a code. Each limit here is counted per address, per caller or both, small enough to
+stop that and far above what a vendor or an organizer who mistypes or asks again ever reaches.
+Where a try that signs in is taken back (``take_back_attempt``), only wrong tries pile up.
 
 **The counters live in the database, never in a process.** A serverless deployment runs many
 processes and freezes or discards each at will, so a counter held in memory bounds nothing. Each
@@ -63,11 +63,11 @@ VERIFY_CODE_PER_CALLER = SignInLimit("verify-code:caller", attempts=300, window=
 # be guessed, so this bounds the work a caller makes the database do, not a guess.
 RESUME_PER_CALLER = SignInLimit("resume:caller", attempts=300, window=timedelta(minutes=15))
 # A vendor checking in on their page sends the door code (``api/vendor_check_in.py``): every try is
-# bounded per signed-in address, and only the WRONG codes are bounded per caller, so a vendor at
-# home cannot guess the code from the poster's alphabet while a venue's shared address still checks
-# every vendor in.
+# bounded per signed-in address, and by nothing per caller. A venue's wifi is one caller for every
+# vendor there, and a count of its wrong codes refused a right code after strangers' wrong ones, so
+# it was dropped (T318); the counters it left under ``check-in:caller`` are never read and expire.
+# The sign-in for the market and a seat on a day in reach bound a guess with this limit.
 CHECK_IN_PER_ADDRESS = SignInLimit("check-in:address", attempts=10, window=timedelta(minutes=15))
-CHECK_IN_PER_CALLER = SignInLimit("check-in:caller", attempts=60, window=timedelta(minutes=15))
 # An organizer's password sign-in (``api/users.py``, ``/login``): every try is counted before the
 # account is looked up, and a try that signs in, or proves the password of an account not yet
 # verified, is taken back, so an organizer who signs in all day is never held back and only wrong
@@ -107,7 +107,6 @@ LIMITS = (
     VERIFY_CODE_PER_CALLER,
     RESUME_PER_CALLER,
     CHECK_IN_PER_ADDRESS,
-    CHECK_IN_PER_CALLER,
     PASSWORD_PER_ADDRESS,
     PASSWORD_PER_CALLER,
     ORGANIZER_CODE_PER_ADDRESS,
@@ -149,20 +148,6 @@ def _window(limit: SignInLimit, subject: str, now: datetime) -> Tuple[str, datet
     window_ends = datetime.fromtimestamp((window + 1) * window_seconds, tz=timezone.utc)
     key = hashlib.sha256(f"{limit.name}\0{subject}\0{window}".encode()).hexdigest()
     return key, window_ends
-
-
-def over_limit(limit: SignInLimit, subject: str, now: Optional[datetime] = None) -> Optional[int]:
-    """Whether ``subject`` has already used all of ``limit``, without counting anything.
-
-    Returns None while the window's count is below the limit, and otherwise the whole seconds
-    until the window ends, as ``count_attempt`` does.
-    """
-    now = now or datetime.now(timezone.utc)
-    key, window_ends = _window(limit, subject, now)
-    counter = attempts_collection.find_one({"_id": key})
-    if not counter or counter[COUNT_FIELD] < limit.attempts:
-        return None
-    return max(1, math.ceil((window_ends - now).total_seconds()))
 
 
 def count_attempt(limit: SignInLimit, subject: str, now: Optional[datetime] = None) -> Optional[int]:

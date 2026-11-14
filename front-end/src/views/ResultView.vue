@@ -12,7 +12,13 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { api, getApiErrorMessage, getApiErrorStatus, isMarketChanged } from '@/utils/api';
+import {
+  api,
+  getApiErrorMessage,
+  getApiErrorStatus,
+  isMarketChanged,
+  isVendorHere,
+} from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { signedInEmail } from '@/utils/signedIn';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
@@ -290,6 +296,20 @@ const openSeat = ref<OpenSeat | null>(null);
 const placementBusy = ref(false);
 const placementError = ref('');
 
+/** Which change the server asked about first: its dialog's button says "Free anyway" and so on. */
+type HereChange = 'free' | 'move' | 'swap';
+
+/**
+ * A change the server asked about first, because a vendor it frees, moves or swaps has checked in
+ * that day (T318): its sentence, which change, and the same request sent again with `whileHere`.
+ */
+const hereQuestion = ref<{ sentence: string; change: HereChange; send: () => void } | null>(null);
+/** What the dialog asks with: the sentence and which change, never the request. */
+const hereAsked = computed(() => {
+  const asked = hereQuestion.value;
+  return asked ? { sentence: asked.sentence, change: asked.change } : null;
+});
+
 /*
  * The tables stay up through the read a placement brings, and one change can move other vendors, so
  * until that read lands a seat says what it held. A press then opens nothing, or the dialog would act
@@ -298,12 +318,14 @@ const placementError = ref('');
 function openPlace(row: MarketTableRow, seat: Seat | null): void {
   if (isLoading.value) return;
   placementError.value = '';
+  hereQuestion.value = null;
   openSeat.value = { mode: 'place', row, seat, occupantEmail: null };
 }
 
 function openOccupied(row: MarketTableRow, email: string): void {
   if (isLoading.value) return;
   placementError.value = '';
+  hereQuestion.value = null;
   openSeat.value = { mode: 'occupied', row, seat: seatHeldBy(row, email), occupantEmail: email };
 }
 
@@ -323,6 +345,7 @@ const readOnly = computed(() => !mayTake(market.value, MarketAction.Assign));
 function closePlacement(): void {
   openSeat.value = null;
   placementError.value = '';
+  hereQuestion.value = null;
 }
 
 /** From the seat's dialog to the drawer of whoever holds it. */
@@ -371,11 +394,21 @@ function rereadTheTables(): Promise<unknown> {
   return Promise.all([loadTables(), details.loaded.value ? details.load() : Promise.resolve()]);
 }
 
-async function runPlacementChange(change: () => Promise<unknown>): Promise<void> {
+/**
+ * Send one change, `send(whileHere)`. A change the server asks about first (`isVendorHere`) puts
+ * its sentence in the dialog with `change`'s confirming button, and confirming sends it again with
+ * `whileHere: true`; nothing changed on the server, so nothing is read again (T318).
+ */
+async function runPlacementChange(
+  change: HereChange,
+  send: (whileHere: boolean) => Promise<unknown>,
+  whileHere = false,
+): Promise<void> {
   placementBusy.value = true;
   placementError.value = '';
+  hereQuestion.value = null;
   try {
-    await change();
+    await send(whileHere);
     closePlacement();
     // Re-read rather than patch the grid in place: the solver places everyone else around a pin,
     // so one change can move other vendors, and a locally patched grid would show a floor plan
@@ -383,6 +416,14 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
     // store re-reads the market too (E21/F02/S04): anything else showing it follows.
     await Promise.all([rereadTheTables(), refreshMarket()]);
   } catch (err: unknown) {
+    if (isVendorHere(err) && !whileHere) {
+      hereQuestion.value = {
+        sentence: getApiErrorMessage(err, 'That change could not be saved.'),
+        change,
+        send: () => void runPlacementChange(change, send, true),
+      };
+      return;
+    }
     placementError.value = getApiErrorMessage(err, 'That change could not be saved.');
     // A conflict says the page held tables the server no longer does: a seat taken meanwhile, or
     // another change to the market landed first and this one stored nothing (ADR 0024). The dialog
@@ -401,15 +442,22 @@ function placementsUrl(): string {
   return `/markets/${encodeURIComponent(marketId.value)}/placements`;
 }
 
+/** A change's body, with `whileHere: true` once the organizer has said to go ahead (T318). */
+function withWhileHere<T extends object>(body: T, whileHere: boolean): T {
+  return whileHere ? { ...body, whileHere } : body;
+}
+
 /**
  * The one placement write: a vendor into one seat on the open seat's date, replacing whatever they
- * held that date. A placement and a move are both this request.
+ * held that date. A placement and a move are both this request; the server asks first only of a
+ * move, so its question is a move's.
  */
 function putPlacement(email: string, tableCode: string, tableChoice: Seat): void {
   const seat = openSeat.value;
   if (!seat) return;
-  void runPlacementChange(() =>
-    api.put(placementsUrl(), { email, date: seat.row.date, tableCode, tableChoice }),
+  const body = { email, date: seat.row.date, tableCode, tableChoice };
+  void runPlacementChange('move', (whileHere) =>
+    api.put(placementsUrl(), withWhileHere(body, whileHere)),
   );
 }
 
@@ -474,17 +522,17 @@ function freeSeat(deductOwed: boolean): void {
     date: seat.row.date,
     ...(deductOwed && { deductOwed }),
   };
-  void runPlacementChange(() => api.delete(placementsUrl(), { data }));
+  void runPlacementChange('free', (whileHere) =>
+    api.delete(placementsUrl(), { data: withWhileHere(data, whileHere) }),
+  );
 }
 
 function swapSeats(withEmail: string): void {
   const seat = openSeat.value;
   if (!seat?.occupantEmail) return;
-  void runPlacementChange(() =>
-    api.post(`${placementsUrl()}/swap`, {
-      date: seat.row.date,
-      emails: [seat.occupantEmail, withEmail],
-    }),
+  const body = { date: seat.row.date, emails: [seat.occupantEmail, withEmail] };
+  void runPlacementChange('swap', (whileHere) =>
+    api.post(`${placementsUrl()}/swap`, withWhileHere(body, whileHere)),
   );
 }
 </script>
@@ -720,11 +768,13 @@ function swapSeats(withEmail: string): void {
       :busy="placementBusy"
       :errorMessage="placementError"
       :deduction="deduction"
+      :question="hereAsked"
       :resultsOut="resultsAreOut(market?.allocation)"
       @place="placeVendor"
       @free="freeSeat"
       @swap="swapSeats"
       @move="moveOccupant"
+      @anyway="hereQuestion?.send()"
       @view="viewOccupant"
       @close="closePlacement"
     />

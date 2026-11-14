@@ -1,16 +1,19 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
-import { forgetSignInAttempts, vendorToken } from './helpers/vendorSignIn';
+import { calendarToday, forgetSignInAttempts, vendorToken } from './helpers/vendorSignIn';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 import { transitionMarket } from './helpers/seedPhaseMarket';
 
 /**
  * The door on market day (E29/F01). Attendance listed only the vendors who had checked in, by
  * email, so the organizer at the door could not say who was missing (known gap 3), and could not
- * check a vendor in themselves. The seed places alice and bob on one date: a date still to come,
- * where the door is, unless a test is about a day that is over.
+ * check a vendor in themselves. The seed places alice and bob on one date: today, where the door
+ * is, since the door takes no check-in for a day that has not begun (T318).
  */
-const ON_THE_DAY = '2099-05-02';
+const ON_THE_DAY = calendarToday();
+const [YEAR, MONTH, DAY] = ON_THE_DAY.split('-').map(Number) as [number, number, number];
+/** Noon on the day after, on the browser's calendar: the market's day is over. */
+const THE_DAY_AFTER = new Date(YEAR, MONTH - 1, DAY + 1, 12);
 test.describe('The door on market day', () => {
   test('Attendance lists everyone expected on the day, and who has come', async ({
     authenticatedPage: ownerPage,
@@ -65,7 +68,7 @@ test.describe('The door on market day', () => {
       TEST_USER.password,
       { marketDate: ON_THE_DAY },
     );
-    await page.clock.setFixedTime(new Date('2099-05-03T12:00:00Z'));
+    await page.clock.setFixedTime(THE_DAY_AFTER);
     const attendance = new AttendanceStatusPage(page);
 
     for (const when of ['running', 'archived']) {

@@ -8,6 +8,7 @@ vendor page are one kind of record, so both count. ``None`` until the market has
 Days, as nobody checks in before.
 """
 import copy
+from datetime import date as Date
 
 import pytest
 
@@ -55,6 +56,8 @@ def seated(monkeypatch, applications, market_records):
                          "table_choice": choice},
                 EDITOR)
         live.doc["phase"] = phase.value
+        # The market's days have begun, so the door takes a check-in for either of them.
+        monkeypatch.setattr(AttendanceApi, "today", lambda: Date.fromisoformat(SUN))
         return live
     return on
 
@@ -126,8 +129,10 @@ class TestCheckIn:
         assert stats()["checkIn"]["came"] == 0
 
     def test_an_archived_market_that_ran_keeps_its_counts(self, seated):
-        seated(MarketPhase.ARCHIVED, reached=[*REACHED_MARKET_DAYS, "archived"])
+        live = seated(reached=[*REACHED_MARKET_DAYS, "archived"])
         AttendanceApi.record_attendance(MARKET, ANA, SUN, checked_in_by=EDITOR)
+        # Archived after its days, as a market is: nobody checks in at an archived one.
+        live.doc["phase"] = MarketPhase.ARCHIVED.value
 
         check_in = stats()["checkIn"]
 

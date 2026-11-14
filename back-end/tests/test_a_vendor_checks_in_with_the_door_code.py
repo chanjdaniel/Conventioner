@@ -7,6 +7,7 @@ the entrance, which proves they are there. Every way it cannot pass writes nothi
 The old public check-in endpoints are gone.
 """
 import copy
+import re
 import time
 from datetime import date
 from types import SimpleNamespace
@@ -51,7 +52,7 @@ def world(monkeypatch, market_records):
         monkeypatch.setattr(module, "markets_collection", markets)
     monkeypatch.setattr(AttendanceApi, "attendance_collection", attendance)
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_k: {"markets": markets})
-    monkeypatch.setattr(VendorCheckIn, "today", lambda: date.fromisoformat(TODAY))
+    monkeypatch.setattr(AttendanceApi, "today", lambda: date.fromisoformat(TODAY))
 
     def market(phase=MarketPhase.MARKET_DAYS, intake_mode="form", reached=None, **overrides):
         record = [{"phase": p, "enteredAt": "2099-05-01T00:00:00+00:00", "by": "o@x"}
@@ -150,15 +151,15 @@ class TestACheckInRacingAnother:
     """
 
     def test_the_one_that_loses_lands_on_the_winners_record(self, client, world, monkeypatch):
-        the_upsert = world.attendance.update_one
+        the_upsert = world.attendance.find_one_and_update
 
         def an_organizer_taps_first(*_args, **_kwargs):
             # The organizer's tap inserts between this check-in's read and its insert.
-            monkeypatch.setattr(world.attendance, "update_one", the_upsert)
+            monkeypatch.setattr(world.attendance, "find_one_and_update", the_upsert)
             AttendanceApi.record_attendance(MARKET, VENDOR, TODAY, "door@example.com")
             raise DuplicateKeyError("E11000 duplicate key error")
 
-        monkeypatch.setattr(world.attendance, "update_one", an_organizer_taps_first)
+        monkeypatch.setattr(world.attendance, "find_one_and_update", an_organizer_taps_first)
 
         response = check_in(client)
 
@@ -173,7 +174,7 @@ class TestACheckInRacingAnother:
         def refused(*_args, **_kwargs):
             raise DuplicateKeyError("E11000 duplicate key error")
 
-        monkeypatch.setattr(world.attendance, "update_one", refused)
+        monkeypatch.setattr(world.attendance, "find_one_and_update", refused)
 
         with pytest.raises(DuplicateKeyError):
             AttendanceApi.record_attendance(MARKET, VENDOR, TODAY)
@@ -267,15 +268,18 @@ class TestEveryOtherWayWritesNothing:
 class TestAttemptsAreBounded:
     def test_an_address_gets_ten_tries_in_a_quarter_hour(self, client, world):
         for _ in range(10):
-            check_in(client, {"date": TODAY, "doorCode": "WRONG1"})
+            assert check_in(client, {"date": TODAY, "doorCode": "WRONG1"}).status_code == 403
 
         refused = check_in(client)
 
         assert refused.status_code == 429
         assert refused.headers["Retry-After"]
+        assert re.fullmatch(
+            r"Too many check-in attempts\. Please try again in (1 minute|\d+ minutes)\.",
+            refused.get_json()["error"])
         assert world.attendance.documents == []
 
-    def test_a_caller_checks_in_more_than_sixty_right_codes(self, client, world):
+    def test_one_network_checks_in_more_than_sixty_vendors(self, client, world):
         emails = [f"v{n}@example.com" for n in range(65)]
         world.market(assignmentObject={"vendorAssignments": [
             {**SEATS[0], "email": email} for email in emails]})
@@ -285,7 +289,9 @@ class TestAttemptsAreBounded:
         assert set(statuses) == {200}
         assert len(world.attendance.documents) == 65
 
-    def test_a_caller_gets_sixty_wrong_codes_then_no_right_one(self, client, world):
+    def test_a_venues_wrong_codes_never_refuse_another_vendors_right_one(self, client, world):
+        """A venue's wifi is one network address: a stale poster, or many vendors' typos, from it
+        must not stop a vendor on the same network whose code is right (T318)."""
         emails = [f"v{n}@example.com" for n in range(61)]
         world.market(assignmentObject={"vendorAssignments": [
             {**SEATS[0], "email": email} for email in emails]})
@@ -293,21 +299,30 @@ class TestAttemptsAreBounded:
 
         first = [check_in(client, wrong, signed_in(email=e)).status_code for e in emails[:60]]
         right = check_in(client, headers=signed_in(email=emails[60]))
-        sixty_first = check_in(client, wrong, signed_in(email=emails[0]))
 
         assert set(first) == {403}
-        assert sixty_first.status_code == 429
-        assert sixty_first.headers["Retry-After"]
-        assert right.status_code == 429
-        assert world.attendance.documents == []
+        assert right.status_code == 200, right.get_json()
+        roster = AttendanceApi.attendance_roster(world.markets.doc)["roster"]
+        [arrived] = [row for row in roster if row["checkedInAt"]]
+        assert arrived["vendorEmail"] == emails[60]
+        assert arrived["checkedInVia"] == "door_code"
 
-    def test_the_limits_are_named_and_listed(self):
-        assert sign_in_limits.CHECK_IN_PER_ADDRESS.name == "check-in:address"
+    @pytest.mark.parametrize("code", [CODE, "WRONG1"])
+    def test_only_the_signed_in_address_bounds_a_check_in(self, client, world, monkeypatch, code):
+        touched = []
+        real = sign_in_limits.count_attempt
+        monkeypatch.setattr(
+            sign_in_limits, "count_attempt",
+            lambda limit, subject, *a, **k: (
+                touched.append((limit.name, subject)) or real(limit, subject, *a, **k)))
+
+        check_in(client, {"date": TODAY, "doorCode": code})
+
+        assert touched == [("check-in:address", VENDOR)]
         assert sign_in_limits.CHECK_IN_PER_ADDRESS.attempts == 10
-        assert sign_in_limits.CHECK_IN_PER_CALLER.name == "check-in:caller"
-        assert sign_in_limits.CHECK_IN_PER_CALLER.attempts == 60
-        assert sign_in_limits.CHECK_IN_PER_ADDRESS in sign_in_limits.LIMITS
-        assert sign_in_limits.CHECK_IN_PER_CALLER in sign_in_limits.LIMITS
+        assert sign_in_limits.CHECK_IN_PER_ADDRESS.window.total_seconds() == 15 * 60
+        assert [limit.name for limit in sign_in_limits.LIMITS
+                if limit.name.startswith("check-in:")] == ["check-in:address"]
 
 
 class TestUndo:
@@ -362,7 +377,7 @@ class TestUndoIsBoundedAsCheckInIs:
 
     def test_not_a_past_days(self, client, world, monkeypatch):
         check_in(client)
-        monkeypatch.setattr(VendorCheckIn, "today", lambda: date.fromisoformat("2099-08-03"))
+        monkeypatch.setattr(AttendanceApi, "today", lambda: date.fromisoformat("2099-08-03"))
 
         response = undo(client)
 

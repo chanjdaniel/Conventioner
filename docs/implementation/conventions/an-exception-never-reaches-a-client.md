@@ -120,6 +120,7 @@ sources:
   - T274
   - T311
   - T315
+  - T318
 ---
 
 # An exception never reaches a client
@@ -185,6 +186,7 @@ Its own types are client errors too:
 - [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) raises `BadRequestError` and `ForbiddenError`, and `NotFoundError` for "Organization not found", which every organization route answers 404; `OrganizationHasLiveMarkets` is a 409 whose `body()` names the blocking markets ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)).
 - [`back-end/organization_people.py`](../../../back-end/organization_people.py), the one writer of an organization's people, raises the table's `BadRequestError`, `ForbiddenError` and `NotFoundError`, and `OrganizationChanged`, a 409 whose `body()` adds `code: "organization_changed"`, for a change that met another ([the organization's people](../modules/organization-people.md)).
 - [Placements](../modules/placements.md): `PlacementError` is a `BadRequestError`, `SeatTakenError` one with status 409, and `AssignPhaseError` a `ConflictError`.
+- [Placements](../modules/placements.md): `VendorIsHere` is a `ConflictError` whose `body()` adds `code: "vendor_is_here"`, a free, a move or a swap of a vendor who has checked in that day, asked first (T318).
 - `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError`, in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py) ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 - The vendor export's `ExportInvalid` is a `BadRequestError`, in [`back-end/api/vendor_export.py`](../../../back-end/api/vendor_export.py).
 - Updating a vendor's info refuses with `BadRequestError` (an answer the form refuses, a question it does not ask), `ForbiddenError` (an answer the assignment or a price group reads, to whoever the row "Update info the assignment or price reads" refuses, before the answer is judged) and `NotFoundError` (an application not on the market), in [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py).

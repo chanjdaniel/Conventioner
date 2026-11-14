@@ -19,6 +19,7 @@ sources:
   - T202
   - T251
   - T273
+  - T318
 ---
 
 # A vendor signs in before they have applied
@@ -79,7 +80,8 @@ A refused attempt still counts.
 So at most 10 guesses per address per 15 minutes reach a six-digit code, however many codes are asked for, and each code takes at most five of them.
 A resume is counted per caller only, 300 per 15 minutes (`resume:caller`), before the cookie is read: its secret is 32 random bytes, so the limit bounds the work a caller asks of the database, not a guess.
 Past it the page asks for a code, as it does for no cookie.
-A vendor's check-in with the door code is bounded differently: 10 tries per signed-in address and 60 wrong door codes per caller per 15 minutes (`check-in:address`, `check-in:caller`), so a venue's shared address checks every vendor in rightly and the undo counts nothing, and a vendor at home cannot guess the code ([attendance and the door](../../implementation/modules/attendance-and-door.md#sharp-edges)).
+A vendor's check-in with the door code is bounded differently: 10 tries per signed-in address per 15 minutes (`check-in:address`), right code or wrong, and nothing per caller, and the undo counts nothing ([attendance and the door](../../implementation/modules/attendance-and-door.md#sharp-edges)).
+A venue's wifi is one caller for every vendor on it, so a per-caller count of wrong door codes, which this rule had until T318, refused a right code after strangers' wrong ones; with it gone, nothing one vendor types stops another, and a guess at the code is bounded by that vendor's own count, their sign-in for the market and a seat on a day in reach ([ADR 0022](../../adr/0022-the-vendor-page-is-signed-in.md)).
 
 - **The counters live in the database, never in a process**: a serverless deployment forgets memory.
   One document per limit, subject and fixed clock-aligned window in `sign_in_attempts`, counted by an atomic `$inc` upsert and removed by a TTL index ([lookup indexes](../../implementation/data/lookup-indexes.md)).

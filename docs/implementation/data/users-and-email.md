@@ -46,7 +46,7 @@ describes:
   - back-end/tests/real_mongo/test_the_sign_in_secret_races.py
   - back-end/tests/test_the_organizer_sessions_are_indexed.py
   - back-end/tests/real_mongo/test_organizer_sessions_on_the_server.py
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - E32/F03/S04
   - T85

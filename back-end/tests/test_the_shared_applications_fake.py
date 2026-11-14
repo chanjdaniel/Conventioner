@@ -286,6 +286,17 @@ def test_delete_one_takes_the_matching_document_not_an_equal_one():
     assert collection.documents[0] is second and first is not second
 
 
+def test_find_one_and_delete_answers_the_document_it_deleted():
+    collection = _storing([{"_id": 1, "a": 1}, {"_id": 2, "a": 2}])
+
+    deleted = collection.find_one_and_delete({"a": 2})
+
+    assert deleted == {"_id": 2, "a": 2}
+    assert collection.documents == [{"_id": 1, "a": 1}]
+    assert collection.find_one_and_delete({"a": 3}) is None
+    assert collection.documents == [{"_id": 1, "a": 1}]
+
+
 def test_an_id_equal_as_a_number_is_a_duplicate():
     collection = FakeApplicationsCollection()
     collection.insert_one({"_id": 1})

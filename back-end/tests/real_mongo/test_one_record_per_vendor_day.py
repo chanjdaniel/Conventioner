@@ -13,6 +13,7 @@ index, so its refusal comes back, and ``payments.keep_freed_line``'s retry is wh
 staged test below makes every free meet it.
 """
 import threading
+from datetime import date
 from typing import Any, Dict, List
 
 import pytest
@@ -181,12 +182,15 @@ class TestOneOwedRecordPerVendorDay:
 
 class TestOneCheckInPerVendorDay:
     def test_twenty_check_ins_at_once_leave_one_record_and_one_arrival(
-            self, boot_indexes, real_db, market_records, race):
+            self, boot_indexes, real_db, market_records, race, monkeypatch):
         real_db["markets"].insert_one({
             "id": MARKET,
+            "phase": "market_days",
             "assignmentObject": {"vendorAssignments": [{"email": VENDOR, "date": DAY,
                                                         "tableCode": "Main Hall 1"}]},
         })
+        # The market's day has begun: the door takes no check-in for a day that has not.
+        monkeypatch.setattr(AttendanceApi, "today", lambda: date.fromisoformat(DAY))
         harness.warm(market_records.attendance, 20)
 
         answered = race(20, lambda i: AttendanceApi.record_attendance(
