@@ -392,7 +392,7 @@ def _sign_in(login_user, user_doc, remember: bool):
     """Sign the account in for one of the two lengths, giving it a login id at its first sign-in.
 
     The sign-in the browser held before is ended first, whoever's it was, and the sign-in starts a
-    fresh session (``start_a_fresh_session``); the new one is kept on the server
+    fresh session (``start_a_fresh_session``); the new sign-in is kept on the server
     (``organizer_sessions``) under the account's login id. The login id is written only where none
     is stored, then read back, so two first sign-ins at once agree on one.
     """
