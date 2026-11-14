@@ -49,6 +49,7 @@ sources:
   - T284
   - T257
   - T315
+  - T318
 ---
 
 # E2E patterns
@@ -151,8 +152,9 @@ Markets' search is drawn only past 12 markets or while the address holds words, 
 **A spec ends an organizer's session on the server**: `mongoEval` unsets the user's `login_id`, so the cookie names a login no account holds and the next request answers 401, as after a password reset; the next sign-in gives the account a new one.
 `context.clearCookies()` ends it only in the browser: the stack keeps its sessions on disk, where it stays until it lapses.
 
-**A call made with a page's cookies goes to `APP_API`, never `BACKEND_URL`** (E38/F14/S01).
-The back end holds a session to the client that signed in, its address and browser (Flask-Login's "strong" session protection, [the cookies](../conventions/security-invariants.md#the-cookies)), and on a stack the page reaches it through the dev server's proxy while the back end's own port is another address, so a `page.request` there is refused as signed out (the page's session stays, [a refused request ends no sign-in](../conventions/security-invariants.md#the-cookies)).
+**A call made with a page's cookies goes to `APP_API`, as the page's own calls do** (E38/F14/S01).
+`APP_API` is the address the app's pages call the API at, through the dev server's proxy, so such a call reaches the back end the way the page's do.
+Until T318 a `page.request` at `BACKEND_URL` was refused as signed out, since the back end held a session to the client's address as well as its browser; it holds it to the browser string alone now ([the cookies](../conventions/security-invariants.md#the-cookies)), so one there is taken too, but no spec relies on that.
 A page of another browser context (`withUser()`'s) is a page too; a request context of its own (the `request` fixture, `playwright.request.newContext()`) is a client of its own, and may call either.
 A request with no cookie at all answers 401; [`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds that, from a page of the app's origin that runs none of its code.
 
