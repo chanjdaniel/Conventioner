@@ -61,7 +61,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **MongoDB 8.0 in production, 7 locally and in CI** - NoSQL document database
   - Primary data storage
   - The local stack and CI run `mongo:7` while production runs 8.0, for the reason in [the MongoDB version](implementation/testing/real-mongo-suite.md#the-mongodb-version)
-  - Collections: [the data nodes](implementation/data/README.md) describe the stored documents, [lookup indexes](implementation/data/lookup-indexes.md) names every collection an index is built on, and [market deletion](implementation/modules/market-deletion.md#sharp-edges) every one a market's records are deleted from
+  - Collections: `APP_COLLECTIONS` in [`back-end/reset_database.py`](../back-end/reset_database.py) lists every collection the application writes and `GRIDFS_BUCKETS` its GridFS buckets, `schema_migrations` kept out of them on purpose; [the data nodes](implementation/data/README.md) describe the stored documents, [lookup indexes](implementation/data/lookup-indexes.md) names the indexes the back end builds as it boots, and [market deletion](implementation/modules/market-deletion.md#sharp-edges) every collection a market's records are deleted from
   - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
 
