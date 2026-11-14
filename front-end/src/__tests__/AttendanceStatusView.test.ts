@@ -481,11 +481,36 @@ describe('where each vendor stands (T318)', () => {
     );
     const wrapper = await open();
 
-    expect(chip(wrapper, ANA).text()).toMatch(/^Scanned in at .+, at table A7$/);
+    expect(chip(wrapper, ANA).text()).toMatch(/^Scanned in at .+, at table\u00a0A7$/);
     expect(chip(wrapper, ANA).classes()).toContain('chip--attention');
     expect(table(wrapper, ANA)).toBe('Table A1, a whole table');
     expect(chip(wrapper, BEN).classes()).toContain('chip--positive');
     expect(wrapper.get('[data-testid="attendance-summary"]').text()).toBe('2 of 2 checked in');
+  });
+
+  it('the table they checked in at is never broken across lines, on screen or on paper', async () => {
+    serveRoster(() =>
+      Promise.resolve({
+        data: {
+          dates: [TODAY],
+          roster: [
+            row(ANA, 'A1', {
+              state: 'here_elsewhere',
+              checkedInTableCode: 'Hall B 12',
+              checkedInAt: ARRIVED,
+            }),
+          ],
+        },
+      }),
+    );
+    const wrapper = await open();
+
+    // "table Hall B 12" is one unbreakable run: a no-break space between each of its words. The
+    // sheet is teleported to the page's body.
+    expect(chip(wrapper, ANA).text()).toMatch(/, at table\u00a0Hall\u00a0B\u00a012$/);
+    expect(document.querySelector('[data-testid="attendance-print-here"]')?.textContent).toMatch(
+      /, at table\u00a0Hall\u00a0B\u00a012$/,
+    );
   });
 
   it('a vendor here with no table that day is listed under the seated rows, counted apart', async () => {

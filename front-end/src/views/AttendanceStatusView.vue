@@ -239,8 +239,12 @@ function status(row: RosterRow): string {
   if (!row.checkedInAt) return notHere.value;
   const at = getTimestampTime(row.checkedInAt);
   const arrived = arrival(row, at);
-  // Here, but at a table they no longer hold: say which, so they are sent to their new one.
-  if (row.state === 'here_elsewhere') return `${arrived}, at table ${row.checkedInTableCode}`;
+  // Here, but at a table they no longer hold: say which, so they are sent to their new one. The
+  // table is one unbreakable run ("table Hall B 12"), so a narrow chip or the paper's column never
+  // leaves its last word on a line alone.
+  if (row.state === 'here_elsewhere') {
+    return `${arrived}, at ${`table ${row.checkedInTableCode}`.replaceAll(' ', '\u00a0')}`;
+  }
   return arrived;
 }
 

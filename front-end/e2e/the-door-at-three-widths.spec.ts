@@ -156,7 +156,9 @@ for (const size of THREE_WINDOWS) {
 
       // Where each stands: three seats today, and the vendor freed while here under them.
       await expect(door.status(MOVED)).toHaveText(
-        new RegExp(`^\\d{1,2}:\\d{2}\\s[AP]M by you, at table ${movedFrom}$`),
+        new RegExp(
+          `^\\d{1,2}:\\d{2}\\s[AP]M by you, at table\\s${movedFrom.replaceAll(' ', '\\s')}$`,
+        ),
       );
       await expect(door.status(MOVED)).toHaveClass(/chip--attention/);
       await expect(door.unseatedHeading).toHaveText('Checked in, with no table on this date (1)');
