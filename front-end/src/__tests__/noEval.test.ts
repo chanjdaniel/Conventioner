@@ -1,7 +1,8 @@
 // @vitest-environment node
 /**
  * A build evaluates no string as script (T84): the Content-Security-Policy has no `'unsafe-eval'`,
- * and with no reporting endpoint, a call that only production would report reaches nobody.
+ * so a call the policy refuses breaks the tab, and with no reporting endpoint only that tab's
+ * console shows it.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';

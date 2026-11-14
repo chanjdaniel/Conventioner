@@ -97,7 +97,7 @@ function assertNoLocalHatchOnVercel(env: Record<string, string>) {
  * The headers `vercel.json` sends on every path, so `vite preview` serves a production build under
  * the same security headers and Content-Security-Policy as production does. `vercel.json` is the one
  * place they are declared; walk a page with `npm run build-only && npm run preview` to see what the
- * policy would report there.
+ * policy refuses there.
  */
 function deployedHeaders(): Record<string, string> {
   const vercel = JSON.parse(readFileSync(new URL('./vercel.json', import.meta.url), 'utf8')) as {
