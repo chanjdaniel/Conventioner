@@ -23,6 +23,8 @@ const PEOPLE = {
 
 const CHANGE_REFUSED =
   'Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market.';
+const OWNER_CHANGES =
+  "Only the market's owner may change a verdict or overturn an automatic rejection on this market.";
 
 let marketId = '';
 
@@ -113,5 +115,53 @@ test('an Admin changes a verdict already given', async ({ browser }) => {
     await expect(all.drawerChangeReason).toHaveCount(0);
     await all.drawerButton('reject').click();
     await expect(all.statusOf('ben@ember.test')).toHaveText('Rejected');
+  });
+});
+
+/**
+ * The lock follows the market's table, not the role's name: with the change row raised to the
+ * owner, an Admin's All view locks a decided row as an Editor's does, and says who may change it.
+ */
+test('an Admin is offered no change where the market keeps it to the owner', async ({
+  browser,
+  request,
+}) => {
+  const { marketId: ownersOnly } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, ownersOnly, 'applications');
+  seedApplicationWithStatus(ownersOnly, 'reviewer_approved', 'ben@ember.test');
+  seedApplicationWithStatus(ownersOnly, 'open', 'dina@moss.test');
+  const granted = await request.post(`${BACKEND_URL}/markets/${ownersOnly}/roles`, {
+    data: { user_email: PEOPLE.admin.email, role: 'admin' },
+  });
+  expect(granted.ok(), await granted.text()).toBeTruthy();
+  const raised = await request.put(
+    `${BACKEND_URL}/markets/${ownersOnly}/permissions/change-verdicts`,
+    {
+      data: { role: 'owner' },
+    },
+  );
+  expect(raised.ok(), await raised.text()).toBeTruthy();
+
+  await withUser(browser, PEOPLE.admin.email, PEOPLE.admin.password, async (page) => {
+    const all = new ApplicationsAllPage(page);
+    await all.goto(ownersOnly);
+    await expect(all.row('ben@ember.test')).toBeVisible({ timeout: 15000 });
+    await expect(all.changeReason).toHaveText(OWNER_CHANGES);
+    await expect(all.tickOf('ben@ember.test')).toBeDisabled();
+    await expect(all.tickOf('ben@ember.test')).toHaveAccessibleName(
+      `ben@ember.test: ${OWNER_CHANGES}`,
+    );
+    await expect(all.tickOf('dina@moss.test')).toBeEnabled();
+
+    await all.open('ben@ember.test');
+    await expect(all.drawerChangeReason).toHaveText(OWNER_CHANGES);
+    await expect(all.drawerButton('approve')).toHaveCount(0);
+    await expect(all.drawerButton('reject')).toHaveCount(0);
   });
 });
