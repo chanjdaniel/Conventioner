@@ -1343,6 +1343,24 @@ describe('what an entry opens to', () => {
     expect(updated(false, true)).toEqual([{ field: 'Returned by rules', value: 'yes' }]);
   });
 
+  it('says nothing of the automatic rejections when an import’s rows met none of them', () => {
+    const imported = (rejected: number, returned: number) =>
+      entryChanges(
+        entry({
+          action: 'import-applications',
+          kind: 'imported',
+          detail: { created: 4, rejected_by_rules: rejected, returned_by_rules: returned },
+        }),
+      ).recorded;
+
+    expect(imported(0, 0)).toEqual([{ field: 'Created', value: '4' }]);
+    expect(imported(2, 1)).toEqual([
+      { field: 'Created', value: '4' },
+      { field: 'Rejected by rules', value: '2' },
+      { field: 'Returned by rules', value: '1' },
+    ]);
+  });
+
   it('lists kept answers in the form’s order, each read as the Application tab reads it', () => {
     const fields = [
       { key: 'student', label: 'Are you a student?' },
