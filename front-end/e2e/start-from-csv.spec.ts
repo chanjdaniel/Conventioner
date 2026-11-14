@@ -424,11 +424,10 @@ test.describe('Draft this market from a Google Form', () => {
     // the first import, and that import takes the column into it unasked (E38/F02/S02).
     const form = new ApplicationFormPage(page);
     await form.addQuestionFromFile('Review');
-    // Read as a tick-box, which would store every row as ticked: a Select keeps the two verdicts.
+    // Two answers nearly every row shares between them come back as a Select of both verdicts.
     const review = (await form.builder.locator('.field-item').count()) - 1;
     await expect(form.labelInput(review)).toHaveValue('Review');
-    await expect(form.typeSelect(review)).toHaveValue('checkbox');
-    await form.selectType(review, 'select');
+    await expect(form.typeSelect(review)).toHaveValue('select');
     await expect.poll(() => form.optionValues(review)).toEqual(['Accepted', 'Rejected']);
     await form.save();
     await expect(form.saveSuccess).toBeVisible();

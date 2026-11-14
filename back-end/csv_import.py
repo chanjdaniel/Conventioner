@@ -890,7 +890,7 @@ def _table_choice_in_words(text: str) -> Optional[str]:
 # The only answers that mean a box was left unticked. A Google Form exports a ticked box as the
 # box's own text ("I certify that...") and an unticked one as nothing at all, so reading only
 # "true"/"yes" as ticked refused every applicant on a required certification (bug 2).
-_UNTICKED = {"false", "no", "n", "0", "unchecked", "off"}
+UNTICKED = {"false", "no", "n", "0", "unchecked", "off"}
 
 
 def _coerce(
@@ -917,7 +917,7 @@ def _coerce(
         if field_type == "multi_select":
             return _split_multi(text, known)
         if field_type == "checkbox":
-            return bool(text) and text.casefold() not in _UNTICKED
+            return bool(text) and text.casefold() not in UNTICKED
         if field_type == "number":
             return text
     return text
