@@ -44,7 +44,7 @@ Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real k
 
 1. Go to `/login` and choose the Register tab.
 2. Enter email, password (at least 8 characters) and the same password again; choose "Create account".
-3. Expect a success message saying a verification link was emailed and that sign-in is impossible until it is followed.
+3. Expect a success message asking them to check their email to verify the account; the line under "Create account" already says sign-in waits until the emailed link is followed.
 4. Open the emailed link, which lands on `/verify-email`; expect confirmation and "Redirecting to sign in…"; three seconds later the page goes to sign in.
 5. Sign in (A2).
 
@@ -111,9 +111,9 @@ Covered by:
 Branches: wrong password, unverified account, too many tries, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the Markets list).
 A market link opened while signed out returns there after sign-in, by password or by code, rather than to the Markets list.
 A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
-A browser closed and reopened is signed out unless "Remember me" was ticked.
+A browser closed and reopened is signed out unless "Remember me" was ticked, or, if it restores its session cookies with its tabs, 12 hours after signing in.
 Signing in ends the sign-in the browser held before, whoever's it was, so a browser remembered for someone else, or remembered before an unticked sign-in, keeps no earlier sign-in on the server.
-Every sign-in starts a fresh session, signing back in by "Remember me" too, so no session cookie the browser held before it carries the new sign-in.
+Every sign-in by password or by code starts a fresh session, so no session cookie the browser held before it carries the new sign-in; signing back in by "Remember me" starts a fresh session too.
 
 Each form says one line at a time, the newer replacing the older, and says what to do next (E38/F14/S02):
 
@@ -150,7 +150,7 @@ Branches: a wrong code ("That code is not right."), which replaces the line sayi
 - A right code that has expired says "That code has expired. You can ask for a new code in N minutes.": a new code can be asked for an hour after the last one expired, whether it expired or five wrong tries discarded it, and once that wait is over it says "Ask for a new one." instead.
 - Asking for another code before then says "You can ask for a new code in N minutes.".
 - Two requests for a code at once, as a browser that sends one press twice makes, mail one code, the one that signs in, and the other is answered "You can ask for a new code in N minutes.".
-- A code that could not be mailed says "The sign-in code could not be sent. Please try again.", and asking again sends one at once.
+- A code that could not be mailed says "Something went wrong on our side. Try again in a moment.", as any fault of the server does, and asking again sends one at once.
 - Past five codes asked for one address in 15 minutes, or thirty from one caller, the next says "You have asked several times. Try again in N minutes.", the same for every address.
 - Past ten tries at one address in 15 minutes, or sixty from one caller, the next says "Too many sign-in attempts. Try again in N minutes, or reset your password.", the same for every address; a right code takes its own try back, as a right password does ([the sign-in is bounded](../../implementation/data/users-and-email.md#the-sign-in-is-bounded)).
 

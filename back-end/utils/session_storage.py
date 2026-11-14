@@ -131,7 +131,8 @@ def keeps_sessions_on_disk(app: Flask) -> bool:
 
 def start_a_fresh_session() -> None:
     """Empty this request's session and, on a store that keeps it, give it a new id: every sign-in
-    starts here, so no session cookie issued before it carries the sign-in.
+    starts here, so no session cookie issued before a sign-in by password or code carries the new
+    sign-in, and a restore by the remember cookie keeps nothing of the session it was sent.
 
     In the signed cookie (``null``) the cookie is the session, so the answer's cookie is a new one
     whatever it held. On disk the cookie only names a stored session, so the stored one is deleted

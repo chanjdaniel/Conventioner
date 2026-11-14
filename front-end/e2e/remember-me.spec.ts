@@ -13,9 +13,9 @@ import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
  * holds each to are pytest's (`test_the_remember_cookie.py`), which can move the clock.
  *
  * The sign-in is kept on the server (ADR 0029), so signing out ends it there: a copy of the
- * browser's cookies taken before is signed out with it. Every sign-in starts a fresh session, so
- * a copy of the session cookie the browser held before a sign-in is signed out by it: the stack
- * keeps sessions on disk, where the cookie only names the stored session.
+ * browser's cookies taken before is signed out with it. Every sign-in by password or by code
+ * starts a fresh session, so a copy of the session cookie the browser held before it is signed out
+ * by it: the stack keeps sessions on disk, where the cookie only names the stored session.
  */
 
 const REMEMBER_COOKIE = '__Host-organizer_remember';
