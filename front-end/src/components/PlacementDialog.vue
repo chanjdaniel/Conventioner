@@ -13,6 +13,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import { vendorLabel, vendorOption } from '@/utils/personChoice';
 import { type VendorNames } from '@/utils/vendorIdentity';
@@ -429,7 +430,7 @@ function findsToMove(option: PickerOption, words: string): boolean {
 
     <!-- In place of the choices, which were made: the server's sentence is the whole question. -->
     <p v-if="question" class="placement-question" data-testid="placement-dialog-here">
-      {{ question.sentence }}
+      <EmailAddress :words="question.sentence" />
     </p>
 
     <template v-else-if="mode === 'place'">
@@ -478,7 +479,9 @@ function findsToMove(option: PickerOption, words: string): boolean {
     <template v-else>
       <div class="placement-occupant-row">
         <p class="placement-occupant">
-          <strong data-testid="placement-dialog-occupant">{{ label(occupantEmail) }}</strong>
+          <strong data-testid="placement-dialog-occupant"
+            ><EmailAddress :words="label(occupantEmail)"
+          /></strong>
           holds this seat.
         </p>
         <button
@@ -574,7 +577,7 @@ function findsToMove(option: PickerOption, words: string): boolean {
         data-testid="placement-dialog-swap-warning"
       >
         <div v-for="side in swapWarnings" :key="side.email" :data-vendor-email="side.email">
-          <p class="placement-swap-name">{{ label(side.email) }}</p>
+          <p class="placement-swap-name"><EmailAddress :words="label(side.email)" /></p>
           <ul class="placement-warnings">
             <li v-for="warning in side.warnings" :key="warning">{{ warning }}</li>
           </ul>
@@ -588,8 +591,9 @@ function findsToMove(option: PickerOption, words: string): boolean {
       <label v-if="deduction" class="placement-radio placement-deduct">
         <input v-model="deductOwed" type="checkbox" data-testid="placement-dialog-deduct" />
         <span
-          >Also remove its {{ deduction.amount }} from what {{ deduction.name }} owes? (Cancelled
-          before the deadline: a refund may be due.)</span
+          >Also remove its {{ deduction.amount }} from what
+          <EmailAddress :words="deduction.name" /> owes? (Cancelled before the deadline: a refund
+          may be due.)</span
         >
       </label>
     </template>
@@ -600,7 +604,7 @@ function findsToMove(option: PickerOption, words: string): boolean {
       class="placement-results-out"
       data-testid="placement-dialog-results-out"
     >
-      {{ resultsOutNote }}
+      <EmailAddress :words="resultsOutNote" />
     </p>
 
     <!--
@@ -766,5 +770,12 @@ function findsToMove(option: PickerOption, words: string): boolean {
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--mm-black);
+}
+
+/* The base reset sets every element's weight, so a name's address, drawn by `EmailAddress` in spans
+   of its own, would not take the bold of the name around it. */
+.placement-occupant strong :deep(*),
+.placement-swap-name :deep(*) {
+  font-weight: 600;
 }
 </style>

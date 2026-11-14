@@ -311,6 +311,19 @@ function theDialog(props: Record<string, unknown> = {}) {
 }
 
 describe('the seat’s dialog, asking', () => {
+  it('breaks an address in the sentence only before its “@” or a dot, never at a hyphen', () => {
+    const sentence =
+      'door-here-1794628088744@example.test checked in at table A3 for May 1, 2099. ' +
+      'Their check-in stays recorded there.';
+    const wrapper = theDialog({ question: { sentence, change: 'free' } });
+
+    const question = wrapper.get('[data-testid="placement-dialog-here"]');
+    expect(question.text()).toBe(sentence);
+    expect(
+      [...question.element.querySelectorAll('.email-address')].map((part) => part.textContent),
+    ).toEqual(['door-here-1794628088744', '@example.test']);
+  });
+
   it.each([
     ['free', 'Free anyway', 'btn--destructive'],
     ['move', 'Move anyway', 'btn--primary'],

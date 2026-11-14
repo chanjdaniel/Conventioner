@@ -779,6 +779,27 @@ describe('a change after results are published', () => {
     );
   });
 
+  it('breaks the occupant’s address, in the note and the row, only before its “@” or a dot', () => {
+    const wrapper = dialog({
+      ...occupied,
+      occupantEmail: 'door-here-1794628088744@example.test',
+      resultsOut: true,
+    });
+
+    const parts = (testid: string) =>
+      [...wrapper.get(`[data-testid="${testid}"]`).element.querySelectorAll('.email-address')].map(
+        (part) => part.textContent,
+      );
+    expect(parts('placement-dialog-results-out')).toEqual([
+      'door-here-1794628088744',
+      '@example.test',
+    ]);
+    expect(parts('placement-dialog-occupant')).toEqual([
+      'door-here-1794628088744',
+      '@example.test',
+    ]);
+  });
+
   it('keeps saying it whichever change is chosen', async () => {
     const wrapper = dialog({ ...occupied, resultsOut: true });
     await wrapper.get('[data-testid="placement-dialog-action-swap"]').setValue(true);

@@ -796,10 +796,12 @@ async function decideSelection() {
               @click="drawer.open(app.applicantEmail)"
             >
               <span class="all-who">
-                <span class="all-name" data-testid="applications-all-name">{{
-                  nameOf(app) || app.applicantEmail
-                }}</span>
-                <span v-if="nameOf(app)" class="all-email">{{ app.applicantEmail }}</span>
+                <span class="all-name" data-testid="applications-all-name"
+                  ><EmailAddress :words="nameOf(app) || app.applicantEmail"
+                /></span>
+                <span v-if="nameOf(app)" class="all-email"
+                  ><EmailAddress :words="app.applicantEmail"
+                /></span>
               </span>
               <span v-if="leadingShown" class="all-leading">{{ leading(app) }}</span>
               <span class="all-state">
