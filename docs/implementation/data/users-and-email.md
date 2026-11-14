@@ -46,7 +46,7 @@ describes:
   - back-end/tests/real_mongo/test_the_sign_in_secret_races.py
   - back-end/tests/test_the_organizer_sessions_are_indexed.py
   - back-end/tests/real_mongo/test_organizer_sessions_on_the_server.py
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - E32/F03/S04
   - T85
@@ -62,6 +62,7 @@ sources:
   - T283
   - T311
   - T315
+  - T338
 ---
 
 # Users, and the one spelling of an address
@@ -99,6 +100,7 @@ Each signed-in request so costs one read more than the account's, the document b
 
 - Sign out (`logout`) ends this browser's sign-in on the server, then clears both cookies, so a copy of the browser's cookies taken before loads no one.
 - A sign-in first ends the sign-in the browser held, whoever's it was: the one its session names and the one its remember cookie names (`end_this_browsers_sign_ins`), so a browser remembered for someone else, or a sign-in without "Remember me" after one with it, leaves no earlier sign-in on the server.
+  It then starts a fresh session (`start_a_fresh_session`, [the cookies](../conventions/security-invariants.md#the-cookies)), so no session cookie the browser held before carries the new sign-in.
 - **A password reset replaces the login id**, in the same write as the new password ([the reset link used](#the-sign-in-secrets)), so every sign-in issued before the reset loads no one at once; `end_all` then removes the account's documents. An organizer who resets a password because a device was lost or shared is signed out on it, and signing in again works at once.
 - **Sign out everywhere replaces the login id** (`POST /logout-everywhere`, `logout_everywhere`), in one write filtered on the account's id, so every sign-in issued before loads no one at once, a legacy one included; `end_all` then removes the account's documents and `logout_user` clears both cookies in this browser ([the app bar](../modules/app-bar.md#sign-out-everywhere)).
   A failed write is the error handler's 500 and ends nothing; signing in again works at once.

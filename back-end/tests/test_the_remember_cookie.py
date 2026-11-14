@@ -18,6 +18,9 @@ out ends it there, a new sign-in in the browser ends the one it held, and Sign o
 a password reset end every one of the account's, so a copy of the browser's cookies stops working
 too.
 
+Every sign-in starts a fresh session, by password, by code or by the remember cookie, in the signed
+cookie and in the store on disk alike, so no session cookie issued before it carries the sign-in.
+
 For one release, a sign-in made before sign-ins were kept on the server still signs in: its id
 names the login id, the kind and the time, in the session or in the ``remember_token`` cookie. A
 replaced login id ends it, and a sign-in or sign-out deletes the old cookie.
@@ -696,6 +699,83 @@ def test_a_refused_sign_in_leaves_the_browsers_sign_in(client, users):
     assert refused.status_code == 401
     assert _signed_in(client)
     assert _signed_in(_reopened(client))
+
+
+# Every sign-in starts a fresh session, on each store the app keeps sessions in.
+
+@pytest.fixture(params=["in-the-cookie", "on-disk"])
+def every_store(request):
+    """Each session store a deployment may name: the signed cookie (``null``), which the tests'
+    app keeps, and the store on disk (``filesystem``). Returns the stored session behind a session
+    cookie on disk, and None in the cookie, where nothing is stored."""
+    if request.param == "on-disk":
+        return request.getfixturevalue("on_disk")
+    return None
+
+
+@pytest.mark.parametrize("sign_in", [_sign_in, _sign_in_remembered, _sign_in_with_the_code],
+                         ids=["unticked", "ticked", "code"])
+def test_a_sign_in_starts_a_fresh_session_on_every_store(users, every_store, sign_in):
+    browser = app_module.app.test_client()
+    _sign_in(browser)
+    earlier = _session_copied(browser)
+    earlier_sid = earlier.get_cookie("session").value
+
+    sign_in(browser)
+
+    assert browser.get_cookie("session").value != earlier_sid
+    assert _signed_in(browser)
+    assert not _signed_in(earlier)
+    if every_store is not None:
+        assert every_store(earlier_sid) is None, "the earlier session is still stored"
+
+
+def _a_live_remember_cookie(users, clock):
+    remembered = app_module.app.test_client()
+    _sign_in_remembered(remembered)
+    return REMEMBER_COOKIE, remembered.get_cookie(REMEMBER_COOKIE).value
+
+
+def _a_live_legacy_remember_cookie(users, clock):
+    with app_module.app.test_request_context():
+        return LEGACY_REMEMBER_COOKIE, encode_cookie(_legacy_sign_in_id(users, clock))
+
+
+@pytest.mark.parametrize("remember_cookie", [_a_live_remember_cookie,
+                                             _a_live_legacy_remember_cookie],
+                         ids=["remember-cookie", "legacy-remember-cookie"])
+def test_signing_back_in_by_the_remember_cookie_starts_a_fresh_session_on_every_store(
+    users, clock, every_store, remember_cookie
+):
+    # A browser holding a session whose sign-in has ended, beside a remember cookie that is live.
+    name, value = remember_cookie(users, clock)
+    browser = app_module.app.test_client()
+    _sign_in(browser)
+    OrganizerSessions.end(_secret_of(browser))
+    browser.set_cookie(name, value)
+    earlier = _session_copied(browser)
+    earlier_sid = earlier.get_cookie("session").value
+
+    assert [_signed_in(browser) for _ in range(2)] == [True, True]
+
+    assert browser.get_cookie("session").value != earlier_sid
+    assert not _signed_in(earlier)
+    if every_store is not None:
+        assert every_store(earlier_sid) is None, "the earlier session is still stored"
+
+
+def test_signing_out_ends_the_session_cookie_on_every_store(users, every_store):
+    browser = app_module.app.test_client()
+    _sign_in(browser)
+    earlier = _session_copied(browser)
+    earlier_sid = earlier.get_cookie("session").value
+
+    _sign_out(browser)
+
+    assert not _signed_in(browser)
+    assert not _signed_in(earlier)
+    if every_store is not None:
+        assert every_store(earlier_sid) is None, "the session is still stored"
 
 
 @pytest.mark.parametrize("remember", [True, None], ids=["ticked", "unticked"])

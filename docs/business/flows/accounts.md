@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -24,6 +24,7 @@ sources:
   - T283
   - T311
   - T315
+  - T338
 ---
 
 # Accounts
@@ -112,6 +113,7 @@ A market link opened while signed out returns there after sign-in, by password o
 A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
 A browser closed and reopened is signed out unless "Remember me" was ticked.
 Signing in ends the sign-in the browser held before, whoever's it was, so a browser remembered for someone else, or remembered before an unticked sign-in, keeps no earlier sign-in on the server.
+Every sign-in starts a fresh session, signing back in by "Remember me" too, so no session cookie the browser held before it carries the new sign-in.
 
 Each form says one line at a time, the newer replacing the older, and says what to do next (E38/F14/S02):
 

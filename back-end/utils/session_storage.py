@@ -28,8 +28,9 @@ import logging
 import os
 
 from cachelib.file import FileSystemCache
-from flask import Flask
+from flask import Flask, current_app, session
 from flask_session import Session
+from flask_session.base import ServerSideSessionInterface
 
 from utils.deployment import INSECURE_LOCAL_DEV_VAR, insecure_local_dev
 
@@ -126,3 +127,19 @@ def keeps_sessions_on_disk(app: Flask) -> bool:
     for the backend (``cachelib``) and not this app's (``filesystem``).
     """
     return isinstance(app.config.get("SESSION_CACHELIB"), FileSystemCache)
+
+
+def start_a_fresh_session() -> None:
+    """Empty this request's session and, on a store that keeps it, give it a new id: every sign-in
+    starts here, so no session cookie issued before it carries the sign-in.
+
+    In the signed cookie (``null``) the cookie is the session, so the answer's cookie is a new one
+    whatever it held. On disk the cookie only names a stored session, so the stored one is deleted
+    and the session is saved under a new id. flask-session gives an empty session a new id as it
+    opens it (it never takes an id it has nothing stored under), so only a session with something
+    in it needs one here.
+    """
+    interface = current_app.session_interface
+    if isinstance(interface, ServerSideSessionInterface):
+        interface.regenerate(session)
+    session.clear()

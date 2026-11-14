@@ -48,6 +48,7 @@ sources:
   - T273
   - T311
   - T317
+  - T338
 ---
 
 # Security invariants
@@ -211,6 +212,9 @@ The remember cookie's `__Host-` prefix holds it to the API's host, as the vendor
 **A sign-in is kept on the server** ([ADR 0029](../../adr/0029-an-organizers-sign-in-is-kept-on-the-server.md)): both cookies carry a random secret, and `organizer_sessions` keeps only its SHA-256, beside the account, its login id and when the sign-in ends, so a copy of the database signs nobody in ([a sign-in is kept on the server](../data/users-and-email.md#a-sign-in-is-kept-on-the-server)).
 Sign out ends the browser's sign-in there, so a copy of its cookies stops working too; a new sign-in in the browser ends the one it held; Sign out everywhere and a password reset, which each replace the login id, and deleting the account end every one of the account's.
 The browser cannot change what it carries either way: the session is signed into its cookie with `SECRET_KEY`, or kept on the server behind a random id, and the remember cookie is signed with `SECRET_KEY` by Flask-Login's digest.
+
+**Every sign-in starts a fresh session, in both stores**, so no session cookie issued before it carries the sign-in: `start_a_fresh_session` in [`utils/session_storage.py`](../../../back-end/utils/session_storage.py) empties the session at a sign-in by password or by code (`_sign_in`), and when a remember cookie signs the browser back in (`hold_a_restored_session_to_its_browser`, which keeps only what the restore wrote).
+In the cookie store the answer's cookie is a new one whatever the browser sent; on disk the stored session is deleted and the new one is saved under a new id, and flask-session never takes an id it has nothing stored under, so a session cookie the browser held before names nothing.
 
 **How long a sign-in lasts is two named constants in [`organizer_sessions.py`](../../../back-end/organizer_sessions.py), and the server enforces both, not only the browser** (E38/F14/S01, ["Remember me" at sign-in](../../business/flows/accounts.md#a2-sign-in-and-sign-out)).
 `SIGN_IN_LIFETIME`, 12 hours, is a sign-in without "Remember me": it sets the session cookie only, which ends with the browser in either store: Flask's cookie session is never made permanent, and `SESSION_PERMANENT` is off for flask-session's store on disk.
