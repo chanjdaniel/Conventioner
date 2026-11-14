@@ -8,20 +8,22 @@ code the organizer shows at the entrance (``api/door.py``), scanned from its QR 
 
 Both endpoints are attacker-facing, so:
 
-- every check-in attempt is counted per signed-in address, and a wrong door code per caller too
-  (``sign_in_limits``), so a vendor at home cannot guess the door code while vendors who share a
-  venue's address are never refused for checking in rightly;
+- every check-in attempt, right code or wrong, is counted per signed-in address
+  (``sign_in_limits``), and nothing per caller: a venue's wifi is one caller for every vendor
+  there, and a count of wrong codes from it refused a right code after strangers' wrong ones
+  (T318). That bound, the sign-in for this market and a seat on a day in reach are what bound a
+  guess at the door code;
 - the market goes through the vendor page gate (``vendor_page_market_by_slug``), so a market with
   no vendor page answers exactly as a slug that names nothing;
 - a token for another market is refused, as the vendor's own read refuses it;
 - each refusal has its own sentence and writes nothing, and none carries the door code.
 
 A check-in is for a date the vendor has a seat on, in ``market_days``, within one day of the
-server's UTC date (so whatever the vendor's time zone, "today" for them is in reach, and a code
-read today cannot check them in for next week). The undo takes no door code, and the same window:
-on that day it takes back what the vendor themselves, or an organizer, recorded.
+server's UTC date (``AttendanceApi.within_the_window``: so whatever the vendor's time zone, "today"
+for them is in reach, and a code read today cannot check them in for next week). The undo takes no
+door code, and the same window: on that day it takes back what the vendor themselves, or an
+organizer, recorded.
 """
-from datetime import date as Date, datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from flask import jsonify, request
@@ -41,15 +43,6 @@ NO_SEAT = "You have no table on this date."
 NOT_TODAY = "Check-in is open on the day itself."
 WRONG_DOOR_CODE = "That isn't this market's door code. Check it, or ask at the door."
 NOT_YET = "Check-in opens when the market's days begin."
-
-#: How far a check-in's date may be from the server's UTC date: a day either side is "today"
-#: somewhere a vendor may be standing.
-WINDOW_DAYS = 1
-
-
-def today() -> Date:
-    """The server's UTC date; a function so a test can move it."""
-    return datetime.now(timezone.utc).date()
 
 
 def _too_many(retry_after: Optional[int]):
@@ -87,16 +80,8 @@ def _market_on_its_days(market_slug: str, token: Dict[str, Any]):
     return market_doc, None
 
 
-def _within_the_window(day: str) -> bool:
-    try:
-        return abs((Date.fromisoformat(day) - today()).days) <= WINDOW_DAYS
-    except ValueError:
-        return False
-
-
 def check_in(market_slug: str) -> Tuple[Any, int]:
     """Handle POST /public/markets/<slug>/vendor/check-in ``{date, doorCode}``."""
-    caller = sign_in_limits.caller()
     token, refused = _signed_in_vendor()
     if refused:
         return refused
@@ -112,14 +97,10 @@ def check_in(market_slug: str) -> Tuple[Any, int]:
         return refused
     if not day or not AttendanceApi.seated_on(market_doc, email, day):
         return _refused(NO_SEAT, 404)
-    if not _within_the_window(day):
+    if not AttendanceApi.within_the_window(day):
         return _refused(NOT_TODAY, 409)
-    refused = _too_many(sign_in_limits.over_limit(sign_in_limits.CHECK_IN_PER_CALLER, caller))
-    if refused:
-        return refused
     if not DoorApi.door_code_matches(market_doc["id"], string_field(data, "doorCode")):
-        refused = _too_many(sign_in_limits.count_attempt(sign_in_limits.CHECK_IN_PER_CALLER, caller))
-        return refused or _refused(WRONG_DOOR_CODE, 403)
+        return _refused(WRONG_DOOR_CODE, 403)
 
     result, status = AttendanceApi.record_attendance(
         market_doc["id"], email, day, checked_in_by=None, via=AttendanceApi.VIA_DOOR_CODE)
@@ -144,7 +125,7 @@ def undo_check_in(market_slug: str) -> Tuple[Any, int]:
     if refused:
         return refused
     # A missing date is the undo's own 400, below; a date given must be within the window.
-    if day and not _within_the_window(day):
+    if day and not AttendanceApi.within_the_window(day):
         return _refused(NOT_TODAY, 409)
     result, status = AttendanceApi.undo_attendance(
         market_doc["id"], token["email"], day, undone_by=None, via=AttendanceApi.VIA_VENDOR_PAGE)

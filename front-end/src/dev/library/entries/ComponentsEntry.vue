@@ -17,6 +17,7 @@ import BarLedger from '@/components/BarLedger.vue';
 import CodeInput from '@/components/CodeInput.vue';
 import EmailAddress from '@/components/EmailAddress.vue';
 import FileDropZone from '@/components/FileDropZone.vue';
+import ListFreshness from '@/components/ListFreshness.vue';
 import PhaseBadge from '@/components/PhaseBadge.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
 import RowMenu from '@/components/RowMenu.vue';
@@ -192,6 +193,13 @@ const answerCount = question.options.length;
 // FileDropZone: it judges no file, so the line under it only says which one it took.
 const FILES_TAKEN = '.csv,text/csv';
 const taken = ref('');
+
+// ListFreshness: a list read as the entry opened, one read five minutes before, and the line a
+// failed re-read leaves beside the button.
+const OPENED_AT = Date.now();
+const FIVE_MINUTES_BEFORE = OPENED_AT - 5 * 60 * 1000;
+const COULD_NOT_UPDATE = 'Could not update. The roster is as it was last read.';
+const refreshes = ref(0);
 
 // ScrollBox: the fixture's applicants, in a box too small to hold them; and a list that shrinks.
 const scrolling = applications.slice(0, 40);
@@ -620,6 +628,59 @@ const shrinking = computed(() => applications.slice(0, shrinkingCount.value));
       >
         Shrink it to two
       </button>
+    </LibraryPanel>
+  </LibrarySection>
+
+  <LibrarySection
+    title="ListFreshness"
+    about="Used on: Applications (all and one by one), Attendance"
+  >
+    <LibraryPanel label="Never read: Refresh alone">
+      <ListFreshness
+        testid="library-freshness-never"
+        :readAt="null"
+        :refreshing="false"
+        failed=""
+        @refresh="refreshes++"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="Just read">
+      <ListFreshness
+        testid="library-freshness-now"
+        :readAt="OPENED_AT"
+        :refreshing="false"
+        failed=""
+        @refresh="refreshes++"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="Read minutes ago, ageing on screen">
+      <ListFreshness
+        testid="library-freshness-minutes"
+        :readAt="FIVE_MINUTES_BEFORE"
+        :refreshing="false"
+        failed=""
+        @refresh="refreshes++"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="Refreshing (disabled)">
+      <ListFreshness
+        testid="library-freshness-refreshing"
+        :readAt="FIVE_MINUTES_BEFORE"
+        :refreshing="true"
+        failed=""
+      />
+    </LibraryPanel>
+    <LibraryPanel label="Failed: the rows stay, and are old">
+      <ListFreshness
+        testid="library-freshness-failed"
+        :readAt="FIVE_MINUTES_BEFORE"
+        :refreshing="false"
+        :failed="COULD_NOT_UPDATE"
+        @refresh="refreshes++"
+      />
+    </LibraryPanel>
+    <LibraryPanel label="Refresh, pressed">
+      <ReadOut label="Asked to read again" :value="times(refreshes)" />
     </LibraryPanel>
   </LibrarySection>
 

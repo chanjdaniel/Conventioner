@@ -15,6 +15,7 @@ import {
   ensureTestOrgAuthenticated,
   loginViaApi,
   marketNameToSlug,
+  recordCheckIns,
   seedLayout,
   seedSettledLayout,
   UPPER_HALL_TABLES,
@@ -635,12 +636,14 @@ async function assignAndPublish(
 
 /**
  * Half of the first market day's vendors checked in at the door (T201), so Stats draws its
- * check-in rows and its strip counts that day with some in and some not yet.
+ * check-in rows and its strip counts that day with some in and some not yet. Stored as the door
+ * stores them, as the day is still to come (`recordCheckIns`).
  */
 async function checkInHalfOfTheFirstDay(
   api: APIRequestContext,
   backend: string,
   marketId: string,
+  email: string,
 ): Promise<void> {
   const res = await api.get(`${backend}/markets/${marketId}/attendance`);
   if (!res.ok()) throw new Error(`Roster failed: ${res.status()} ${await res.text()}`);
@@ -649,12 +652,7 @@ async function checkInHalfOfTheFirstDay(
     roster: { date: string; vendorEmail: string }[];
   };
   const firstDay = roster.filter((row) => row.date === dates[0]);
-  for (const row of firstDay.slice(0, Math.ceil(firstDay.length / 2))) {
-    const done = await api.post(`${backend}/markets/${marketId}/attendance`, {
-      data: { vendorEmail: row.vendorEmail, date: row.date },
-    });
-    if (!done.ok()) throw new Error(`Check-in failed: ${done.status()} ${await done.text()}`);
-  }
+  recordCheckIns(marketId, firstDay.slice(0, Math.ceil(firstDay.length / 2)), email);
 }
 
 export async function seedTheScreens(
@@ -744,7 +742,7 @@ export async function seedTheScreens(
   insertApplications(appliedOverDays(manyVendors(rules.marketId, 'rules', 8, two)));
   await walk(api, backend, email, rules.marketId, UP_TO_ASSIGNMENT);
   await assignAndPublish(api, backend, email, rules.marketId);
-  await checkInHalfOfTheFirstDay(api, backend, rules.marketId);
+  await checkInHalfOfTheFirstDay(api, backend, rules.marketId, email);
 
   const planned = plan(two);
   const longSection = await createMarket(api, backend, email, uniqueMarketName('Long Section'), {

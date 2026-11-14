@@ -1,6 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
-import { SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
+import { SEED_MARKET_DATE, recordCheckIns, seedMarketWithVendors } from './helpers/seeds';
 import { seedApplication, seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 import { marketScreenPath } from './helpers/marketScreens';
@@ -260,12 +260,14 @@ test('from assignment to the archive, each tile is the figure of the page it lin
   // on the second.
   await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
   await call(request, 'post', `/markets/${marketId}/transition`, { toPhase: 'market_days' });
-  for (const [email, date] of [
-    [ALICE, SEED_MARKET_DATE],
-    [CAROL, SECOND_DATE],
-  ]) {
-    await call(request, 'post', `/markets/${marketId}/attendance`, { vendorEmail: email, date });
-  }
+  recordCheckIns(
+    marketId,
+    [
+      { vendorEmail: ALICE, date: SEED_MARKET_DATE },
+      { vendorEmail: CAROL, date: SECOND_DATE },
+    ],
+    TEST_USER.email,
+  );
   stats = await openStats(page, marketId);
   expect(await tiles(stats)).toEqual([
     '1 of 2 checked in, May 1, 2099',
@@ -403,13 +405,15 @@ test("check-in reads each day's vendors in of those expected from Market Days, a
   await publishResults(request, BACKEND_URL, TEST_USER.email, marketId);
   await call(request, 'post', `/markets/${marketId}/transition`, { toPhase: 'market_days' });
   // Alice and Bob are in on the first day; Carol is in on the second, where Alice is not yet.
-  for (const [email, date] of [
-    [ALICE, SEED_MARKET_DATE],
-    [BOB, SEED_MARKET_DATE],
-    [CAROL, SECOND_DATE],
-  ]) {
-    await call(request, 'post', `/markets/${marketId}/attendance`, { vendorEmail: email, date });
-  }
+  recordCheckIns(
+    marketId,
+    [
+      { vendorEmail: ALICE, date: SEED_MARKET_DATE },
+      { vendorEmail: BOB, date: SEED_MARKET_DATE },
+      { vendorEmail: CAROL, date: SECOND_DATE },
+    ],
+    TEST_USER.email,
+  );
   stats = await openStats(page, marketId);
 
   await expect(stats.checkIn.getByRole('heading', { level: 2 })).toHaveText('Check-in');

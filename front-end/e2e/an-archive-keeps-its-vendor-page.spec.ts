@@ -1,8 +1,8 @@
 import { test, expect, TEST_USER, BACKEND_URL, VendorPage } from './fixtures';
 import { marketSetupPath } from './helpers/marketScreens';
-import { SEED_MARKET_DATE, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
-import { forgetSignInAttempts, signInOnThePage } from './helpers/vendorSignIn';
+import { calendarToday, forgetSignInAttempts, signInOnThePage } from './helpers/vendorSignIn';
 
 /**
  * An archived market that ran keeps its vendor page, as a record (bug 9, E26/F06/S02, ADR 0022).
@@ -27,10 +27,11 @@ test('an archived market that ran keeps its vendor page as the record, and takes
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
-    { vendors: [came, stayedAway] },
+    // Today: the door takes no check-in for a day that has not begun (T318).
+    { vendors: [came, stayedAway], marketDate: calendarToday() },
   );
   const checkedIn = await request.post(`${BACKEND_URL}/markets/${marketId}/attendance`, {
-    data: { vendorEmail: came, date: SEED_MARKET_DATE },
+    data: { vendorEmail: came, date: calendarToday() },
   });
   expect(checkedIn.ok(), await checkedIn.text()).toBeTruthy();
 

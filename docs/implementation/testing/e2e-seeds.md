@@ -10,7 +10,6 @@ describes:
   - front-end/e2e/helpers/seeds.ts#removeFromOrganization
   - front-end/e2e/helpers/seeds.ts#seedMarketWithVendors
   - front-end/e2e/helpers/seeds.ts#seedPublishedMarketWithAssignments
-  - front-end/e2e/helpers/seeds.ts#allocateThenFreeEverySeat
   - front-end/e2e/helpers/seedAssignedMarket.ts
   - front-end/e2e/helpers/seedPhaseMarket.ts
   - front-end/e2e/helpers/seedDraftMarket.ts
@@ -31,6 +30,8 @@ describes:
   - front-end/e2e/helpers/seeds.ts#seedLayout
   - front-end/e2e/helpers/seeds.ts#startLayout
   - front-end/e2e/helpers/seeds.ts#seedSettledLayout
+  - front-end/e2e/helpers/seeds.ts#recordCheckIns
+  - front-end/e2e/helpers/seeds.ts#allocateThenFreeEverySeat
 verified: 2026-11-12
 sources:
   - E02
@@ -57,6 +58,7 @@ sources:
   - T274
   - T257
   - T201
+  - T318
   - T277
   - T316
 ---
@@ -276,6 +278,12 @@ It used to be `GET /markets/{id}/assignment`, which only computes, followed by a
 A market must publish its results first, on either path ([publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)), so the helper calls `POST /markets/{id}/publish-results` in between.
 Publish results waits for a table allocation that was run (T316), so a spec that seats its vendors by hand and then publishes calls `allocateThenFreeEverySeat()` first ([`seeds.ts`](../../../front-end/e2e/helpers/seeds.ts)): it allocates tables and frees every seat the run gave, each free also removing the seat from what its vendor owes, so the seats the spec gives are hand edits of a run and its money is what it seats.
 It returns the `marketSlug` of the market's vendor page, where its vendors check in.
+
+## Checking a vendor in
+
+**The door takes no check-in for a day that has not begun anywhere** (T318, [attendance and the door](../modules/attendance-and-door.md#sharp-edges)), and `SEED_MARKET_DATE` is in 2099, so a spec that checks a vendor in at the door seeds its market on `calendarToday()` (`marketDate`) and checks in through the door, where the page offers Check in.
+A spec of what check-ins count, the Stats tab's, keeps its days to come and stores its check-ins with `recordCheckIns()` ([file](../../../front-end/e2e/helpers/seeds.ts)): one record per vendor's day, written as the door writes it, at the table the vendor holds that day, by the organizer it names, and with no history entry; it throws on a vendor with no seat that day.
+`seedTheScreens()` checks half of its rules market's first day in this way, for the Stats tab's check-in rows.
 
 ## Sharp edges
 

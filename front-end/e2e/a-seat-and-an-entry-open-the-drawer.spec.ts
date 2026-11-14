@@ -3,6 +3,7 @@ import type { Locator } from '@playwright/test';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 import { TablesPage } from './pages/TablesPage';
+import { calendarToday } from './helpers/vendorSignIn';
 
 /**
  * A seat and an attendance entry open the vendor drawer (E35/F01/S02).
@@ -15,7 +16,8 @@ import { TablesPage } from './pages/TablesPage';
  * And the name says so at rest (E38/F09/S01): in the design language's link ink, underlined, with
  * nothing pointed at it, since a phone at the door points at nothing.
  */
-const ON_THE_DAY = '2099-05-02';
+/** Today, so the door offers Check in (T318). */
+const ON_THE_DAY = calendarToday();
 
 /** `--mm-text-link`, as the browser computes it. */
 const LINK_INK = 'rgb(26, 111, 139)';

@@ -36,8 +36,14 @@ export const widths = (page: Page) =>
     zoom: window.visualViewport?.scale ?? 1,
   }));
 
-/** The checks of one window, measured against its own size. */
-export function inTheWindow(size: PhoneOrDesk) {
+/**
+ * The checks of one window, measured against its own size: either of `PHONE_AND_DESK`, or another
+ * a spec lays out in, a tablet's say.
+ */
+export function inTheWindow(size: {
+  phone: boolean;
+  use: { viewport: { width: number; height: number } };
+}) {
   const { width, height } = size.use.viewport;
   return {
     /** The page keeps the window's width: nothing scrolls sideways, nothing zooms out. */
