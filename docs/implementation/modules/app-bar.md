@@ -19,7 +19,7 @@ describes:
   - front-end/src/views/PasswordResetView.vue
   - front-end/e2e/the-app-bar.spec.ts
   - front-end/src/__tests__/theBarsCurrentPlace.test.ts
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - T209
   - T214
@@ -127,7 +127,7 @@ It uses `fetch`, not the app's `axios`, so a 401 from `/logout` is not told as a
 ## Sign out everywhere
 
 **Sign out everywhere, the account menu's and the sheet's last entry, ends every sign-in of the account, on every device and browser, this one too** (T311).
-It opens [`SignOutEverywhereDialog`](../../../front-end/src/components/SignOutEverywhereDialog.vue), a narrow destructive [dialog](../conventions/dialogs.md) on `AppDialog`, "Sign out everywhere?", saying "This signs you out on every device and browser, this one too.", with Cancel and "Sign out everywhere", opening on Cancel, since a stray press would sign out the laptop at the door mid-market.
+It opens [`SignOutEverywhereDialog`](../../../front-end/src/components/SignOutEverywhereDialog.vue), a narrow destructive [dialog](../conventions/dialogs.md) on `AppDialog`, "Sign out everywhere?", saying "This signs out every device and browser, including this one.", with Cancel and "Sign out everywhere", opening on Cancel, since a stray press would sign out the laptop at the door mid-market.
 The bar teleports it to the body, so it stands over the page as any dialog does.
 From the sheet, focus goes to the menu button before the sheet closes, so the dialog gives focus back there; from the account menu, `RowMenu` has already put it on the account button.
 
