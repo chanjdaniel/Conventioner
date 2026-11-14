@@ -81,6 +81,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
    Opening the drawer is a step of the browser's history and closing it takes that step back, so Back after closing goes to the page before, however the drawer was closed; changing its tab or vendor is no step, so one Back closes it.
    A drawer reached by a link or a reload closes onto the page too, never out of the site ([every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md#a-pages-own-state-is-replaced-the-drawers-opening-is-pushed)).
    The drawer opens with focus on "×", and takes it there again when it shows another vendor in place, such as one its History tab names; closing gives focus back to what opened it, a row, a name or a button ([dialogs](../../implementation/conventions/dialogs.md)).
+   A screen reader meets it as a dialog named by its title, the vendor's name or else their address, a second-level heading over the third-level headings of its notes and tabs.
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Assignments page reads them again.

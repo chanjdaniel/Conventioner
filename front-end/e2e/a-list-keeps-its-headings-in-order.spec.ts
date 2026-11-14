@@ -12,6 +12,7 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { marketScreenPath } from './helpers/marketScreens';
+import { rolesNotAllowed } from './helpers/allowedRoles';
 
 /**
  * A list's cards are headed one level under the page's title, so a screen reader's outline of the
@@ -209,9 +210,9 @@ test('the review heads a vendor just before their notes, open, in the drawer and
 /**
  * The vendor drawer heads its tabs and a vendor's notes one level under its title, wherever it
  * opens (T95 note 6): on Assignments from a seat, on Vendors, on Payments and at the door, each tab
- * read under the notes, which the drawer opens.
+ * read under the notes, which the drawer opens; and it is a dialog by an element ARIA lets be one.
  */
-test('the vendor drawer keeps its headings in order on every page that opens it', async ({
+test('the vendor drawer keeps its headings in order, and is a dialog, on every page that opens it', async ({
   authenticatedPage: page,
   request,
 }) => {
@@ -258,5 +259,7 @@ test('the vendor drawer keeps its headings in order on every page that opens it'
       );
       expect(await headingsOutOfOrder(page), `${where}, the ${tab} tab`).toEqual([]);
     }
+    // A dialog by an element that may be one, so it is announced as the dialog it is.
+    expect(await rolesNotAllowed(page), `${where}, the drawer`).toEqual([]);
   }
 });

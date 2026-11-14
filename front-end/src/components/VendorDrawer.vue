@@ -235,7 +235,7 @@ watch(
     @click="emit('close')"
   />
 
-  <aside
+  <div
     ref="panel"
     class="detail-panel"
     data-testid="vendors-detail-panel"
@@ -434,7 +434,7 @@ watch(
         </section>
       </ScrollBox>
     </template>
-  </aside>
+  </div>
 
   <UpdateInfoDialog
     :open="updating"

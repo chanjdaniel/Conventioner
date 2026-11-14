@@ -623,6 +623,7 @@ A strip that scrolls only under its own media or container rule sets `--scroll-b
 Only `axis="x"` reads that property, and it inherits, so a sideways `ScrollBox` nested in such a root takes it too.
 Every dialog scrolls in one ([dialogs](implementation/conventions/dialogs.md)), a long dialog only its body at most 80% of the window's height at a desk, and a short one whole; the library's `components` entry shows each axis and tone.
 A panel that slides in from a side is [`SidePanel.vue`](../front-end/src/components/SidePanel.vue) (T200), a proposal for the vendor drawer: `side` (right or left), `width` (narrow, 20rem, or wide, 30rem, each leaving a gutter of scrim), its title and close pinned and only its body scrolling, a `focusable` `ScrollBox` that takes focus as the panel opens.
+Its window is a `div` with `role="dialog"`, named by its title ([dialogs](implementation/conventions/dialogs.md)).
 It is modal as a dialog is, through the same composables: Escape and the scrim emit `close`, focus moves in to its body, so the keys scroll the panel and never the page behind, and goes back, and the page is inert.
 A dialog opened from it is mounted beside it, lies over it and takes Escape first.
 No screen mounts it yet: the library's `proposals` entry shows it on a fixture application, with `.chip--small` and `.data-table`.

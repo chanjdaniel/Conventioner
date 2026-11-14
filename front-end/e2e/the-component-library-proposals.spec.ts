@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { namelessControls } from './helpers/accessibleNames';
+import { rolesNotAllowed } from './helpers/allowedRoles';
 import { eachWindow, expectLaidOut, openEntry } from './helpers/componentLibrary';
 import { inTheWindow } from './helpers/phoneWindow';
 import { settle } from './helpers/settle';
@@ -198,6 +199,7 @@ eachWindow('the proposals entry', (size) => {
     ).toBe(true);
     await expectAccessible('the side panel open');
     expect(await namelessControls(page), 'the side panel').toEqual([]);
+    expect(await rolesNotAllowed(page), 'the side panel').toEqual([]);
 
     await page.keyboard.press('Escape');
     await expectClosed(page);
