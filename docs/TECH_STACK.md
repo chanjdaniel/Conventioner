@@ -59,7 +59,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **MongoDB 8.0 in production, 7 locally and in CI** - NoSQL document database
   - Primary data storage
   - The local stack and CI run `mongo:7` while production runs 8.0, for the reason in [the MongoDB version](implementation/testing/real-mongo-suite.md#the-mongodb-version)
-  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `vendor_remembered_sign_ins`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
+  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `vendor_remembered_sign_ins`, `organizer_sessions`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
   - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
 
