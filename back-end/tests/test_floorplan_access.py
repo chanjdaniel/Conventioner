@@ -46,6 +46,9 @@ ROLES = {"user-owner": "owner", "user-editor": "editor", "user-viewer": "viewer"
 
 PNG = b"\x89PNG\r\n\x1a\n"
 
+# A plan of sections, locations and floorplans alone, which the market's model refuses.
+UNREADABLE_SETUP = {"sections": [], "locations": [], "floorplans": []}
+
 
 def _hall_png():
     """A small real image, read back as the PNG it is."""
@@ -222,6 +225,17 @@ class TestUploadingAnImage:
 
         assert response.status_code == 404
         assert response.get_json() == {"error": "Market not found"}
+        assert images.files == {}
+
+    def test_an_upload_for_a_market_that_does_not_parse_is_refused_and_stores_nothing(
+        self, sign_in, market, images,
+    ):
+        market.doc["setupObject"] = UNREADABLE_SETUP
+
+        response = _upload(sign_in("owner@example.com"))
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid market data"}
         assert images.files == {}
 
     def test_the_market_is_checked_before_the_file(self, sign_in, market, images):
@@ -495,6 +509,18 @@ class TestTheRoutesThatTakeAnImage:
         assert list(images.files) == [unowned]
 
     @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
+    def test_an_image_whose_market_does_not_parse_is_refused_and_kept(
+        self, sign_in, market, hall, images, route,
+    ):
+        market.doc["setupObject"] = UNREADABLE_SETUP
+
+        response = route(sign_in("owner@example.com"), hall)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid market data"}
+        assert list(images.files) == [ObjectId(hall)]
+
+    @pytest.mark.parametrize("route", EDITING_ROUTES.values(), ids=EDITING_ROUTES.keys())
     def test_an_unknown_image_is_not_found(self, sign_in, market, images, route):
         response = route(sign_in("owner@example.com"), str(ObjectId()))
 
@@ -545,6 +571,14 @@ class TestReadingTheImage:
 
     def test_an_account_with_no_role_on_the_market_finds_no_image(self, sign_in, market, hall):
         response = _read(sign_in("outsider@example.com"), hall)
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Image not found"}
+
+    def test_an_image_whose_market_does_not_parse_is_not_found(self, sign_in, market, hall):
+        market.doc["setupObject"] = UNREADABLE_SETUP
+
+        response = _read(sign_in("owner@example.com"), hall)
 
         assert response.status_code == 404
         assert response.get_json() == {"error": "Image not found"}
