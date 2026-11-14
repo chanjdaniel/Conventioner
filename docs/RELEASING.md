@@ -12,7 +12,10 @@ describes:
   - scripts/deploy_proof.py
   - front-end/vite.config.ts#assertApiHost
   - front-end/vite.config.ts#assertNoLocalHatchOnVercel
-verified: 2026-11-13
+  - .github/workflows/promote.yml
+  - scripts/promote_check.py
+  - scripts/github_runs.py
+verified: 2026-11-14
 sources:
   - T74
   - T254
@@ -20,6 +23,7 @@ sources:
   - T263
   - T270
   - T273
+  - T317
 ---
 
 # Release Process
@@ -35,12 +39,15 @@ This project uses a **dev → main promotion flow**:
   It is deployed only by hand, through the Deploy workflow, and is reached **only** by promoting `dev` → `main` as a deliberate, versioned release.
   Never commit or open PRs directly against `main` (the release-please Release PR and a `hotfix/` PR are the exceptions, [below](#hotfixes)).
 
-**Both branches are protected** (since 2026-10-18): a PR into either needs the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `zizmor` checks to pass (`e2e` passes only when every shard does), and a push to `main` is accepted only for a commit that has passed them.
-A PR into `dev` also needs `knowledge-graph`, `real-data`, `CodeQL` and `agent-review`, ten in all; `main` asks only the six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
+**Both branches are protected**: a PR into either needs the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `real-data-and-workflows` checks to pass (`e2e` passes only when every shard does).
+A PR into `dev` also needs `knowledge-graph`, `CodeQL` and `agent-review`, nine in all; `main` asks only the six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
 Branches need not be up to date before merging, because a promotion is only ever made from a commit whose own `dev` run passed.
-`main` keeps a linear history; force pushes are blocked on both.
-Admins can override `main`'s protection, deliberately: it is how the Release PR is merged (below), and the way out in an emergency.
-`dev`'s binds admins too (`enforce_admins`): nothing merges into `dev`, the merge of `main` back into it included, without all ten checks, short of changing the protection itself.
+`dev`'s is a branch protection rule that binds admins too (`enforce_admins`): nothing merges into `dev`, the merge of `main` back into it included, without all nine checks, short of changing the protection itself; force pushes to it are blocked.
+`main`'s are two rulesets ([ADR 0027](adr/0027-main-moves-only-through-promote.md)).
+"main is promoted or merged" takes a change only through a pull request, except from the Promote workflow's GitHub App, the only actor that may push to `main` ([how a promotion proves itself](#how-a-promotion-proves-itself)).
+"main is tested" requires the six checks, keeps `main`'s history linear, and blocks force pushes and deletion; the App is held to it too, so the commit it pushes must already have passed the six, as a commit whose `dev` run passed has.
+An admin may bypass both through a pull request only: it is how the Release PR, which gets no CI, is merged (below).
+No one pushes to `main` directly, an admin included, so an emergency push means editing a ruleset first.
 
 ```
 feature/* ──PR──▶ dev ──promotion──▶ main (versioned release) ──by hand──▶ deploy
@@ -72,16 +79,18 @@ Release management is handled by [release-please](https://github.com/googleapis/
 That workflow grants no permissions at its top level; its one job gets `contents: write` (the release commit and its tag), `pull-requests: write` (the Release PR) and `issues: write` (the Release PR's labels), and uses the job's own token, the action's default.
 It sets no concurrency limit, so a release run is never cancelled part-way; `main` moves only by hand, so its runs do not pile up.
 
-The release and deploy workflows reference each action by its full commit SHA with the version in a comment beside it (`@<sha> # v7.0.1`), so a moved tag cannot change what they run; Dependabot's `github-actions` updater bumps the SHA and the comment together.
+The release, deploy and promote workflows reference each action by its full commit SHA with the version in a comment beside it (`@<sha> # v7.0.1`), so a moved tag cannot change what they run; Dependabot's `github-actions` updater bumps the SHA and the comment together.
 No checkout in them keeps git credentials (`persist-credentials: false`).
 
 ### How a Release Happens
 
 1. **Feature work lands on `dev`** through normal PRs with conventional commit messages.
-2. **A maintainer promotes `dev` → `main`** as a fast-forward of a commit whose `dev` CI run passed: `git fetch origin && git push origin <sha>:main`.
-   Push that commit by its sha, not "whatever `dev` is now": anything merged since has not passed CI as part of that commit.
-   This is the **only** way code reaches `main`.
+2. **Daniel starts Promote with the sha** of a `dev` commit whose `dev` CI run passed ([`.github/workflows/promote.yml`](../.github/workflows/promote.yml)): Actions tab, Promote, Run workflow from `dev`, giving the commit's full 40-character sha, or `gh workflow run promote.yml --ref dev -f commit=<sha>`.
+   Promote that commit by its sha, not "whatever `dev` is now": anything merged since has not passed CI as part of that commit.
+   The workflow refuses unless the commit's Test run on a push to `dev` passed, the commit is on `dev`, and `main` is its ancestor, then fast-forwards `main` to it as the Promote App ([how a promotion proves itself](#how-a-promotion-proves-itself)); the run's summary says what `main` is now and what comes next.
+   This is the **only** way a `dev` commit reaches `main`: `main`'s rulesets refuse a push from anyone but the App, an admin's included.
    A fast-forward puts exactly the commit CI tested on `dev` onto `main`; a merge or rebase would make a new commit nobody tested.
+   The App's push starts the Test and release-please workflows on `main`, which a push with a workflow run's own token would not.
 3. **Daniel deploys `main` by hand, once the Test workflow has passed on it**, with the Deploy workflow ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)): Actions tab, Deploy, Run workflow on `main`, or `gh workflow run deploy.yml --ref main`.
    Nothing else deploys: no push, merge or PR, to any branch, creates or cancels a Vercel deployment, because each project's `vercel.json` switches Vercel's Git integration off for every branch (`git.deploymentEnabled: false`).
    Even a deployment the Ignored Build Step cancelled counted against the Hobby plan's daily deployment quota, which is why Git builds are off rather than cancelled.
@@ -108,7 +117,43 @@ No checkout in them keeps git credentials (`persist-credentials: false`).
 
 6. **Merge `main` back into `dev`**: open a PR from `main` to `dev` and merge it once green.
    Green there includes `agent-review`, which only the agent team's review sets ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)), and `--admin` cannot pass `dev`'s protection, so the PR waits for that review.
-   The release commit exists only on `main`; until `dev` has it, the next promotion is not a fast-forward and is refused.
+   The release commit exists only on `main`; until `dev` has it, the next promotion is not a fast-forward, and Promote refuses it, saying to merge `main` back into `dev` first ([how a promotion proves itself](#how-a-promotion-proves-itself)).
+
+### How a promotion proves itself
+
+Every check the Promote workflow makes before it moves `main` lives in [`scripts/promote_check.py`](../scripts/promote_check.py), which reads GitHub and writes nothing, so it can be run anywhere without promoting: `GITHUB_TOKEN="$(gh auth token)" GITHUB_REPOSITORY=chanjdaniel/Conventioner python3 scripts/promote_check.py --commit <sha>`.
+It reads the Test runs through [`scripts/github_runs.py`](../scripts/github_runs.py), the same code Deploy's Test check uses, so "the newest run decides" means one thing in both.
+[`scripts/tests/test_promote_check.py`](../scripts/tests/test_promote_check.py) runs it against a stub server, pins the workflow's steps, and runs the workflow's own shell with a fake `gh`.
+
+The workflow runs only from `dev`, in the `promote` environment, whose deployment branches are `dev` alone, so a run from a branch with an edited copy of the workflow never reaches the App's key.
+One promotion runs at a time, and none is cancelled part-way.
+A check-only run (`-f check-only=true`, or the box in the Actions tab) makes every check and mints the App's token but moves nothing, which proves the App's setup before a real promotion.
+
+1. **"Refuse to run half-configured"** refuses when the `promote` environment lacks the `PROMOTE_APP_CLIENT_ID` variable or the `PROMOTE_APP_PRIVATE_KEY` secret, one `::error::` line for each; it sees only whether the key is set, never the key.
+2. **"The commit may be promoted"** runs the check with the run's own read-only token.
+   It takes only a full 40-character sha, upper case read as lower, so a short or ambiguous one never resolves to the wrong commit; anything else is a usage error before GitHub is read.
+   Then, in order, each refusal is one `::error::` line, `<short>` being the commit's first 12 characters:
+   - The Test workflow's newest run, by run number, on a push to `dev` at the commit decides.
+     None: "No Test run on a push to dev at `<short>`. Promote only a commit on dev whose Test run has passed."
+     Still running: "Test is still running on dev at `<short>` (`<url>`). Run Promote again once it has passed."
+     Any conclusion but success: "Test `<conclusion>` on dev at `<short>` (`<url>`). Promote only a commit whose Test run has passed."
+   - The commit is on `dev`: GitHub's compare of `dev...<sha>` says `behind` or `identical`, so a pull request's head or a typo never reaches `main`.
+     Otherwise: "`<short>` is not on dev. Promote only a commit on dev."
+   - `main` is its ancestor: the compare of `main...<sha>` says `ahead`, so the move is a fast-forward.
+     Already there: "main is already at `<short>`; nothing to promote."
+     Older than `main`: "`<short>` is older than main (`<main short>`); nothing to promote."
+     `main` has commits the commit lacks, most often the release commit not yet merged back into `dev`: "main (`<main short>`) has commits `<short>` lacks, so main cannot be fast-forwarded to it. If it is the release commit, merge main back into dev first (docs/RELEASING.md, step 6), then promote a dev commit that has it."
+
+   Any error reading GitHub refuses at once, with no retry: "Could not read `<what>` from GitHub (`<status or error type>`), so nothing was promoted."
+   On a pass it prints one line: "`<short>` may be promoted: Test passed on dev (`<url>`), and main (`<main short>`) is `<n>` commits behind it."
+
+3. **The App's token** is minted by `actions/create-github-app-token` from the variable and the secret: an installation token that lasts an hour and may write this repository's contents and workflow files and nothing else, revoked when the job ends.
+   It asks for workflow files because GitHub refuses an App's move of `main` that changes a file under `.github/workflows/` without that permission, so the App holds Workflows read and write beside Contents.
+4. **"Fast-forward main"**, skipped on a check-only run, is the only step that holds the App's token.
+   It moves `main` to the commit with `force=false`, so GitHub refuses anything but a fast-forward: a `main` that moved since the check is refused, never rewritten ("main moved since the check, so nothing was promoted. Run Promote again.").
+   Any other refusal is named with GitHub's own message ("GitHub refused to move main (`<message>`), so nothing was promoted.").
+   It then reads `main` back and fails unless it is the commit; a move GitHub took although its answer was lost counts as made.
+5. **"Say what happened"** writes the run's summary, whatever happened: `main` is now the commit, the Test workflow runs on it, and once that passes Deploy is `gh workflow run deploy.yml --ref main`; checked only, with `main` unmoved; refused, with `main` unmoved; or, when the move failed, what `main` was read back as.
 
 ### How a deploy proves itself
 
@@ -164,8 +209,9 @@ Check, in this order:
 
 `dev` is the hotfix lane, because promotion is a fast-forward: a fix merged to `dev` and promoted ships exactly what CI tested, and nothing else, **as long as nothing else is waiting on `dev`**.
 
-- **When nothing unreleased waits on `dev`:** merge the `fix:` PR to `dev`, promote it as soon as its `dev` push is green, and run the Deploy workflow once its `main` run is green.
+- **When nothing unreleased waits on `dev`:** merge the `fix:` PR to `dev`, [promote it](#how-a-promotion-proves-itself) as soon as its `dev` push is green, and run the Deploy workflow once its `main` run is green.
 - **When `dev` holds unreleased work:** branch `hotfix/<slug>` from `main`, PR it to `main`, run the Deploy workflow once it is merged and green, and merge `main` back into `dev` so the next promotion is still a fast-forward; that PR into `dev` needs the agent team's review to set `agent-review` ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
+  Merge the hotfix PR only once its `knowledge-graph` check is green too, although `main` does not require it: the PR merging `main` back into `dev` does, and its head branch is `main`, so drift that reached `main` holds that merge until another PR into `main`, or a merge back from a branch of its own, fixes it.
 - **Weigh a migration in a hotfix.**
   A migration is forward-only, so it makes the release behind it impossible to roll back to.
 
@@ -390,4 +436,7 @@ The check fails closed on anything short of confirmed markers - an unknown migra
 | [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) | GitHub Actions workflow that runs release-please on pushes to `main`                                                                                                      |
 | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)                 | GitHub Actions workflow, started by hand, that deploys `main`                                                                                                             |
 | [`scripts/deploy_proof.py`](../scripts/deploy_proof.py)                           | Every check the Deploy workflow makes: the Test run on `main`, and each build's commit, headers and deep link ([how a deploy proves itself](#how-a-deploy-proves-itself)) |
+| [`.github/workflows/promote.yml`](../.github/workflows/promote.yml)               | GitHub Actions workflow, started by hand from `dev` with a commit's sha, that fast-forwards `main` to it as the Promote App                                               |
+| [`scripts/promote_check.py`](../scripts/promote_check.py)                         | Every check the Promote workflow makes before it moves `main`, read-only ([how a promotion proves itself](#how-a-promotion-proves-itself))                                |
+| [`scripts/github_runs.py`](../scripts/github_runs.py)                             | The reading of the Test workflow's runs, and the one authenticated GitHub read, that Deploy's and Promote's checks share                                                  |
 | `CHANGELOG.md`                                                                    | Auto-generated changelog, written by release-please and never by hand                                                                                                     |

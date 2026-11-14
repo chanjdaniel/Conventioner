@@ -1451,7 +1451,7 @@ def test_a_pre_push_hook_in_the_git_directory_gets_the_refs_and_decides(hooked, 
 
 
 def ci_step(name):
-    """The `run:` of the named step of the real-data job in test.yml, as Bash will run it."""
+    """The `run:` of the named step of the real-data-and-workflows job in test.yml, as Bash will run it."""
     workflow = (REPO / ".github" / "workflows" / "test.yml").read_text()
     match = re.search(rf"- name: {re.escape(name)}\n(?:\s+\w[\w-]*:.*\n)*?\s+run: (.+)\n", workflow)
     assert match, f"no step {name!r} with a one-line run in test.yml"
