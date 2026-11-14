@@ -8,7 +8,8 @@
  * the unassigned vendors are a link to the Vendors page rather than a list of their own. The
  * unassigned TABLES need no list at all: the grid's "empty" filter shows them on the grid.
  *
- * Before the first run it says nothing is assigned yet (`NothingAssigned`).
+ * While nothing is assigned it says so (`NothingAssigned`), or, once the allocation is settled,
+ * that nobody has a table.
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';

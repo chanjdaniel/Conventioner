@@ -890,7 +890,7 @@ def _table_choice_in_words(text: str) -> Optional[str]:
 # The only answers that mean a box was left unticked. A Google Form exports a ticked box as the
 # box's own text ("I certify that...") and an unticked one as nothing at all, so reading only
 # "true"/"yes" as ticked refused every applicant on a required certification (bug 2).
-_UNTICKED = {"false", "no", "n", "0", "unchecked", "off"}
+UNTICKED = {"false", "no", "n", "0", "unchecked", "off"}
 
 
 def _coerce(
@@ -917,7 +917,7 @@ def _coerce(
         if field_type == "multi_select":
             return _split_multi(text, known)
         if field_type == "checkbox":
-            return bool(text) and text.casefold() not in _UNTICKED
+            return bool(text) and text.casefold() not in UNTICKED
         if field_type == "number":
             return text
     return text
@@ -1451,11 +1451,15 @@ def preview_values(
     # The first rows that WILL import, as they will be stored: the file's own first rows included a
     # skipped one, and read availability from a column a tier grid had answered instead (bug 40).
     # A row a rule rejects is listed with its reason instead, so the two lists check different
-    # things: the mapping, and the rules (E38/F03/S02).
+    # things: the mapping, and the rules (E38/F03/S02). A row that would store exactly what its
+    # application holds is not written, so it is no sample either: on a re-import the first rows
+    # are often applicants who changed nothing.
     judged = refused | met_rows
     result["samples"] = [
         {"row": line, "email": email, "formData": _answers_as_stored(market_doc, data)}
-        for line, email, _submitted, data, _ignored in applicants if line not in judged
+        for line, email, _submitted, data, _ignored in applicants
+        if line not in judged
+        and not (existing.get(email) and _unchanged(market_doc, existing[email], data))
     ][:SAMPLE_ROWS]
     result.update(
         _merge_shape(market_doc.get("id", ""), applicants, failures, existing, market_doc))

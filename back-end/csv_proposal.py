@@ -32,7 +32,7 @@ import essential_fields as EssentialFields
 import typesafe_client as TypeSafe
 from csv_import import (
     GRID_HEADER, NONE_WORDS, RESERVED_TARGETS, collapse_header, column_groups,
-    normalized_submitted_at, parse_csv, parse_date, resolve_value, split_options,
+    UNTICKED, normalized_submitted_at, parse_csv, parse_date, resolve_value, split_options,
     tiers_answer_dates,
 )
 from datatypes import MarketPhase, phase_from_market_document
@@ -370,6 +370,15 @@ def key_for(label: str, taken: Set[str]) -> str:
 # --- Deciding what a column is ------------------------------------------------------------------
 
 
+def _a_choice_nearly_everyone_gave(column: _Column) -> bool:
+    """A box nearly everyone ticked: one answer nearly everyone gave, and no other shared answer
+    but an unticked word. A second shared answer ("Accepted" beside "Rejected") is a choice between
+    two, which the import would store as ticked either way."""
+    if not column.shared or column.shared[0][1] / column.filled < NEARLY_ALL:
+        return False
+    return all(value.casefold() in UNTICKED for value, _ in column.shared[1:])
+
+
 def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
     """What the column would be as a question of the organizer's own."""
     label, help_text = label_and_help(column.header)
@@ -384,8 +393,8 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
         field["upload"] = True
     elif column.email >= 0.9:
         field["type"] = "email"
-    elif ((column.shared and column.shared[0][1] / column.filled >= NEARLY_ALL)
-          or (CHECKBOX_LEAD.match(column.label) and column.distinct <= 2)):
+    elif _a_choice_nearly_everyone_gave(column) or (
+            CHECKBOX_LEAD.match(column.label) and column.distinct <= 2):
         field["type"] = "checkbox"
     elif column.numeric >= 0.9:
         field["type"] = "number"

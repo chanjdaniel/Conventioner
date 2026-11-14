@@ -54,7 +54,7 @@ describes:
   - front-end/src/components/layout/LayoutPanelZones.vue
   - front-end/src/components/layout/exportLayoutPng.ts
   - front-end/src/components/layout/LayoutExportDialog.vue
-verified: 2026-11-13
+verified: 2026-11-14
 sources:
   - bug/38
   - E26/F09/S01
@@ -340,7 +340,7 @@ The settled-setup refusal stays on save alone, and past draft only for a save th
 **An upload is held to production's limits** (T257): Vercel's functions refuse a request body over 4.5 MB, multipart overhead included, before Flask sees it ([Vercel's function limits](https://vercel.com/docs/functions/limitations), and the back end's own `MAX_CONTENT_LENGTH` since T315: [the host's limits](../../OPERATIONS.md#the-hosts-limits)), so a request whose `Content-Length` passes `MAX_UPLOAD_BYTES` (4,000,000) and the form's 64,000-byte allowance is refused 413 "This file is larger than 4 MB." before its body is read, ahead of the market check, and a file over `MAX_UPLOAD_BYTES` by its own length once read.
 A PDF of more than `MAX_PDF_PAGES` (20) pages is refused 400 "This PDF has more than 20 pages. Send the page with the plan on it." before any page is drawn, and one PDFium cannot open, or of which no page draws or encodes (a page PDFium fails to draw is skipped, as one that will not encode is), 400 "<file name> could not be read as a PDF.": the converter raises (`UnreadablePdf`, `TooManyPages`) where it used to answer an empty list, which the route read as a 500.
 [`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three 404 "Image not found", the image's read and its delete alike, and no route treats an unowned image as anyone's.
-Past that the delete answers as its market does (403 with the row's sentence, or the archived refusal), while the read answers every refusal 404, as above.
+Past that the delete answers as its market does (400 "Invalid market data" for a market the model refuses, 403 with the row's sentence, or the archived refusal), while the read answers every refusal 404, as above.
 [`FloorplanUploader.vue`](../../../front-end/src/components/layout/FloorplanUploader.vue), moved from the beta's folder to the layout's, sends the market it is in.
 It takes the file on the app's one drop zone, [`FileDropZone.vue`](../../../front-end/src/components/FileDropZone.vue) ([the design language](../../design-system.md#the-primitive-layer)), offering PNG, JPG, WebP and PDF, and checks the type itself, refusing any other with "This file is not a PNG, JPG, WebP or PDF." before it sends anything (T205).
 It refuses a PDF over 4 MB with "This PDF is larger than 4 MB. Export the page with the plan on it as a PNG or a smaller PDF.", since the browser draws no PDF, and shrinks a PNG, JPG or WebP over it before sending ([`shrinkImage.ts`](../../../front-end/src/components/layout/shrinkImage.ts)): decoded once, its longest side brought to at most 8,000 px, encoded as WebP at quality 0.9, then 0.8, then at sides 0.8 as long each time, until under 4 MB, and refused with its own sentence below 500 px; a browser that cannot write WebP writes PNG, and the file is named for what was written.

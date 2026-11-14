@@ -313,10 +313,16 @@ export function changedFields(before: Detail, after: Detail, path: IntakeMode): 
   return rows;
 }
 
+/** What the automatic rejections did as a save or an import landed: whether they rejected or
+ * returned the application, recorded on every save, or how many of an import's rows, on every
+ * import. */
+const AS_IT_LANDED = ['rejected_by_rules', 'returned_by_rules'];
+
 /** One thing an entry recorded beside its before and after, as rows: an update kept over what the
  * vendor wrote since, or now matching it, as each answer under its question, with what they wrote
  * under each kept one (`keptFields`); a selection's `dealt_to` as each vendor's reviewer; a date as
- * a day; anything else as `valueText` draws it. */
+ * a day; the automatic rejections' doing as a save or an import landed only when they did
+ * something; anything else as `valueText` draws it. */
 function recordedField(
   entry: MarketHistoryEntry,
   detail: Detail,
@@ -331,6 +337,9 @@ function recordedField(
   }
   // Drawn under each kept answer (`keptFields`).
   if (key === 'kept_over') return [];
+  // What the automatic rejections did as a save or an import landed, `false` or a count of 0 when
+  // nothing: said only when they did something, since every save, update and import records both.
+  if (AS_IT_LANDED.includes(key) && (value === false || value === 0)) return [];
   if (key === 'dealt_to' && value && typeof value === 'object')
     return [{ field: fieldName(key), value: eachDealtTo(entry, asDetail(value)) }];
   return [{ field: fieldName(key), value: key === 'date' ? day(value) : valueText(value) }];

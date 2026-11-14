@@ -5,7 +5,7 @@ describes:
   - back-end/tests/test_data/google_forms/
   - back-end/tests/test_data/example_columns.csv
   - back-end/tests/fixtures/synthetic_form_exports.py
-verified: 2026-10-30
+verified: 2026-11-14
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/the-form-started-from-a-csv/01
@@ -18,7 +18,7 @@ sources:
 
 # Test data
 
-The back-end suite's realistic data: five synthetic Google Form exports.
+The back-end suite's realistic data: five synthetic Google Form exports, and `example_columns.csv`, forty invented applications.
 How the suites run is in [`docs/TESTING.md`](../../../docs/TESTING.md).
 
 ## [`google_forms/`](google_forms/)

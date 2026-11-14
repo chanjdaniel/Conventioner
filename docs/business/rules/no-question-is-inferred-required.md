@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/csv_proposal.py#NEARLY_ALL
   - back-end/csv_proposal.py#_field
-verified: 2026-10-22
+verified: 2026-11-14
 sources:
   - brain-dump/2026-10-19#8
   - E33/F02
@@ -25,7 +25,7 @@ A guess read from how many answered (nearly everyone, so required) skipped, at i
 ## Where it is kept
 
 - `_field` in [`back-end/csv_proposal.py`](../../../back-end/csv_proposal.py) proposes every question with `required: False`; the ledger lets the organizer tick it, and confirm writes what they sent ([the CSV proposal and start](../../implementation/modules/csv-proposal-and-start.md)).
-- `NEARLY_ALL` (0.97) is a fact about a column, never a question's requiredness: it reads a choice nearly everyone gave as a checkbox, and spares a question nearly everyone answered from being taken for a team's column.
+- `NEARLY_ALL` (0.97) is a fact about a column, never a question's requiredness: it reads a choice nearly everyone gave as a checkbox when no other answer at least 3 gave is anything but an unticked word (`_a_choice_nearly_everyone_gave`), so a column of a few "Rejected" beside "Accepted" is a Select of both, and it spares a question nearly everyone answered from being taken for a team's column.
 - The answer key in `back-end/tests/test_csv_proposal.py` asserts each column's kind, type and options, and no required flag.
 - `test_no_row_is_skipped_for_a_blank_answer_to_a_question_of_the_organizers_own` (`back-end/tests/test_csv_start.py`) starts a market from each of the five corpus exports and previews its import: no question is required, and no row is refused for a blank answer to one.
   Online, a question the organizer did mark required is still enforced (`test_a_missing_required_custom_answer_is_refused`, `back-end/tests/test_application_write.py`).

@@ -27,9 +27,9 @@ def markets(monkeypatch):
 class TestSavingThem:
     """The writer itself, against the update document it hands Mongo.
 
-    Asserting the shape and not merely the return value is the point: the first cut wrapped
-    ``market_doc_set`` - which already returns ``{"$set": ...}`` - in a second ``$set``, and every
-    test here passed while the live endpoint 500'd on it.
+    Asserting the shape and not merely the return value is the point: the first cut wrapped a
+    helper that already returned ``{"$set": ...}`` in a second ``$set``, and every test here passed
+    while the live endpoint 500'd on it.
     """
 
     def test_it_writes_the_persisted_camelCase_key(self, markets):

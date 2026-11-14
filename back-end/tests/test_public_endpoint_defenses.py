@@ -1,15 +1,16 @@
 """The boot-time contract this app's public surface rests on, and how it refuses.
 
-Six variables carry endpoints that are unauthenticated, write to the database, send mail from this
-domain, and answer the organizer's browser with their session attached. So the process refuses to
-start without them - and the refusal has to be one refusal, naming all of them. A check that stopped
-at the first would hand an operator one variable per redeploy, which turns one loud failure into
-six and invites the last to be met by giving up.
+Eight variables carry endpoints that are unauthenticated, write to the database, send mail from
+this domain, and answer the organizer's browser with their session attached. So the process refuses
+to start without them - and the refusal has to be one refusal, naming all of them. A check that
+stopped at the first would hand an operator one variable per redeploy, which turns one loud failure
+into eight and invites the last to be met by giving up.
 
-Three of them are defenses, and their absence is never reported anywhere. Two are reported everywhere
-and diagnosed nowhere: with no mail key, every registration, reset and OTP answers 500 and none of
-them names the variable, and with no session backend a serverless deployment goes looking for a disk
-it does not have and fails at import, naming nothing either. The sixth, the trusted-hop count, is
+Three of them are defenses, and their absence is never reported anywhere. Four are reported
+everywhere and diagnosed nowhere: with no mail key, every registration, reset and OTP answers 500
+and none of them names the variable; with no mail addresses, mail links to a laptop from a sender
+that delivers to nobody; and with no session backend a serverless deployment goes looking for a disk
+it does not have and fails at import, naming nothing either. The eighth, the trusted-hop count, is
 reported nowhere at all - it decides which address organizer signup reports to reCAPTCHA, and behind
 a proxy an unset one reports the ingress for every caller in the world. All three kinds belong in the
 same refusal, for opposite reasons.
@@ -19,7 +20,7 @@ is a separate call. flask-cors adds an ``after_request`` handler per invocation,
 configured the app as a side effect left one behind every time it was asked - which is why the test
 for that asserts against the module's *own* app object, the one a stray side effect would land on.
 
-And the check is a function of the environment, of nothing else. Every one of the six is read when
+And the check is a function of the environment, of nothing else. Every one of the eight is read when
 it is asked for, so a fixture here says what a deployment holds by setting the variables an operator
 would set. Two of them used to be captured into module globals at import, which meant these fixtures
 had to name the attribute each module happened to remember its key in - a test speaking a private
