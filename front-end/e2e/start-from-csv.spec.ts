@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, ApplicationFormPage } from './fixtures';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 import { CsvImportPage } from './pages/CsvImportPage';
@@ -389,7 +389,7 @@ test.describe('Draft this market from a Google Form', () => {
     await expect(flow.toCheck).toHaveText(String(toCheck - 3));
   });
 
-  test('the seam: confirm, open applications, and the import of the same file asks nothing', async ({
+  test('the seam: confirm, add a left-out column, and the import of the same file asks nothing', async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -420,6 +420,18 @@ test.describe('Draft this market from a Google Form', () => {
       page.getByText('Are you an Example College student, alumni or staff?').first(),
     ).toBeVisible();
     await expect(page.getByTestId('form-field-help-input')).toHaveCount(0);
+    // The team's own "Review" column, which the start left out, comes back as a question before
+    // the first import, and that import takes the column into it unasked (E38/F02/S02).
+    const form = new ApplicationFormPage(page);
+    await form.addQuestionFromFile('Review');
+    // Read as a tick-box, which would store every row as ticked: a Select keeps the two verdicts.
+    const review = (await form.builder.locator('.field-item').count()) - 1;
+    await expect(form.labelInput(review)).toHaveValue('Review');
+    await expect(form.typeSelect(review)).toHaveValue('checkbox');
+    await form.selectType(review, 'select');
+    await expect.poll(() => form.optionValues(review)).toEqual(['Accepted', 'Rejected']);
+    await form.save();
+    await expect(form.saveSuccess).toBeVisible();
     await expect(page.getByTestId('form-step-next')).toHaveText('Next: Review setup');
     // The first import waits on Review setup (T206), decided there as the organizer would.
     await page.getByTestId('form-step-next').click();
@@ -484,6 +496,8 @@ test.describe('Draft this market from a Google Form', () => {
     expect(applications).toHaveLength(imported);
     const choices = new Set(applications.map((a) => a.formData.essential_table_choice));
     expect([...choices].sort()).toEqual(['either', 'full', 'half']);
+    const reviews = new Set(applications.map((a) => a.formData.review));
+    expect([...reviews].sort()).toEqual(['Accepted', 'Rejected']);
 
     // Nothing the organizer did not choose to leave out is saved as ignored.
     const body = await (await request.get(`${BACKEND_URL}/markets/${marketId}`)).json();
