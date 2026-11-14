@@ -1359,6 +1359,15 @@ class TestMergingAgainstWhatIsAlreadyHere:
         # Nothing to write for the unchanged one, so nothing is written.
         assert applications.find_one({"applicant_email": "kai@ember.test"}) == before
 
+    def test_the_sample_leaves_out_a_row_the_import_leaves_unchanged(self, markets, applications):
+        """On a re-import the first rows may be applicants who changed nothing, which it writes not."""
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING)
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(self.SECOND, self.CHANGED), MAPPING)
+
+        assert body["unchangedRows"] == 1
+        assert [s["email"] for s in body["samples"]] == ["nadia@ember.test"]
+
     def test_an_application_absent_from_the_file_is_left_alone_and_counted(
         self, markets, applications,
     ):
