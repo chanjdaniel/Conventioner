@@ -260,6 +260,6 @@ test('the vendor drawer keeps its headings in order, and is a dialog, on every p
       expect(await headingsOutOfOrder(page), `${where}, the ${tab} tab`).toEqual([]);
     }
     // A dialog by an element that may be one, so it is announced as the dialog it is.
-    expect(await rolesNotAllowed(page), `${where}, the drawer`).toEqual([]);
+    expect(await rolesNotAllowed(page, 'vendors-detail-panel'), `${where}, the drawer`).toEqual([]);
   }
 });

@@ -199,7 +199,7 @@ eachWindow('the proposals entry', (size) => {
     ).toBe(true);
     await expectAccessible('the side panel open');
     expect(await namelessControls(page), 'the side panel').toEqual([]);
-    expect(await rolesNotAllowed(page), 'the side panel').toEqual([]);
+    expect(await rolesNotAllowed(page, 'library-side-panel-window'), 'the side panel').toEqual([]);
 
     await page.keyboard.press('Escape');
     await expectClosed(page);
