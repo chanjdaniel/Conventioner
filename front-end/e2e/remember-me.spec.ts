@@ -13,7 +13,9 @@ import { hideDevToolsPanel } from './helpers/hideDevToolsPanel';
  * holds each to are pytest's (`test_the_remember_cookie.py`), which can move the clock.
  *
  * The sign-in is kept on the server (ADR 0029), so signing out ends it there: a copy of the
- * browser's cookies taken before is signed out with it.
+ * browser's cookies taken before is signed out with it. Every sign-in starts a fresh session, so
+ * a copy of the session cookie the browser held before a sign-in is signed out by it: the stack
+ * keeps sessions on disk, where the cookie only names the stored session.
  */
 
 const REMEMBER_COOKIE = '__Host-organizer_remember';
@@ -165,6 +167,47 @@ for (const remember of [true, false]) {
       await page.getByRole('menuitem', { name: 'Sign out', exact: true }).click();
       await page.waitForURL(/\/login/);
 
+      expect((await copy.request.get(`${APP_API}/check-session`)).status()).toBe(401);
+      await expectSignedOut(copy);
+    } finally {
+      await copy.context().close();
+    }
+  });
+}
+
+/** A second browser holding a copy of this one's session cookie alone. */
+async function sessionCopied(browser: Browser, from: BrowserContext): Promise<Page> {
+  const state = await from.storageState();
+  state.cookies = state.cookies.filter((cookie) => cookie.name === 'session');
+  expect(state.cookies).toHaveLength(1);
+  const context = await browser.newContext({ storageState: state });
+  await hideDevToolsPanel(context);
+  return context.newPage();
+}
+
+for (const [how, signIn] of [
+  ['password', signInByPassword],
+  ['code', signInByCode],
+] as const) {
+  test(`a sign-in by ${how} starts a fresh session, signing out a copy of the session cookie held before`, async ({
+    page,
+    browser,
+  }) => {
+    await signInByPassword(page, false);
+    const sessionBefore = (await page.context().cookies()).find((c) => c.name === 'session');
+    const copy = await sessionCopied(browser, page.context());
+    try {
+      expect((await copy.request.get(`${APP_API}/check-session`)).status()).toBe(200);
+
+      // The next person at the same browser finds the sign-in page, the last one's session cookie
+      // still held, and signs in.
+      await page.evaluate(() => localStorage.clear());
+      await signIn(page, false);
+
+      const sessionAfter = (await page.context().cookies()).find((c) => c.name === 'session');
+      expect(sessionAfter?.value).toBeTruthy();
+      expect(sessionAfter?.value).not.toBe(sessionBefore?.value);
+      expect((await page.request.get(`${APP_API}/check-session`)).status()).toBe(200);
       expect((await copy.request.get(`${APP_API}/check-session`)).status()).toBe(401);
       await expectSignedOut(copy);
     } finally {
