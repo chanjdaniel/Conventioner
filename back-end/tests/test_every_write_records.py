@@ -1027,6 +1027,21 @@ class TestWhatAnEntryHolds:
         assert entry["detail"]["returned_by_rules"] == 1
         assert world.applications.find_one({"id": "app-1"})["status"] == "open"
 
+    @pytest.mark.parametrize("role, row", [
+        ("editor", Actions.MANAGE_EDITORS_AND_VIEWERS), ("admin", Actions.MANAGE_ADMINS),
+    ])
+    def test_a_role_taken_holds_the_role_it_took_as_the_row_that_takes_it(
+        self, client, world, role, row,
+    ):
+        world.market(MarketPhase.APPLICATIONS, roles={"user-1": "owner", "user-sam": role})
+
+        response = client.delete(f"/markets/{MARKET}/roles/user-sam")
+
+        assert response.status_code == 200, response.get_json()
+        [entry] = world.history.documents
+        assert entry["action"] == row.id
+        assert entry["detail"] == {"before": {"role": role}, "after": {"role": None}}
+
     def test_an_applicants_edit_holds_the_answers_it_changed_as_given(self, client, world):
         _applicant(first=False)(client, world)
 
