@@ -1,4 +1,4 @@
-"""An organizer's sign-ins, kept on the server (ADR 0027): the single owner of ``organizer_sessions``.
+"""An organizer's sign-ins, kept on the server (ADR 0028): the single owner of ``organizer_sessions``.
 
 Every sign-in, by password or by code, is one document here. The browser holds a random secret, in
 the session and, with "Remember me", in the ``__Host-organizer_remember`` cookie (``app.py``); the

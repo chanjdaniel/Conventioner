@@ -1,5 +1,5 @@
 """The boot builds the indexes an organizer's sign-ins rest on, and refuses to start without them
-(ADR 0027): a TTL index that removes a sign-in once it has ended, and an index by account, which
+(ADR 0028): a TTL index that removes a sign-in once it has ended, and an index by account, which
 ending every sign-in of an account reads by."""
 import logging
 

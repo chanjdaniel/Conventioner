@@ -1,5 +1,5 @@
 """``account_secrets`` is the only back-end module that names an account's sign-in secrets
-(ADR 0026), so no other code can write them in a way the module's table does not hold.
+(ADR 0027), so no other code can write them in a way the module's table does not hold.
 
 A scan of every back-end module outside the tests and ``migrations/`` finds no string naming the
 ``secrets`` field, a path under it, or a legacy field the module still reads, but in

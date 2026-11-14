@@ -1,4 +1,4 @@
-"""``/request-password-reset`` and ``/reset-password`` answer as they always have (ADR 0026).
+"""``/request-password-reset`` and ``/reset-password`` answer as they always have (ADR 0027).
 
 The reset link is one record of ``account_secrets`` now, kept as its hash; what an organizer reads
 of either route is unchanged, status and words. The waits, a failed send and the bounds are held in

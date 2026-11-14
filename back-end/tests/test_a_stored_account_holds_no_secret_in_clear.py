@@ -1,4 +1,4 @@
-"""A copy of the database holds nothing that signs an account in (ADR 0026).
+"""A copy of the database holds nothing that signs an account in (ADR 0027).
 
 Each test drives the routes as an organizer would, takes every secret the mail stand-in was given
 and every cookie a sign-in set, and reads every stored account and every stored sign-in

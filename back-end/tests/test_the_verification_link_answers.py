@@ -1,5 +1,5 @@
 """``/register``, ``/resend-verification`` and ``/verify-email`` answer as they always have
-(ADR 0026).
+(ADR 0027).
 
 The verification link is one record of ``account_secrets`` now, kept as its hash; what an organizer
 reads of each route is unchanged, status and words, but for two answers to cases the record made

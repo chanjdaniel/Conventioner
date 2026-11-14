@@ -1,5 +1,5 @@
 """A code or link mailed before ``account_secrets`` keeps working until it would have expired
-(ADR 0026).
+(ADR 0027).
 
 Before it, an account held its code in three fields: ``otp`` (the code as mailed), ``otp_expires``
 (an ISO string) and ``otp_attempts``; its reset link in two: ``password_reset_token`` (the link

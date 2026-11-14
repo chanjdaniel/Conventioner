@@ -89,7 +89,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 ## A sign-in is kept on the server
 
-**Every sign-in, by password or by code, is one document in `organizer_sessions`**, which [`back-end/organizer_sessions.py`](../../../back-end/organizer_sessions.py) alone reads and writes ([ADR 0027](../../adr/0027-an-organizers-sign-in-is-kept-on-the-server.md)).
+**Every sign-in, by password or by code, is one document in `organizer_sessions`**, which [`back-end/organizer_sessions.py`](../../../back-end/organizer_sessions.py) alone reads and writes ([ADR 0028](../../adr/0028-an-organizers-sign-in-is-kept-on-the-server.md)).
 `start` makes a random secret (`secrets.token_urlsafe(32)`) and stores its SHA-256 as the document's `_id`, beside `user_id`, the account's `login_id`, `remembered`, `created_at` and `expires_at`, `created_at` plus `SIGN_IN_LIFETIME` (12 hours) or, with "Remember me", `REMEMBERED_SIGN_IN_LIFETIME` (30 days); the secret is never stored.
 The secret is the sign-in's id (`AuthUser.get_id`): the session carries it and, with "Remember me", so does the remember cookie `__Host-organizer_remember`, signed by Flask-Login's digest ([the cookies](../conventions/security-invariants.md#the-cookies)).
 Each signed-in request reads it through the app's user loader, `signed_in_account`, which recalls the document (`recall`: found by the hash, and only while `expires_at` is ahead, read without a write, so use never extends it), then loads the account by the document's login id (`get_user_by_login_id`), refusing one whose id is not the document's `user_id`; `authenticated_email()` then reads the loaded account's address, and permissions are decided by the account's id.
@@ -216,7 +216,7 @@ The vendor's code is not unset: its challenge arms no wait, and its failed send 
 
 ## The sign-in secrets
 
-**An account's sign-in secrets are one machine, and [`back-end/account_secrets.py`](../../../back-end/account_secrets.py) is the only code that reads or writes them** ([ADR 0026](../../adr/0026-an-accounts-sign-in-secrets-are-one-machine.md)).
+**An account's sign-in secrets are one machine, and [`back-end/account_secrets.py`](../../../back-end/account_secrets.py) is the only code that reads or writes them** ([ADR 0027](../../adr/0027-an-accounts-sign-in-secrets-are-one-machine.md)).
 Each kind is one record under `secrets`, `{hash, expires_at, next_allowed_at, tries, state}`:
 
 - `hash` is what is kept of the secret, never the secret: a code is kept salted, `"<salt>:<sha256(salt:code)>"`, as the vendor's code is, and a link as its hex SHA-256, unsalted, by which the account it names is found (`hash_link`; a link is 192 random bits, so its hash reveals nothing of it); so a copy of the database holds no code or link that signs in.

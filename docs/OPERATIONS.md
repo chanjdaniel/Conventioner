@@ -285,7 +285,7 @@ The third holds vendors' remembered sign-ins ("Remember me" on the vendor page);
 
 **"Could not build the indexes on organizer_sessions"**.
 The log names Mongo's error by its type and code only: 85 or 86 is an index of the same name with other options or keys, or another index on `expires_at` without the expiry, which the TTL index cannot stand beside.
-The collection holds organizers' sign-ins ([ADR 0027](adr/0027-an-organizers-sign-in-is-kept-on-the-server.md)), and its indexes are the TTL index `organizer_session_ttl` on `expires_at` and `organizer_session_user` on `user_id`, so drop the conflicting index (`db.organizer_sessions.dropIndex('<name>')`) and keep the documents, then redeploy; anything else is the database's own trouble (reachability, the user's rights, Atlas's status).
+The collection holds organizers' sign-ins ([ADR 0028](adr/0028-an-organizers-sign-in-is-kept-on-the-server.md)), and its indexes are the TTL index `organizer_session_ttl` on `expires_at` and `organizer_session_user` on `user_id`, so drop the conflicting index (`db.organizer_sessions.dropIndex('<name>')`) and keep the documents, then redeploy; anything else is the database's own trouble (reachability, the user's rights, Atlas's status).
 
 **"Refusing to start: ... are not as a deployment needs them"**, naming variables.
 A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)), remove each local-development switch it names ([a deployed host refuses local switches](RELEASING.md#a-deployed-host-refuses-local-switches)), and redeploy.
